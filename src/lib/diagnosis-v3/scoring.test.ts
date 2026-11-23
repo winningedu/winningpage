@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
+import { P1_CODES } from "./codes.js";
 import {
   AREA_STATE_LABELS,
   areaState,
+  compositeOf,
   gradeLevel,
   scoreAreas,
 } from "./scoring.js";
@@ -181,5 +183,27 @@ describe("tie inputs and gap (23 r7-r8, 06 C8)", () => {
     expect(areas.P1_LOG.gapToTarget).toBe(34);
     expect(areas.P1_PATT.gapToTarget).toBe(1);
     expect(areas.P1_GOAL.gapToTarget).toBe(0);
+  });
+});
+
+describe("composites (05 E weights, spec No 38-39)", () => {
+  test("계산 예시 A10: PAGE1 6695 / 100 = 66.95 = 67.0, L3", () => {
+    const { page1 } = scoreAreas(CALC_EXAMPLE);
+    expect(page1.total).toBe(67);
+    expect(page1.level).toBe("L3");
+  });
+
+  test("계산 예시 A24: PAGE2 5690 / 100 = 56.9, L4", () => {
+    const { page2 } = scoreAreas(CALC_EXAMPLE);
+    expect(page2.total).toBe(56.9);
+    expect(page2.level).toBe("L4");
+  });
+
+  test("spec No 38 F: 83, 83, 50, 74, 41, 74, 65 = 66.35 = 66.4, not float 66.3", () => {
+    const scores = [83, 83, 50, 74, 41, 74, 65];
+    const areas = Object.fromEntries(
+      P1_CODES.map((code, i) => [code, { score: scores[i] as number }]),
+    );
+    expect(compositeOf(areas, P1_CODES)).toBe(66.4);
   });
 });

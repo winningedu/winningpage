@@ -12,7 +12,7 @@ import {
 } from "./codes.js";
 import { type Likert, SCALE_ITEMS, scaleValue } from "./likert.js";
 import { OPTIONS, trackOf } from "./options.js";
-import { roundHalfUpInt } from "./round.js";
+import { roundHalfUp1, roundHalfUpInt } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
 import type {
   AreaScore,
@@ -178,6 +178,30 @@ const scoresOf = <C extends AreaCode>(
     }),
   ) as Record<C, AreaScore>;
 
+/**
+ * 05 E / spec No 38: sum(score x weight) / 100, one decimal half-up on the
+ * integer sum (00 B8, judge-report 3-1).
+ */
+export function compositeOf<C extends AreaCode>(
+  areas: Readonly<Partial<Record<C, { readonly score: number }>>>,
+  codes: readonly C[],
+): number {
+  const sum = codes.reduce((total, code) => {
+    const area = areas[code];
+    if (!area) throw new Error(`missing area ${code}`);
+    return total + area.score * AREAS[code].weight;
+  }, 0);
+  return roundHalfUp1(sum, 100);
+}
+
+const composite = <C extends AreaCode>(
+  areas: Record<C, AreaScore>,
+  codes: readonly C[],
+) => {
+  const total = compositeOf(areas, codes);
+  return { areas, total, level: gradeLevel(total) };
+};
+
 export function scoreAreas(answers: DiagnosisV3Answers) {
   const track = trackOf(answers.q1);
   // 23 r7: q10 for the seven stages and MIND_RECV, q12 for the track areas.
@@ -186,9 +210,10 @@ export function scoreAreas(answers: DiagnosisV3Answers) {
   return {
     track,
     grade: answers.q1,
-    page1: {
-      areas: scoresOf(P1_CODES, SCALE_ITEMS.q9, answers.q9.items, q10, answers),
-    },
+    page1: composite(
+      scoresOf(P1_CODES, SCALE_ITEMS.q9, answers.q9.items, q10, answers),
+      P1_CODES,
+    ),
     mind: {
       areas: scoresOf<MindCode>(
         MIND_CODES,
@@ -198,14 +223,15 @@ export function scoreAreas(answers: DiagnosisV3Answers) {
         answers,
       ),
     },
-    page2: {
-      areas: scoresOf<P2Code>(
+    page2: composite(
+      scoresOf<P2Code>(
         P2_CODES[track],
         SCALE_ITEMS.q11[track],
         answers.q11.items,
         q12,
         answers,
       ),
-    },
+      P2_CODES[track],
+    ),
   };
 }
