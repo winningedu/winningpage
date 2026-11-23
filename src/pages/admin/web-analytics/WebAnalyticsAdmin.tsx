@@ -14,7 +14,10 @@ import {
 } from "@/components/ui/table";
 import { ActionButton, Field } from "@/pages/admin/shared/formFields";
 import {
+  type ApiResult,
   fetchWebAnalytics,
+  type WebAnalyticsEventName,
+  type WebAnalyticsProperty,
   type WebAnalyticsRange,
   type WebAnalyticsReport,
 } from "./api";
@@ -28,7 +31,7 @@ import {
 const DEFAULT_DAYS = 7;
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
-const EVENT_LABELS: Record<string, string> = {
+const EVENT_LABELS: Record<WebAnalyticsEventName, string> = {
   signup_complete: "회원가입 완료",
   service_start: "서비스 시작",
   diagnosis_complete: "진단 완료",
@@ -41,7 +44,7 @@ const EVENT_LABELS: Record<string, string> = {
   ai_regenerate: "AI 다시 만들기",
 };
 
-const PROPERTY_LABELS: Record<string, string> = {
+const PROPERTY_LABELS: Record<WebAnalyticsProperty, string> = {
   member_type: "회원 유형",
   service: "서비스",
   method: "방식",
@@ -84,7 +87,7 @@ type Breakdown = WebAnalyticsReport["events"][number]["breakdowns"][number];
 
 // 예: "방식: pdf 6, copy 3"
 function breakdownText(breakdown: Breakdown): string {
-  const label = PROPERTY_LABELS[breakdown.property] ?? breakdown.property;
+  const label = PROPERTY_LABELS[breakdown.property];
   const values = breakdown.values
     .map((v) => `${v.value} ${numberFormat.format(v.count)}`)
     .join(", ");
@@ -166,7 +169,7 @@ function ReportBody({ report }: { report: WebAnalyticsReport }) {
         <TableBody>
           {report.events.map((event) => (
             <TableRow key={event.name}>
-              <TableCell>{EVENT_LABELS[event.name] ?? event.name}</TableCell>
+              <TableCell>{EVENT_LABELS[event.name]}</TableCell>
               <TableCell className="text-right">
                 {numberFormat.format(event.count)}
               </TableCell>
@@ -188,19 +191,61 @@ function ReportBody({ report }: { report: WebAnalyticsReport }) {
   );
 }
 
+// 입력 중인 기간은 이 폼만 들고 있다. 바깥에서 URL 기간이 바뀌면 key 가 바뀌어 새 값으로 다시 연다.
+function RangeForm({
+  range,
+  onSubmit,
+}: {
+  range: WebAnalyticsRange;
+  onSubmit: (next: WebAnalyticsRange) => void;
+}) {
+  const [draft, setDraft] = useState<WebAnalyticsRange>(range);
+  return (
+    <form
+      className="mb-6 flex flex-wrap items-end gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit(draft);
+      }}
+    >
+      <Field label="시작일">
+        <Input
+          type="date"
+          value={draft.from}
+          onChange={(event) => setDraft({ ...draft, from: event.target.value })}
+          className="h-10 font-medium"
+        />
+      </Field>
+      <Field label="종료일">
+        <Input
+          type="date"
+          value={draft.to}
+          onChange={(event) => setDraft({ ...draft, to: event.target.value })}
+          className="h-10 font-medium"
+        />
+      </Field>
+      <ActionButton type="submit">조회</ActionButton>
+    </form>
+  );
+}
+
+function errorText(
+  failed: boolean,
+  result: ApiResult<WebAnalyticsReport> | undefined,
+): string | null {
+  if (failed) return "방문 분석을 불러오지 못했어요.";
+  if (result && !result.ok) return result.message;
+  return null;
+}
+
 export default function WebAnalyticsAdmin() {
   const [range, setRange] = useRangeParams();
-  const [draft, setDraft] = useState<WebAnalyticsRange>(range);
   const query = useQuery({
     queryKey: ["admin", "webAnalytics", range.from, range.to],
     queryFn: () => fetchWebAnalytics(range),
   });
   const result = query.data;
-  const errorMessage = query.isError
-    ? "방문 분석을 불러오지 못했어요."
-    : result && !result.ok
-      ? result.message
-      : null;
+  const errorMessage = errorText(query.isError, result);
 
   return (
     <div className="bg-white p-10 shadow-sm">
@@ -208,33 +253,11 @@ export default function WebAnalyticsAdmin() {
       <p className="mt-1 mb-6 text-sm text-muted-foreground">
         기간 {range.from} ~ {range.to} (한국 날짜, 운영 사이트 기준)
       </p>
-      <form
-        className="mb-6 flex flex-wrap items-end gap-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setRange(draft);
-        }}
-      >
-        <Field label="시작일">
-          <Input
-            type="date"
-            value={draft.from}
-            onChange={(event) =>
-              setDraft({ ...draft, from: event.target.value })
-            }
-            className="h-10 font-medium"
-          />
-        </Field>
-        <Field label="종료일">
-          <Input
-            type="date"
-            value={draft.to}
-            onChange={(event) => setDraft({ ...draft, to: event.target.value })}
-            className="h-10 font-medium"
-          />
-        </Field>
-        <ActionButton type="submit">조회</ActionButton>
-      </form>
+      <RangeForm
+        key={`${range.from}|${range.to}`}
+        range={range}
+        onSubmit={setRange}
+      />
       {errorMessage && (
         <p role="alert" className="mb-3 text-sm font-medium text-destructive">
           {errorMessage}

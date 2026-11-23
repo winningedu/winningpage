@@ -7,7 +7,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { MemoryRouter, useLocation } from "react-router";
+import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("./api", () => ({ fetchWebAnalytics: vi.fn() }));
@@ -44,7 +44,20 @@ const REPORT: api.WebAnalyticsReport = {
 
 function LocationProbe() {
   const location = useLocation();
-  return <output data-testid="location">{location.search}</output>;
+  const navigate = useNavigate();
+  return (
+    <>
+      <output data-testid="location">{location.search}</output>
+      <button
+        type="button"
+        onClick={() =>
+          navigate("/admin/webAnalytics?from=2026-09-01&to=2026-09-30")
+        }
+      >
+        다른 기간 링크
+      </button>
+    </>
+  );
 }
 
 function renderPage(search = "") {
@@ -153,6 +166,18 @@ describe("WebAnalyticsAdmin", () => {
     );
     expect(search.get("from")).toBe("2026-10-01");
     expect(search.get("to")).toBe("2026-10-31");
+  });
+
+  test("URL 기간이 바깥에서 바뀌면 날짜 입력도 그 기간을 보여 준다", async () => {
+    renderPage("?from=2026-11-01&to=2026-11-07");
+    await screen.findByText("1,200");
+
+    fireEvent.click(screen.getByRole("button", { name: "다른 기간 링크" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("시작일")).toHaveValue("2026-09-01"),
+    );
+    expect(screen.getByLabelText("종료일")).toHaveValue("2026-09-30");
   });
 
   test("API 오류 문구를 alert 로 보여 주고 숫자는 그리지 않는다", async () => {

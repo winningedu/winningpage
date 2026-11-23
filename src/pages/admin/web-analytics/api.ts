@@ -2,6 +2,26 @@
 
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 
+// 서버 api/_lib/web-analytics/report.ts 의 WEB_ANALYTICS_EVENTS 와 같은 이름과 속성이다.
+export type WebAnalyticsEventName =
+  | "signup_complete"
+  | "service_start"
+  | "diagnosis_complete"
+  | "checkout_start"
+  | "payment_complete"
+  | "consult_apply"
+  | "kakao_inquiry_click"
+  | "report_export"
+  | "paywall_cta_click"
+  | "ai_regenerate";
+
+export type WebAnalyticsProperty =
+  | "member_type"
+  | "service"
+  | "method"
+  | "location"
+  | "step";
+
 export interface WebAnalyticsRange {
   from: string;
   to: string;
@@ -12,11 +32,11 @@ export interface WebAnalyticsReport {
   totals: { pageviews: number; visitors: number };
   topPages: { path: string; pageviews: number; visitors: number }[];
   events: {
-    name: string;
+    name: WebAnalyticsEventName;
     count: number;
     visitors: number;
     breakdowns: {
-      property: string;
+      property: WebAnalyticsProperty;
       values: { value: string; count: number }[];
     }[];
   }[];
