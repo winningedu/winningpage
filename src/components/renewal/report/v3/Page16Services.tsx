@@ -1,17 +1,11 @@
 // Page 16: services (22_리포트요소 r115-r121).
 import type { Page16 } from "@/lib/diagnosis-v3/types";
-import {
-  Bullets,
-  Note,
-  PageSheet,
-  PageTitle,
-  Para,
-  SectionTitle,
-} from "./LaterShared";
+import { Bullets, Note, PageTitle, Para, SectionTitle } from "./LaterShared";
+import ReportSheet from "./parts/ReportSheet";
 
 export default function Page16Services({ page }: { page: Page16 }) {
   return (
-    <PageSheet no={16}>
+    <ReportSheet page={16}>
       {/* 22 r115 */}
       <PageTitle>{page.title}</PageTitle>
       {/* 22 r116 */}
@@ -61,6 +55,6 @@ export default function Page16Services({ page }: { page: Page16 }) {
       {page.footer.map((text) => (
         <Note key={text}>{text}</Note>
       ))}
-    </PageSheet>
+    </ReportSheet>
   );
 }

@@ -1,11 +1,12 @@
 // Page 11: 4 week plan (22_리포트요소 r101-r107).
 import type { Page11 } from "@/lib/diagnosis-v3/types";
-import { Bullets, Note, PageSheet, PageTitle, Para } from "./LaterShared";
+import { Bullets, Note, PageTitle, Para } from "./LaterShared";
+import ReportSheet from "./parts/ReportSheet";
 
 export default function Page11Plan({ page }: { page: Page11 }) {
   const { events, table, numbers } = page;
   return (
-    <PageSheet no={11}>
+    <ReportSheet page={11}>
       {/* 22 r101 */}
       <PageTitle>{page.title}</PageTitle>
       <Para>{page.lead}</Para>
@@ -81,6 +82,6 @@ export default function Page11Plan({ page }: { page: Page11 }) {
       {page.styleTips ? <Bullets items={page.styleTips} /> : null}
       {/* 22 r107 */}
       <Bullets items={page.checkpoints} />
-    </PageSheet>
+    </ReportSheet>
   );
 }

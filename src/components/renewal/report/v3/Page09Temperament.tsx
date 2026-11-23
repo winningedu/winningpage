@@ -1,17 +1,11 @@
 // Page 9: temperament profile (22_리포트요소 r86-r94).
 import type { Page9 } from "@/lib/diagnosis-v3/types";
-import {
-  Bullets,
-  Note,
-  PageSheet,
-  PageTitle,
-  Para,
-  SectionTitle,
-} from "./LaterShared";
+import { Bullets, Note, PageTitle, Para, SectionTitle } from "./LaterShared";
+import ReportSheet from "./parts/ReportSheet";
 
 export default function Page09Temperament({ page }: { page: Page9 }) {
   return (
-    <PageSheet no={9}>
+    <ReportSheet page={9}>
       {/* 22 r86, r87 */}
       <PageTitle>{page.title}</PageTitle>
       <Para>{page.lead}</Para>
@@ -51,6 +45,6 @@ export default function Page09Temperament({ page }: { page: Page9 }) {
       {page.lowReliability ? <Note>{page.lowReliability}</Note> : null}
       {/* 22 r94 */}
       <Note>{page.protect}</Note>
-    </PageSheet>
+    </ReportSheet>
   );
 }

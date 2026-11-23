@@ -1,6 +1,7 @@
 // Pages 12 to 15: weekly planner (22_리포트요소 r109-r113).
 import type { PlannerPage as PlannerData } from "@/lib/diagnosis-v3/types";
-import { Bullets, PageSheet, PageTitle, Para } from "./LaterShared";
+import { Bullets, PageTitle, Para } from "./LaterShared";
+import ReportSheet from "./parts/ReportSheet";
 
 export default function PlannerPage({
   page,
@@ -10,7 +11,7 @@ export default function PlannerPage({
   no: number;
 }) {
   return (
-    <PageSheet no={no}>
+    <ReportSheet page={no}>
       {/* 22 r109 */}
       <header className="flex flex-col gap-1">
         <PageTitle>{page.goal}</PageTitle>
@@ -66,6 +67,6 @@ export default function PlannerPage({
       </ol>
       {/* 22 r113 */}
       <Bullets items={page.slip} />
-    </PageSheet>
+    </ReportSheet>
   );
 }

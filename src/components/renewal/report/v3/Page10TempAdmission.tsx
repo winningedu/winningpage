@@ -1,11 +1,12 @@
 // Page 10: temperament based admission design (22_리포트요소 r96-r99).
 import type { Page10 } from "@/lib/diagnosis-v3/types";
-import { Bullets, PageSheet, PageTitle, Para } from "./LaterShared";
+import { Bullets, PageTitle, Para } from "./LaterShared";
+import ReportSheet from "./parts/ReportSheet";
 
 export default function Page10TempAdmission({ page }: { page: Page10 }) {
   const { admission } = page;
   return (
-    <PageSheet no={10}>
+    <ReportSheet page={10}>
       {/* 22 r96 */}
       <PageTitle>{page.title}</PageTitle>
       <Para>{page.intro}</Para>
@@ -23,6 +24,6 @@ export default function Page10TempAdmission({ page }: { page: Page10 }) {
       )}
       {/* 22 r99 */}
       <Bullets items={page.methods} />
-    </PageSheet>
+    </ReportSheet>
   );
 }

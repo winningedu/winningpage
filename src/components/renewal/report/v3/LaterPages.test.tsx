@@ -16,6 +16,15 @@ describe("LaterPages", () => {
     }
   });
 
+  it("frames every later page in the shared report sheet (labelled region per page)", () => {
+    render(<LaterPages pages={laterPages} />);
+    for (const n of [7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) {
+      expect(
+        screen.getByRole("region", { name: new RegExp(`${n} / 16`) }),
+      ).toBeInTheDocument();
+    }
+  });
+
   it("renders no page 7 for M3 (22 r70)", () => {
     const { p7: _omitted, ...withoutP7 } = laterPages;
     const { container } = render(<LaterPages pages={withoutP7} />);

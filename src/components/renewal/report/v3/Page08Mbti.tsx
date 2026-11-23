@@ -1,11 +1,12 @@
 // Page 8: MBTI (22_리포트요소 r79-r84).
 import type { Page8 } from "@/lib/diagnosis-v3/types";
-import { Bullets, Note, PageSheet, Para, SectionTitle } from "./LaterShared";
+import { Bullets, Note, Para, SectionTitle } from "./LaterShared";
+import ReportSheet from "./parts/ReportSheet";
 
 export default function Page08Mbti({ page }: { page: Page8 }) {
   const { mbti } = page;
   return (
-    <PageSheet no={8}>
+    <ReportSheet page={8}>
       {mbti.kind === "type" ? (
         <>
           {/* 22 r79 */}
@@ -48,6 +49,6 @@ export default function Page08Mbti({ page }: { page: Page8 }) {
       )}
       {/* 22 r84 */}
       <Note>{page.disclaimer}</Note>
-    </PageSheet>
+    </ReportSheet>
   );
 }
