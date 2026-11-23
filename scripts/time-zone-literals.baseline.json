@@ -1,5 +1,4 @@
 {
-  "api/_lib/ai/telemetry/ops/query.ts": 4,
   "api/_lib/console/coachingBuild.ts": 1,
   "api/_lib/console/schoolYear.ts": 1,
   "api/_lib/goal/reportNotify.ts": 3,
@@ -49,7 +48,6 @@
   "src/pages/admin/revenue/RevenueAdmin.tsx": 5,
   "src/pages/admin/selfeval/grantForm.ts": 1,
   "src/pages/admin/shared/csvExport.ts": 3,
-  "src/pages/admin/telemetry/query.ts": 3,
   "src/pages/admin/tenants/contract.ts": 1,
   "src/pages/admission/admissionCaseData.ts": 1,
   "src/pages/board/boardData.ts": 3,
