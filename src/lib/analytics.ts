@@ -61,7 +61,17 @@ export function trackEvent<N extends AnalyticsEventName>(
   name: N,
   ...args: TrackArgs<N>
 ): void {
-  // 타입은 우회될 수 있어 런타임에서도 허용 목록만 통과시킨다.
+  // 타입은 우회될 수 있어 런타임에서도 허용 목록, props 2개 이하, 문자열 값만 통과시킨다.
   if (!ALLOWED_EVENTS.has(name)) return;
-  track(name, args[0]);
+  const props = args[0] as Record<string, unknown> | undefined;
+  if (props) {
+    const values = Object.values(props);
+    if (values.length > 2 || values.some((v) => typeof v !== "string")) return;
+  }
+  // 분석이 사용자 동작을 막거나 throw로 번지면 안 된다.
+  try {
+    track(name, props as Record<string, string> | undefined);
+  } catch {
+    // 삼킨다
+  }
 }

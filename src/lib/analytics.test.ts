@@ -44,4 +44,23 @@ describe("trackEvent", () => {
     trackEvent("unknown_event");
     expect(trackMock).not.toHaveBeenCalled();
   });
+
+  test("props가 3개 이상이면 버린다", () => {
+    // @ts-expect-error 런타임 가드 검증을 위해 타입을 우회한다
+    trackEvent("report_export", { service: "goal", method: "pdf", extra: "x" });
+    expect(trackMock).not.toHaveBeenCalled();
+  });
+
+  test("문자열이 아닌 props 값은 버린다", () => {
+    // @ts-expect-error 런타임 가드 검증을 위해 타입을 우회한다
+    trackEvent("service_start", { service: 1 });
+    expect(trackMock).not.toHaveBeenCalled();
+  });
+
+  test("track이 throw해도 호출부로 새지 않는다", () => {
+    trackMock.mockImplementation(() => {
+      throw new Error("boom");
+    });
+    expect(() => trackEvent("consult_apply")).not.toThrow();
+  });
 });
