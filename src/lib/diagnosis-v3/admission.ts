@@ -4,7 +4,7 @@
 import { toNineGrade } from "./gradeConvert.js";
 import { OPTIONS, trackOf } from "./options.js";
 import { roundHalfUpInt } from "./round.js";
-import { numberCell, sheetRows, textCell } from "./sheet.js";
+import { sheetRows, textCell } from "./sheet.js";
 import type {
   AdmissionBand,
   DiagnosisV3Answers,
