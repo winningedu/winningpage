@@ -50,6 +50,20 @@ describe("FormatErrorDialog", () => {
     expect(screen.getByText("3행 홍*동: 이름을 적어요")).toBeTruthy();
   });
 
+  it("이름이 비어 있으면 행 번호 뒤에 바로 이유를 보인다", () => {
+    open([
+      {
+        ...GRADE_ITEM,
+        name: "",
+        value: "",
+        message: "이름을 적어요",
+        cell: "",
+      },
+    ]);
+
+    expect(screen.getByText("3행: 이름을 적어요")).toBeTruthy();
+  });
+
   it("행이 없는 항목은 이유만 보인다", () => {
     open([
       { row: 0, name: "", cell: "", value: "", message: "저장하지 못했어요" },
