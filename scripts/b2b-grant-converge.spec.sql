@@ -70,7 +70,7 @@ begin
     end if;
   end loop;
   if exists (
-    select 1 from pg_class c, aclexplode(coalesce(c.relacl, acldefault(case when c.relkind = 'S' then 's' else 'r' end, c.relowner))) a
+    select 1 from pg_class c, aclexplode(coalesce(c.relacl, acldefault(case when c.relkind = 'S' then 's'::"char" else 'r'::"char" end, c.relowner))) a
     where c.oid = v_oid and a.grantee = 0
   ) then
     raise exception '[FAIL] PUBLIC access %: got true, want false', p_rel;
