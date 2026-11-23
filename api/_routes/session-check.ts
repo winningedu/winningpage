@@ -40,7 +40,6 @@ import {
   isAuthApiError,
   isAuthSessionMissingError,
 } from "@supabase/supabase-js";
-import { kstYMD } from "../../src/lib/goal/calc/index.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import { getBearerToken } from "../_lib/serviceAccess.js";
@@ -54,6 +53,9 @@ export const UNAUTHENTICATED_CODE = "UNAUTHENTICATED";
 const UNEXPECTED_CODE = "UNEXPECTED";
 // 최근 접속 기록은 사용자당 이 간격에 한 번만 적는다(focus마다 불리는 라우트라서).
 const LAST_SEEN_THROTTLE_MS = 30 * 60 * 1000;
+
+// 로그인 기록 한 칸의 길이. profile_login_slots 의 date_bin 15분과 맞춘다.
+const LOGIN_SLOT_MS = 15 * 60 * 1000;
 
 /**
  * auth.getUser(jwt)가 던진(정확히는 { error }로 돌려준) 에러를 킥 판정 코드로
@@ -143,13 +145,18 @@ export default defineHandler({
       console.warn("session-check: last_seen_at 기록 예외", stampThrown);
     }
 
-    // 하루 로그인 기록도 부가 기능이다. 기본 키 (profile_id, kst_date) 에 on conflict do nothing 이라 하루 한 줄이다.
+    // 로그인 기록도 부가 기능이다. 15분 칸의 시작 순간을 적고 기본 키 (profile_id, slot_start) 에
+    // on conflict do nothing 이라 칸마다 한 줄이다. 하루로 묶는 일은 조회 때 보는 사람 시간대로 한다.
+    // 기준(2000-01-01 UTC)이 15분의 배수라 epoch 를 15분으로 내림하면 DB 의 date_bin 과 같다.
     try {
+      const slotStart = new Date(
+        Math.floor(Date.now() / LOGIN_SLOT_MS) * LOGIN_SLOT_MS,
+      ).toISOString();
       const { error: loginError } = await ctx.supabaseAdmin
-        .from("profile_login_days")
+        .from("profile_login_slots")
         .upsert(
-          { profile_id: data.user.id, kst_date: kstYMD(new Date()) },
-          { onConflict: "profile_id,kst_date", ignoreDuplicates: true },
+          { profile_id: data.user.id, slot_start: slotStart },
+          { onConflict: "profile_id,slot_start", ignoreDuplicates: true },
         );
       if (loginError) {
         console.warn("session-check: 로그인 기록 실패", loginError);
