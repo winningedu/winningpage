@@ -2,8 +2,13 @@
 // scores them and stores the report (judge-report 3-2). The browser no longer
 // scores or saves a report itself.
 
-import type { DiagnosisV3Payload } from "@/lib/diagnosis-v3";
+import type { AdmissionTarget, DiagnosisV3Payload } from "@/lib/diagnosis-v3";
 import { apiFetch, getAuthHeader } from "./apiFetch";
+import { NO_SUBJECT_REFLECTION_LABEL } from "./diagnosisAdmissionCascade";
+import {
+  fetchAdmissionDepartments,
+  fetchAdmissionUniversities,
+} from "./diagnosisAdmissionMasterQueries";
 
 export type DiagnosisSubmitResult =
   | {
@@ -44,4 +49,46 @@ export async function submitDiagnosisV3(input: {
   } catch {
     return { ok: false, reason: "network" };
   }
+}
+
+/** q15 cascade state: display names picked on each step. */
+export type AdmissionCascadeValue = {
+  readonly university?: string;
+  readonly department?: string;
+  readonly admissionType?: string;
+  readonly detailType?: string;
+  readonly subjectReflection?: string;
+};
+
+/**
+ * The q15 cascade holds display names; the server looks admission_results up
+ * by university_key and department_key, so the names are mapped back here.
+ * null when a key cannot be found (the report then shows 입결 미진행).
+ */
+export async function resolveAdmissionTarget(
+  cascade: AdmissionCascadeValue,
+): Promise<AdmissionTarget | null> {
+  const { university, department, admissionType, detailType } = cascade;
+  if (!university || !department || !admissionType || !detailType) return null;
+  const universities = await fetchAdmissionUniversities();
+  const universityKey = universities.data.find(
+    (row) => row.university_name === university,
+  )?.university_key;
+  if (!universityKey) return null;
+  const departments = await fetchAdmissionDepartments(universityKey);
+  const departmentKey = departments.data.find(
+    (row) => row.department_name === department,
+  )?.department_key;
+  if (!departmentKey) return null;
+  const reflection = cascade.subjectReflection;
+  return {
+    universityKey,
+    departmentKey,
+    mainTrack: admissionType,
+    admissionTrack: detailType,
+    subjectReflection:
+      !reflection || reflection === NO_SUBJECT_REFLECTION_LABEL
+        ? null
+        : reflection,
+  };
 }
