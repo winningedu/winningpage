@@ -13,6 +13,7 @@ import {
   getReportAccessToken,
 } from "@/lib/report/downloadReportPdf";
 import { shouldUseServerPdf } from "@/lib/report/shouldUseServerPdf";
+import { browserTimeZone } from "@/lib/time/zone";
 import { buildReportFileName } from "@/pages/renewal/reportFileName";
 import ReportPageOne from "./ReportPageOne";
 import ReportPageTwo from "./ReportPageTwo";
@@ -81,10 +82,13 @@ type DiagnosisReportViewProps = {
  * 표지 진단일. 이미 저장된 payload 의 diagnosedAtRaw 는 예전 formatDiagnosedAt 출력('2026.10.08')이고,
  * 새로 만든 payload 는 원본 ISO 다. 예전 형식은 Safari 가 Invalid Date 로 읽으므로 Date 를 거치지 않고 분해한다.
  */
-function formatDiagnosedCoverDate(raw: string | null | undefined) {
+function formatDiagnosedCoverDate(
+  raw: string | null | undefined,
+  timeZone: string,
+) {
   const legacy = raw?.match(/^(\d{4})\.(\d{2})\.(\d{2})$/);
   if (legacy) return `${legacy[1]}. ${legacy[2]}. ${legacy[3]}`;
-  return formatCoverDate(raw);
+  return formatCoverDate(raw, timeZone);
 }
 
 /**
@@ -210,7 +214,11 @@ export default function DiagnosisReportView({
             { label: "학년", value: formatGradeLabel(data.student?.gradeRaw) },
             {
               label: "진단일",
-              value: formatDiagnosedCoverDate(data.student?.diagnosedAtRaw),
+              value: formatDiagnosedCoverDate(
+                data.student?.diagnosedAtRaw,
+                // 진단 payload 에 회원 시간대가 실리면(U4b-diagnosis 소관) 그 값으로 바꾼다.
+                browserTimeZone(),
+              ),
             },
           ]}
         />

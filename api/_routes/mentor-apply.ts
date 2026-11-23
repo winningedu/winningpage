@@ -444,7 +444,7 @@ function fail(
 }
 
 /** 생년월일 8자리 + 실제 존재하는 날짜인지. src/lib/validators.js isValidBirthDate 와 동일 규칙. */
-function isValidBirthDate(digits: string): boolean {
+export function isValidBirthDate(digits: string): boolean {
   if (!/^\d{8}$/.test(digits)) return false;
 
   const year = Number(digits.slice(0, 4));
@@ -453,13 +453,13 @@ function isValidBirthDate(digits: string): boolean {
 
   if (year < 1900) return false;
 
-  const birth = new Date(year, month - 1, day);
+  // 달력 계산만 하므로 UTC 로 만들고 UTC getter 로 역검증한다(서버 프로세스 TZ 와 무관).
+  const birth = new Date(Date.UTC(year, month - 1, day));
 
-  if (Number.isNaN(birth.getTime())) return false;
   if (
-    birth.getFullYear() !== year ||
-    birth.getMonth() !== month - 1 ||
-    birth.getDate() !== day
+    birth.getUTCFullYear() !== year ||
+    birth.getUTCMonth() !== month - 1 ||
+    birth.getUTCDate() !== day
   ) {
     return false;
   }
@@ -555,7 +555,7 @@ function validateFields(body: Record<string, unknown>): {
     }
 
     if (spec.kind === "year") {
-      const maxYear = new Date().getFullYear() + 1;
+      const maxYear = new Date().getUTCFullYear() + 1;
 
       if (
         !/^\d{4}$/.test(text) ||

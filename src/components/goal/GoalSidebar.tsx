@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { AppShellSidebar } from "@/components/app-shell/AppShellSidebar";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAuth } from "@/context/AuthProvider";
-import { kstYMD } from "@/lib/goal/calc/index.js";
 import type { FetchTodayGoalRecordResult } from "@/lib/goalApi";
 import {
   fetchGoalSchedules,
@@ -14,6 +13,7 @@ import {
   goalDailyRecordQueryOptions,
   goalStudentQueryOptions,
 } from "@/lib/queryClient";
+import { ymdIn } from "@/lib/time/day";
 import GoalSidebarContent from "./GoalSidebarContent";
 
 // "진행중" 뱃지 폴링 간격 — Timer.jsx 본문 폴링(20초)보다 느슨하게 둔다. 사이드바는
@@ -68,6 +68,11 @@ export default function GoalSidebar() {
     goalStudentResult?.kind === "onboarded"
       ? goalStudentResult.student.profile
       : null;
+  // 학생 시간대(GET /api/goal/student). 학생 응답이 오기 전에는 없다(오늘을 계산하지 않는다).
+  const studentTimeZone =
+    goalStudentResult?.kind === "onboarded"
+      ? goalStudentResult.student.timeZone
+      : undefined;
 
   // QA3 행305 후속 — "오늘의 공부 기록" 미기록 뱃지(판정 로직은 deriveDailyRecordDone).
   const { data: dailyRecordResult } = useQuery(
@@ -118,11 +123,12 @@ export default function GoalSidebar() {
   }, []);
 
   useEffect(() => {
+    if (!studentTimeZone) return;
     let alive = true;
 
     fetchGoalSchedules().then((result) => {
       if (!alive || result.kind !== "success") return;
-      const today = kstYMD(new Date());
+      const today = ymdIn(new Date(), studentTimeZone);
       const upcoming = result.schedules.filter(
         (schedule) => schedule.dueDate >= today,
       );
@@ -132,7 +138,7 @@ export default function GoalSidebar() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [studentTimeZone]);
 
   const navBadgeData = { scheduleCount, dailyRecordDone, timerRunning };
 

@@ -32,7 +32,7 @@ import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
 import {
   deletionDdayText,
   mouLabel,
-  todayKst,
+  tenantToday,
 } from "@/pages/admin/tenants/contract";
 import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import {
@@ -84,10 +84,11 @@ interface TenantRow {
   grace_ends_on?: string | null;
   mou_status?: string | null;
   is_catch_all?: boolean;
+  time_zone?: string;
 }
 
 const BASE_COLUMNS = "id, code, name, region, org_type, tier, created_at";
-const HQ_COLUMNS = `${BASE_COLUMNS}, contract_start_date, contract_end_date, grace_ends_on, mou_status, is_catch_all`;
+const HQ_COLUMNS = `${BASE_COLUMNS}, contract_start_date, contract_end_date, grace_ends_on, mou_status, is_catch_all, time_zone`;
 
 type ViewMode = "list" | "create" | "detail";
 
@@ -517,12 +518,14 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                           {row.grace_ends_on ?? "-"}
                         </TableCell>
                         <TableCell className="px-3 py-3">
-                          {deletionDdayText({
-                            contractEnd: row.contract_end_date ?? null,
-                            graceEnds: row.grace_ends_on ?? null,
-                            defaultGraceDays: graceDays,
-                            today: todayKst(),
-                          }) ?? "-"}
+                          {(row.time_zone
+                            ? deletionDdayText({
+                                contractEnd: row.contract_end_date ?? null,
+                                graceEnds: row.grace_ends_on ?? null,
+                                defaultGraceDays: graceDays,
+                                today: tenantToday(row.time_zone),
+                              })
+                            : null) ?? "-"}
                         </TableCell>
                       </>
                     )}

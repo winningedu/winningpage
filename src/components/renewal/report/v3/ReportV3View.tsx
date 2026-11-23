@@ -50,7 +50,7 @@ type ReportV3ViewProps = {
   >;
   /** pages 7 to 16, rendered after page 6 (built by the later-pages view) */
   laterPages?: ReactNode;
-  /** stored diagnosis time (ISO); the PDF file name uses its KST date */
+  /** stored diagnosis time (ISO); the PDF file name uses its date (a server-set YYYY-MM-DD) */
   diagnosedAt?: string | null;
   /** overrides the cover student name in the PDF file name (profile name) */
   studentName?: string | null;

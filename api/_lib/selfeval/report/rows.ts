@@ -80,10 +80,14 @@ export function toReportRecord(
 
 const SOURCES = new Set(["performance", "deep", "manual"]);
 
-/** 02장이 모으는 기록: 수행평가, 심화탐구, 직접 입력이며 학년도 1년(3월 1일부터 다음 해 2월 말, KST) 안. */
-export function keepRecord(row: ActivityRow, academicYear: number): boolean {
+/** 02장이 모으는 기록: 수행평가, 심화탐구, 직접 입력이며 학년도 1년(회원 시간대 3월 1일부터 다음 해 3월 1일 전) 안. */
+export function keepRecord(
+  row: ActivityRow,
+  academicYear: number,
+  tz: string,
+): boolean {
   if (!SOURCES.has(row.source_program)) return false;
-  const { from, to } = academicYearWindow(academicYear);
+  const { from, to } = academicYearWindow(academicYear, tz);
   const at = Date.parse(
     submittedAtOf({ submittedAt: row.submitted_at, createdAt: row.created_at }),
   );

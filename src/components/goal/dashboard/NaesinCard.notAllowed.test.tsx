@@ -50,7 +50,7 @@ beforeEach(() => {
 });
 
 async function submit() {
-  render(<NaesinCard data={data} />);
+  render(<NaesinCard timeZone="Asia/Seoul" data={data} />);
   fireEvent.click(screen.getByRole("button", { name: /성적 추가/ }));
   fireEvent.click(screen.getByRole("button", { name: "제출" }));
 }

@@ -60,7 +60,6 @@ import {
   SERVICE_GRADE_FILTER,
   SERVICE_H3_LATE_CODES,
   SERVICE_H3_LATE_MONTH,
-  SERVICE_H3_LATE_TIMEZONE,
   SERVICE_LABEL,
   SERVICE_PART_CAPS,
   SERVICE_RULES,
@@ -583,25 +582,18 @@ export function detectEmotionalSignal(freeText) {
 }
 
 /**
- * diagnosedAt 의 KST 월(1~12). 읽을 수 없으면 null.
+ * diagnosedAt 의 월(1~12). 읽을 수 없으면 null.
  *
- * 엔진은 시계를 읽지 않는다는 계약(모듈 서두)은 그대로다 — Date.now() 를 부르지 않고 호출부가
- * 넣어 준 문자열만 해석한다. 같은 입력이 항상 같은 월을 내므로 순수성도 유지된다.
- *
- * `new Date(x).getMonth()` 나 ISO 문자열 정규식을 쓰지 않는 이유: 전자는 실행 환경 타임존을 타고
- * 후자는 UTC 를 KST 로 안 바꾼다. 둘 다 경계일(5/31 밤 · 6/1 새벽) 학생을 하루 밀어 버린다.
+ * diagnosedAt 은 서버가 회원 시간대(profiles.time_zone)의 하루로 정해 넘기는 YYYY-MM-DD 문자열이다.
+ * 월은 그 문자열의 앞부분에서 시간대 변환 없이 읽는다. 엔진은 시계를 읽지 않는다는 계약(모듈 서두)도
+ * 그대로다 — Date 를 만들지 않으니 실행 환경 시간대를 타지 않고, 같은 입력은 항상 같은 월을 낸다.
  */
-function kstMonth(diagnosedAt) {
-  if (diagnosedAt == null) return null;
-  const date = new Date(diagnosedAt);
-  if (Number.isNaN(date.getTime())) return null;
-  const month = Number(
-    new Intl.DateTimeFormat("en-US", {
-      timeZone: SERVICE_H3_LATE_TIMEZONE,
-      month: "numeric",
-    }).format(date),
-  );
-  return Number.isFinite(month) ? month : null;
+function diagnosedMonth(diagnosedAt) {
+  if (typeof diagnosedAt !== "string") return null;
+  const matched = diagnosedAt.match(/^\d{4}-(\d{2})-\d{2}/);
+  if (!matched) return null;
+  const month = Number(matched[1]);
+  return month >= 1 && month <= 12 ? month : null;
 }
 
 /**
@@ -621,7 +613,7 @@ function kstMonth(diagnosedAt) {
  */
 export function serviceCandidates(gradeLevel, diagnosedAt) {
   if (gradeLevel === "H3") {
-    const month = kstMonth(diagnosedAt);
+    const month = diagnosedMonth(diagnosedAt);
     return month != null && month >= SERVICE_H3_LATE_MONTH
       ? { codes: SERVICE_H3_LATE_CODES, reason: "H3_LATE" }
       : { codes: SERVICE_CODES, reason: null };

@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { supabase } from "@/lib/supabase";
+import { formatDateTime } from "@/lib/time/format";
 import {
   toastError,
   toastSuccess,
@@ -405,16 +406,12 @@ function flagMark(value: unknown) {
   return value ? "✓" : "-";
 }
 
-// timestamptz → 'YYYY-MM-DD HH:mm' (Asia/Seoul). Header.jsx:80 / PopupLayer.jsx:7
-// 의 명명 존 방식을 따른다 — 오프셋(+9h)을 손으로 더하지 않는다.
+// timestamptz 를 보는 사람의 브라우저 시간대 'YYYY-MM-DD HH:mm' 로 보인다.
 function dateTimeText(value: string | null | undefined) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date
-    .toLocaleString("sv-SE", { timeZone: "Asia/Seoul" })
-    .replace("T", " ")
-    .slice(0, 16);
+  return formatDateTime(date);
 }
 
 // NULL = 무기한·무제한 규약을 목록에서 표기. 값이 있으면 그대로, NULL 이면 ∞.

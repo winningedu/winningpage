@@ -2,13 +2,13 @@
 // Authorization: Bearer <supabase access token>
 //
 // 본사 대시보드 추이(분석 grill Q5 A10). 로그인 지표(logins)와 같은 기간, 묶음(grain), MAU 기준(mau)으로 묶어
-// 묶음마다 새 가입 회원 수(유형별)와 결제 주문 수(paid, refunded, 결제일 KST)를 준다(fn_hq_trend_buckets).
+// 묶음마다 새 가입 회원 수(유형별)와 결제 주문 수(paid, refunded, 결제일)를 보는 사람 시간대(X-Time-Zone) 하루로 센다(fn_hq_trend_buckets).
 // includeInternal=1 이면 QA, 본사 관리자 계정도 센다(기본 제외, fn_hq_stat_included).
 //   200 { ok, from, to, grain, mauMode, includeInternal, series[] }
 //   series[]: start, end, signups, signupsByMemberType, paidOrders
 // 권한: 로그인 + hqDashboard 보기 권한. 오류(coded): 400 INVALID_QUERY, 401, 403 FORBIDDEN, 500 INTERNAL.
 
-import { defineHandler } from "../../../_lib/handler.js";
+import { defineHandler, requireTimeZone } from "../../../_lib/handler.js";
 import {
   GRAINS,
   MAU_MODES,
@@ -46,7 +46,8 @@ export default defineHandler({
     const invalid = (message: string) =>
       sendError(res, "coded", 400, message, "INVALID_QUERY");
 
-    const period = parsePeriod(req.query);
+    const timeZone = requireTimeZone(ctx);
+    const period = parsePeriod(req.query, timeZone);
     if (typeof period === "string") return invalid(period);
     const grain = pick(req.query.grain, GRAINS, "day");
     if (!grain) return invalid("grain 이 올바르지 않습니다.");
@@ -60,6 +61,7 @@ export default defineHandler({
       p_grain: grain,
       p_mau_mode: mauMode,
       p_include_internal: includeInternal,
+      p_tz: timeZone,
     });
     if (error) throw new Error(`fn_hq_trend_buckets 실패: ${error.message}`);
 

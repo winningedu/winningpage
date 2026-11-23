@@ -8,6 +8,7 @@ import {
 } from "@/components/goal/goalFormOptions";
 import AddTaskModal from "@/components/goal/modals/AddTaskModal";
 import WeekdayPlanBoard from "@/components/goal/plan/WeekdayPlanBoard";
+import { useStudentTimeZone } from "@/hooks/useStudentTimeZone";
 import {
   createGoalPlanTask,
   deleteGoalPlanTask,
@@ -51,7 +52,14 @@ type PlanTasksResult =
   | { kind: "success"; tasks: PlanTask[] }
   | { kind: "no-session" | "not-allowed" | "validation-error" | "error" };
 
+// 학생 시간대가 오기 전에는 이번 주를 계산하지 않는다.
 export default function WeeklyPlan() {
+  const timeZone = useStudentTimeZone();
+  if (!timeZone) return null;
+  return <WeeklyPlanBody timeZone={timeZone} />;
+}
+
+function WeeklyPlanBody({ timeZone }: { timeZone: string }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -60,8 +68,8 @@ export default function WeeklyPlan() {
   // (Dashboard.jsx result 상태와 동일 패턴 — goalApi.js kind 계약을 다시 해석하는 지점을 좁힌다).
   const [result, setResult] = useState<PlanTasksResult | null>(null);
 
-  const weekDates = getWeekDates(weekOffset);
-  const todayKey = getTodayShortKeyInWeek(weekDates);
+  const weekDates = getWeekDates(weekOffset, new Date(), timeZone);
+  const todayKey = getTodayShortKeyInWeek(weekDates, new Date(), timeZone);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: TODO(useEffectEvent) weekDates는 weekOffset의 순함수라 weekOffset만 의존성으로 둔다 — 매 렌더 새 배열 참조 때문에 무한 재요청되는 것을 막는다.
   const loadTasks = useCallback(() => {

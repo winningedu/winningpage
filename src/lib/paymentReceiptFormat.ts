@@ -94,9 +94,9 @@ export function formatDateTime(iso?: string | null) {
   if (!iso) return "-";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "-";
-  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(
-    d.getMinutes(),
-  )}`;
+  const date = `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`; // tz-literal-ok: 브라우저 화면 표시라 로컬 시간대가 맞다
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`; // tz-literal-ok: 브라우저 화면 표시라 로컬 시간대가 맞다
+  return `${date} ${time}`;
 }
 
 type MethodInfo = {

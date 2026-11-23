@@ -5741,6 +5741,30 @@ export type Database = {
           },
         ];
       };
+      profile_login_slots: {
+        Row: {
+          profile_id: string;
+          slot_start: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          profile_id: string;
+          slot_start: string;
+        };
+        Update: {
+          profile_id?: string;
+          slot_start?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_login_slots_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           address: string | null;
@@ -5776,6 +5800,7 @@ export type Database = {
           sms_agreed: boolean | null;
           tenant_id: string | null;
           terms_service_agreed: boolean | null;
+          time_zone: string;
           updated_at: string | null;
           username: string | null;
         };
@@ -5814,6 +5839,7 @@ export type Database = {
           sms_agreed?: boolean | null;
           tenant_id?: string | null;
           terms_service_agreed?: boolean | null;
+          time_zone?: string;
           updated_at?: string | null;
           username?: string | null;
         };
@@ -5851,6 +5877,7 @@ export type Database = {
           sms_agreed?: boolean | null;
           tenant_id?: string | null;
           terms_service_agreed?: boolean | null;
+          time_zone?: string;
           updated_at?: string | null;
           username?: string | null;
         };
@@ -7717,6 +7744,7 @@ export type Database = {
           special_inactive_days: number | null;
           term_months: number | null;
           tier: string;
+          time_zone: string;
           trial_end_date: string | null;
           trial_start_date: string | null;
           updated_at: string;
@@ -7749,6 +7777,7 @@ export type Database = {
           special_inactive_days?: number | null;
           term_months?: number | null;
           tier: string;
+          time_zone?: string;
           trial_end_date?: string | null;
           trial_start_date?: string | null;
           updated_at?: string;
@@ -7780,6 +7809,7 @@ export type Database = {
           special_inactive_days?: number | null;
           term_months?: number | null;
           tier?: string;
+          time_zone?: string;
           trial_end_date?: string | null;
           trial_start_date?: string | null;
           updated_at?: string;
@@ -8606,6 +8636,10 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      fn_add_months: {
+        Args: { p_months: number; p_ts: string; p_tz: string };
+        Returns: string;
+      };
       fn_add_months_kst: {
         Args: { p_months: number; p_ts: string };
         Returns: string;
@@ -8712,7 +8746,12 @@ export type Database = {
         }[];
       };
       fn_ai_telemetry_daily_summary: {
-        Args: { p_from: string; p_service?: string; p_to: string };
+        Args: {
+          p_from: string;
+          p_service?: string;
+          p_to: string;
+          p_tz?: string;
+        };
         Returns: {
           avg_ms: number;
           cached_tokens: number;
@@ -8974,6 +9013,7 @@ export type Database = {
           special_inactive_days: number | null;
           term_months: number | null;
           tier: string;
+          time_zone: string;
           trial_end_date: string | null;
           trial_start_date: string | null;
           updated_at: string;
@@ -8985,6 +9025,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      fn_day_start: { Args: { p_date: string; p_tz: string }; Returns: string };
       fn_decide_enrollment_change: {
         Args: {
           p_actor: string;
@@ -9146,7 +9187,12 @@ export type Database = {
         Returns: Json;
       };
       fn_hq_b2c_summary: {
-        Args: { p_from: string; p_include_internal: boolean; p_to: string };
+        Args: {
+          p_from: string;
+          p_include_internal: boolean;
+          p_to: string;
+          p_tz: string;
+        };
         Returns: {
           by_member_type: Json;
           member_total: number;
@@ -9178,6 +9224,7 @@ export type Database = {
           p_mau_mode: string;
           p_scope: string;
           p_to: string;
+          p_tz: string;
         };
         Returns: {
           bucket_end: string;
@@ -9194,10 +9241,11 @@ export type Database = {
           p_limit: number;
           p_offset: number;
           p_to: string;
+          p_tz: string;
         };
         Returns: {
           first_seen_at: string;
-          kst_date: string;
+          login_date: string;
           member_type: string;
           name: string;
           profile_id: string;
@@ -9216,7 +9264,7 @@ export type Database = {
           contract_start_date: string;
           contract_status: string;
           grace_end: string;
-          last_activity_on: string;
+          last_activity_at: string;
           name: string;
           org_type: string;
           region: string;
@@ -9258,6 +9306,7 @@ export type Database = {
           p_include_internal: boolean;
           p_mau_mode: string;
           p_to: string;
+          p_tz: string;
         };
         Returns: {
           bucket_end: string;
@@ -9307,6 +9356,7 @@ export type Database = {
       };
       fn_is_qa_account: { Args: { p_profile_id?: string }; Returns: boolean };
       fn_is_super_admin: { Args: { p_profile_id?: string }; Returns: boolean };
+      fn_is_valid_time_zone: { Args: { p_tz: string }; Returns: boolean };
       fn_knowledge_near_duplicates: {
         Args: {
           filter_knowledge_type: string;
@@ -9321,6 +9371,7 @@ export type Database = {
         }[];
       };
       fn_kst_day_start: { Args: { p_ts: string }; Returns: string };
+      fn_local_date: { Args: { p_ts: string; p_tz: string }; Returns: string };
       fn_login_lock_begin: {
         Args: { p_account_hash: string; p_pair_hash: string };
         Returns: {
@@ -9360,6 +9411,7 @@ export type Database = {
           contract_end: string;
           grace_end: string;
           grade: string;
+          local_today: string;
           name: string;
           number: number;
           profile_id: string;
@@ -9748,6 +9800,7 @@ export type Database = {
           skipped_count: number;
         }[];
       };
+      fn_school_year: { Args: { p_ts: string; p_tz: string }; Returns: number };
       fn_school_year_kst: { Args: { p_ts: string }; Returns: number };
       fn_school_year_rollover: {
         Args: {
@@ -9838,6 +9891,7 @@ export type Database = {
           org_type: string;
         }[];
       };
+      fn_signup_time_zone: { Args: { p_user_id: string }; Returns: string };
       fn_student_parent: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -10042,7 +10096,7 @@ export type Database = {
         Returns: string;
       };
       increment_board_view: {
-        Args: { p_id: string; p_source: string };
+        Args: { p_id: string; p_source: string; p_tz: string };
         Returns: number;
       };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };

@@ -1,20 +1,14 @@
 // AI 호출 계기판 조회 상태. 입력 중인 필터(draft)와 조회에 적용된 필터(applied)를 나눈다.
+import { addDaysYmd, ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
+
 export const AI_TELEMETRY_PAGE_SIZE = 20;
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_SPAN_DAYS = 29;
 
-function toDateString(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
-// 오늘(KST)과 29일 전을 YYYY-MM-DD 로 돌려준다. 서버는 to 날짜를 포함해 조회한다.
+// 브라우저 시간대의 오늘과 29일 전을 YYYY-MM-DD 로 돌려준다. 서버는 to 날짜를 포함해 조회한다.
 export function defaultRange(now: Date): { from: string; to: string } {
-  const kstNow = now.getTime() + KST_OFFSET_MS;
-  return {
-    from: toDateString(kstNow - DEFAULT_SPAN_DAYS * DAY_MS),
-    to: toDateString(kstNow),
-  };
+  const to = ymdIn(now, browserTimeZone());
+  return { from: addDaysYmd(to, -DEFAULT_SPAN_DAYS), to };
 }
 
 export type AiTelemetryTab = "summary" | "calls" | "citations" | "pricing";

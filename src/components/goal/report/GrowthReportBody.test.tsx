@@ -4,7 +4,7 @@
 // 이름은 호출부(ChildReport.tsx 등)가 studentName prop으로 내려준다.
 import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { site } from "@/config/site";
 import GrowthReportBody, { type GrowthReport } from "./GrowthReportBody";
 
@@ -199,5 +199,31 @@ describe("GrowthReportBody — 표지", () => {
     expect(weekly).toHaveAttribute("aria-selected", "true");
     expect(weekly).toHaveClass("border", "rounded-lg", "border-accent");
     expect(monthly).toHaveClass("border", "rounded-lg", "border-[#E3E3E3]");
+  });
+});
+
+describe("GrowthReportBody: 멘토 코멘트 작성일", () => {
+  it("writtenAt 시각을 브라우저 시간대의 날짜로 보여준다", () => {
+    // 2026-09-20T16:30Z = 서울 9/21 01:30. 브라우저 시간대를 서울로 둔다.
+    const spy = vi
+      .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
+      .mockReturnValue({ timeZone: "Asia/Seoul" } as never);
+    try {
+      render(
+        <GrowthReportBody
+          period="weekly"
+          onPeriodChange={() => {}}
+          report={makeReport({
+            mentorComment: {
+              writtenAt: "2026-09-20T16:30:00Z",
+              body: "잘했어요",
+            },
+          })}
+        />,
+      );
+      expect(screen.getByText("2026-09-21")).toBeInTheDocument();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

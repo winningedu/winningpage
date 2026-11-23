@@ -315,7 +315,7 @@ export async function ensureSelfevalQuota(
   const admin = serviceRoleClient();
   const now = new Date();
   const expires = new Date(now);
-  expires.setMonth(expires.getMonth() + 12);
+  expires.setUTCMonth(expires.getUTCMonth() + 12);
   const inserted = await admin.from("program_access_grants").insert({
     profile_id: profileId,
     program_key: "selfeval",

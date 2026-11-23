@@ -19,6 +19,7 @@ const IN_SCOPE: ReadonlySet<ReportRole> = new Set([
 export function buildCh03(
   ch02: Ch02Result,
   text: (id: string) => string | null,
+  tz: string,
 ): ReportCh03 {
   const infos = [...ch02.info.values()]
     .filter((i) => IN_SCOPE.has(i.role))
@@ -44,7 +45,7 @@ export function buildCh03(
         kind: i.kind,
         title: i.record.topic,
         subject: i.writing ? null : i.subject,
-        submittedOn: dotDate(i.record.submittedAt),
+        submittedOn: dotDate(i.record.submittedAt, tz),
         role: i.role,
         relation,
         relationLabel: RELATION_LABELS[relation],

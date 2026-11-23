@@ -27,6 +27,8 @@ type RecordCooldownSummaryProps = {
   cooldown: GoalRecordCooldown;
   summary: GoalRecordSummary | null;
   tomorrowTargets: GoalTomorrowTargets;
+  /** 학생 시간대(GET /api/goal/student timeZone). */
+  timeZone: string;
   className?: string;
 };
 
@@ -34,6 +36,7 @@ export default function RecordCooldownSummary({
   cooldown,
   summary,
   tomorrowTargets,
+  timeZone,
   className = "",
 }: RecordCooldownSummaryProps) {
   const idealDeltaLabel = summary
@@ -131,7 +134,8 @@ export default function RecordCooldownSummary({
 
       {cooldown.unlocksAt && (
         <p className="text-center text-app-label text-ink-sub">
-          다시 기록 가능: {formatCooldownUnlockLabel(cooldown.unlocksAt)}
+          다시 기록 가능:{" "}
+          {formatCooldownUnlockLabel(cooldown.unlocksAt, timeZone)}
         </p>
       )}
     </div>

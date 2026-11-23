@@ -22,7 +22,7 @@ describe("StudyPlanRail 선택요일반복 펼침", () => {
   });
 
   test("월 수 금을 고르면 이번 주 그 3일에만 과제를 만든다", async () => {
-    render(<StudyPlanRail />);
+    render(<StudyPlanRail timeZone="Asia/Seoul" />);
     fireEvent.click(await screen.findByRole("button", { name: "추가" }));
     fireEvent.click(screen.getByRole("radio", { name: "수학" }));
     fireEvent.change(screen.getByLabelText("할 일", { exact: false }), {

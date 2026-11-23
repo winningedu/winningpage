@@ -17,10 +17,13 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+import { withTimeZone } from "../../../_lib/console/zoneTestKit.js";
 import handler from "./summary.js";
 
-const get = (query: Record<string, string> = {}) =>
-  callHandler(handler, undefined, "GET", query);
+const get = (
+  query: Record<string, string> = {},
+  zone: string | null = "Asia/Seoul",
+) => callHandler(withTimeZone(handler, zone), undefined, "GET", query);
 
 const enrollment = (
   student: string,
@@ -113,7 +116,14 @@ beforeEach(() => {
   kit.state.rows.teachers = (f) =>
     matchRows([{ id: "t1", tenant_id: "tenant-1", name: "김담임" }], f);
   kit.state.rows.student_enrollments = (f) => matchRows(ENROLLMENTS, f);
-  kit.state.rows.profiles = () => [];
+  kit.state.rows.profiles = (f) =>
+    matchRows(
+      ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"].map((id) => ({
+        id,
+        time_zone: "Asia/Seoul",
+      })),
+      f,
+    );
   kit.state.rows.roster_pending_students = (f) => matchRows(PENDING, f);
   for (const table of [
     "growth_profiles",
@@ -247,13 +257,24 @@ describe("GET /api/console/enrollment/summary", () => {
     expect((await get()).status).toBe(403);
   });
 
-  test("asOf is today's date in KST", async () => {
+  test("asOf is today's date in the viewer zone", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-11-05T16:00:00Z"));
 
-    const res = await get();
+    const seoul = await get({}, "Asia/Seoul");
+    const la = await get({}, "America/Los_Angeles");
 
-    expect((res.body as { asOf: string }).asOf).toBe("2026-11-06");
+    expect((seoul.body as { asOf: string }).asOf).toBe("2026-11-06");
+    expect((la.body as { asOf: string }).asOf).toBe("2026-11-05");
+  });
+
+  test("without X-Time-Zone the answer is 400 TIME_ZONE_REQUIRED", async () => {
+    const res = await get({}, null);
+
+    expect(res.status).toBe(400);
+    expect((res.body as { error: { code: string } }).error.code).toBe(
+      "TIME_ZONE_REQUIRED",
+    );
   });
 
   test("orgType tells the screen whether the tenant is a school or an academy", async () => {

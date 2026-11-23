@@ -11,7 +11,7 @@
 import { describe, expect, test } from "vitest";
 import { buildResendResponse, validateResendPeriod } from "./resend-report.js";
 
-// validateResendPeriod의 세 번째 인자는 "오늘 날짜"가 아니라 실제 "지금 시각"이다
+// validateResendPeriod의 네 번째 인자는 "오늘 날짜"가 아니라 실제 "지금 시각"이다
 // (QA — 당일 발송 시각(daily 22:00·weekly 08:00·monthly 23:00, 전부 KST) 전에도
 // 재발송이 허용돼 크론 자동 발송과 겹쳐 2통이 나가는 사고가 있었다). 순수 YMD
 // 비교만 검증하는 기존 테스트는 그날 발송 시각이 확실히 지난 23:59:59 KST를 쓰고,
@@ -20,26 +20,27 @@ function kst(ymd: string, time = "23:59:59"): Date {
   return new Date(`${ymd}T${time}+09:00`);
 }
 
+const SEOUL = "Asia/Seoul";
 const TODAY = "2026-09-23"; // 수요일
 const NOW = kst(TODAY);
 
 describe("validateResendPeriod — daily(기준일 = periodKey 자신)", () => {
   test("오늘 날짜는 허용된다(diff 0)", () => {
-    expect(validateResendPeriod("daily", TODAY, NOW)).toEqual({
+    expect(validateResendPeriod("daily", TODAY, SEOUL, NOW)).toEqual({
       ok: true,
       startYmd: TODAY,
     });
   });
 
   test("정확히 14일 전은 경계값으로 허용된다", () => {
-    expect(validateResendPeriod("daily", "2026-09-09", NOW)).toEqual({
+    expect(validateResendPeriod("daily", "2026-09-09", SEOUL, NOW)).toEqual({
       ok: true,
       startYmd: "2026-09-09",
     });
   });
 
   test("15일 전은 400으로 거부된다", () => {
-    const result = validateResendPeriod("daily", "2026-09-08", NOW);
+    const result = validateResendPeriod("daily", "2026-09-08", SEOUL, NOW);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.detail).toBe("2주 이내 기간만 다시 보낼 수 있습니다.");
@@ -47,7 +48,7 @@ describe("validateResendPeriod — daily(기준일 = periodKey 자신)", () => {
   });
 
   test("미래 날짜는 아직 발송 시점이 지나지 않았다는 사유로 거부된다", () => {
-    const result = validateResendPeriod("daily", "2026-09-24", NOW);
+    const result = validateResendPeriod("daily", "2026-09-24", SEOUL, NOW);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.detail).toBe("아직 발송 시점이 지나지 않은 기간입니다.");
@@ -55,12 +56,12 @@ describe("validateResendPeriod — daily(기준일 = periodKey 자신)", () => {
   });
 
   test("형식이 아니면 거부된다", () => {
-    const result = validateResendPeriod("daily", "2026/09/10", NOW);
+    const result = validateResendPeriod("daily", "2026/09/10", SEOUL, NOW);
     expect(result.ok).toBe(false);
   });
 
   test("존재하지 않는 달력 날짜(2월 30일)는 거부된다", () => {
-    const result = validateResendPeriod("daily", "2026-02-30", NOW);
+    const result = validateResendPeriod("daily", "2026-02-30", SEOUL, NOW);
     expect(result.ok).toBe(false);
   });
 });
@@ -68,7 +69,7 @@ describe("validateResendPeriod — daily(기준일 = periodKey 자신)", () => {
 describe("validateResendPeriod — weekly(기준일 = 다음 월요일 발송일)", () => {
   test("이번 주는 그 주 월요일(다음 주)에야 발송되므로 아직 거부된다", () => {
     // 2026-09-23(수)의 이번 주 월요일은 09-21 — 발송일은 09-28(다음 월요일)로 미래.
-    const result = validateResendPeriod("weekly", "2026-09-21", NOW);
+    const result = validateResendPeriod("weekly", "2026-09-21", SEOUL, NOW);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.detail).toBe("아직 발송 시점이 지나지 않은 기간입니다.");
@@ -77,7 +78,7 @@ describe("validateResendPeriod — weekly(기준일 = 다음 월요일 발송일
 
   test("지난 주(발송일이 이미 지남, 2일 전)는 허용된다", () => {
     // weekStart=09-14 → 발송일 09-21(이미 지남), diff(09-21, 09-23)=2.
-    expect(validateResendPeriod("weekly", "2026-09-14", NOW)).toEqual({
+    expect(validateResendPeriod("weekly", "2026-09-14", SEOUL, NOW)).toEqual({
       ok: true,
       startYmd: "2026-09-14",
     });
@@ -85,7 +86,7 @@ describe("validateResendPeriod — weekly(기준일 = 다음 월요일 발송일
 
   test("발송일 기준 정확히 14일 전은 경계값으로 허용된다", () => {
     // weekStart=09-07 → 발송일 09-14, diff(09-14, 09-23)=9.
-    expect(validateResendPeriod("weekly", "2026-09-07", NOW)).toEqual({
+    expect(validateResendPeriod("weekly", "2026-09-07", SEOUL, NOW)).toEqual({
       ok: true,
       startYmd: "2026-09-07",
     });
@@ -93,7 +94,7 @@ describe("validateResendPeriod — weekly(기준일 = 다음 월요일 발송일
 
   test("발송일 기준 14일보다 더 전이면 거부된다", () => {
     // weekStart=08-24 → 발송일 08-31, diff(08-31, 09-23)=23.
-    const result = validateResendPeriod("weekly", "2026-08-24", NOW);
+    const result = validateResendPeriod("weekly", "2026-08-24", SEOUL, NOW);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.detail).toBe("2주 이내 기간만 다시 보낼 수 있습니다.");
@@ -101,7 +102,7 @@ describe("validateResendPeriod — weekly(기준일 = 다음 월요일 발송일
   });
 
   test("월요일이 아닌 날짜는 거부된다", () => {
-    const result = validateResendPeriod("weekly", "2026-09-22", NOW);
+    const result = validateResendPeriod("weekly", "2026-09-22", SEOUL, NOW);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.detail).toBe(
@@ -114,7 +115,7 @@ describe("validateResendPeriod — weekly(기준일 = 다음 월요일 발송일
 describe("validateResendPeriod — monthly(기준일 = 그 달 마지막 날 발송일)", () => {
   test("이번 달은 마지막 날(말일)에야 발송되므로 아직 거부된다", () => {
     // monthKey=2026-09 → 발송일 09-30, 오늘(09-23) 기준 미래.
-    const result = validateResendPeriod("monthly", "2026-09", NOW);
+    const result = validateResendPeriod("monthly", "2026-09", SEOUL, NOW);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.detail).toBe("아직 발송 시점이 지나지 않은 기간입니다.");
@@ -124,7 +125,7 @@ describe("validateResendPeriod — monthly(기준일 = 그 달 마지막 날 발
   test("지난 달(발송일이 이미 지남, 달 초 10일)은 허용된다", () => {
     // monthKey=2026-08 → 발송일 08-31, diff(08-31, 09-10)=10.
     expect(
-      validateResendPeriod("monthly", "2026-08", kst("2026-09-10")),
+      validateResendPeriod("monthly", "2026-08", SEOUL, kst("2026-09-10")),
     ).toEqual({
       ok: true,
       startYmd: "2026-08-01",
@@ -133,7 +134,7 @@ describe("validateResendPeriod — monthly(기준일 = 그 달 마지막 날 발
 
   test("지난 달 발송일이 14일보다 더 전이면(달 후반) 거부된다", () => {
     // monthKey=2026-08 → 발송일 08-31, diff(08-31, 09-23)=23.
-    const result = validateResendPeriod("monthly", "2026-08", NOW);
+    const result = validateResendPeriod("monthly", "2026-08", SEOUL, NOW);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.detail).toBe("2주 이내 기간만 다시 보낼 수 있습니다.");
@@ -141,8 +142,12 @@ describe("validateResendPeriod — monthly(기준일 = 그 달 마지막 날 발
   });
 
   test("형식이 아니면 거부된다(YYYY-MM 아님)", () => {
-    expect(validateResendPeriod("monthly", "2026-9", NOW).ok).toBe(false);
-    expect(validateResendPeriod("monthly", "2026-13", NOW).ok).toBe(false);
+    expect(validateResendPeriod("monthly", "2026-9", SEOUL, NOW).ok).toBe(
+      false,
+    );
+    expect(validateResendPeriod("monthly", "2026-13", SEOUL, NOW).ok).toBe(
+      false,
+    );
   });
 });
 
@@ -152,7 +157,12 @@ describe("validateResendPeriod — monthly(기준일 = 그 달 마지막 날 발
 // 발송 시각 자체를 넘겨야 통과한다.
 describe("validateResendPeriod — 발송 시각(KST) 경계", () => {
   test("daily — 당일 21:59 KST는 거부된다(아직 22:00 발송 전)", () => {
-    const result = validateResendPeriod("daily", TODAY, kst(TODAY, "21:59:00"));
+    const result = validateResendPeriod(
+      "daily",
+      TODAY,
+      SEOUL,
+      kst(TODAY, "21:59:00"),
+    );
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.detail).toBe("아직 발송 시점이 지나지 않은 기간입니다.");
@@ -161,7 +171,7 @@ describe("validateResendPeriod — 발송 시각(KST) 경계", () => {
 
   test("daily — 당일 22:01 KST는 허용된다(발송 시각 지남)", () => {
     expect(
-      validateResendPeriod("daily", TODAY, kst(TODAY, "22:01:00")),
+      validateResendPeriod("daily", TODAY, SEOUL, kst(TODAY, "22:01:00")),
     ).toEqual({ ok: true, startYmd: TODAY });
   });
 
@@ -170,6 +180,7 @@ describe("validateResendPeriod — 발송 시각(KST) 경계", () => {
     const result = validateResendPeriod(
       "weekly",
       "2026-09-21",
+      SEOUL,
       kst("2026-09-28", "07:59:00"),
     );
     expect(result.ok).toBe(false);
@@ -183,6 +194,7 @@ describe("validateResendPeriod — 발송 시각(KST) 경계", () => {
       validateResendPeriod(
         "weekly",
         "2026-09-21",
+        SEOUL,
         kst("2026-09-28", "08:01:00"),
       ),
     ).toEqual({ ok: true, startYmd: "2026-09-21" });
@@ -193,6 +205,7 @@ describe("validateResendPeriod — 발송 시각(KST) 경계", () => {
     const result = validateResendPeriod(
       "monthly",
       "2026-09",
+      SEOUL,
       kst("2026-09-30", "22:59:00"),
     );
     expect(result.ok).toBe(false);
@@ -203,19 +216,56 @@ describe("validateResendPeriod — 발송 시각(KST) 경계", () => {
 
   test("monthly — 말일 23:01 KST는 허용된다(발송 시각 지남)", () => {
     expect(
-      validateResendPeriod("monthly", "2026-09", kst("2026-09-30", "23:01:00")),
+      validateResendPeriod(
+        "monthly",
+        "2026-09",
+        SEOUL,
+        kst("2026-09-30", "23:01:00"),
+      ),
     ).toEqual({ ok: true, startYmd: "2026-09-01" });
+  });
+});
+
+describe("validateResendPeriod — 수신자 시간대 기준", () => {
+  const LA = "America/Los_Angeles";
+
+  test("daily — 로스앤젤레스 학생은 현지 22:00(PST=06:00Z) 전에는 거부된다", () => {
+    // 2026-01-10 21:59 PST = 2026-01-11T05:59Z.
+    const before = validateResendPeriod(
+      "daily",
+      "2026-01-10",
+      LA,
+      new Date("2026-01-11T05:59:00Z"),
+    );
+    expect(before.ok).toBe(false);
+    expect(
+      validateResendPeriod(
+        "daily",
+        "2026-01-10",
+        LA,
+        new Date("2026-01-11T06:01:00Z"),
+      ),
+    ).toEqual({ ok: true, startYmd: "2026-01-10" });
+  });
+
+  test("2주 판정의 오늘은 수신자 현지 날짜다", () => {
+    // 2026-01-25T03:00Z = 서울 12:00 1/25, LA 19:00 1/24. 발송일 1/10과의 차이가 서울 15, LA 14.
+    const now = new Date("2026-01-25T03:00:00Z");
+    expect(validateResendPeriod("daily", "2026-01-10", SEOUL, now).ok).toBe(
+      false,
+    );
+    expect(validateResendPeriod("daily", "2026-01-10", LA, now).ok).toBe(true);
   });
 });
 
 describe("validateResendPeriod — kind/periodKey 자체 검증", () => {
   test("kind가 daily/weekly/monthly가 아니면 거부된다", () => {
-    expect(validateResendPeriod("yearly", TODAY, NOW).ok).toBe(false);
+    expect(validateResendPeriod("yearly", TODAY, SEOUL, NOW).ok).toBe(false);
   });
 
   test("periodKey가 없으면 거부된다", () => {
-    expect(validateResendPeriod("daily", undefined, NOW).ok).toBe(false);
-    expect(validateResendPeriod("daily", "", NOW).ok).toBe(false);
+    expect(validateResendPeriod("daily", undefined, SEOUL, NOW).ok).toBe(false);
+    expect(validateResendPeriod("daily", "", SEOUL, NOW).ok).toBe(false);
   });
 });
 

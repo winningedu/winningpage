@@ -2,10 +2,10 @@
 //
 // W8 서비스별 현황표. 고른 서비스를 쓰는 학생만(교 #41) 현재 학년도 학년, 반, 번호 순으로 나눠 준다.
 // 담임은 담당 학급만, 학교 관리자와 본사 대행은 전교를 본다. 이름은 담임만 실명이고 그 밖에는 서버에서 가린다.
-// q 는 담임만 실명 부분 일치, 그 밖에는 성과 이름 전체 일치다(결정 61). 서비스별 열 값(detail)은 쪽에 보이는 학생만 읽는다. asOf 는 집계 기준일(KST)이다.
+// q 는 담임만 실명 부분 일치, 그 밖에는 성과 이름 전체 일치다(결정 61). 서비스별 열 값(detail)은 쪽에 보이는 학생만 읽는다. asOf 는 집계 기준일(보는 사람 시간대의 오늘)이다.
 
+import { ymdIn } from "../../../src/lib/time/day.js";
 import { loadProfileNames, loadTenant } from "../../_lib/console/directory.js";
-import { kstDateOffset } from "../../_lib/console/kstDate.js";
 import {
   displayNamesFor,
   nameMatchesQuery,
@@ -19,7 +19,7 @@ import {
   type ServiceKey,
 } from "../../_lib/console/serviceUsage.js";
 import { loadScopedStudents } from "../../_lib/console/studentScope.js";
-import { defineHandler } from "../../_lib/handler.js";
+import { defineHandler, requireTimeZone } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
@@ -37,6 +37,7 @@ export default defineHandler({
     const actor = ctx.console;
     if (!actor) throw new Error("console actor missing");
     const admin = ctx.supabaseAdmin;
+    const viewerZone = requireTimeZone(ctx);
 
     const service = queryValue(req.query.service);
     const pageQuery = parsePageQuery(req.query);
@@ -84,7 +85,7 @@ export default defineHandler({
     const { orgType } = await loadTenant(admin, actor.tenantId);
     res.status(200).json({
       ...paged,
-      asOf: kstDateOffset(new Date(), 0),
+      asOf: ymdIn(new Date(), viewerZone),
       orgType,
       items: paged.items.map((s) => ({
         studentId: s.studentId,

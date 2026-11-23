@@ -4,6 +4,7 @@ import type {
   SurveyEntitlement,
 } from "@/lib/growth/api";
 import { formatKoreanDate } from "@/lib/growth/format";
+import { formatDateTime } from "@/lib/time/format";
 import { GROWTH_PATHS } from "../growthPaths";
 
 /** 미완 회차의 이어하기 목적지. */
@@ -260,18 +261,15 @@ function parseDate(iso: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-const two = (n: number) => String(n).padStart(2, "0");
-
 /** "2026년 11월 2일". 해석할 수 없으면 null. */
 export function formatStartedDate(iso: string): string | null {
   return formatKoreanDate(iso);
 }
 
-/** "2026.11.05 21:40". 해석할 수 없으면 null. */
-export function formatSavedAt(iso: string): string | null {
-  const d = parseDate(iso);
-  if (!d) return null;
-  return `${d.getFullYear()}.${two(d.getMonth() + 1)}.${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
+/** "2026.11.05 21:40". 시간대를 안 주면 브라우저 시간대. 해석할 수 없으면 null. */
+export function formatSavedAt(iso: string, tz?: string): string | null {
+  if (parseDate(iso) === null) return null;
+  return formatDateTime(iso, tz).replaceAll("-", ".");
 }
 
 export function progressPercent(answered: number, total: number): number {

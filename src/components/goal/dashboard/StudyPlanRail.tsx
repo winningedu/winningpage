@@ -17,10 +17,10 @@ import {
   durationLabelToMinutes,
   getTodayWeekdayLabel,
   getWeekDates,
-  kstYMD,
   nextPlanTaskStatus,
   type PlanTaskStatus,
 } from "@/lib/goalPlanUtils";
+import { ymdIn } from "@/lib/time/day";
 
 // 우측 레일 "OO요일 나의 학습 계획하기" 카드 — 데이터 유무에 따라 194↔342 가변(part-07 §272).
 // 절대 좌표 대신 flex column + gap 20px(부모 GoalDashboard 레일 스택)로 쌓는다.
@@ -55,11 +55,16 @@ type PlanTasksResult =
 // nextPlanTaskStatus(goalPlanUtils.ts, 순수 함수)가 계산하고, 이 핸들러는 낙관적 갱신 후
 // 실패 시 되돌린다(콘솔 에러 로그 + 재조회로 복구). 계획 카드 자체의 삭제는 여기(대시보드)가
 // 아니라 주간학습계획표(WeekdayPlanBoard.tsx)에서만 한다(행280/행321).
-export default function StudyPlanRail() {
+export default function StudyPlanRail({
+  timeZone,
+}: {
+  /** 학생 시간대(GET /api/goal/student timeZone). */
+  timeZone: string;
+}) {
   const [modalOpen, setModalOpen] = useState(false);
   // null = 로딩 중. 이후 discriminated union('success'|'not-allowed'|'error'|...) 그대로 보관.
   const [result, setResult] = useState<PlanTasksResult | null>(null);
-  const today = kstYMD();
+  const today = ymdIn(new Date(), timeZone);
 
   const loadTasks = useCallback(() => {
     fetchGoalPlanTasks({ from: today, to: today }).then((r) =>
@@ -135,8 +140,11 @@ export default function StudyPlanRail() {
       schedule === "오늘만"
         ? [today]
         : schedule === WEEKDAY_REPEAT_SCHEDULE
-          ? pickWeekdayDates(getWeekDates(0), weekdays ?? [])
-          : getWeekDates(0);
+          ? pickWeekdayDates(
+              getWeekDates(0, new Date(), timeZone),
+              weekdays ?? [],
+            )
+          : getWeekDates(0, new Date(), timeZone);
     const durationMinutes = durationLabelToMinutes(duration);
     // 문제집 연결 과제는 여러 날짜로 못 펼치게 AddTaskModal이 이미 막지만(문제집
     // 연결 시 일정 select 자체를 비활성), API에도 같은 신호를 실어 보내 서버가
@@ -182,7 +190,7 @@ export default function StudyPlanRail() {
   return (
     <GoalCard tone="mint" className="flex flex-col gap-4 px-5 py-5">
       <h3 className="text-app-card-title font-bold text-ink-strong">
-        {getTodayWeekdayLabel()} 나의 학습 계획하기
+        {getTodayWeekdayLabel(new Date(), timeZone)} 나의 학습 계획하기
       </h3>
 
       {/* not-allowed(미결제)·no-session 등은 이 위젯이 스스로 처리하지 않는다 — RequireGoalAccess가

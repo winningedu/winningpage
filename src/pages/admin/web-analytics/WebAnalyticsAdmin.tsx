@@ -12,6 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { addDaysYmd, ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 import { ActionButton, Field } from "@/pages/admin/shared/formFields";
 import {
   type ApiResult,
@@ -26,11 +28,10 @@ import {
 // ---------------------------------------------------------------------------
 // 본사 방문 분석(계획 10번, 분석 grill Q11, Q12). Vercel Web Analytics 를 서버 라우트로 읽어
 // 방문 합계, 많이 본 페이지, 이벤트 10개 횟수와 속성별 나눔을 보여 준다. 기간은 URL 검색 파라미터
-// (from, to, 한국 날짜)에 두고, 없으면 오늘까지 최근 7일을 연다. 화면에 기간을 항상 보인다.
+// (from, to, 브라우저 시간대의 날짜)에 두고, 없으면 오늘까지 최근 7일을 연다. 화면에 기간을 항상 보인다.
 // ---------------------------------------------------------------------------
 
 const DEFAULT_DAYS = 7;
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 const EVENT_LABELS: Record<WebAnalyticsEventName, string> = {
   signup_complete: "회원가입 완료",
@@ -53,16 +54,10 @@ const PROPERTY_LABELS: Record<WebAnalyticsProperty, string> = {
   step: "단계",
 };
 
-function kstDate(ms: number): string {
-  return new Date(ms + KST_OFFSET_MS).toISOString().slice(0, 10);
-}
-
 function defaultRange(): WebAnalyticsRange {
-  const now = Date.now();
-  return {
-    from: kstDate(now - (DEFAULT_DAYS - 1) * 24 * 60 * 60 * 1000),
-    to: kstDate(now),
-  };
+  const tz = browserTimeZone();
+  const today = ymdIn(new Date(), tz);
+  return { from: addDaysYmd(today, -(DEFAULT_DAYS - 1)), to: today };
 }
 
 function useRangeParams(): [
@@ -306,7 +301,7 @@ export default function WebAnalyticsAdmin() {
     <div className="bg-white p-10 shadow-sm">
       <h1 className="text-2xl font-semibold text-foreground">방문 분석</h1>
       <p className="mt-1 mb-6 text-sm text-muted-foreground">
-        기간 {range.from} ~ {range.to} (한국 날짜, 운영 사이트 기준)
+        기간 {range.from} ~ {range.to} (내 시간대 날짜, 운영 사이트 기준)
       </p>
       <RangeForm
         key={`${range.from}|${range.to}`}

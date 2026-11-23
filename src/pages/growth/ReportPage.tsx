@@ -49,7 +49,9 @@ export default function ReportPage() {
       return <Navigate to={GROWTH_PATHS.reports} replace />;
   }
 
-  const issued = report ? formatKoreanDate(report.issuedAt) : "";
+  const issued = data
+    ? formatKoreanDate(data.report.issuedAt, data.timeZone)
+    : "";
   const subcopy = [
     issued ? `${issued} 발행` : "",
     report?.range?.description ?? "",
@@ -116,7 +118,8 @@ export default function ReportPage() {
                   { label: "학년", value: formatGradeLabel(gradeLabel) },
                   {
                     label: "발행일",
-                    value: formatCoverDate(report?.issuedAt) ?? "",
+                    value:
+                      formatCoverDate(report?.issuedAt, data.timeZone) ?? "",
                   },
                 ]}
               />

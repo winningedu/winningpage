@@ -68,6 +68,7 @@ beforeEach(() => {
   api.fetchGoalStudent.mockResolvedValue({
     kind: "onboarded",
     student: {
+      timeZone: "Asia/Seoul",
       targets: {
         min: { naesinCut: 2.5 },
         ideal: { jungsiCut: 90 },

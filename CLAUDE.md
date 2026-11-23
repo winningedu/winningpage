@@ -39,3 +39,12 @@ Repo-specific facts and exceptions. General placement and naming rules live in t
 - Data changes (names, prices, reference rows, backfills, grants) are not migrations. Follow `supabase/data/README.md`: SQL file in `supabase/data/`, idempotent, natural keys, owner approval, dev first, then prod.
 - Never patch data over REST.
 - Local DB: `npm run db:reseed`. No seed.sql, no production seed files.
+
+## Time
+
+- Server (`api/`) and DB compute and output in UTC. API instants are ISO 8601 `...Z`.
+- The client converts to the browser zone for display and converts input (pickers, "today", ranges) before sending.
+- Day, week, and month buckets take an IANA zone argument. Zone source: the viewer's `X-Time-Zone` header for screens, `tenants.time_zone` / `profiles.time_zone` for work with no viewer.
+- Calendar dates an operator types (coupon end, banner window, contract) stay `date`.
+- Use `src/lib/time/` (TS, shared with `api/`) and the DB helpers `fn_local_date`, `fn_day_start`, `fn_add_months`.
+- Never hardcode a zone. `npm run check:time-zone` enforces it against `scripts/time-zone-literals.baseline.json`, which the coordinator shrinks to zero. A line that truly needs a literal carries `tz-literal-ok: <reason>`. Migrations at or before `20261123111847` are already applied, so the check skips them; later migrations are scanned.

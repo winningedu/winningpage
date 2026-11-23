@@ -37,8 +37,9 @@ export default function ChildGrowthReport() {
     return <ChildGrowthNotLinked />;
   }
 
-  const report = query.data?.report;
-  const issued = report ? formatKoreanDate(report.issuedAt) : "";
+  const issued = query.data
+    ? formatKoreanDate(query.data.report.issuedAt, query.data.timeZone)
+    : "";
 
   return (
     <ChildGrowthShell>

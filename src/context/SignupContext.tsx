@@ -13,6 +13,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { birthYmdOf, todayYmd } from "@/lib/validators";
 
 const STORAGE_KEY = "signup-flow";
 
@@ -186,40 +187,17 @@ const INITIAL_STATE: SignupState = {
 // 비상식적인 연도)은 null을 반환하므로, 호출부는 null을 "계산 불가 → 에러 표시"로 다뤄야
 // 한다. StudentBirth 등 다른 화면에서 동일 로직을 중복 구현하지 않도록 export한다.
 export function computeIsUnder14(birthDate8: string): boolean | null {
-  if (birthDate8?.length !== 8) return null;
+  // 달력 계산이라 시간대와 무관하다. "오늘"만 브라우저 시간대로 센다(DB 의 가입 함수는 회원 시간대로 센다).
+  const birth = birthYmdOf(birthDate8 ?? "");
+  if (!birth) return null;
 
-  const year = Number(birthDate8.slice(0, 4));
-  const month = Number(birthDate8.slice(4, 6));
-  const day = Number(birthDate8.slice(6, 8));
+  const today = todayYmd();
+  if (birth > today) return null; // 미래 날짜 거부
 
-  if (!year || !month || !day) return null;
-  if (year < 1900) return null; // 비상식적인 연도 거부
+  let age = Number(today.slice(0, 4)) - Number(birth.slice(0, 4));
 
-  const birth = new Date(year, month - 1, day);
-  if (Number.isNaN(birth.getTime())) return null;
-
-  // Date는 month=13, day=32처럼 범위를 벗어난 값을 다음 달/해로 조용히 롤오버시켜
-  // 전혀 다른 날짜를 만들어낸다(예: 2024-02-30 → 2024-03-01). 역검증으로 이런
-  // 입력을 걸러낸다.
-  if (
-    birth.getFullYear() !== year ||
-    birth.getMonth() !== month - 1 ||
-    birth.getDate() !== day
-  ) {
-    return null;
-  }
-
-  const today = new Date();
-  if (birth.getTime() > today.getTime()) return null; // 미래 날짜 거부
-
-  let age = today.getFullYear() - birth.getFullYear();
-
-  const hasHadBirthdayThisYear =
-    today.getMonth() > birth.getMonth() ||
-    (today.getMonth() === birth.getMonth() &&
-      today.getDate() >= birth.getDate());
-
-  if (!hasHadBirthdayThisYear) age -= 1;
+  // 생일(월-일)이 아직 안 왔으면 한 살 뺀다.
+  if (today.slice(5) < birth.slice(5)) age -= 1;
 
   return age < 14;
 }

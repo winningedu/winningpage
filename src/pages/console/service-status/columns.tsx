@@ -2,7 +2,7 @@
 // 읽을 값이 없으면 칸을 비운다(기본값을 만들어 내지 않는다). 휴대폰 카드는 이름을 제목으로 쓰고 나머지 열을 줄로 쓴다.
 
 import Chip from "../Chip";
-import { dotDate } from "../date";
+import { dateOf } from "../date";
 import NameCell from "../NameCell";
 import { URGENCY } from "../urgency";
 import type { StatusItem, TabKey } from "./tabs";
@@ -63,7 +63,7 @@ const score = (key: string) => (item: StatusItem) => {
 
 const date = (key: string) => (item: StatusItem) => {
   const v = str(get(item, key));
-  return v === null ? null : dotDate(v);
+  return v === null ? null : dateOf(v);
 };
 
 const progress = (item: StatusItem) => {

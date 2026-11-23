@@ -1,6 +1,7 @@
 // 성장설계 실행계획 조회 응답 조립(P5, No.155~164). 순수 모듈이라 DB 와 시계에 닿지 않고,
 // 오늘 날짜는 todayIso 인자로 받는다.
 
+import { ymdIn } from "../../../../src/lib/time/day.js";
 import { deadlineState, orderPlanPeriods, type PlanPeriod } from "../tracks.js";
 import type { HighGrade, Track } from "../types.js";
 import type {
@@ -30,11 +31,9 @@ export function currentGradeOf(track: Track | null): HighGrade | null {
   return "고3";
 }
 
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-/** 주어진 시각(ms)의 KST 날짜 YYYY-MM-DD. */
-export function todayKstIso(nowMs: number): string {
-  return new Date(nowMs + KST_OFFSET_MS).toISOString().slice(0, 10);
+/** 주어진 시각(ms)의 회원 시간대 날짜 YYYY-MM-DD. */
+export function todayIn(nowMs: number, tz: string): string {
+  return ymdIn(new Date(nowMs), tz);
 }
 
 export function toItemView(row: PlanItemRow, todayIso: string): PlanItemView {

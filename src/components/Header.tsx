@@ -93,14 +93,14 @@ const GREY_ZONE_H = "28.9rem";
 export function getCsatDay() {
   const now = new Date();
   const kstNow = new Date(
-    now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }),
+    now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }), // tz-literal-ok: 수능은 한국 시각 기준
   );
   const today = new Date(
     kstNow.getFullYear(),
     kstNow.getMonth(),
     kstNow.getDate(),
   );
-  const target = new Date(`${CSAT_DATE}T00:00:00+09:00`);
+  const target = new Date(`${CSAT_DATE}T00:00:00+09:00`); // tz-literal-ok: 수능은 한국 시각 기준
   const diff = Math.ceil((target.getTime() - today.getTime()) / MS_PER_DAY);
 
   if (diff > 0) return `수능 D-${diff}`;

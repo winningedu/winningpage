@@ -67,6 +67,7 @@ function entryResponse(
         profile: null,
         replyResent: 0,
         academicYearDefault: 2026,
+        timeZone: "Asia/Seoul",
         ...entry,
       },
       sessions,
@@ -96,6 +97,13 @@ describe("SelfevalShellProvider", () => {
     expect(result.current.openSession).toBeNull();
     await waitFor(() => expect(result.current.openSession?.id).toBe("s1"));
     expect(result.current.entry?.activityCount).toBe(4);
+  });
+
+  test("회원 시간대는 진입 정보에서 읽고 받기 전에는 null 이다", async () => {
+    fetchEntryMock.mockResolvedValue(entryResponse({ timeZone: "UTC" }));
+    const { result } = renderHook(() => useSelfevalShell(), { wrapper });
+    expect(result.current.timeZone).toBeNull();
+    await waitFor(() => expect(result.current.timeZone).toBe("UTC"));
   });
 
   test("보관함이 읽을 세션 목록을 노출한다(받기 전에는 null)", async () => {

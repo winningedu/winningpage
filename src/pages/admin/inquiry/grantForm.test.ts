@@ -1,4 +1,8 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+
+const zone = vi.hoisted(() => ({ tz: "Asia/Seoul" }));
+vi.mock("@/lib/time/zone", () => ({ browserTimeZone: () => zone.tz }));
+
 import {
   buildGrantBody,
   type InquiryGrantFormValues,
@@ -69,7 +73,8 @@ describe("buildGrantBody", () => {
       endsAt: null,
     });
   });
-  test("무제한은 sessionQuota null, 날짜는 한국 시각 하루 경계로 바꾼다", () => {
+  test("무제한은 sessionQuota null, 날짜는 브라우저 시간대 하루 경계(만료는 다음 날 0시)로 바꾼다", () => {
+    zone.tz = "Asia/Seoul";
     expect(
       buildGrantBody({
         ...ok,
@@ -80,8 +85,17 @@ describe("buildGrantBody", () => {
     ).toEqual({
       profileId: "p1",
       sessionQuota: null,
-      startsAt: "2026-10-05T00:00:00+09:00",
-      endsAt: "2027-01-01T23:59:59+09:00",
+      startsAt: "2026-10-04T15:00:00.000Z",
+      endsAt: "2027-01-01T15:00:00.000Z",
+    });
+  });
+  test("다른 시간대에서는 그 시간대의 하루 경계로 보낸다", () => {
+    zone.tz = "America/Los_Angeles";
+    expect(
+      buildGrantBody({ ...ok, startsOn: "2026-10-05", endsOn: "2027-01-01" }),
+    ).toMatchObject({
+      startsAt: "2026-10-05T07:00:00.000Z",
+      endsAt: "2027-01-02T08:00:00.000Z",
     });
   });
 });

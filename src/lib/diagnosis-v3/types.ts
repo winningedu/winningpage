@@ -16,7 +16,7 @@ import type { Likert } from "./likert.js";
 
 export const SCHEMA_VERSION = "2026-11-v3";
 
-/** YYYY-MM-DD, a KST calendar date. */
+/** YYYY-MM-DD, a calendar date in the member's profiles.time_zone. */
 export type IsoDate = string;
 
 // ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ export type DiagnosisV3Answers = {
 
 export type DiagnosisV3Context = {
   readonly diagnosedAt: IsoDate;
-  /** profiles.created_at as a KST date; null falls back to diagnosedAt (07 B24) */
+  /** profiles.created_at as a date in the member's time zone; null falls back to diagnosedAt (07 B24) */
   readonly joinedAt: IsoDate | null;
   /** null when q15 is absent or nothing was found */
   readonly admission: {

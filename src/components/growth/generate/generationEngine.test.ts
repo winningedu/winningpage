@@ -59,6 +59,7 @@ function openList(done: number): ApiResult<ReportsList> {
     kind: "ok",
     data: {
       ok: true,
+      timeZone: "Asia/Seoul",
       items: [],
       archivedCount: 0,
       lastTerminal: null,
@@ -234,6 +235,7 @@ describe("generationEngine", () => {
       kind: "ok",
       data: {
         ok: true,
+        timeZone: "Asia/Seoul",
         open: null,
         archivedCount: 0,
         lastTerminal: null,
@@ -263,6 +265,7 @@ describe("generationEngine", () => {
       kind: "ok",
       data: {
         ok: true,
+        timeZone: "Asia/Seoul",
         open: null,
         archivedCount: 0,
         lastTerminal: null,

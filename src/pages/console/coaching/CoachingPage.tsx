@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Chip, { type ChipTone } from "../Chip";
 import type { GradeLabeler } from "../classLabel";
-import { kstDotDate } from "../date";
+import { dateOf } from "../date";
 import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
 import PageHeader from "../PageHeader";
@@ -183,7 +183,7 @@ export function StudentCard({ data }: { data: Coaching }) {
             <span>담임 선생님 {student.homeroomName}</span>
           )}
           {student.lastSeenAt && (
-            <span>최근 접속 {kstDotDate(student.lastSeenAt).slice(5)}</span>
+            <span>최근 접속 {dateOf(student.lastSeenAt).slice(5)}</span>
           )}
           <span>
             이용 서비스 {student.servicesUsed}/{SERVICE_NAMES.length}

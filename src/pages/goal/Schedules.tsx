@@ -4,6 +4,7 @@ import GoalEmptyState from "@/components/goal/GoalEmptyState";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import AddScheduleFullModal from "@/components/goal/modals/AddScheduleFullModal";
 import ScheduleListCard from "@/components/goal/plan/ScheduleListCard";
+import { useStudentTimeZone } from "@/hooks/useStudentTimeZone";
 import {
   formatScheduleDday,
   formatScheduleMeta,
@@ -26,10 +27,14 @@ type Schedule = {
 type DisplaySchedule = Schedule & { dday: string; meta: string };
 
 /** GET 응답(id/title/category/dueDate/memo) → 카드가 요구하는 표시 shape(dday/meta 계산 포함). */
-function toDisplaySchedule(schedule: Schedule, now: Date): DisplaySchedule {
+function toDisplaySchedule(
+  schedule: Schedule,
+  now: Date,
+  timeZone: string,
+): DisplaySchedule {
   return {
     ...schedule,
-    dday: formatScheduleDday(schedule.dueDate, now),
+    dday: formatScheduleDday(schedule.dueDate, now, timeZone),
     meta: formatScheduleMeta(schedule.dueDate, schedule.memo),
   };
 }
@@ -42,7 +47,14 @@ type EditingSchedule = {
   memo?: string | null;
 };
 
+// 학생 시간대가 오기 전에는 D-day를 계산하지 않는다.
 export default function Schedules() {
+  const timeZone = useStudentTimeZone();
+  if (!timeZone) return null;
+  return <SchedulesBody timeZone={timeZone} />;
+}
+
+function SchedulesBody({ timeZone }: { timeZone: string }) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -90,7 +102,7 @@ export default function Schedules() {
   }, []);
 
   const displaySchedules = (schedules || []).map((schedule) =>
-    toDisplaySchedule(schedule, new Date()),
+    toDisplaySchedule(schedule, new Date(), timeZone),
   );
   const hasSchedules = displaySchedules.length > 0;
 

@@ -11,7 +11,7 @@ import {
   PERIOD_LABELS,
   progress,
   subthemeFor,
-  todayKstIso,
+  todayIn,
   toItemView,
 } from "./view.js";
 
@@ -385,9 +385,22 @@ describe("toItemView 완료 항목", () => {
   });
 });
 
-describe("todayKstIso", () => {
-  it("UTC 15시 이후는 KST 로 다음 날짜", () => {
-    expect(todayKstIso(Date.parse("2026-10-06T14:59:59Z"))).toBe("2026-10-06");
-    expect(todayKstIso(Date.parse("2026-10-06T15:00:00Z"))).toBe("2026-10-07");
+describe("todayIn", () => {
+  it("UTC 15시 이후는 서울에서 다음 날짜", () => {
+    expect(todayIn(Date.parse("2026-10-06T14:59:59Z"), "Asia/Seoul")).toBe(
+      "2026-10-06",
+    );
+    expect(todayIn(Date.parse("2026-10-06T15:00:00Z"), "Asia/Seoul")).toBe(
+      "2026-10-07",
+    );
+  });
+
+  it("마감일 11-30 은 같은 순간에 서울 회원만 지난 것으로 본다", () => {
+    const now = Date.parse("2026-11-30T16:00:00Z");
+    const item = row({ deadline: "2026-11-30" });
+    const seoul = toItemView(item, todayIn(now, "Asia/Seoul"));
+    const la = toItemView(item, todayIn(now, "America/Los_Angeles"));
+    expect(seoul.dday).toBe(-1);
+    expect(la.dday).toBe(0);
   });
 });

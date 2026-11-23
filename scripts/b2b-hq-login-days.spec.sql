@@ -151,6 +151,78 @@ delete from auth.users where id = pg_temp.fx('student');
 select pg_temp.expect_int('프로필이 지워지면 로그인 기록도 지워진다',
   (select count(*) from public.profile_login_days where profile_id = pg_temp.fx('student')), 0);
 
+-- ---------------------------------------------------------------------
+-- profile_login_slots: 회원별 15분 칸 1행. DAU, MAU 는 조회 때 보는 사람 시간대로 묶는다(UTC 이전 D2)
+-- ---------------------------------------------------------------------
+select pg_temp.expect_bool('기본 키는 (profile_id, slot_start) 순서다',
+  (select pg_get_constraintdef(oid) = 'PRIMARY KEY (profile_id, slot_start)'
+     from pg_constraint where conrelid = 'public.profile_login_slots'::regclass and contype = 'p'), true);
+select pg_temp.expect_bool('기간 조회용 인덱스는 slot_start 가 맨 앞이다',
+  exists (select 1 from pg_indexes where schemaname = 'public' and tablename = 'profile_login_slots'
+           and indexdef like '%(slot_start, profile_id)%'), true);
+insert into public.profile_login_slots (profile_id, slot_start)
+  values (pg_temp.fx('qa'), date_bin('15 minutes', timestamptz '2026-11-22 15:37:12+00', timestamptz '2000-01-01 00:00:00+00'));
+select pg_temp.expect_bool('15분 칸은 시각을 15분 아래로 내린 값이다',
+  (select slot_start = timestamptz '2026-11-22 15:30:00+00' from public.profile_login_slots where profile_id = pg_temp.fx('qa')), true);
+select pg_temp.expect_error('같은 회원, 같은 칸 두 번째 행은 기본 키 위반',
+  $$insert into public.profile_login_slots (profile_id, slot_start) values (pg_temp.fx('qa'), timestamptz '2026-11-22 15:30:00+00')$$, '23505');
+insert into public.profile_login_slots (profile_id, slot_start) values (pg_temp.fx('qa'), timestamptz '2026-11-22 15:30:00+00')
+  on conflict (profile_id, slot_start) do nothing;
+insert into public.profile_login_slots (profile_id, slot_start) values (pg_temp.fx('qa'), timestamptz '2026-11-22 15:45:00+00')
+  on conflict (profile_id, slot_start) do nothing;
+select pg_temp.expect_int('on conflict do nothing 은 같은 칸을 한 줄로 두고 다음 칸은 새 줄이다',
+  (select count(*) from public.profile_login_slots where profile_id = pg_temp.fx('qa')), 2);
+select pg_temp.expect_error('slot_start 는 비울 수 없다',
+  $$insert into public.profile_login_slots (profile_id) values (pg_temp.fx('qa'))$$, '23502');
+select pg_temp.expect_error('없는 프로필은 넣을 수 없다',
+  $$insert into public.profile_login_slots (profile_id, slot_start) values (gen_random_uuid(), now())$$, '23503');
+select pg_temp.expect_bool('RLS 가 켜져 있다',
+  (select relrowsecurity from pg_class where oid = 'public.profile_login_slots'::regclass), true);
+select pg_temp.expect_int('정책이 없다',
+  (select count(*) from pg_policies where schemaname = 'public' and tablename = 'profile_login_slots'), 0);
+select pg_temp.expect_bool('anon, authenticated 는 읽기와 쓰기 권한이 없다',
+  not has_table_privilege('anon', 'public.profile_login_slots', 'select')
+  and not has_table_privilege('anon', 'public.profile_login_slots', 'insert')
+  and not has_table_privilege('authenticated', 'public.profile_login_slots', 'select')
+  and not has_table_privilege('authenticated', 'public.profile_login_slots', 'insert'), true);
+select pg_temp.expect_bool('service_role 은 읽고 쓴다',
+  has_table_privilege('service_role', 'public.profile_login_slots', 'select')
+  and has_table_privilege('service_role', 'public.profile_login_slots', 'insert')
+  and has_table_privilege('service_role', 'public.profile_login_slots', 'delete'), true);
+select pg_temp.expect_bool('QA 본사 관리자 쓰기 차단 트리거가 걸려 있다',
+  exists (select 1 from pg_trigger where tgrelid = 'public.profile_login_slots'::regclass
+           and tgname = 'trg_qa_admin_write_block'), true);
+delete from auth.users where id = pg_temp.fx('qa');
+select pg_temp.expect_int('프로필이 지워지면 15분 칸도 지워진다',
+  (select count(*) from public.profile_login_slots where profile_id = pg_temp.fx('qa')), 0);
+
+-- ---------------------------------------------------------------------
+-- 데이터 SQL 백필(D6): profile_login_days.first_seen_at 을 15분 칸으로 옮긴다
+-- supabase/data/20261123140000_profile_login_slots_backfill.sql 본문과 같아야 한다.
+-- ---------------------------------------------------------------------
+delete from public.profile_login_slots;
+delete from public.profile_login_days;
+insert into public.profile_login_days (profile_id, kst_date, first_seen_at) values
+  (pg_temp.fx('member'), date '2026-11-23', timestamptz '2026-11-22 15:37:12+00'),
+  (pg_temp.fx('member'), date '2026-11-24', timestamptz '2026-11-24 00:00:00+00'),
+  (pg_temp.fx('suspended'), date '2026-11-23', timestamptz '2026-11-22 15:14:59+00');
+
+create function pg_temp.run_backfill() returns void language sql as $f$
+  insert into public.profile_login_slots (profile_id, slot_start)
+  select d.profile_id, date_bin('15 minutes', d.first_seen_at, timestamptz '2000-01-01 00:00:00+00')
+    from public.profile_login_days d
+  on conflict (profile_id, slot_start) do nothing
+$f$;
+select pg_temp.run_backfill();
+select pg_temp.expect_int('백필은 날마다 한 칸을 만든다', (select count(*) from public.profile_login_slots), 3);
+select pg_temp.expect_bool('first_seen_at 은 15분 칸으로 내려간다(15:37:12 는 15:30, 15:14:59 는 15:00)',
+  (select bool_and(ok) from (
+     select (profile_id = pg_temp.fx('member') and slot_start in (timestamptz '2026-11-22 15:30+00', timestamptz '2026-11-24 00:00+00'))
+         or (profile_id = pg_temp.fx('suspended') and slot_start = timestamptz '2026-11-22 15:00+00') as ok
+       from public.profile_login_slots) x), true);
+select pg_temp.run_backfill();
+select pg_temp.expect_int('다시 실행해도 행이 늘지 않는다', (select count(*) from public.profile_login_slots), 3);
+
 do $$ begin raise notice '=== b2b-hq-login-days.spec: 전체 통과 ==='; end $$;
 
 rollback;

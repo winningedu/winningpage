@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import { withDedupedKeys } from "@/lib/reactKeys";
 import { supabase } from "@/lib/supabase";
+import { formatDate as formatInstantDate } from "@/lib/time/format";
 
 interface CategoryMeta {
   title: string;
@@ -65,7 +66,7 @@ function formatDate(value: unknown): string {
   if (!value) return "";
   const date = new Date(value as string | number | Date);
   if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
-  return date.toISOString().slice(0, 10);
+  return formatInstantDate(date);
 }
 
 function getContentPreview(value: unknown): string {

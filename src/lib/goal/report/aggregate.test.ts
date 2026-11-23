@@ -317,20 +317,32 @@ test("computeSubjectShare — 과목별 비중 %(합 100 근처)", () => {
 // ---------------------------------------------------------------------------
 
 test("bucketTimeSlots — 자정 직후(KST 01시) 세션은 심야 0~6 버킷", () => {
-  const buckets = bucketTimeSlots([
-    { started_at: "2026-08-03T16:30:00.000Z", duration_seconds: 3600 },
-  ]); // UTC 16:30 = KST 01:30
+  const buckets = bucketTimeSlots(
+    [{ started_at: "2026-08-03T16:30:00.000Z", duration_seconds: 3600 }],
+    "Asia/Seoul",
+  ); // UTC 16:30 = KST 01:30
   const midnight = buckets.find((b) => b.label === "심야 0~6");
   expect(midnight?.value).toBe(1);
 });
 
 test("bucketTimeSlots — KST 21시는 오후 9~12 버킷, 경계(24시)는 넘치지 않는다", () => {
-  const buckets = bucketTimeSlots([
-    { started_at: "2026-08-03T12:00:00.000Z", duration_seconds: 1800 },
-  ]); // UTC 12:00 = KST 21:00
+  const buckets = bucketTimeSlots(
+    [{ started_at: "2026-08-03T12:00:00.000Z", duration_seconds: 1800 }],
+    "Asia/Seoul",
+  ); // UTC 12:00 = KST 21:00
   const late = buckets.find((b) => b.label === "오후 9~12");
   expect(late?.value).toBe(0.5);
   expect(buckets.reduce((s, b) => s + b.value, 0)).toBe(0.5);
+});
+
+test("bucketTimeSlots: 넘겨준 시간대의 시각으로 버킷을 정한다", () => {
+  // UTC 12:00 = 서울 21:00(오후 9~12), 로스앤젤레스 04:00(심야 0~6)
+  const sessions = [
+    { started_at: "2026-08-03T12:00:00.000Z", duration_seconds: 3600 },
+  ];
+  const la = bucketTimeSlots(sessions, "America/Los_Angeles");
+  expect(la.find((b) => b.label === "심야 0~6")?.value).toBe(1);
+  expect(la.find((b) => b.label === "오후 9~12")?.value).toBe(0);
 });
 
 // ---------------------------------------------------------------------------

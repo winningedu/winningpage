@@ -25,7 +25,15 @@ import handler from "./trends.js";
 type Args = Record<string, unknown>;
 
 const get = (query: Record<string, string> = {}) =>
-  callHandler(handler, undefined, "GET", query);
+  callHandler(
+    (req, res) => {
+      req.headers["x-time-zone"] = "Asia/Seoul";
+      return handler(req, res);
+    },
+    undefined,
+    "GET",
+    query,
+  );
 
 let calls: Args[];
 
@@ -128,6 +136,7 @@ describe("GET /api/admin/hq-dashboard/trends", () => {
         p_grain: "day",
         p_mau_mode: "calendar",
         p_include_internal: false,
+        p_tz: "Asia/Seoul",
       },
     ]);
     expect(r.body).toMatchObject({
@@ -176,7 +185,29 @@ describe("GET /api/admin/hq-dashboard/trends", () => {
       p_grain: "month",
       p_mau_mode: "rolling30",
       p_include_internal: true,
+      p_tz: "Asia/Seoul",
     });
+  });
+
+  test("보는 사람 시간대(X-Time-Zone)를 p_tz 로 넘긴다", async () => {
+    await callHandler(
+      (req, res) => {
+        req.headers["x-time-zone"] = "America/Los_Angeles";
+        return handler(req, res);
+      },
+      undefined,
+      "GET",
+    );
+
+    expect(calls[0]).toMatchObject({ p_tz: "America/Los_Angeles" });
+  });
+
+  test("X-Time-Zone 헤더가 없으면 400 TIME_ZONE_REQUIRED 이고 통계를 읽지 않는다", async () => {
+    const r = await callHandler(handler, undefined, "GET");
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "TIME_ZONE_REQUIRED" } });
+    expect(kit.state.events).not.toContain("rpc:fn_hq_trend_buckets");
   });
 
   test("집계 함수가 실패하면 500 이다", async () => {

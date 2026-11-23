@@ -250,7 +250,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ci: result.ci || null,
         di: result.di || null,
         name: result.name || null,
-        birth_date: birthDate ? birthDate.toISOString().slice(0, 10) : null,
+        birth_date: birthDate ? birthDate.toISOString().slice(0, 10) : null, // tz-literal-ok: parseNiceBirthDate 가 Date.UTC 로 만든 날짜다
         gender: result.gender || null,
         nationality: result.national_info || null,
         mobile: result.mobile_no || null,

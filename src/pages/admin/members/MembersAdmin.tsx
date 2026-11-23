@@ -22,6 +22,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { site } from "@/config/site";
 import { formatPhoneInput } from "@/lib/phoneVerification";
 import { supabase } from "@/lib/supabase";
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import {
   AdminApiError,
@@ -515,7 +517,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     );
 
     downloadCsv(
-      `${config.title}_${new Date().toISOString().slice(0, 10)}.csv`,
+      `${config.title}_${ymdIn(new Date(), browserTimeZone())}.csv`,
       filteredRows as unknown as Record<string, unknown>[],
       columns,
     );

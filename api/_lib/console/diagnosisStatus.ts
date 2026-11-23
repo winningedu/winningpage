@@ -12,7 +12,6 @@ import {
   SCHEMA_VERSION,
 } from "../../../src/lib/diagnosis-v3/types.js";
 import { readAll } from "./directory.js";
-import { kstDateOffset } from "./kstDate.js";
 
 export type Urgency = "very_high" | "high" | "mid" | "low";
 
@@ -24,7 +23,7 @@ export interface DiagnosisStatus {
   readinessAvg: number | null;
   /** 학습 실행 역량 6영역 중 가장 낮은 영역. */
   weakest: { name: string; score: number; status: string } | null;
-  /** 진단일(KST, YYYY-MM-DD). */
+  /** 진단 시각(ISO Z). */
   diagnosedAt: string;
 }
 
@@ -122,7 +121,7 @@ function summarizeV3(scores: DiagnosisV3Scores, diagnosedAt: string) {
     executionAvg: Math.round(scores.page1.total),
     readinessAvg: Math.round(scores.page2.total),
     weakest: first ? v3Area(first, scores.page1.areas[first], "page1") : null,
-    diagnosedAt: kstDateOffset(new Date(diagnosedAt), 0),
+    diagnosedAt: new Date(diagnosedAt).toISOString(),
   };
 }
 
@@ -162,7 +161,7 @@ export function summarizeReport(
     executionAvg: mean(page1),
     readinessAvg: mean(page2),
     weakest,
-    diagnosedAt: kstDateOffset(new Date(diagnosedAt), 0),
+    diagnosedAt: new Date(diagnosedAt).toISOString(),
   };
 }
 

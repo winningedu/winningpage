@@ -63,7 +63,7 @@ function overviewRow(overrides: Record<string, unknown> = {}) {
     student_count: 10,
     student_without_enrollment_count: 2,
     teacher_count: 3,
-    last_activity_on: "2026-11-22",
+    last_activity_at: "2026-11-22T14:30:00.000Z",
     ...overrides,
   };
 }
@@ -89,6 +89,19 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("기준 시각", () => {
+  test("asOf 는 ISO Z 순간이다(날짜 문자열이 아니다)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-30T16:00:00.000Z"));
+
+    const res = await get();
+
+    expect((res.body as { asOf: string }).asOf).toBe(
+      "2026-11-30T16:00:00.000Z",
+    );
+  });
 });
 
 describe("권한과 입력", () => {
@@ -181,8 +194,18 @@ function useGoalFixture(
   }[],
   goalRows: ReturnType<typeof goalStudent>[],
   recordRows: ReturnType<typeof records>,
+  zones: Record<string, string> = {},
 ) {
   kit.state.rpc.fn_hq_tenant_students = () => ({ data: students, error: null });
+  // 목표 기록의 하루 기준은 학생의 시간대(profiles.time_zone)다. 기본은 서울.
+  kit.state.rows.profiles = (f) =>
+    matchRows(
+      students.map((x) => ({
+        id: x.profile_id,
+        time_zone: zones[x.profile_id] ?? "Asia/Seoul",
+      })),
+      f,
+    );
   kit.state.rows.goal_students = (f) => matchRows(goalRows, f);
   kit.state.rows.goal_daily_records = (f) => matchRows(recordRows, f);
 }
@@ -209,7 +232,7 @@ describe("기관 목록", () => {
           studentCount: 10,
           studentWithoutEnrollmentCount: 2,
           teacherCount: 3,
-          lastActivityOn: "2026-11-22",
+          lastActivityAt: "2026-11-22T14:30:00.000Z",
           goalRateAverage: null,
           goalUserCount: 0,
         },
@@ -284,6 +307,43 @@ describe("기관 목록", () => {
       goalRateAverage: null,
       goalUserCount: 1,
     });
+  });
+
+  test("목표 실행률의 주간 창은 학생의 시간대를 따른다", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+    kit.state.rpc.fn_hq_tenant_overview = () => ({
+      data: [
+        overviewRow({ tenant_id: "t-a" }),
+        overviewRow({ tenant_id: "t-b", name: "두리중" }),
+      ],
+      error: null,
+    });
+    // NOW 는 서울 11-23 12시, 로스앤젤레스 11-22 19시다. 일요일 11-22 기록은 서울 창에만 든다.
+    const sunday = (profileId: string) => [
+      {
+        profile_id: profileId,
+        record_date: "2026-11-22",
+        study_hours: 4,
+        target_ideal_hours: 2,
+        target_min_hours: 1,
+      },
+    ];
+    useGoalFixture(
+      [
+        { tenant_id: "t-a", profile_id: "s-seoul", has_enrollment: true },
+        { tenant_id: "t-b", profile_id: "s-la", has_enrollment: true },
+      ],
+      [goalStudent("s-seoul"), goalStudent("s-la")],
+      [...sunday("s-seoul"), ...sunday("s-la")],
+      { "s-la": "America/Los_Angeles" },
+    );
+    const res = await get();
+    const tenants = (res.body as { tenants: Record<string, unknown>[] })
+      .tenants;
+    // 서울: 일요일 실제 4 / 이상 목표 12 = 33%. 로스앤젤레스: 창이 11-15~11-21 이라 0%.
+    expect(tenants[0]).toMatchObject({ tenantId: "t-a", goalRateAverage: 33 });
+    expect(tenants[1]).toMatchObject({ tenantId: "t-b", goalRateAverage: 0 });
   });
 
   test("목표관리 학생이 100명을 넘어도 모두 센다(나눠 읽기)", async () => {

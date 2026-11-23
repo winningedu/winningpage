@@ -1,4 +1,8 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+
+const zone = vi.hoisted(() => ({ tz: "Asia/Seoul" }));
+vi.mock("@/lib/time/zone", () => ({ browserTimeZone: () => zone.tz }));
+
 import {
   formatDuration,
   pickHomeColumns,

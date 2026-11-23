@@ -1,5 +1,8 @@
 // 이용권 부여 폼 검증과 요청 본문. 서버 계약은 api/_lib/inquiry/ops/grant.ts 의 GrantBody.
-// 날짜는 한국 시각 기준 하루 경계로 보낸다(시작일 0시, 만료일 그날 마지막 초).
+// 날짜는 브라우저 시간대 하루 경계로 보낸다(시작일 0시, 만료일 다음 날 0시. expires_at 은 배타 상한).
+import { addDaysYmd, dayStartUtc } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
+
 export type InquiryGrantFormValues = {
   profileId: string;
   sessionQuota: string;
@@ -41,7 +44,11 @@ export function buildGrantBody(values: InquiryGrantFormValues) {
   return {
     profileId: values.profileId,
     sessionQuota: values.unlimited ? null : Number(values.sessionQuota),
-    startsAt: values.startsOn ? `${values.startsOn}T00:00:00+09:00` : null,
-    endsAt: values.endsOn ? `${values.endsOn}T23:59:59+09:00` : null,
+    startsAt: values.startsOn
+      ? dayStartUtc(values.startsOn, browserTimeZone())
+      : null,
+    endsAt: values.endsOn
+      ? dayStartUtc(addDaysYmd(values.endsOn, 1), browserTimeZone())
+      : null,
   };
 }

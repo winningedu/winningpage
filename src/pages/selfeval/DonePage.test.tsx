@@ -194,7 +194,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   fetchReportMock.mockResolvedValue(readyReport);
   pdfRoots.length = 0;
-  shellMock.mockReturnValue({ refetchEntry: vi.fn(), studentName: "김하나" });
+  shellMock.mockReturnValue({
+    refetchEntry: vi.fn(),
+    studentName: "김하나",
+    timeZone: "Asia/Seoul",
+  });
 });
 
 describe("DonePage", () => {

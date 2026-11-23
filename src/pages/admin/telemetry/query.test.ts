@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   type AiTelemetryQuery,
   aiTelemetryQueryReducer,
@@ -9,12 +9,26 @@ import {
   defaultRange,
 } from "./query";
 
+const zone = vi.hoisted(() => ({ value: "Asia/Seoul" }));
+vi.mock("../../../lib/time/zone", () => ({
+  browserTimeZone: () => zone.value,
+}));
+
+beforeEach(() => {
+  zone.value = "Asia/Seoul";
+});
+
 const NOW = new Date("2026-10-06T16:00:00Z");
 
 describe("defaultRange", () => {
-  test("오늘(KST)과 29일 전을 날짜 문자열로 돌려준다", () => {
-    // UTC 2026-10-06 16:00 은 KST 로 2026-10-07 01:00 이다.
+  test("브라우저 시간대의 오늘과 29일 전을 날짜 문자열로 돌려준다", () => {
+    // UTC 2026-10-06 16:00 은 서울로 2026-10-07 01:00 이다.
     expect(defaultRange(NOW)).toEqual({ from: "2026-09-08", to: "2026-10-07" });
+  });
+
+  test("시간대가 UTC 면 UTC 날짜 기준이다", () => {
+    zone.value = "UTC";
+    expect(defaultRange(NOW)).toEqual({ from: "2026-09-07", to: "2026-10-06" });
   });
 });
 

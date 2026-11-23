@@ -46,10 +46,10 @@ import {
   getRemainingMogo,
   getRemainingNaesin,
   getSchoolCutType,
-  kstYMD,
 } from "../../../src/lib/goal/calc/index.js";
 import type { CutsInput } from "../../../src/lib/goal/calc/pipeline.js";
 import type { DayPattern } from "../../../src/lib/goal/calc/schedule.js";
+import { ymdIn } from "../../../src/lib/time/day.js";
 import { buildGoalDirectionReport } from "../../_lib/goal/directionReport.js";
 
 import {
@@ -59,6 +59,7 @@ import {
   fetchStudentRow,
   fetchStudentStateRow,
   fetchTargetCuts,
+  getStudentTimeZone,
   narrowGoalSession,
   openGoalSession,
   PAID_MESSAGE,
@@ -67,6 +68,15 @@ import {
 } from "../../_lib/goal/repo.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
+
+/** 온보딩 원점(학생 현지 날짜). 수시 컷이 없는 awaiting_cuts 행은 원점을 두지 않는다. */
+export function resolveActualStartDate(
+  hasSusiCuts: boolean,
+  now: Date,
+  timeZone: string,
+): string | null {
+  return hasSusiCuts ? ymdIn(now, timeZone) : null;
+}
 
 export const config = { runtime: "nodejs" };
 
@@ -1336,6 +1346,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     //    computeEngineDerivedFields(내 정보 수정과 공유하는 계산 경로)로 옮겼다 —
     //    그 함수 JSDoc 참고, 이 파일에서 재구현하지 않는다.
     const now = new Date();
+    const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
     const {
       cuts,
       missing,
@@ -1442,7 +1453,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // 가상 날짜의 원점은 rate 와 같은 시점이어야 한다(§8 #14). 온보딩 자체가
       // 성립하는 기준은 수시 컷이다 — 정시 컷 누락은 더 이상 온보딩을 막지
       // 않는다(§9-Q1(b)). 수시 컷도 없는 awaiting_cuts 행만 원점을 두지 않는다.
-      actual_start_date: hasSusiCuts ? kstYMD(now) : null,
+      actual_start_date: resolveActualStartDate(hasSusiCuts, now, timeZone),
       onboarded_at: hasSusiCuts ? now.toISOString() : null,
       status: hasSusiCuts ? "active" : "awaiting_cuts",
     };

@@ -7,9 +7,9 @@
 //
 // "2주 전까지는" — 고객사 의도는 "자동 발송된 지 2주 안이면 다시 보낼 수
 // 있다"다. 기준일은 기간 시작이 아니라 **그 기간이 실제로 자동 발송되는
-// 날짜**다(api/_lib/goal/reportResendPolicy.ts): daily=그날 자신(22시 발송),
-// weekly=다음 월요일(그 주 리포트는 다음 주 월요일 08시에 나간다), monthly=그
-// 달 마지막 날(23시 발송). 오늘(KST) − 발송일 > 14 면 400, 발송일이 아직
+// 날짜**다(api/_lib/goal/reportResendPolicy.ts): daily=그날 자신(현지 22시 발송),
+// weekly=다음 월요일(그 주 리포트는 다음 주 월요일 현지 08시에 나간다), monthly=그
+// 달 마지막 날(현지 23시 발송). 오늘(수신자 현지) − 발송일 > 14 면 400, 발송일이 아직
 // 오지 않았으면(자동 발송 전) 400 — 이번 주 주간 리포트를 그 주 월요일이
 // 오기 전에 재발송하는 것도 이 규칙으로 막힌다.
 //
@@ -26,12 +26,12 @@
 import {
   diffDaysYMD,
   getMondayYMD,
-  kstYMD,
   toYMD,
 } from "../../../../src/lib/goal/calc/index.js";
+import { ymdIn } from "../../../../src/lib/time/day.js";
 import {
   dailyReportDispatchYmd,
-  dispatchAtKst,
+  dispatchAt,
   MAX_RESEND_DAYS_AGO,
   monthlyReportDispatchYmd,
   weeklyReportDispatchYmd,
@@ -65,15 +65,18 @@ export type ResendPeriodValidation =
  * 보지 않는 순수 함수라 로컬에서 바로 단언할 수 있다(resend-report.test.ts).
  *
  * QA — "오늘 날짜"(YMD)만 보고 판정하면 당일 발송 시각(daily 22:00·weekly
- * 08:00·monthly 23:00, 전부 KST) 전에도 재발송이 통과해 크론 자동 발송과
- * 겹쳐 학부모가 2통을 받는다. now는 날짜가 아니라 실제 "지금 시각"이어야
- * dispatchAtKst와 시·분까지 비교할 수 있다.
+ * 08:00·monthly 23:00, 전부 수신자 현지 시각) 전에도 재발송이 통과해 크론
+ * 자동 발송과 겹쳐 학부모가 2통을 받는다. now는 날짜가 아니라 실제 "지금
+ * 시각"이어야 dispatchAt과 시·분까지 비교할 수 있다.
  *
+ * @param tz 리포트 대상 학생의 시간대(profiles.time_zone). 발송 시각과 "오늘"
+ *   모두 이 시간대 기준이다.
  * @param now 기준 "지금"(실제 시각). 생략하면 실제 지금.
  */
 export function validateResendPeriod(
   kind: unknown,
   periodKey: unknown,
+  tz: string,
   now: Date = new Date(),
 ): ResendPeriodValidation {
   if (kind !== "daily" && kind !== "weekly" && kind !== "monthly") {
@@ -128,11 +131,11 @@ export function validateResendPeriod(
 
   // 날짜만 비교하는 diff와 별개로, 발송 "시각"(시·분)까지 지났는지를 우선 본다 —
   // 당일(diff===0)이어도 그 시각 전이면 아직 자동 발송이 일어나지 않은 상태다.
-  if (now.getTime() < dispatchAtKst(kind, periodKey).getTime()) {
+  if (now.getTime() < dispatchAt(kind, periodKey, tz).getTime()) {
     return { ok: false, detail: "아직 발송 시점이 지나지 않은 기간입니다." };
   }
 
-  const todayYmd = kstYMD(now);
+  const todayYmd = ymdIn(now, tz);
   const diff = diffDaysYMD(dispatchYmd, todayYmd);
   if (diff > MAX_RESEND_DAYS_AGO) {
     return { ok: false, detail: "2주 이내 기간만 다시 보낼 수 있습니다." };
@@ -197,7 +200,25 @@ export default defineHandler({
       );
     }
 
-    const validation = validateResendPeriod(kind, periodKey);
+    // 발송 시각과 "오늘"은 리포트를 받는 학생의 시간대 기준이다.
+    const { data: studentRow, error: studentError } = await supabaseAdmin
+      .from("profiles")
+      .select("time_zone")
+      .eq("id", studentProfileId)
+      .maybeSingle();
+    if (studentError) {
+      throw new Error(`학생 시간대 조회 실패: ${studentError.message}`);
+    }
+    if (!studentRow) {
+      return void sendError(res, "detail", 404, "학생을 찾을 수 없습니다.");
+    }
+
+    const validation = validateResendPeriod(
+      kind,
+      periodKey,
+      studentRow.time_zone,
+      new Date(),
+    );
     if (!validation.ok) {
       return void sendError(res, "detail", 400, validation.detail);
     }

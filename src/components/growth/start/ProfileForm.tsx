@@ -3,6 +3,8 @@ import GradeLockNote from "@/components/enrollment/GradeLockNote";
 import { useGradeLock } from "@/components/enrollment/useGradeLock";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 import {
   GRADES,
   MAX_UNIVERSITIES,
@@ -65,7 +67,10 @@ export default function ProfileForm({
     setForm((prev) => ({ ...prev, ...patch }));
 
   function submit() {
-    const result = validateProfileForm(form, new Date().getFullYear());
+    const result = validateProfileForm(
+      form,
+      Number(ymdIn(new Date(), browserTimeZone()).slice(0, 4)),
+    );
     if (!result.ok) {
       setError(result.reason);
       return;

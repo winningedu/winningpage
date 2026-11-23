@@ -36,6 +36,8 @@ import {
 } from "@/lib/adminPermissions";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { supabase } from "@/lib/supabase";
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 // 쿠폰관리는 제네릭 CRUD 로 표현되지 않는다(파생 사용 건수 · NULL=무제한 3상태
 // 입력 · slug 사전중복검사 · 사용이력 드릴다운 + void RPC). config.custom +
 // customComponentKey(CUSTOM_COMPONENT_REGISTRY 조회)로 붙인다 — premiumBookPages 선례와 같은 방식이다.
@@ -1392,7 +1394,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
   }
 
   async function downloadExcel() {
-    const filename = `${config.title}_${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `${config.title}_${ymdIn(new Date(), browserTimeZone())}.csv`;
 
     // 전량 로드 탭은 화면 rows가 곧 전체다 — 기존 경로 그대로.
     if (!config.serverPaginate) {

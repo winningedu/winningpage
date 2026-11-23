@@ -1,17 +1,21 @@
 // 중요일정 D-day · 카드 meta 문자열 포맷터 — 실제 캘린더 날짜 기준(계산 엔진의
 // 가상 날짜 모델과 무관하다. calc/ 는 확률 파이프라인 전용으로 동결돼 있어 이 파일은
-// calc/ 밖에 둔다). kstYMD만 재사용해 "오늘"의 시간대 처리를 calc/virtualDate.js와
-// 일치시킨다.
-import { kstYMD } from "./calc/index.js";
+// calc/ 밖에 둔다). "오늘"은 넘겨준 시간대(기본 브라우저)의 달력 날짜다.
+import { ymdIn } from "../time/day.js";
+import { browserTimeZone } from "../time/zone.js";
 
 const MS_PER_DAY = 86400000;
 
 /**
  * 'YYYY-MM-DD' 마감일 → GoalDdayBadge용 D-day 문자열.
- * 오늘(KST) 기준. 당일은 'D-day', 지난 일정은 'D+N'.
+ * 오늘(tz 기준, 기본 브라우저 시간대). 당일은 'D-day', 지난 일정은 'D+N'.
  */
-export function formatScheduleDday(dueDate: string, now = new Date()) {
-  const today = kstYMD(now);
+export function formatScheduleDday(
+  dueDate: string,
+  now = new Date(),
+  tz = browserTimeZone(),
+) {
+  const today = ymdIn(now, tz);
   const diffDays = Math.round(
     (new Date(`${dueDate}T00:00:00Z`).getTime() -
       new Date(`${today}T00:00:00Z`).getTime()) /

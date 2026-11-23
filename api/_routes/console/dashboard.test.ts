@@ -18,10 +18,13 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+import { withTimeZone } from "../../_lib/console/zoneTestKit.js";
 import handler from "./dashboard.js";
 
-const get = (query: Record<string, string> = {}) =>
-  callHandler(handler, undefined, "GET", query);
+const get = (
+  query: Record<string, string> = {},
+  zone: string | null = "Asia/Seoul",
+) => callHandler(withTimeZone(handler, zone), undefined, "GET", query);
 
 const CLASSES = [
   {
@@ -120,6 +123,15 @@ beforeEach(() => {
       ids.map((profile_id) => ({ profile_id })),
       f,
     );
+  // 목표 기록의 하루 기준은 학생의 시간대다.
+  kit.state.rows.profiles = (f) =>
+    matchRows(
+      ["s1", "s2", "s3", "s4", "s7", "s9", "s10"].map((id) => ({
+        id,
+        time_zone: "Asia/Seoul",
+      })),
+      f,
+    );
   kit.state.rows.diagnosis_attempts = use(["s1", "s2", "s3", "s7"]);
   kit.state.rows.goal_students = use(["s1", "s2", "s4"]);
   kit.state.rows.growth_profiles = use(["s1"]);
@@ -181,6 +193,22 @@ describe("GET /api/console/dashboard", () => {
       average: 100,
       buckets: { low: 0, mid: 0, high: 1 },
     });
+  });
+
+  test("asOf is the viewer's calendar day from X-Time-Zone", async () => {
+    vi.setSystemTime(new Date("2026-11-04T20:00:00Z"));
+    const seoul = await get({}, "Asia/Seoul");
+    const la = await get({}, "America/Los_Angeles");
+    expect((seoul.body as { asOf: string }).asOf).toBe("2026-11-05");
+    expect((la.body as { asOf: string }).asOf).toBe("2026-11-04");
+  });
+
+  test("without X-Time-Zone the answer is 400 TIME_ZONE_REQUIRED", async () => {
+    const r = await get({}, null);
+    expect(r.status).toBe(400);
+    expect((r.body as { error: { code: string } }).error.code).toBe(
+      "TIME_ZONE_REQUIRED",
+    );
   });
 
   test("a homeroom is counted over the classes assigned to them only", async () => {

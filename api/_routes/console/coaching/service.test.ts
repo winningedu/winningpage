@@ -17,10 +17,13 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+import { withTimeZone } from "../../../_lib/console/zoneTestKit.js";
 import handler from "./service.js";
 
-const get = (query: Record<string, string>) =>
-  callHandler(handler, undefined, "GET", query);
+const get = (
+  query: Record<string, string>,
+  zone: string | null = "Asia/Seoul",
+) => callHandler(withTimeZone(handler, zone), undefined, "GET", query);
 
 const enrollment = (over: Record<string, unknown>) => ({
   tenant_id: "tenant-1",
@@ -138,9 +141,9 @@ beforeEach(() => {
   kit.state.rows.profiles = (f) =>
     matchRows(
       [
-        { id: "s1", name: "김서연" },
-        { id: "s2", name: "윤하린" },
-        { id: "s3", name: "이서준" },
+        { id: "s1", name: "김서연", time_zone: "Asia/Seoul" },
+        { id: "s2", name: "윤하린", time_zone: "Asia/Seoul" },
+        { id: "s3", name: "이서준", time_zone: "Asia/Seoul" },
       ],
       f,
     );
@@ -242,6 +245,15 @@ const detailOf = async (service: string) =>
   ((await get({ studentId: "s1", service })).body as { detail: Detail }).detail;
 
 describe("GET /api/console/coaching/service", () => {
+  test("without X-Time-Zone the answer is 400 TIME_ZONE_REQUIRED", async () => {
+    const r = await get({ studentId: "s1", service: "goal" }, null);
+
+    expect(r.status).toBe(400);
+    expect((r.body as { error: { code: string } }).error.code).toBe(
+      "TIME_ZONE_REQUIRED",
+    );
+  });
+
   test("a bad service name or a missing student is 400", async () => {
     expect((await get({ studentId: "s1", service: "x" })).status).toBe(400);
     expect((await get({ service: "goal" })).status).toBe(400);

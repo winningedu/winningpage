@@ -114,7 +114,7 @@ const STEP_LABELS: Record<SessionStep, string> = {
 };
 
 /** 메타 줄 조각. 값이 없는 조각은 만들지 않는다. */
-export function rowMeta(item: SessionListItem): string[] {
+export function rowMeta(item: SessionListItem, tz: string): string[] {
   const parts: string[] = [];
   const where = [
     item.academicYear !== null ? `${item.academicYear}학년도` : null,
@@ -124,14 +124,14 @@ export function rowMeta(item: SessionListItem): string[] {
   if (where.length > 0) parts.push(where.join(" "));
 
   if (sessionState(item) === "completed") {
-    const saved = item.completedAt ? formatDotDate(item.completedAt) : null;
+    const saved = item.completedAt ? formatDotDate(item.completedAt, tz) : null;
     if (saved) parts.push(`저장 ${saved}`);
     if (item.score !== null) parts.push(`점수 ${item.score}점`);
     return parts;
   }
   if (sessionState(item) === "writing")
     parts.push(STEP_LABELS[item.currentStep]);
-  const last = formatDotDate(item.lastActivityAt);
+  const last = formatDotDate(item.lastActivityAt, tz);
   if (last) parts.push(`마지막 저장 ${last}`);
   return parts;
 }

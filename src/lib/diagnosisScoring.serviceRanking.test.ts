@@ -220,26 +220,40 @@ test("M3 에서 자기평가서(DIF_10 체크)는 후보에서 빠진다", () =>
 
 /* ---- F-06 고3 6월 이후 서비스 2종 제한 (Q-13) ---- */
 
-test("고3 5월 진단 → 6종 전부", () => {
-  expect(serviceCandidates("H3", "2026-05-31T14:59:00Z").codes.length).toEqual(
-    6,
-  );
+test("고3 5월 31일 진단 → 6종 전부", () => {
+  expect(serviceCandidates("H3", "2026-05-31").codes.length).toEqual(6);
 });
-// KST 경계 — 위 UTC 시각은 KST 로 5/31 23:59, 아래는 6/1 00:00 이다. UTC 로 읽으면 둘 다 5월이 된다.
-test("고3 6월 1일 00:00 KST → 2종", () => {
-  expect(serviceCandidates("H3", "2026-05-31T15:00:00Z").codes).toEqual(
+// diagnosedAt 은 서버가 회원 시간대로 정한 YYYY-MM-DD 다. 월은 그 문자열에서 시간대 없이 읽는다.
+test("고3 6월 1일 진단 → 2종", () => {
+  expect(serviceCandidates("H3", "2026-06-01").codes).toEqual(
     SERVICE_H3_LATE_CODES,
   );
 });
+test("시각이 붙은 문자열도 날짜 부분의 월을 그대로 읽는다(시간대 변환 없음)", () => {
+  expect(serviceCandidates("H3", "2026-05-31T20:00:00Z").codes.length).toEqual(
+    6,
+  );
+});
+test("월 판정은 실행 환경 시간대와 무관하다", () => {
+  const original = process.env.TZ;
+  try {
+    process.env.TZ = "America/Los_Angeles";
+    expect(serviceCandidates("H3", "2026-06-01").codes).toEqual(
+      SERVICE_H3_LATE_CODES,
+    );
+    expect(serviceCandidates("H3", "2026-05-31").codes.length).toEqual(6);
+  } finally {
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
+  }
+});
 test("고3 7월 진단 → 2종", () => {
-  expect(serviceCandidates("H3", "2026-07-10T00:00:00Z").codes).toEqual(
+  expect(serviceCandidates("H3", "2026-07-10").codes).toEqual(
     SERVICE_H3_LATE_CODES,
   );
 });
 test("고3 6월 이후 판정 사유가 남는다", () => {
-  expect(serviceCandidates("H3", "2026-07-10T00:00:00Z").reason).toEqual(
-    "H3_LATE",
-  );
+  expect(serviceCandidates("H3", "2026-07-10").reason).toEqual("H3_LATE");
 });
 // fail-open — 시각을 못 읽었다는 이유로 학생의 선택지를 줄이지 않는다.
 test("diagnosedAt 없음 → 6종 전부", () => {
@@ -249,18 +263,16 @@ test("diagnosedAt 파싱 실패 → 6종 전부", () => {
   expect(serviceCandidates("H3", "not-a-date").codes.length).toEqual(6);
 });
 test("H1 은 시점과 무관하게 6종", () => {
-  expect(serviceCandidates("H1", "2026-07-10T00:00:00Z").codes.length).toEqual(
-    6,
-  );
+  expect(serviceCandidates("H1", "2026-07-10").codes.length).toEqual(6);
 });
 test("M3 는 기존 표 그대로 2종", () => {
-  expect(serviceCandidates("M3", "2026-07-10T00:00:00Z").reason).toEqual("M3");
+  expect(serviceCandidates("M3", "2026-07-10").reason).toEqual("M3");
 });
 
 const h3LateRanked = rankServices(
   makeInput({
     profile: { name: null, gradeLevel: "H3", schoolType: null },
-    meta: { schemaVersion: null, diagnosedAt: "2026-07-10T00:00:00Z" },
+    meta: { schemaVersion: null, diagnosedAt: "2026-07-10" },
     obstacles: ["OBS_01", "OBS_02", "OBS_03"],
     difficulties: ["DIF_10"],
   }),

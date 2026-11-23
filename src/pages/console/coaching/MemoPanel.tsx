@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { consoleRequest } from "../api";
-import { kstDotDate } from "../date";
+import { dateOf } from "../date";
 import Notice from "../Notice";
 
 interface Memo {
@@ -199,7 +199,7 @@ export default function MemoPanel({
           {memos.map((m) => (
             <li key={m.id} className="flex flex-col gap-1 py-3">
               <p className="text-app-caption text-ink-sub">
-                {kstDotDate(m.createdAt)} {m.authorName}
+                {dateOf(m.createdAt)} {m.authorName}
               </p>
               <p className="text-app-label font-semibold text-ink-strong">
                 {m.body}

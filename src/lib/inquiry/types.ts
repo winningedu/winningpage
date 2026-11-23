@@ -526,6 +526,8 @@ export type SubmissionResponse = {
 /** 4. GET /api/inquiry/reports 목록 */
 export type ReportsList = {
   ok: true;
+  /** 회원 시간대(IANA). 목록 날짜를 이 시간대로 센다. */
+  timeZone: string;
   items: {
     sessionId: string;
     completedAt: string;
@@ -560,6 +562,8 @@ export type ReportsList = {
 /** 4. GET /api/inquiry/reports?sessionId= 상세 */
 export type SessionDetail = {
   ok: true;
+  /** 회원 시간대(IANA). 리포트 날짜를 이 시간대로 센다. */
+  timeZone: string;
   session: SessionView;
   assets: AssetView[];
   topics: TopicView[];

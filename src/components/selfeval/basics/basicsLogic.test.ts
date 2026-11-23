@@ -21,6 +21,7 @@ function entry(over: Partial<Entry> = {}): Entry {
     profile: null,
     replyResent: 0,
     academicYearDefault: 2026,
+    timeZone: "Asia/Seoul",
     ...over,
   };
 }

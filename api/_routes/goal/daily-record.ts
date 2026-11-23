@@ -7,8 +7,8 @@
 //
 // ── 실제 달력 모델(팀장 작업 지시 "배경" 절, 확정 설계 — 변경 금지) ──────────
 // goal_daily_records.record_index 는 "제출 순번"이 아니라
-// actual_start_date 부터 **실제 KST 경과 일수**다(diffDaysYMD). record_date 는
-// 실제 오늘(KST) 그 자체다. (profile_id, record_date) UNIQUE 가 하루 1행을
+// actual_start_date 부터 **학생 현지 경과 일수**다(diffDaysYMD). record_date 는
+// 학생 현지의 실제 오늘 그 자체다. (profile_id, record_date) UNIQUE 가 하루 1행을
 // 보장하고, 당일 재제출은 upsert(= 갱신 + delta 재계산)로 처리한다 — 과거 날짜
 // 쓰기는 불가능하다(recordIndex 가 음수면 400).
 //
@@ -31,9 +31,9 @@ import {
   calculateDailyBonusV2,
   diffDaysYMD,
   getDayIndexFromYMDServer,
-  kstYMD,
   VIRTUAL_DAY_NAMES,
 } from "../../../src/lib/goal/calc/index.js";
+import { ymdIn } from "../../../src/lib/time/day.js";
 import {
   appendProbabilityLog,
   fetchLatestDailyRecord,
@@ -41,6 +41,7 @@ import {
   fetchStudentStateRow,
   fetchTimerDaySummary,
   fetchTodayRecord,
+  getStudentTimeZone,
   narrowGoalSession,
   num,
   openGoalSession,
@@ -349,7 +350,7 @@ export function buildTomorrowTargets(
 }
 
 // ---------------------------------------------------------------------------
-// GET — 오늘(KST) 기록 조회(프리필용)
+// GET — 오늘(학생 현지) 기록 조회(프리필용)
 // ---------------------------------------------------------------------------
 
 async function handleGet(
@@ -376,7 +377,8 @@ async function handleGet(
   const student = gate.row;
 
   const now = new Date();
-  const recordDate = kstYMD(now);
+  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+  const recordDate = ymdIn(now, timeZone);
 
   const [record, stateRow, timerSummary, latestRecord] = await Promise.all([
     fetchTodayRecord(supabaseAdmin, profileId, recordDate),
@@ -486,7 +488,8 @@ async function handlePost(
   }
 
   const now = new Date();
-  const recordDate = kstYMD(now);
+  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+  const recordDate = ymdIn(now, timeZone);
 
   // 실제 달력 모델의 정본 계산 — "제출 N번째"가 아니라 시작일부터 실제 경과 일수.
   const recordIndex = diffDaysYMD(student.actual_start_date, recordDate, now);
@@ -643,7 +646,7 @@ async function handlePost(
     profile_id: profileId,
     record_index: recordIndex,
     record_date: recordDate,
-    submitted_on: kstYMD(now),
+    submitted_on: recordDate,
     // QA3 행305 — 다음 12시간 쿨다운의 기준점. 이 값이 곧 위 cooldown 게이트가
     // 다음 요청에서 읽는 latestRecord.submitted_at이다.
     submitted_at: now.toISOString(),

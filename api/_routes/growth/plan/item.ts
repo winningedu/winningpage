@@ -30,6 +30,7 @@
 // 핸들러 본문은 DB 에 묶여 단위 테스트하지 않는다.
 
 import type { VercelResponse } from "@vercel/node";
+import { loadMemberTimeZone } from "../../../_lib/growth/memberZone.js";
 import { planMetrics } from "../../../_lib/growth/plan/metrics.js";
 import {
   decideMutation,
@@ -44,7 +45,7 @@ import {
 import {
   nextDeadline,
   progress,
-  todayKstIso,
+  todayIn,
   toItemView,
 } from "../../../_lib/growth/plan/view.js";
 import { defineHandler, requireUserId } from "../../../_lib/handler.js";
@@ -105,7 +106,7 @@ export default defineHandler({
       return;
     }
     const nowMs = Date.now();
-    const todayIso = todayKstIso(nowMs);
+    const todayIso = todayIn(nowMs, await loadMemberTimeZone(db, userId));
 
     const decision = decideMutation(
       item,

@@ -3,6 +3,7 @@
 // https://vercel.com/docs/rest-api/web-analytics/aggregates-custom-events (2026-11-23 확인).
 // 사이트마다 Vercel 프로젝트가 달라 env 도 프로젝트별로 등록한다. 토큰은 응답과 로그에 싣지 않는다.
 
+import { dayRangeUtc } from "../../../src/lib/time/day.js";
 import { getEnv } from "../supabaseAdmin.js";
 
 const API_BASE = "https://api.vercel.com/v1/query/web-analytics";
@@ -67,25 +68,26 @@ export function readWebAnalyticsConfig(): WebAnalyticsConfig | null {
   return { token, projectId, teamId };
 }
 
-// 날짜는 YYYY-MM-DD 한국 날짜다. 실제 달력에 없는 날이면 null.
-function kstStartMs(date: string, plusDays: number): number | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+// 날짜는 보는 사람 시간대의 YYYY-MM-DD 다. 실제 달력에 없는 날이면 false.
+function isCalendarDate(date: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const moment = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(moment.getTime())) return null;
-  if (moment.toISOString().slice(0, 10) !== date) return null;
-  moment.setUTCDate(moment.getUTCDate() + plusDays);
-  return Date.parse(`${moment.toISOString().slice(0, 10)}T00:00:00+09:00`);
+  if (Number.isNaN(moment.getTime())) return false;
+  return moment.toISOString().slice(0, 10) === date; // tz-literal-ok: Date.UTC 로 만든 날짜를 되돌려 YYYY-MM-DD 실존 여부만 본다(시간대 무관)
 }
 
-/** 시작일 0시(포함)부터 종료일 다음 날 0시 1ms 전(포함)까지. 틀리면 null. */
+/** 시작일 0시(포함)부터 종료일 다음 날 0시 1ms 전(포함)까지, 하루 경계는 tz 기준. 틀리면 null. */
 export function parseRange(
   from: unknown,
   to: unknown,
+  tz: string,
 ): { range: WebAnalyticsRange; since: number; until: number } | null {
   if (typeof from !== "string" || typeof to !== "string") return null;
-  const since = kstStartMs(from, 0);
-  const nextDay = kstStartMs(to, 1);
-  if (since === null || nextDay === null || since >= nextDay) return null;
+  if (!isCalendarDate(from) || !isCalendarDate(to)) return null;
+  const { from: start, toExclusive } = dayRangeUtc(from, to, tz);
+  const since = Date.parse(start);
+  const nextDay = Date.parse(toExclusive);
+  if (since >= nextDay) return null;
   return { range: { from, to }, since, until: nextDay - 1 };
 }
 
@@ -132,7 +134,8 @@ async function buildReport(
   ];
 
   const [totals, pages, events, ...breakdowns] = await Promise.all([
-    query(config, "visits/count", period),
+    // visits/count 는 since, until 을 UTC 날짜 시작으로 내려 한국 하루 합계가 틀린다. 시간 단위를 지키는 aggregate 를 합산한다.
+    query(config, "visits/aggregate", [...period, ["by", "environment"]]),
     query(config, "visits/aggregate", [
       ...period,
       ["by", "requestPath"],
@@ -163,7 +166,7 @@ async function buildReport(
     ),
   ]);
 
-  const totalRow = (totals ?? {}) as Row;
+  const totalRows = (Array.isArray(totals) ? totals : []) as Row[];
   const eventRows = (Array.isArray(events) ? events : []) as Row[];
   const breakdownRows = new Map(
     properties.map((property, i) => [
@@ -175,8 +178,8 @@ async function buildReport(
   return {
     range,
     totals: {
-      pageviews: num(totalRow.pageviews),
-      visitors: num(totalRow.visitors),
+      pageviews: totalRows.reduce((sum, r) => sum + num(r.pageviews), 0),
+      visitors: totalRows.reduce((sum, r) => sum + num(r.visitors), 0),
     },
     topPages: ((Array.isArray(pages) ? pages : []) as Row[]).map((row) => ({
       path: String(row.requestPath ?? ""),
@@ -194,7 +197,7 @@ async function buildReport(
           values: (breakdownRows.get(property) ?? [])
             .filter((r) => r.eventName === event.name)
             .map((r) => ({
-              value: String(r.eventData ?? ""),
+              value: String(r[`eventData/${property}`] ?? ""),
               count: num(r.count),
             })),
         })),
@@ -210,7 +213,7 @@ export async function loadWebAnalyticsReport(
   config: WebAnalyticsConfig,
   parsed: { range: WebAnalyticsRange; since: number; until: number },
 ): Promise<WebAnalyticsReport> {
-  const key = `${config.projectId}:${parsed.range.from}:${parsed.range.to}`;
+  const key = `${config.projectId}:${parsed.since}:${parsed.until}`;
   const now = Date.now();
   const hit = cache.get(key);
   if (hit && now - hit.at < CACHE_TTL_MS) return hit.report;

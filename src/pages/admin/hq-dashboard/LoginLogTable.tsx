@@ -6,15 +6,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatDateTime } from "@/lib/time/format";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
 import type { LoginLogResponse } from "./api";
 import { memberTypeLabel } from "./labels";
-
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-function kstTime(iso: string): string {
-  return new Date(Date.parse(iso) + KST_OFFSET_MS).toISOString().slice(11, 16);
-}
 
 export default function LoginLogTable({
   data,
@@ -59,9 +54,9 @@ export default function LoginLogTable({
             </TableRow>
           ) : (
             data.items.map((row) => (
-              <TableRow key={`${row.kstDate}-${row.profileId}`}>
-                <TableCell>{row.kstDate}</TableCell>
-                <TableCell>{kstTime(row.firstSeenAt)}</TableCell>
+              <TableRow key={`${row.loginDate}-${row.profileId}`}>
+                <TableCell>{row.loginDate}</TableCell>
+                <TableCell>{formatDateTime(row.firstSeenAt)}</TableCell>
                 <TableCell>{row.name ?? ""}</TableCell>
                 <TableCell>{memberTypeLabel(row.memberType)}</TableCell>
                 <TableCell>{row.tenantName ?? ""}</TableCell>

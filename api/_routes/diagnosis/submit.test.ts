@@ -180,7 +180,7 @@ describe("diagnosis/submit scoring", () => {
   const payload = { engine: "payload" };
   beforeEach(() => {
     vi.useFakeTimers();
-    // 2026-11-09 01:00 KST is still 2026-11-08 in UTC: the date must be KST.
+    // 2026-11-09 01:00 in Seoul is still 2026-11-08 in UTC: the date follows the member zone.
     vi.setSystemTime(new Date("2026-11-08T16:00:00Z"));
     engine.score.mockReturnValue(payload);
   });
@@ -198,9 +198,13 @@ describe("diagnosis/submit scoring", () => {
     ...over,
   });
 
-  test("scores with the KST date, profile inputs and the fetched cut", async () => {
+  test("scores with the member-zone date, profile inputs and the fetched cut", async () => {
     const log = setup({
-      profile: { name: " 홍길동 ", created_at: "2026-10-31T16:30:00Z" },
+      profile: {
+        name: " 홍길동 ",
+        created_at: "2026-10-31T16:30:00Z",
+        time_zone: "Asia/Seoul",
+      },
       admission: [
         cutRow({ result_year: 2024, grade_50: 9 }),
         cutRow({ result_year: 2025, variant_seq: 1, grade_50: 8 }),
@@ -249,6 +253,40 @@ describe("diagnosis/submit scoring", () => {
         context: engine.score.mock.calls[0]?.[1],
       },
       payload,
+    });
+  });
+
+  test("diagnosedAt is the member's local day in profiles.time_zone", async () => {
+    vi.setSystemTime(new Date("2026-05-31T15:30:00Z"));
+    const answers = {
+      ...validAnswers("M3"),
+      q13: [{ kind: "PERF", date: "2026-06-20" }],
+    };
+    setup({ profile: { name: "A", time_zone: "Asia/Seoul" } });
+    await post({ attemptId: ATTEMPT, answers });
+    expect(engine.score.mock.calls[0]?.[1]).toMatchObject({
+      diagnosedAt: "2026-06-01",
+    });
+
+    engine.score.mockClear();
+    setup({ profile: { name: "A", time_zone: "America/Los_Angeles" } });
+    await post({ attemptId: ATTEMPT, answers });
+    expect(engine.score.mock.calls[0]?.[1]).toMatchObject({
+      diagnosedAt: "2026-05-31",
+    });
+  });
+
+  test("joinedAt is the day of created_at in the member zone", async () => {
+    setup({
+      profile: {
+        name: "A",
+        time_zone: "America/Los_Angeles",
+        created_at: "2026-11-01T03:00:00Z",
+      },
+    });
+    await post({ attemptId: ATTEMPT, answers: validAnswers("M3") });
+    expect(engine.score.mock.calls[0]?.[1]).toMatchObject({
+      joinedAt: "2026-10-31",
     });
   });
 

@@ -272,7 +272,9 @@ export function buildCh02(
         kind: i.kind,
         title: r.topic,
         submittedOn:
-          r.recordStatus === "completed" ? dotDate(r.submittedAt) : null,
+          r.recordStatus === "completed"
+            ? dotDate(r.submittedAt, input.timeZone)
+            : null,
         inProgress: r.recordStatus !== "completed",
         summary: r.summary ?? text(`summary:${i.tag}`),
         sentenceNumbers: i.sentenceNumbers,

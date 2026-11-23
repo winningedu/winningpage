@@ -4,7 +4,7 @@
 //   1. 순매출액은 net_amount 합이다 — paid − refund 로 다시 계산하면 뷰의 안분·
 //      환불 판정과 갈라져 어느 쪽이 정본인지 알 수 없게 된다.
 //   2. 분모가 0일 때 비율은 0%다(NaN·Infinity 가 화면에 새면 안 된다).
-//   3. 일별 추이는 KST 기준이다 — UTC 로 자르면 매일 09:00 이전 결제가 전날로 밀린다.
+//   3. 일별 추이는 넘겨받은 시간대 기준이다 — UTC 로 자르면 한국은 매일 09:00 이전 결제가 전날로 밀린다.
 
 import { expect, test } from "vitest";
 import {
@@ -27,9 +27,8 @@ const row = (over: Partial<RevenueRowLike> = {}): RevenueRowLike => ({
   ...over,
 });
 
-// RevenueAdmin 이 쓰는 것과 같은 KST 변환.
-const toKstYmd = (date: Date) =>
-  new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(date);
+const SEOUL = "Asia/Seoul";
+const LOS_ANGELES = "America/Los_Angeles";
 
 test("순매출액은 net_amount 합이다 (paid − refund 재계산이 아니다)", () => {
   // 뷰가 안분·환불 판정을 마친 값과 단순 차감이 어긋나는 행을 일부러 만든다.
@@ -83,15 +82,12 @@ test("분모가 0이면 비율은 0% — NaN·Infinity 가 새지 않는다", ()
   }
 });
 
-test("일별 추이는 KST 로 자른다", () => {
-  // 2026-08-20T15:30Z = KST 2026-08-21 00:30. UTC 로 자르면 20일로 밀린다.
-  const trend = buildDailyTrend(
-    [row({ paid_at: "2026-08-20T15:30:00Z", paid_amount: 1000 })],
-    toKstYmd,
-  );
+test("일별 추이는 넘겨받은 시간대로 자른다", () => {
+  // 2026-08-20T15:30Z = 서울 08-21 00:30 = 로스앤젤레스 08-20 08:30.
+  const rows = [row({ paid_at: "2026-08-20T15:30:00Z", paid_amount: 1000 })];
 
-  expect(trend).toHaveLength(1);
-  expect(trend[0]?.ymd).toBe("2026-08-21");
+  expect(buildDailyTrend(rows, SEOUL)[0]?.ymd).toBe("2026-08-21");
+  expect(buildDailyTrend(rows, LOS_ANGELES)[0]?.ymd).toBe("2026-08-20");
 });
 
 test("일별 추이는 날짜순이고 실납부·환불을 따로 쌓는다", () => {
@@ -105,7 +101,7 @@ test("일별 추이는 날짜순이고 실납부·환불을 따로 쌓는다", (
         refunded_amount: 50,
       }),
     ],
-    toKstYmd,
+    SEOUL,
   );
 
   expect(trend.map((point) => point.ymd)).toEqual(["2026-08-20", "2026-08-22"]);
@@ -113,7 +109,7 @@ test("일별 추이는 날짜순이고 실납부·환불을 따로 쌓는다", (
 });
 
 test("결제일시가 없는 행은 추이에서 제외한다", () => {
-  expect(buildDailyTrend([row({ paid_at: null })], toKstYmd)).toEqual([]);
+  expect(buildDailyTrend([row({ paid_at: null })], SEOUL)).toEqual([]);
 });
 
 test("프로그램별 비중은 금액 큰 순이고 합이 100%에 수렴한다", () => {

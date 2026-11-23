@@ -22,6 +22,7 @@
 //   중복 발송된다. goalReportSend.test.ts 가 이 포맷을 리터럴 문자열로 고정한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addDaysYmd } from "../../../src/lib/time/day.js";
 import {
   CONDITION_LABELS,
   TASK_LABELS,
@@ -32,7 +33,6 @@ import {
   formatHours,
   type ReportRecipient,
   resolveParentRecipients,
-  toYmd,
   weekOfMonth,
 } from "./reportNotify.js";
 import { MAX_RESEND_DAYS_AGO } from "./reportResendPolicy.js";
@@ -60,6 +60,15 @@ export type ReportSendOptions = {
    * 지정하지 않으면(크론) 원래 dedupeKey 그대로 나간다.
    */
   dedupeSuffix?: string;
+};
+
+/** 로더 옵션. */
+export type ReportLoadOptions = {
+  /**
+   * studentIds 를 준 경우에도 그 기간에 기록이 있는 학생만 남긴다. 크론이
+   * 시간대별로 고른 학생에 쓴다(관리자 재발송은 기록 없어도 허용이라 끈다).
+   */
+  requireRecords?: boolean;
 };
 
 /** studentIds → { studentProfileId: 그 학생의 승인된 학부모 목록 } 배치 조회. */
@@ -198,6 +207,7 @@ export async function loadDailyReportInputs(
   supabaseAdmin: SupabaseClient,
   studentIds: string[] | null,
   date: string,
+  options: ReportLoadOptions = {},
 ): Promise<Map<string, DailyReportInput>> {
   let recordQuery = supabaseAdmin
     .from("goal_daily_records")
@@ -218,13 +228,14 @@ export async function loadDailyReportInputs(
   }
   const rows = recordRows || [];
 
-  const targetIds =
-    studentIds ??
-    Array.from(
-      new Set(
-        rows.map((row: { profile_id: unknown }) => String(row.profile_id)),
-      ),
-    );
+  const recordedIds = new Set(
+    rows.map((row: { profile_id: unknown }) => String(row.profile_id)),
+  );
+  const targetIds = studentIds
+    ? options.requireRecords
+      ? studentIds.filter((id) => recordedIds.has(id))
+      : studentIds
+    : Array.from(recordedIds);
 
   if (targetIds.length === 0) {
     return new Map();
@@ -352,20 +363,19 @@ export async function loadWeeklyReportInputs(
   supabaseAdmin: SupabaseClient,
   studentIds: string[] | null,
   weekStart: string,
+  options: ReportLoadOptions = {},
 ): Promise<Map<string, WeeklyReportInput>> {
-  const weekEnd = toYmd(
-    new Date(
-      new Date(`${weekStart}T00:00:00Z`).getTime() + 6 * 24 * 60 * 60 * 1000,
-    ),
-  );
+  const weekEnd = addDaysYmd(weekStart, 6);
 
   let targetIds = studentIds;
-  if (!targetIds) {
-    const { data: rows, error } = await supabaseAdmin
+  if (!targetIds || options.requireRecords) {
+    let recordQuery = supabaseAdmin
       .from("goal_daily_records")
       .select("profile_id")
       .gte("record_date", weekStart)
       .lte("record_date", weekEnd);
+    if (studentIds) recordQuery = recordQuery.in("profile_id", studentIds);
+    const { data: rows, error } = await recordQuery;
     if (error) {
       throw new Error(`goal_daily_records 조회 실패: ${error.message}`);
     }
@@ -401,11 +411,7 @@ export async function sendWeeklyReport(
   options: ReportSendOptions = {},
 ): Promise<ReportSendResult> {
   const { studentProfileId, weekStart, recipients } = input;
-  const weekEnd = toYmd(
-    new Date(
-      new Date(`${weekStart}T00:00:00Z`).getTime() + 6 * 24 * 60 * 60 * 1000,
-    ),
-  );
+  const weekEnd = addDaysYmd(weekStart, 6);
 
   return sendToRecipients(
     supabaseAdmin,
@@ -424,6 +430,11 @@ export async function sendWeeklyReport(
     { studentProfileId, weekStart, weekEnd },
     options,
   );
+}
+
+/** 달력상 그 달의 일수. */
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
 // ── 월간 ────────────────────────────────────────────────────────────────
@@ -471,20 +482,23 @@ export async function loadMonthlyReportInputs(
   supabaseAdmin: SupabaseClient,
   studentIds: string[] | null,
   monthKey: string,
+  options: ReportLoadOptions = {},
 ): Promise<Map<string, MonthlyReportInput>> {
   const [yearPart, monthPart] = monthKey.split("-");
   const year = Number(yearPart);
   const month = Number(monthPart);
   const monthStart = `${monthKey}-01`;
-  const monthEnd = toYmd(new Date(Date.UTC(year, month, 0)));
+  const monthEnd = addDaysYmd(`${monthKey}-01`, daysInMonth(year, month) - 1);
 
   let targetIds = studentIds;
-  if (!targetIds) {
-    const { data: rows, error } = await supabaseAdmin
+  if (!targetIds || options.requireRecords) {
+    let recordQuery = supabaseAdmin
       .from("goal_daily_records")
       .select("profile_id")
       .gte("record_date", monthStart)
       .lte("record_date", monthEnd);
+    if (studentIds) recordQuery = recordQuery.in("profile_id", studentIds);
+    const { data: rows, error } = await recordQuery;
     if (error) {
       throw new Error(`goal_daily_records 조회 실패: ${error.message}`);
     }
@@ -524,7 +538,7 @@ export async function sendMonthlyReport(
   const year = Number(yearPart);
   const month = Number(monthPart);
   const monthStart = `${monthKey}-01`;
-  const monthEnd = toYmd(new Date(Date.UTC(year, month, 0)));
+  const monthEnd = addDaysYmd(`${monthKey}-01`, daysInMonth(year, month) - 1);
 
   return sendToRecipients(
     supabaseAdmin,

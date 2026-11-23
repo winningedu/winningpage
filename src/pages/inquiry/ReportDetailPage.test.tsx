@@ -68,6 +68,7 @@ function detail(over: Record<string, unknown> = {}) {
     kind: "ok",
     data: {
       ok: true,
+      timeZone: "Asia/Seoul",
       session: {
         id: "s1",
         status: "completed",

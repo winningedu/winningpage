@@ -10,11 +10,13 @@ export function childReportPath(childId: string, reportId: string): string {
 export default function ChildReportCard({
   childId,
   item,
+  timeZone,
 }: {
   childId: string;
   item: ReportListItem;
+  timeZone: string;
 }) {
-  const issued = formatKoreanDate(item.issuedAt);
+  const issued = formatKoreanDate(item.issuedAt, timeZone);
   const track = item.track;
   return (
     <li>

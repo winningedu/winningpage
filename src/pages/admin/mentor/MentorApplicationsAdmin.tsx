@@ -3,6 +3,8 @@ import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
@@ -245,7 +247,7 @@ export default function MentorApplicationsAdmin({
     );
 
     downloadCsv(
-      `${config.title}_${new Date().toISOString().slice(0, 10)}.csv`,
+      `${config.title}_${ymdIn(new Date(), browserTimeZone())}.csv`,
       filteredRows as unknown as Record<string, unknown>[],
       columns,
     );

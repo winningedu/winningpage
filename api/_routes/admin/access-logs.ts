@@ -1,4 +1,4 @@
-// GET /api/admin/access-logs[?tenantCode=&from=&to=&kind=&page=]
+// GET /api/admin/access-logs[?tenantCode=&from=&to=&kind=&page=]  (from 포함, to 미포함인 ISO Z 시각)
 //
 // 본사 개인정보 접근 로그 화면의 목록(사 #170, 교 #66, 결정 102.5). 소속코드, 교사 이름과 로그인 아이디,
 // 가린 교사 전화번호, 구분, 가린 학생 이름, 내용을 한 줄씩 돌려준다. teachers 는 authenticated 에 막혀 있어
@@ -66,14 +66,16 @@ function one(value: unknown): string | null {
   return typeof value === "string" && value !== "" ? value : null;
 }
 
-// 날짜는 YYYY-MM-DD 한국 날짜다. 시작일 0시(포함)부터 종료일 다음 날 0시(미포함)까지 읽는다.
-function kstDay(date: string, plusDays: number): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  const moment = new Date(`${date}T00:00:00Z`);
+// 시각은 ISO 8601 Z(예: 2026-10-31T15:00:00.000Z)다. 달력에 없는 날이거나 형식이 다르면 null.
+const ISO_Z = /^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+
+function isoInstant(value: string): string | null {
+  const match = ISO_Z.exec(value);
+  if (!match) return null;
+  const moment = new Date(value);
   if (Number.isNaN(moment.getTime())) return null;
-  if (moment.toISOString().slice(0, 10) !== date) return null;
-  moment.setUTCDate(moment.getUTCDate() + plusDays);
-  return `${moment.toISOString().slice(0, 10)}T00:00:00+09:00`;
+  if (moment.toISOString().slice(0, 10) !== match[1]) return null; // tz-literal-ok: ISO Z 입력의 UTC 날짜 부분이 실존하는지만 본다
+  return value;
 }
 
 /** 쿼리를 읽는다. 형식이 틀린 값이 하나라도 있으면 null. */
@@ -82,8 +84,8 @@ function parseFilter(query: Record<string, unknown>): Filter | null {
   const toText = one(query.to);
   const kindText = one(query.kind);
   const pageText = one(query.page);
-  const from = fromText ? kstDay(fromText, 0) : null;
-  const before = toText ? kstDay(toText, 1) : null;
+  const from = fromText ? isoInstant(fromText) : null;
+  const before = toText ? isoInstant(toText) : null;
   const kind = ACCESS_LOG_KINDS.find((k) => k === kindText) ?? null;
   const page = pageText === null ? 1 : Number(pageText);
   if (fromText && !from) return null;

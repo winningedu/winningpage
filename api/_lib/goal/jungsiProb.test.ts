@@ -10,7 +10,7 @@ import {
 
 describe("computeJungsiRecalc", () => {
   test("pipeline.ts:341-348 과 같은 원시 함수를 호출하므로 결과가 완전히 같다(패리티)", () => {
-    const now = new Date("2026-06-01T00:00:00+09:00");
+    const now = new Date("2026-05-31T15:00:00Z");
     const currentMogo = 82;
     const remainMogo = 5;
     const idealJungsiCut = 90;
@@ -52,7 +52,7 @@ describe("computeJungsiRecalc", () => {
       remainMogo: 3,
       idealJungsiCut: 90,
       minJungsiCut: 70,
-      now: new Date("2026-06-01T00:00:00+09:00"),
+      now: new Date("2026-05-31T15:00:00Z"),
     });
     expect(result.idealJungsi).toBe(0);
     expect(result.minJungsi).toBe(0);
@@ -65,7 +65,7 @@ describe("computeJungsiRecalc", () => {
       remainMogo: 4,
       idealJungsiCut: 80,
       minJungsiCut: 60,
-      now: new Date("2026-06-01T00:00:00+09:00"),
+      now: new Date("2026-05-31T15:00:00Z"),
     };
     const a = computeJungsiRecalc(input);
     const b = computeJungsiRecalc(input);
@@ -78,7 +78,7 @@ describe("computeJungsiRecalc", () => {
       remainMogo: 4,
       idealJungsiCut: 85,
       minJungsiCut: 65,
-      now: new Date("2026-06-01T00:00:00+09:00"),
+      now: new Date("2026-05-31T15:00:00Z"),
     };
     const g3 = computeJungsiRecalc({ ...base, grade: "고3" });
     const g1 = computeJungsiRecalc({ ...base, grade: "고1" });

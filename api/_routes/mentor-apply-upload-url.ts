@@ -284,7 +284,7 @@ export default defineHandler({
       // 정리 배치가 보존기간을 판정할 때 쓰인다(api/_routes/mentor-apply.js 상단 "고아
       // 파일" 절 참고). 형식은 api/_routes/mentor-apply.js 의 PROOF_PATH_PATTERN 과
       // 정확히 맞아야 한다.
-      const dateFolder = new Date().toISOString().slice(0, 10);
+      const dateFolder = new Date().toISOString().slice(0, 10); // tz-literal-ok: 서버는 UTC 로 계산한다, 폴더명은 UTC 날짜다
       const objectPath = `${dateFolder}/${crypto.randomUUID()}.${extension}`;
 
       const { data: signed, error: signError } = await supabase.storage

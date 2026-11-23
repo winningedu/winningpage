@@ -213,6 +213,8 @@ function renderShell() {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-09T03:00:00Z"));
+  // 오늘은 브라우저 시간대의 날짜다. 기존 케이스는 서울 기준으로 짜여 있다.
+  vi.stubEnv("TZ", "Asia/Seoul");
   submitMock.mockReset();
   trackMock.mockReset();
   sessionStorage.clear();
@@ -229,6 +231,7 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("SurveyStepShell 진입 거부", () => {
@@ -659,6 +662,25 @@ describe("SurveyStepShell v3 제출", () => {
     ).toBeInTheDocument();
     expect(consumeMock).not.toHaveBeenCalled();
     expect(submitMock).not.toHaveBeenCalled();
+  });
+
+  it("오늘은 브라우저 시간대의 날짜다(로스앤젤레스의 11월 8일 저녁은 11월 8일)", async () => {
+    vi.stubEnv("TZ", "America/Los_Angeles");
+    consumeMock.mockResolvedValue({ outcome: "proceed", status: "free_used" });
+    submitMock.mockResolvedValue({
+      ok: true,
+      schemaVersion: "2026-11-v3",
+      payload: {},
+    });
+    // 2026-11-09T03:00Z: 11-08 19:00 in Los Angeles. A schedule row dated 11-08 is today there.
+    const draft = {
+      ...CALC_DRAFT,
+      q13: [{ kind: "PERF", date: "2026-11-08", subject: "" }],
+    };
+    renderSubmit(vi.fn(), draft);
+    fireEvent.click(await screen.findByRole("button", { name: "모두 답하기" }));
+    fireEvent.click(screen.getByRole("button", { name: "제출" }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalled());
   });
 
   it("세션이 없으면 로그인 화면으로 보내고 설문으로 돌아오게 한다", async () => {

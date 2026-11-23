@@ -134,7 +134,7 @@ describe("rowAction", () => {
 
 describe("rowMeta", () => {
   test("학년도 학기 영역 줄과 상태별 줄을 만든다", () => {
-    expect(rowMeta(item())).toEqual([
+    expect(rowMeta(item(), "Asia/Seoul")).toEqual([
       "2026학년도 1학기 교과",
       "3단계 활동 선택까지",
       "마지막 저장 2026.10.01",
@@ -146,13 +146,17 @@ describe("rowMeta", () => {
           score: 82,
           completedAt: "2026-10-02T03:00:00Z",
         }),
+        "Asia/Seoul",
       ),
     ).toEqual(["2026학년도 1학기 교과", "저장 2026.10.02", "점수 82점"]);
   });
 
   test("값이 없는 조각은 건너뛴다", () => {
     expect(
-      rowMeta(item({ academicYear: null, semester: null, area: null })),
+      rowMeta(
+        item({ academicYear: null, semester: null, area: null }),
+        "Asia/Seoul",
+      ),
     ).toEqual(["3단계 활동 선택까지", "마지막 저장 2026.10.01"]);
   });
 });

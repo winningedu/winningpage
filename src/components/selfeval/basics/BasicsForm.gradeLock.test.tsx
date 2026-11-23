@@ -56,6 +56,7 @@ const entry = {
   profile: null,
   replyResent: 0,
   academicYearDefault: 2026,
+  timeZone: "Asia/Seoul",
 };
 
 function formFor(gradeLabel: "" | "고1" | "고2" | "고3") {

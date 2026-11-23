@@ -77,9 +77,12 @@ function Missing({ text }: { text: string }) {
   return <p className="text-app-body text-ink-sub">{text}</p>;
 }
 
-function subcopyFor(session: SessionDetail["session"]): string {
+function subcopyFor(
+  session: SessionDetail["session"],
+  timeZone: string,
+): string {
   if (session.status === "completed") {
-    return `${formatReportDate(session.completedAt)} 확정. 설계 리포트와 평가 리포트를 함께 봐요`;
+    return `${formatReportDate(session.completedAt, timeZone)} 확정. 설계 리포트와 평가 리포트를 함께 봐요`;
   }
   if (session.status === "archived") {
     return "만료되었거나 종결된 세션이라 이어서 할 수 없어요";
@@ -145,7 +148,8 @@ export default function ReportDetailPage() {
     );
   }
 
-  const { session, topic, design, evaluation, final, submission } = data;
+  const { session, timeZone, topic, design, evaluation, final, submission } =
+    data;
   const isCompleted = session.status === "completed";
   // 확정한 작성본이 있을 때만 복사할 수 있다. 작성 중인 초안은 복사 대상이 아니다.
   const finalSections = isCompleted && submission ? submission.sections : null;
@@ -161,7 +165,7 @@ export default function ReportDetailPage() {
     <>
       <GoalPageHeader
         title={topic?.detail.title ?? PAGE_TITLE}
-        subcopy={subcopyFor(session)}
+        subcopy={subcopyFor(session, timeZone)}
         actions={
           <>
             <BackLink />
@@ -195,7 +199,7 @@ export default function ReportDetailPage() {
                 ? [
                     {
                       label: "확정일",
-                      value: formatCoverDate(session.completedAt),
+                      value: formatCoverDate(session.completedAt, timeZone),
                     },
                   ]
                 : []),

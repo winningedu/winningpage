@@ -988,17 +988,6 @@ export const SERVICE_H3_LATE_MONTH = 6;
  */
 export const SERVICE_H3_LATE_CODES = ["GOAL_CARE", "CALL_MENTOR"];
 
-/**
- * 월 판정 타임존.
- *
- * 자체 결정(2026-08-11) — 원본 근거 없음. 확정 시 이 값만 교체. 관련 Q-13
- *
- * diagnosedAt 은 UTC ISO 로 저장될 수 있다. UTC 로 월을 읽으면 5월 31일 밤 제출이 6월로,
- * 6월 1일 새벽 제출이 5월로 밀린다 — 경계일 학생의 추천 목록이 하루 어긋난다.
- * 반드시 Intl + Asia/Seoul 로 뽑는다(`new Date(x).getMonth()` 금지 — 실행 환경 타임존을 탄다).
- */
-export const SERVICE_H3_LATE_TIMEZONE = "Asia/Seoul";
-
 /* ---- F-22 입결 컷 조회 실패 전파 ---- */
 
 /**

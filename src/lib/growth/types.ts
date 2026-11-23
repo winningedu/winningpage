@@ -345,6 +345,8 @@ export type LastTerminal = {
 
 export type ReportsList = {
   ok: true;
+  /** 회원 시간대(IANA). 목록과 미완 회차 날짜를 이 시간대로 센다. */
+  timeZone: string;
   items: ReportListItem[];
   /** 미완 회차 요약 1건. 생성 화면 재진입용. */
   open: OpenReportSummary | null;
@@ -355,6 +357,8 @@ export type ReportsList = {
 /** 학부모가 자녀의 완료 회차를 볼 때의 목록 응답. child.name 은 이름이 없으면 null. */
 export type ChildReportsList = {
   ok: true;
+  /** 자녀의 시간대(IANA). */
+  timeZone: string;
   items: ReportListItem[];
   child: { id: string; name: string | null };
 };
@@ -368,6 +372,8 @@ export type ReportPlanItem = {
 
 export type ReportDetail = {
   ok: true;
+  /** 회원 시간대(IANA). 학부모 열람이면 자녀의 시간대. */
+  timeZone: string;
   report: {
     id: string;
     status: ReportStatus;

@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { formatDate as formatInstantDate } from "@/lib/time/format";
 
 export type CaseCategory = "susi" | "jungsi";
 
@@ -91,7 +92,7 @@ export function formatDate(value: unknown): string {
   if (!value) return "";
   const date = new Date(value as string | number | Date);
   if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
-  return date.toISOString().slice(0, 10);
+  return formatInstantDate(date);
 }
 
 /**

@@ -20,6 +20,11 @@ import { assertMethod } from "./httpMethod.js";
 import { type ErrorShape, sendError } from "./httpResponse.js";
 import { QaBlockedError, sendQaBlocked } from "./qaAccount.js";
 import { createSupabaseAdmin, isSupabaseConfigError } from "./supabaseAdmin.js";
+import {
+  InvalidTimeZoneError,
+  readTimeZone,
+  TimeZoneRequiredError,
+} from "./timeZone.js";
 
 // dev 원본 ~20파일이 개별 `try { createSupabaseAdmin() } catch { ... }`로 냈던
 // 문구. 실제 예외 메시지(SUPABASE_CONFIG_ERROR_MESSAGE)와는 다르다 — 저건
@@ -42,6 +47,17 @@ export interface HandlerCtx {
   /** auth:"console" 일 때만 채워진다(교사, 학교 관리자, 본사 대행). */
   console?: ConsoleActor;
   supabaseAdmin: SupabaseClient;
+  /** X-Time-Zone 헤더가 있고 유효할 때만 채워진다(보는 사람의 시간대). */
+  timeZone?: string;
+}
+
+/**
+ * 보는 사람의 하루 기준이 필요한 라우트 전용 — 헤더가 없으면 400 TIME_ZONE_REQUIRED.
+ * 던진 에러는 defineHandler 의 catch 가 라우트의 errorShape 로 응답한다.
+ */
+export function requireTimeZone(ctx: HandlerCtx): string {
+  if (!ctx.timeZone) throw new TimeZoneRequiredError();
+  return ctx.timeZone;
 }
 
 /**
@@ -64,6 +80,9 @@ export function requireUserId(ctx: HandlerCtx): string {
 // auth:user 401 전부가 이 문구/코드를 쓴다.
 const AUTH_REQUIRED_MESSAGE = "로그인이 필요합니다.";
 const AUTH_REQUIRED_CODE = "UNAUTHENTICATED";
+
+const INVALID_TIME_ZONE_CODE = "INVALID_TIME_ZONE";
+const TIME_ZONE_REQUIRED_CODE = "TIME_ZONE_REQUIRED";
 
 const NOT_CONSOLE_MESSAGE = "선생님 화면 권한이 없습니다.";
 const MUST_CHANGE_PASSWORD_MESSAGE = "임시 비밀번호를 먼저 변경해 주세요.";
@@ -171,6 +190,10 @@ export function defineHandler(opts: DefineHandlerOptions) {
           return cachedAdmin;
         },
       });
+
+      // 인증보다 먼저 읽는다: 모든 auth 모드에서 잘못된 값은 같은 400 이다.
+      const timeZone = readTimeZone(req);
+      if (timeZone) ctx.timeZone = timeZone;
 
       if (opts.auth === "user" || opts.auth === "console") {
         const authed = await resolveUser(req);
@@ -299,6 +322,22 @@ export function defineHandler(opts: DefineHandlerOptions) {
     } catch (error) {
       if (error instanceof QaBlockedError) {
         sendQaBlocked(res, opts.errorShape, error.code);
+        return;
+      }
+      if (
+        error instanceof InvalidTimeZoneError ||
+        error instanceof TimeZoneRequiredError
+      ) {
+        sendError(
+          res,
+          opts.errorShape,
+          400,
+          error.message,
+          error instanceof InvalidTimeZoneError
+            ? INVALID_TIME_ZONE_CODE
+            : TIME_ZONE_REQUIRED_CODE,
+          opts.authFailureExtra,
+        );
         return;
       }
       console.error(`${opts.logLabel || "handler"} error:`, error);

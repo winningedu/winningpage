@@ -3,7 +3,7 @@ import type {
   OpenReportSummary,
   ReportListItem,
 } from "@/lib/growth/api";
-import { formatKoreanDate as formatKoreanDateKst } from "@/lib/growth/format";
+import { formatKoreanDate as formatKoreanDateIn } from "@/lib/growth/format";
 import { GROWTH_PATHS } from "../growthPaths";
 
 /**
@@ -75,7 +75,7 @@ export function terminalNotice(
   return { reason: lastTerminal.reason, at: lastTerminal.at };
 }
 
-/** `2026년 11월 14일`. 잘못된 값이면 빈 문자열. */
-export function formatKoreanDate(iso: string | null): string {
-  return formatKoreanDateKst(iso) ?? "";
+/** `2026년 11월 14일`(회원 시간대 기준). 잘못된 값이면 빈 문자열. */
+export function formatKoreanDate(iso: string | null, timeZone: string): string {
+  return formatKoreanDateIn(iso, timeZone) ?? "";
 }

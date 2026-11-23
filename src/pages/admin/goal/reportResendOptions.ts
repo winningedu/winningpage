@@ -18,10 +18,11 @@ import {
   addDaysYMD,
   diffDaysYMD,
   getMondayYMD,
-  kstYMD,
 } from "@/lib/goal/calc/index.js";
+import { ymdIn } from "@/lib/time/day.js";
+import { browserTimeZone } from "@/lib/time/zone.js";
 import {
-  dispatchAtKst,
+  dispatchAt,
   MAX_RESEND_DAYS_AGO,
   monthlyReportDispatchYmd,
   weeklyReportDispatchYmd,
@@ -38,17 +39,18 @@ export type ResendCandidate = {
 /**
  * 오늘부터 13일 전까지, 최근순 14개(=MAX_RESEND_DAYS_AGO 이내 전량).
  *
- * QA — "오늘"은 그 발송 시각(22:00 KST)이 실제로 지나야 후보가 된다. 그 전에
+ * QA — "오늘"은 그 발송 시각(수신자 현지 22:00)이 실제로 지나야 후보가 된다. 그 전에
  * 보여주면 눌러도 서버(validateResendPeriod)가 거부하는 죽은 후보다.
  */
 export function listDailyResendCandidates(
-  todayYmd: string = kstYMD(),
+  tz: string = browserTimeZone(),
   now: Date = new Date(),
 ): ResendCandidate[] {
+  const todayYmd = ymdIn(now, tz);
   const items: ResendCandidate[] = [];
   for (let i = 0; i < MAX_RESEND_DAYS_AGO; i++) {
     const periodKey = addDaysYMD(todayYmd, -i);
-    if (now.getTime() < dispatchAtKst("daily", periodKey).getTime()) continue;
+    if (now.getTime() < dispatchAt("daily", periodKey, tz).getTime()) continue;
     const label = i === 0 ? "오늘" : i === 1 ? "어제" : `${i}일 전`;
     items.push({ periodKey, label });
   }
@@ -61,9 +63,10 @@ export function listDailyResendCandidates(
  * 없다.
  */
 export function listWeeklyResendCandidates(
-  todayYmd: string = kstYMD(),
+  tz: string = browserTimeZone(),
   now: Date = new Date(),
 ): ResendCandidate[] {
+  const todayYmd = ymdIn(now, tz);
   const thisMonday = getMondayYMD(todayYmd);
   const raw: ResendCandidate[] = [
     { periodKey: addDaysYMD(thisMonday, -7), label: "지난 주" },
@@ -76,7 +79,7 @@ export function listWeeklyResendCandidates(
     return (
       diff >= 0 &&
       diff <= MAX_RESEND_DAYS_AGO &&
-      now.getTime() >= dispatchAtKst("weekly", periodKey).getTime()
+      now.getTime() >= dispatchAt("weekly", periodKey, tz).getTime()
     );
   });
 }
@@ -88,9 +91,10 @@ export function listWeeklyResendCandidates(
  * 후보가 아예 없는 게 정상이다.
  */
 export function listMonthlyResendCandidates(
-  todayYmd: string = kstYMD(),
+  tz: string = browserTimeZone(),
   now: Date = new Date(),
 ): ResendCandidate[] {
+  const todayYmd = ymdIn(now, tz);
   const thisMonthKey = todayYmd.slice(0, 7);
   const thisMonthStart = `${thisMonthKey}-01`;
   const lastMonthKey = addDaysYMD(thisMonthStart, -1).slice(0, 7);
@@ -105,18 +109,22 @@ export function listMonthlyResendCandidates(
     return (
       diff >= 0 &&
       diff <= MAX_RESEND_DAYS_AGO &&
-      now.getTime() >= dispatchAtKst("monthly", periodKey).getTime()
+      now.getTime() >= dispatchAt("monthly", periodKey, tz).getTime()
     );
   });
 }
 
-/** GoalStudentsAdmin 섹션이 kind select 값 하나로 후보 목록을 고를 때 쓰는 진입점. */
+/**
+ * 후보는 리포트를 받는 학생의 시간대(tz) 기준이다. tz를 생략하면 관리자의
+ * 브라우저 시간대를 쓴다.
+ *
+ * GoalStudentsAdmin 섹션이 kind select 값 하나로 후보 목록을 고를 때 쓰는 진입점. */
 export function listResendCandidates(
   kind: ResendKind,
-  todayYmd: string = kstYMD(),
+  tz: string = browserTimeZone(),
   now: Date = new Date(),
 ): ResendCandidate[] {
-  if (kind === "daily") return listDailyResendCandidates(todayYmd, now);
-  if (kind === "weekly") return listWeeklyResendCandidates(todayYmd, now);
-  return listMonthlyResendCandidates(todayYmd, now);
+  if (kind === "daily") return listDailyResendCandidates(tz, now);
+  if (kind === "weekly") return listWeeklyResendCandidates(tz, now);
+  return listMonthlyResendCandidates(tz, now);
 }

@@ -73,6 +73,7 @@ async function loadStages(
   db: Db,
   userId: string,
   session: SessionRow,
+  tz: string,
 ): Promise<StageInputs> {
   const guard = async <T>(
     read: () => Promise<StageSource<T>>,
@@ -97,6 +98,7 @@ async function loadStages(
             .maybeSingle(),
           "diagnosis_reports 조회 실패",
         ) as { diagnosed_at: string; payload: unknown } | null,
+        tz,
       ),
     ),
     guard(async () =>
@@ -152,6 +154,7 @@ export async function loadReportInput(
   db: Db,
   userId: string,
   session: SessionRow,
+  tz: string,
 ): Promise<LoadedInput | null> {
   const final = must(
     await db
@@ -240,14 +243,14 @@ export async function loadReportInput(
       service_tier: ReportServiceTier | null;
     } | null,
     loadSteps(db, userId),
-    loadStages(db, userId, session),
+    loadStages(db, userId, session, tz),
     loadTopImprovement(db, userId, session.id),
   ]);
 
   const roleOf = new Map(selected.map((s) => [s.activity_record_id, s.role]));
   // 고른 기록은 기간 밖이어도 본문 근거가 될 수 있어 함께 읽는다.
   const records = activityRows
-    .filter((r) => keepRecord(r, year) || roleOf.has(r.id))
+    .filter((r) => keepRecord(r, year, tz) || roleOf.has(r.id))
     .map((r) => toReportRecord(r, roleOf.get(r.id) ?? null));
   const memos: ReportMemo[] = memoRows.flatMap((m) =>
     memoInWindow(m.written_at, year) && m.written_at !== null
@@ -256,6 +259,7 @@ export async function loadReportInput(
   );
 
   const input: Omit<BuildInput, "tagMap"> = {
+    timeZone: tz,
     session: {
       academicYear: year,
       area: session.area,

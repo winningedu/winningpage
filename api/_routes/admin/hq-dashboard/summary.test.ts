@@ -131,6 +131,19 @@ describe("권한과 입력", () => {
   });
 });
 
+describe("기준 시각", () => {
+  test("asOf 는 ISO Z 순간이다(날짜 문자열이 아니다)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-30T16:00:00.000Z"));
+
+    const res = await get();
+
+    expect((res.body as { asOf: string }).asOf).toBe(
+      "2026-11-30T16:00:00.000Z",
+    );
+  });
+});
+
 describe("합계 카드", () => {
   test("기관 행을 더해 기관 수, 학생 수, 선생님 수, 계약 상태별 수(시범기간 중 포함)를 준다", async () => {
     kit.state.rpc.fn_hq_tenant_overview = () => ({

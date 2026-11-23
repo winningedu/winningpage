@@ -381,7 +381,7 @@ function cleanText(value: unknown): string {
   return String(value || "").trim();
 }
 
-// 날짜 표기는 boardData.js 의 formatBoardDate(KST 기준) 하나로 통일한다.
+// 날짜 표기는 boardData.js 의 formatBoardDate(브라우저 시간대 기준) 하나로 통일한다.
 // 기존 로컬 formatDate 는 UTC(toISOString) 기준이라 KST 00:00~08:59 작성 글이
 // /company-news/list(신규 목록, formatBoardDate)와 하루 어긋나 같은 글이 두 날짜로
 // 보였다. 공지사항(Events.jsx)도 formatBoardDate 를 쓴다.

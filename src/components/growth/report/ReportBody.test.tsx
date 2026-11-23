@@ -19,6 +19,7 @@ const section = (over: Record<string, unknown>) => ({
 function detail(over: Record<string, unknown> = {}): ReportDetail {
   return {
     ok: true,
+    timeZone: "Asia/Seoul",
     report: {
       id: "r1",
       status: "completed",

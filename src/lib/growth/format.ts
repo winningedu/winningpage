@@ -1,11 +1,15 @@
-// 성장설계 화면 공용 날짜 포맷. 서버 시각은 ISO 문자열이고 화면은 한국 날짜로 보여 준다.
+// 성장설계 화면 공용 날짜 포맷. 서버 시각은 ISO 문자열이고 화면은 회원 시간대 날짜로 보여 준다.
 
-type Options = { timeZone?: string };
+import { browserTimeZone } from "@/lib/time/zone";
 
-/** `2026년 11월 14일`. 기본은 Asia/Seoul 기준이라 브라우저 시간대와 무관하다. 해석할 수 없으면 null. */
+/**
+ * `2026년 11월 14일`. timeZone 은 회원 시간대(리포트 응답의 timeZone).
+ * 생략하면 브라우저 시간대(U-growth 의 startLogic 호출부가 회원 시간대를 넘기면 사라질 기본값).
+ * 해석할 수 없으면 null.
+ */
 export function formatKoreanDate(
   iso: string | null | undefined,
-  { timeZone = "Asia/Seoul" }: Options = {},
+  timeZone: string = browserTimeZone(),
 ): string | null {
   if (!iso) return null;
   const date = new Date(iso);

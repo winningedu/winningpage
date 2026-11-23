@@ -9,7 +9,7 @@ import AdviceCard from "./AdviceCard";
 // DashboardPageHeader의 뱃지가 표시한다(DashboardPageHeader.test.tsx).
 describe("AdviceCard", () => {
   test("data가 null이면(조언이 한 번도 없음) 제목과 빈 상태 문구만 렌더한다", () => {
-    render(<AdviceCard data={null} />);
+    render(<AdviceCard timeZone="Asia/Seoul" data={null} />);
 
     expect(screen.getByText("오늘의 조언")).toBeInTheDocument();
     expect(
@@ -29,7 +29,13 @@ describe("AdviceCard", () => {
     test("조언이 오늘(KST) 것이 아니면 날짜 라벨을 보여준다", () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2026-10-29T03:00:00+09:00"));
-      render(<AdviceCard data={data} generatedFor="2026-10-28" />);
+      render(
+        <AdviceCard
+          timeZone="Asia/Seoul"
+          data={data}
+          generatedFor="2026-10-28"
+        />,
+      );
 
       expect(screen.getByText("10월 28일 조언")).toBeInTheDocument();
     });
@@ -37,15 +43,55 @@ describe("AdviceCard", () => {
     test("오늘 조언이면 날짜 라벨이 없다", () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2026-10-29T03:00:00+09:00"));
-      render(<AdviceCard data={data} generatedFor="2026-10-29" />);
+      render(
+        <AdviceCard
+          timeZone="Asia/Seoul"
+          data={data}
+          generatedFor="2026-10-29"
+        />,
+      );
 
       expect(screen.queryByText(/월 \d+일 조언/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("오늘은 학생 시간대의 달력 날짜다", () => {
+    afterEach(() => vi.useRealTimers());
+
+    const data = {
+      section: { label: "[오늘의 조언]", body: "본문" },
+      majorTips: [],
+    };
+
+    // 2026-11-22T15:30Z = 서울 11/23, 로스앤젤레스 11/22.
+    test("서울 학생은 11/23 조언이 오늘 것이고 로스앤젤레스 학생은 지난 것이다", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-11-22T15:30:00Z"));
+      const { unmount } = render(
+        <AdviceCard
+          data={data}
+          generatedFor="2026-11-23"
+          timeZone="Asia/Seoul"
+        />,
+      );
+      expect(screen.queryByText(/월 \d+일 조언/)).not.toBeInTheDocument();
+      unmount();
+
+      render(
+        <AdviceCard
+          data={data}
+          generatedFor="2026-11-23"
+          timeZone="America/Los_Angeles"
+        />,
+      );
+      expect(screen.getByText("11월 23일 조언")).toBeInTheDocument();
     });
   });
 
   test("오늘 섹션을 라벨 소제목 + 본문으로 렌더한다", () => {
     render(
       <AdviceCard
+        timeZone="Asia/Seoul"
         data={{
           section: { label: "[오늘의 조언]", body: "오늘도 잘했어요" },
           majorTips: [],
@@ -60,6 +106,7 @@ describe("AdviceCard", () => {
   test("내일 계획 섹션은 그리지 않는다(TomorrowPlanCard 소유)", () => {
     render(
       <AdviceCard
+        timeZone="Asia/Seoul"
         data={{
           section: { label: "[AI 입시조언]", body: "본문" },
           majorTips: [],
@@ -74,6 +121,7 @@ describe("AdviceCard", () => {
   test("majorTips가 있으면 학과명 소제목과 함께 렌더하고, 없으면 렌더하지 않는다", () => {
     const { rerender } = render(
       <AdviceCard
+        timeZone="Asia/Seoul"
         data={{
           section: { label: "[오늘의 조언]", body: "본문" },
           majorTips: [
@@ -88,6 +136,7 @@ describe("AdviceCard", () => {
 
     rerender(
       <AdviceCard
+        timeZone="Asia/Seoul"
         data={{
           section: { label: "[오늘의 조언]", body: "본문" },
           majorTips: [],

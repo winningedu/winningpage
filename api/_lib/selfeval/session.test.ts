@@ -15,11 +15,46 @@ import {
 
 describe("currentAcademicYear", () => {
   it("한국 시간 3월 1일부터 새 학년도이고 2월까지는 전년도다", () => {
-    expect(currentAcademicYear(new Date("2026-02-28T14:59:59Z"))).toBe(2025);
+    expect(
+      currentAcademicYear(new Date("2026-02-28T14:59:59Z"), "Asia/Seoul"),
+    ).toBe(2025);
     // UTC 2월 28일 15:00 은 KST 3월 1일 0시
-    expect(currentAcademicYear(new Date("2026-02-28T15:00:00Z"))).toBe(2026);
-    expect(currentAcademicYear(new Date("2026-10-06T00:00:00Z"))).toBe(2026);
-    expect(currentAcademicYear(new Date("2027-01-15T00:00:00Z"))).toBe(2026);
+    expect(
+      currentAcademicYear(new Date("2026-02-28T15:00:00Z"), "Asia/Seoul"),
+    ).toBe(2026);
+    expect(
+      currentAcademicYear(new Date("2026-10-06T00:00:00Z"), "Asia/Seoul"),
+    ).toBe(2026);
+    expect(
+      currentAcademicYear(new Date("2027-01-15T00:00:00Z"), "Asia/Seoul"),
+    ).toBe(2026);
+  });
+});
+
+describe("회원 시간대 기준 판정", () => {
+  const seoul = "Asia/Seoul";
+  it("서울 회원이 UTC 08-01 15:30 에 시작하면 현지 08-02 이고 현지 10-30 까지 유효하다", () => {
+    const start = "2026-08-01T15:30:00Z";
+    expect(
+      isSessionExpired(start, new Date("2026-10-30T14:59:59Z"), seoul),
+    ).toBe(false);
+    expect(
+      isSessionExpired(start, new Date("2026-10-30T15:00:00Z"), seoul),
+    ).toBe(true);
+  });
+
+  it("같은 순간도 시간대가 다르면 날짜 수가 다르다", () => {
+    const start = "2026-08-01T15:30:00Z";
+    const now = new Date("2026-10-30T14:59:59Z");
+    expect(isSessionExpired(start, now, "Asia/Seoul")).toBe(false);
+    expect(isSessionExpired(start, now, "UTC")).toBe(true);
+  });
+
+  it("학년도 경계는 회원 시간대의 3월 1일이다", () => {
+    const at = new Date("2026-02-28T20:00:00Z");
+    expect(currentAcademicYear(at, "Asia/Seoul")).toBe(2026);
+    expect(currentAcademicYear(at, "UTC")).toBe(2025);
+    expect(currentAcademicYear(at, "America/Los_Angeles")).toBe(2025);
   });
 });
 
@@ -27,18 +62,26 @@ describe("만료 판정", () => {
   const now = new Date("2026-10-06T03:00:00Z"); // KST 10월 6일 낮
   it("마지막 활동 후 90일째 당일부터 만료다", () => {
     // 한국 날짜로 7월 8일은 정확히 90일 전이다
-    expect(isSessionExpired("2026-07-08T12:00:00Z", now)).toBe(true);
+    expect(isSessionExpired("2026-07-08T12:00:00Z", now, "Asia/Seoul")).toBe(
+      true,
+    );
   });
 
   it("89일 전은 유효하고 90일 전 날짜부터 만료다", () => {
-    expect(isSessionExpired("2026-07-09T00:00:00Z", now)).toBe(false);
-    expect(isSessionExpired("2026-07-06T20:00:00Z", now)).toBe(true);
+    expect(isSessionExpired("2026-07-09T00:00:00Z", now, "Asia/Seoul")).toBe(
+      false,
+    );
+    expect(isSessionExpired("2026-07-06T20:00:00Z", now, "Asia/Seoul")).toBe(
+      true,
+    );
   });
 
   it("성장설계는 발급 후 180일째 당일부터 오래된 것으로 본다", () => {
-    expect(isGrowthStale("2026-04-10T00:00:00Z", now)).toBe(false);
-    expect(isGrowthStale("2026-04-09T00:00:00Z", now)).toBe(true);
-    expect(isGrowthStale("2026-04-05T00:00:00Z", now)).toBe(true);
+    expect(isGrowthStale("2026-04-10T00:00:00Z", now, "Asia/Seoul")).toBe(
+      false,
+    );
+    expect(isGrowthStale("2026-04-09T00:00:00Z", now, "Asia/Seoul")).toBe(true);
+    expect(isGrowthStale("2026-04-05T00:00:00Z", now, "Asia/Seoul")).toBe(true);
   });
 });
 

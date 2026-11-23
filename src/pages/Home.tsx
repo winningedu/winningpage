@@ -1,7 +1,10 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import AcceptanceSection from "@/components/landing/AcceptanceSection";
-import { selectVisibleBanners } from "@/components/landing/bannerVisibility";
+import {
+  bannerTodayYmd,
+  selectVisibleBanners,
+} from "@/components/landing/bannerVisibility";
 import ColumnNewsSection from "@/components/landing/ColumnNewsSection";
 import HeroSection from "@/components/landing/HeroSection";
 import MentorSection from "@/components/landing/MentorSection";
@@ -115,12 +118,6 @@ function preloadImage(src: string | undefined): Promise<string> {
   });
 }
 
-function todayKstYmd() {
-  const now = new Date();
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return kst.toISOString().slice(0, 10);
-}
-
 // 동시 노출 상한. 어드민 팝업 관리 guideText("동시 노출: 최대 3개")와 맞춘다.
 // sort_order 상위 3장만 후보가 되며, 그 밖의 행은 누구에게도 노출되지 않는다.
 const MAX_VISIBLE_POPUPS = 3;
@@ -136,7 +133,7 @@ function getHiddenPopupIds(): Record<string, string> {
 
 function setHiddenPopupToday(id: string) {
   try {
-    const today = todayKstYmd();
+    const today = bannerTodayYmd();
     const saved = getHiddenPopupIds();
     saved[id] = today;
     localStorage.setItem("hiddenPopupIds", JSON.stringify(saved));
@@ -291,12 +288,17 @@ export default function Home() {
   const [bannersFailed, setBannersFailed] = useState(false);
   const [sideBannersFailed, setSideBannersFailed] = useState(false);
   const banners = useMemo(
-    () => selectVisibleBanners(fetchedBanners, todayKstYmd(), matchedTenantIds),
+    () =>
+      selectVisibleBanners(fetchedBanners, bannerTodayYmd(), matchedTenantIds),
     [fetchedBanners, matchedTenantIds],
   );
   const sideBanners = useMemo(
     () =>
-      selectVisibleBanners(fetchedSideBanners, todayKstYmd(), matchedTenantIds),
+      selectVisibleBanners(
+        fetchedSideBanners,
+        bannerTodayYmd(),
+        matchedTenantIds,
+      ),
     [fetchedSideBanners, matchedTenantIds],
   );
   const [universities, setUniversities] = useState<University[]>(
@@ -407,7 +409,7 @@ export default function Home() {
     let mounted = true;
 
     async function fetchPopups() {
-      const today = todayKstYmd();
+      const today = bannerTodayYmd();
       const { data, error } = await supabase
         .from("popups")
         .select(
@@ -450,7 +452,7 @@ export default function Home() {
     let mounted = true;
 
     async function fetchRenewalContents() {
-      const today = todayKstYmd();
+      const today = bannerTodayYmd();
       const [sideResult, universityResult] = await Promise.all([
         supabase
           .from("home_side_banners")

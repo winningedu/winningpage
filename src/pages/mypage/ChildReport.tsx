@@ -68,7 +68,7 @@ export default function ChildReport() {
   // `at` — 어느 주/달의 리포트인가. 알림톡 링크가 넘겨주는 값이고
   // (src/routes/alimtalkLinkRoutes.tsx), 형식은 학생 뷰(GrowthReport.tsx)와
   // 동일하다: 주간은 그 주 월요일 YMD, 월간은 'YYYY-MM'. 없으면 API 가 오늘
-  // (KST) 기준 이번 주/이번 달로 잡는다.
+  // (X-Time-Zone, 브라우저 시간대) 기준 이번 주/이번 달로 잡는다.
   const at = searchParams.get("at") || undefined;
 
   // undefined 로딩 / null 권한없음

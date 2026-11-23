@@ -14,6 +14,7 @@ import {
 } from "@/lib/report/downloadReportPdf";
 import { REPORT_PRINT_PAGE_BASE_STYLE } from "@/lib/report/printPageStyle";
 import { shouldUseServerPdf } from "@/lib/report/shouldUseServerPdf";
+import { formatDate } from "@/lib/time/format";
 import AdmissionChanceCard from "./AdmissionChanceCard";
 import ConditionListCard from "./ConditionListCard";
 import ConditionTileCard from "./ConditionTileCard";
@@ -115,7 +116,7 @@ export type GrowthReport = {
     };
     expectedEffect: { title?: ReactNode; pills: string[]; caption?: ReactNode };
   } | null;
-  mentorComment?: { dateLabel?: ReactNode; body?: ReactNode } | null;
+  mentorComment?: { writtenAt?: string; body?: ReactNode } | null;
   admission: { upper: AdmissionBlock; lower: AdmissionBlock };
 };
 
@@ -355,7 +356,11 @@ export default function GrowthReportBody({
         {mentorComment && (
           <div className="mt-10">
             <MentorCommentCard
-              dateLabel={mentorComment.dateLabel}
+              dateLabel={
+                mentorComment.writtenAt
+                  ? formatDate(mentorComment.writtenAt)
+                  : undefined
+              }
               body={mentorComment.body}
             />
           </div>

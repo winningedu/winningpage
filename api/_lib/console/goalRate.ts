@@ -1,13 +1,10 @@
 // 주간 목표시간 달성율과 최소 목표 충족일(교 #5, #6, #68, #82). 모든 콘솔 화면이 이 모듈 하나를 쓴다.
-// 이번 주 = 어제까지 최근 7일(오늘 제외, KST), 지난주 = 그 전 7일. 7일에는 항상 월~토 6일과 일요일 1일이 들어간다.
+// 이번 주 = 어제까지 최근 7일(오늘 제외, 학생 시간대), 지난주 = 그 전 7일. 7일에는 항상 월~토 6일과 일요일 1일이 들어간다.
 // 목표가 있는데 기록이 없는 날은 학습시간 0 이다. 달성율 = (목표 설정일의 실제 합 + 일요일 실제) ÷ 목표 설정일의
 // 이상 목표 합 x 100 이고 반올림도 상한도 두지 않는다(화면에서 반올림). 충족일은 목표 설정일 중 실제 >= 최소인 날이다.
 
-import {
-  addDaysYMD,
-  kstYMD,
-  VIRTUAL_DAY_NAMES,
-} from "../../../src/lib/goal/calc/index.js";
+import { VIRTUAL_DAY_NAMES } from "../../../src/lib/goal/calc/index.js";
+import { addDaysYmd } from "../../../src/lib/time/day.js";
 
 export const GOAL_RATE_LOW_BELOW = 40;
 export const GOAL_RATE_HIGH_FROM = 70;
@@ -49,13 +46,13 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-/** today(기본 오늘 KST) 를 뺀 최근 7일(이번 주)과 그 전 7일(지난주). 날짜는 오래된 날부터. */
-export function weekWindows(today: string = kstYMD()): {
+/** today 를 뺀 최근 7일(이번 주)과 그 전 7일(지난주). 날짜는 오래된 날부터. */
+export function weekWindows(today: string): {
   thisWeek: string[];
   previousWeek: string[];
 } {
   const week = (endOffset: number) =>
-    Array.from({ length: 7 }, (_, i) => addDaysYMD(today, endOffset - 6 + i));
+    Array.from({ length: 7 }, (_, i) => addDaysYmd(today, endOffset - 6 + i));
   return { thisWeek: week(-1), previousWeek: week(-8) };
 }
 

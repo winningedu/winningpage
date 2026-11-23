@@ -4,6 +4,7 @@
 // 서비스를 하나라도 쓴 학생 수(joined)와 서비스별 이용 인원을 준다. 학생 이름은 담지 않는다(집계만, 교 #40).
 // 학년, 반 조회는 화면이 이 행들을 거른다(요약 합계도 행에서 낸다).
 
+import { ymdIn } from "../../../../src/lib/time/day.js";
 import {
   compareClassName,
   gradeRank,
@@ -12,7 +13,6 @@ import {
   readAll,
 } from "../../../_lib/console/directory.js";
 import { loadGoalStatus } from "../../../_lib/console/goalStatus.js";
-import { kstDateOffset } from "../../../_lib/console/kstDate.js";
 import { loadPendingStudents } from "../../../_lib/console/rosterPending.js";
 import {
   loadServiceUsage,
@@ -20,7 +20,7 @@ import {
   type ServiceKey,
 } from "../../../_lib/console/serviceUsage.js";
 import { loadScopedStudents } from "../../../_lib/console/studentScope.js";
-import { defineHandler } from "../../../_lib/handler.js";
+import { defineHandler, requireTimeZone } from "../../../_lib/handler.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -46,6 +46,7 @@ export default defineHandler({
     const actor = ctx.console;
     if (!actor) throw new Error("console actor missing");
     const admin = ctx.supabaseAdmin;
+    const viewerZone = requireTimeZone(ctx);
 
     const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
     const [students, classes, capacities, assignments, teachers] =
@@ -137,6 +138,6 @@ export default defineHandler({
 
     res
       .status(200)
-      .json({ asOf: kstDateOffset(new Date(), 0), orgType, classes: rows });
+      .json({ asOf: ymdIn(new Date(), viewerZone), orgType, classes: rows });
   },
 });

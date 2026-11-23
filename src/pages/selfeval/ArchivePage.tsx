@@ -51,7 +51,7 @@ export default function ArchivePage() {
   useSelfevalScreenStep(null);
   const navigate = useNavigate();
   const toast = useToast();
-  const { sessions, openSession, isEntryLoading, refetchEntry } =
+  const { sessions, openSession, isEntryLoading, refetchEntry, timeZone } =
     useSelfevalShell();
   const [filter, setFilter] = useState<ArchiveFilter>({});
   const [discardOpen, setDiscardOpen] = useState(false);
@@ -94,7 +94,7 @@ export default function ArchivePage() {
   }
 
   const header = <GoalPageHeader title="보관함" />;
-  if (sessions === null) {
+  if (sessions === null || timeZone === null) {
     return (
       <>
         {header}
@@ -255,7 +255,7 @@ export default function ArchivePage() {
                       </span>
                     </div>
                     <ul className="mt-1 flex flex-wrap gap-x-3 text-app-label text-ink-sub">
-                      {rowMeta(item).map((meta) => (
+                      {rowMeta(item, timeZone).map((meta) => (
                         <li key={meta}>{meta}</li>
                       ))}
                     </ul>
