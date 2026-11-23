@@ -7,7 +7,7 @@ import {
   resolveSentenceEvidence,
   studentEvidence,
 } from "./evidence.js";
-import { splitSentences } from "./text.js";
+import { ensureTerminalPunctuation, splitSentences } from "./text.js";
 import type { GenerationSections, Paragraph, Sentence } from "./types.js";
 
 const stripSpaces = (v: string): string => v.replace(/\s+/g, "");
@@ -52,7 +52,8 @@ export function relinkEdited(
     pool.set(key, [...(pool.get(key) ?? []), s]);
   }
   const paragraphs = editedParagraphs.map((edited, pi): Paragraph => {
-    const sentences = splitSentences(edited).map((text, si): Sentence => {
+    const sentences = splitSentences(edited).map((piece, si): Sentence => {
+      const text = ensureTerminalPunctuation(piece);
       const kept = pool.get(stripSpaces(text))?.shift();
       if (kept) return { ...kept, text };
       return {
