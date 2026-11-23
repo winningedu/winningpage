@@ -17,7 +17,7 @@
 
 import { addDaysYMD } from "../../../../src/lib/goal/calc/index.js";
 import { hasAdminViewPermission } from "../../../_lib/console/proxy.js";
-import { defineHandler } from "../../../_lib/handler.js";
+import { defineHandler, requireTimeZone } from "../../../_lib/handler.js";
 import {
   GRAINS,
   type Grain,
@@ -81,7 +81,7 @@ export default defineHandler({
     const invalid = (message: string) =>
       sendError(res, "coded", 400, message, "INVALID_QUERY");
 
-    const period = parsePeriod(req.query);
+    const period = parsePeriod(req.query, requireTimeZone(ctx));
     if (typeof period === "string") return invalid(period);
     const { from, to } = period;
 

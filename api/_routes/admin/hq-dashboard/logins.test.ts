@@ -33,7 +33,15 @@ type Bucket = {
 };
 
 const get = (query: Record<string, string> = {}) =>
-  callHandler(handler, undefined, "GET", query);
+  callHandler(
+    (req, res) => {
+      req.headers["x-time-zone"] = "Asia/Seoul";
+      return handler(req, res);
+    },
+    undefined,
+    "GET",
+    query,
+  );
 
 let bucketCalls: Args[];
 let logCalls: Args[];

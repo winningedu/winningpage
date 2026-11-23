@@ -8,7 +8,7 @@
 //   series[]: start, end, signups, signupsByMemberType, paidOrders
 // 권한: 로그인 + hqDashboard 보기 권한. 오류(coded): 400 INVALID_QUERY, 401, 403 FORBIDDEN, 500 INTERNAL.
 
-import { defineHandler } from "../../../_lib/handler.js";
+import { defineHandler, requireTimeZone } from "../../../_lib/handler.js";
 import {
   GRAINS,
   MAU_MODES,
@@ -46,7 +46,7 @@ export default defineHandler({
     const invalid = (message: string) =>
       sendError(res, "coded", 400, message, "INVALID_QUERY");
 
-    const period = parsePeriod(req.query);
+    const period = parsePeriod(req.query, requireTimeZone(ctx));
     if (typeof period === "string") return invalid(period);
     const grain = pick(req.query.grain, GRAINS, "day");
     if (!grain) return invalid("grain 이 올바르지 않습니다.");

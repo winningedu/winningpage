@@ -8,7 +8,7 @@
 //         payments { payingMembers, orderCount, paidAmount, refundedAmount, netAmount } }
 // 권한: 로그인 + hqDashboard 보기 권한. 오류(coded): 400 INVALID_QUERY, 401, 403 FORBIDDEN, 500 INTERNAL.
 
-import { defineHandler } from "../../../_lib/handler.js";
+import { defineHandler, requireTimeZone } from "../../../_lib/handler.js";
 import { parsePeriod } from "../../../_lib/hq-dashboard/period.js";
 import { hasHqDashboardViewPermission } from "../../../_lib/hq-dashboard/permission.js";
 import { sendError } from "../../../_lib/httpResponse.js";
@@ -40,7 +40,7 @@ export default defineHandler({
       sendError(res, "coded", 403, "대시보드 권한이 없습니다.", "FORBIDDEN");
       return;
     }
-    const period = parsePeriod(req.query);
+    const period = parsePeriod(req.query, requireTimeZone(ctx));
     if (typeof period === "string") {
       sendError(res, "coded", 400, period, "INVALID_QUERY");
       return;

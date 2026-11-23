@@ -25,7 +25,15 @@ import handler from "./b2c.js";
 type Args = Record<string, unknown>;
 
 const get = (query: Record<string, string> = {}) =>
-  callHandler(handler, undefined, "GET", query);
+  callHandler(
+    (req, res) => {
+      req.headers["x-time-zone"] = "Asia/Seoul";
+      return handler(req, res);
+    },
+    undefined,
+    "GET",
+    query,
+  );
 
 let calls: Args[];
 
@@ -39,6 +47,18 @@ function setPermissions(rows: { resource_key: string; level: string }[]) {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+});
+
+describe("GET /api/admin/hq-dashboard/b2c 시간대", () => {
+  test("X-Time-Zone 헤더가 없으면 400 TIME_ZONE_REQUIRED 이고 통계를 읽지 않는다", async () => {
+    setPermissions([{ resource_key: "hqDashboard", level: "view" }]);
+
+    const r = await callHandler(handler, undefined, "GET");
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "TIME_ZONE_REQUIRED" } });
+    expect(kit.state.events).not.toContain("rpc:fn_hq_b2c_summary");
+  });
 });
 
 describe("GET /api/admin/hq-dashboard/b2c 권한", () => {
