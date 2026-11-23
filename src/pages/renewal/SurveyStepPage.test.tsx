@@ -88,6 +88,21 @@ describe("SurveyStepPage v3", () => {
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
   });
 
+  it("미응답 버튼을 누를 때마다 이동한 문항 번호를 화면 낭독기에 다시 알린다", () => {
+    renderStep("1", { q1: 3 });
+    const cta = screen.getByRole("button", {
+      name: "모든 항목에 응답해주세요",
+    });
+    const status = () => screen.getByRole("status").textContent ?? "";
+    fireEvent.click(cta);
+    const first = status();
+    // 기능요구명세서 B: q2 is screen number 2
+    expect(first).toContain("2번");
+    fireEvent.click(cta);
+    expect(status()).toContain("2번");
+    expect(status()).not.toBe(first);
+  });
+
   it("필수 문항을 다 답하면 남은 문항 수를 보이고 다음 화면으로 간다", () => {
     renderStep("1", { q1: 3, q2: 1, q3: 6 });
     // 화면 2~6 본 문항 중 보이는 것: 4, 5, 6, 7 / 8, 9, 10 / 11~15 / 16 / 20, 21

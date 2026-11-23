@@ -8,6 +8,7 @@ import {
 import type { CascadeLevel } from "@/components/renewal/survey/CascadingSelect";
 import SurveyProgress from "@/components/renewal/survey/SurveyProgress";
 import SurveyQuestionList from "@/components/renewal/survey/SurveyQuestionList";
+import { SURVEY_V3_QUESTIONS } from "@/data/diagnosisSurveyV3";
 import type { IsoDate } from "@/lib/diagnosis-v3/types";
 import {
   getStepPath,
@@ -59,6 +60,12 @@ export default function SurveyStepPage() {
   const step = parseStep(rawStep);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // live region text; clicks counts CTA presses so the same message changes
+  // on every press and the screen reader reads it again
+  const [announced, setAnnounced] = useState<{
+    label: string;
+    clicks: number;
+  } | null>(null);
 
   useEffect(() => {
     if (step !== null) window.scrollTo({ top: 0, behavior: "auto" });
@@ -87,6 +94,10 @@ export default function SurveyStepPage() {
     const first = problems[0];
     if (!first) return;
     setHighlightedId(first);
+    const label = SURVEY_V3_QUESTIONS.find((q) => q.id === first)?.label;
+    if (label === undefined)
+      throw new Error(`v3 survey has no question ${first}`);
+    setAnnounced((prev) => ({ label, clicks: (prev?.clicks ?? 0) + 1 }));
     document
       .getElementById(`q-${first}`)
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -128,8 +139,12 @@ export default function SurveyStepPage() {
           onClick={handleClick}
           busy={submitting}
         />
-        <p aria-live="polite" className="sr-only">
-          {highlightedId ? "응답하지 않은 문항으로 이동했어요." : ""}
+        <p role="status" className="sr-only">
+          {announced
+            ? `응답하지 않은 ${announced.label}번 문항으로 이동했어요.${
+                announced.clicks % 2 === 0 ? "\u00a0" : ""
+              }`
+            : ""}
         </p>
 
         {step > 1 && (
