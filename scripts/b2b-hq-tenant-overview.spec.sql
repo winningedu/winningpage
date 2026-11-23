@@ -160,16 +160,16 @@ insert into public.teachers (tenant_id, name, phone, role, deleted_at) values
 insert into public.teachers (tenant_id, name, phone, role, status) values
   (pg_temp.fx('A'), '정비활성', '01077770004', 'homeroom', 'inactive');
 
--- 마지막 활동일(A4): last_seen_at 과 profile_login_days 중 늦은 날.
+-- 마지막 활동 순간(A4): last_seen_at 과 profile_login_slots 중 늦은 순간.
 update public.profiles set last_seen_at = ((pg_temp.today() - 5)::timestamp + interval '10 hours') at time zone 'Asia/Seoul'
  where id = pg_temp.fx('s_enrolled');
 update public.profiles set last_seen_at = ((pg_temp.today() - 4)::timestamp + interval '23 hours 30 minutes') at time zone 'Asia/Seoul'
  where id = pg_temp.fx('t_account');
-insert into public.profile_login_days (profile_id, kst_date) values
-  (pg_temp.fx('s_unknown'), pg_temp.today() - 3),
-  (pg_temp.fx('s_unknown'), pg_temp.today() - 7),
-  (pg_temp.fx('s_qa'), pg_temp.today() - 1),
-  (pg_temp.fx('s_grad'), pg_temp.today());
+insert into public.profile_login_slots (profile_id, slot_start) values
+  (pg_temp.fx('s_unknown'), ((pg_temp.today() - 3)::timestamp + interval '14 hours 15 minutes') at time zone 'Asia/Seoul'),
+  (pg_temp.fx('s_unknown'), ((pg_temp.today() - 7)::timestamp + interval '9 hours') at time zone 'Asia/Seoul'),
+  (pg_temp.fx('s_qa'), ((pg_temp.today() - 1)::timestamp + interval '8 hours 45 minutes') at time zone 'Asia/Seoul'),
+  (pg_temp.fx('s_grad'), now() + interval '1 day');
 
 create temp table ov_default as select * from public.fn_hq_tenant_overview(false);
 create temp table ov_all as select * from public.fn_hq_tenant_overview(true);
@@ -215,16 +215,68 @@ select pg_temp.expect_int('포함 스위치: QA 선생님도 센다',
 -- ---------------------------------------------------------------------
 -- 마지막 활동일(A4)
 -- ---------------------------------------------------------------------
-select pg_temp.expect_text('A 마지막 활동일: 센 회원의 last_seen_at(KST 날짜)과 로그인 기록 중 가장 늦은 날',
-  (pg_temp.ov('A')).last_activity_on::text, (pg_temp.today() - 3)::text);
-select pg_temp.expect_text('포함 스위치: QA 학생의 로그인 기록이 더 늦다',
-  (pg_temp.ova('A')).last_activity_on::text, (pg_temp.today() - 1)::text);
+create function pg_temp.utc_text(p_ts timestamptz) returns text language sql as $$
+  select to_char(p_ts at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+$$;
+create function pg_temp.kst_at(p_day date, p_hm interval) returns timestamptz language sql as $$
+  select (p_day::timestamp + p_hm) at time zone 'Asia/Seoul'
+$$;
+
+-- s_grad 의 미래 칸은 이 단언 전에 지워 A 의 마지막 활동을 s_unknown 칸으로 둔다.
+delete from public.profile_login_slots where profile_id = pg_temp.fx('s_grad');
+create temp table ov_default2 as select * from public.fn_hq_tenant_overview(false);
+create temp table ov_all2 as select * from public.fn_hq_tenant_overview(true);
+select pg_temp.expect_text('A 마지막 활동: last_seen_at 보다 늦은 로그인 칸의 순간',
+  pg_temp.utc_text((select last_activity_at from ov_default2 where tenant_id = pg_temp.fx('A'))),
+  pg_temp.utc_text(pg_temp.kst_at(pg_temp.today() - 3, interval '14 hours 15 minutes')));
+select pg_temp.expect_text('포함 스위치: QA 학생의 로그인 칸이 더 늦다',
+  pg_temp.utc_text((select last_activity_at from ov_all2 where tenant_id = pg_temp.fx('A'))),
+  pg_temp.utc_text(pg_temp.kst_at(pg_temp.today() - 1, interval '8 hours 45 minutes')));
 select pg_temp.expect_text('활동 기록이 없는 기관은 null',
-  (pg_temp.ov('none')).last_activity_on::text, null);
-delete from public.profile_login_days where profile_id = pg_temp.fx('s_unknown');
-select pg_temp.expect_text('선생님 last_seen_at 23:30 KST 는 그 KST 날짜로 센다',
-  (select o.last_activity_on::text from public.fn_hq_tenant_overview(false) o where o.tenant_id = pg_temp.fx('A')),
-  (pg_temp.today() - 4)::text);
+  pg_temp.utc_text((select last_activity_at from ov_default2 where tenant_id = pg_temp.fx('none'))), null);
+delete from public.profile_login_slots where profile_id = pg_temp.fx('s_unknown');
+select pg_temp.expect_text('로그인 칸이 없으면 선생님 last_seen_at 순간(날짜가 아님)',
+  pg_temp.utc_text((select o.last_activity_at from public.fn_hq_tenant_overview(false) o where o.tenant_id = pg_temp.fx('A'))),
+  pg_temp.utc_text(pg_temp.kst_at(pg_temp.today() - 4, interval '23 hours 30 minutes')));
+
+-- ---------------------------------------------------------------------
+-- 기관 시간대(D1, D3): 시범, 계약 판정은 기관 time_zone 의 오늘로 한다.
+-- 키리바시(+14)와 파고파고(-11)는 25시간 차라 오늘 날짜가 항상 다르다. 기본값 KST 로 판정하면 둘 중 하나는 틀린다.
+-- ---------------------------------------------------------------------
+select pg_temp.mk_tenant('tz_k_in', 'HQKKKKAA', null, null, null);
+select pg_temp.mk_tenant('tz_k_out', 'HQKKKKBB', null, null, null);
+select pg_temp.mk_tenant('tz_p_in', 'HQKKKKCC', null, null, null);
+select pg_temp.mk_tenant('tz_p_out', 'HQKKKKDD', null, null, null);
+update public.tenants set time_zone = 'Pacific/Kiritimati',
+  trial_start_date = public.fn_local_date(now(), 'Pacific/Kiritimati') - 5,
+  trial_end_date = public.fn_local_date(now(), 'Pacific/Kiritimati')
+ where id = pg_temp.fx('tz_k_in');
+update public.tenants set time_zone = 'Pacific/Kiritimati',
+  trial_start_date = public.fn_local_date(now(), 'Pacific/Kiritimati') - 5,
+  trial_end_date = public.fn_local_date(now(), 'Pacific/Kiritimati') - 1
+ where id = pg_temp.fx('tz_k_out');
+update public.tenants set time_zone = 'Pacific/Pago_Pago',
+  trial_start_date = public.fn_local_date(now(), 'Pacific/Pago_Pago') - 5,
+  trial_end_date = public.fn_local_date(now(), 'Pacific/Pago_Pago')
+ where id = pg_temp.fx('tz_p_in');
+update public.tenants set time_zone = 'Pacific/Pago_Pago',
+  trial_start_date = public.fn_local_date(now(), 'Pacific/Pago_Pago') - 5,
+  trial_end_date = public.fn_local_date(now(), 'Pacific/Pago_Pago') - 1
+ where id = pg_temp.fx('tz_p_out');
+create temp table ov_tz as select * from public.fn_hq_tenant_overview(false);
+select pg_temp.expect_text('키리바시 기관, 시범 마지막 날(기관 오늘)이면 trial',
+  (select contract_status from ov_tz where tenant_id = pg_temp.fx('tz_k_in')), 'trial');
+select pg_temp.expect_text('키리바시 기관, 시범이 어제 끝났으면 none',
+  (select contract_status from ov_tz where tenant_id = pg_temp.fx('tz_k_out')), 'none');
+select pg_temp.expect_text('파고파고 기관, 시범 마지막 날(기관 오늘)이면 trial',
+  (select contract_status from ov_tz where tenant_id = pg_temp.fx('tz_p_in')), 'trial');
+select pg_temp.expect_text('파고파고 기관, 시범이 어제 끝났으면 none',
+  (select contract_status from ov_tz where tenant_id = pg_temp.fx('tz_p_out')), 'none');
+-- now() 는 못 바꾸므로 뉴욕 기관의 고정 순간 판정은 오늘 계산에 쓰는 fn_local_date 로 직접 본다.
+select pg_temp.expect_bool('뉴욕 시범 종료 2026-11-30 은 2026-12-01T04:00Z 에 아직 시범 안',
+  public.fn_local_date('2026-12-01T04:00:00Z'::timestamptz, 'America/New_York') <= date '2026-11-30', true);
+select pg_temp.expect_bool('뉴욕 시범 종료 2026-11-30 은 2026-12-01T05:00Z 에 시범 밖',
+  public.fn_local_date('2026-12-01T05:00:00Z'::timestamptz, 'America/New_York') <= date '2026-11-30', false);
 
 -- ---------------------------------------------------------------------
 -- 계약 상태(A2): none, upcoming, active, ending_soon(종료일까지 30일 이하), grace, expired

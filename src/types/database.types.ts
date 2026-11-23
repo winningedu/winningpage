@@ -9265,7 +9265,7 @@ export type Database = {
           contract_start_date: string;
           contract_status: string;
           grace_end: string;
-          last_activity_on: string;
+          last_activity_at: string;
           name: string;
           org_type: string;
           region: string;
