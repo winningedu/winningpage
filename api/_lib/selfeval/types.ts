@@ -30,9 +30,10 @@ export const AREA_LABELS: Record<Area, string> = {
 
 export type TargetCharsMode = "with_space" | "without_space";
 
-export type ModelStepKey = "analyze" | "write" | "verify";
+export type ModelStepKey = "link" | "analyze" | "write" | "verify";
 
 export const MODEL_STEP_KEYS: readonly ModelStepKey[] = [
+  "link",
   "analyze",
   "write",
   "verify",
@@ -143,7 +144,18 @@ export type ActivityRecordLike = {
   numbers: unknown;
   sources: unknown;
   createdAt: string;
+  /** 제출일(No.141). 없으면 createdAt 으로 읽는다. */
+  submittedAt?: string | null;
+  /** 기록 상태(No.141). 없으면 status 에서 파생한다(planned 면 plan, 그 밖은 completed). */
+  recordStatus?: RecordStatus | null;
+  summary?: string | null;
+  reflection?: string | null;
+  parentRecordId?: string | null;
+  courseName?: string | null;
+  entryKind?: "performance" | "deep" | "activity" | null;
 };
+
+export type RecordStatus = "completed" | "in_progress" | "plan";
 
 export type FitSignalKey =
   | "same_subject"
@@ -171,6 +183,56 @@ export type FitResult = {
   signals: FitSignal[];
   /** 학생이 읽는 선정 이유 문장(명세 No.32). */
   reasons: string[];
+};
+
+// ---------------------------------------------------------------------------
+// 활동 기록 연계(명세 No.174~196)
+// ---------------------------------------------------------------------------
+
+export const LINK_TYPES = [
+  "inherit",
+  "deepen",
+  "borrow_method",
+  "complement",
+  "background",
+  "area_extend",
+  "grade_continue",
+] as const;
+
+export type LinkType = (typeof LINK_TYPES)[number];
+
+export const LINK_TYPE_LABELS: Record<LinkType, string> = {
+  inherit: "이어받음",
+  deepen: "같은 질문 심화",
+  borrow_method: "방법 빌림",
+  complement: "관점 보완",
+  background: "배경 개념",
+  area_extend: "영역 확장",
+  grade_continue: "학년 이어짐",
+};
+
+/** 창체 영역 자기평가에서 교과 기록이 쓸 수 있는 유형(명세 No.187). */
+export const CREATIVE_SUBJECT_LINK_TYPES: readonly LinkType[] = [
+  "borrow_method",
+  "background",
+  "area_extend",
+];
+
+export type LinkStrength = "explicit" | "implicit";
+export type LinkSource = "model" | "student";
+
+/** selfeval_record_links 한 줄의 앱 모양. */
+export type RecordLink = {
+  fromId: string;
+  toId: string;
+  type: LinkType;
+  strength: LinkStrength;
+  source: LinkSource;
+  confirmed: boolean;
+  deleted: boolean;
+  note: string | null;
+  quoteFrom: string | null;
+  quoteTo: string | null;
 };
 
 /** 후보 목록 한 줄(pick-records list 응답). */
@@ -407,6 +469,12 @@ export const GROWTH_STALE_DAYS = 180;
 export const FIT_AUTO_SELECT_THRESHOLD = 40;
 export const CANDIDATE_LIMIT = 20;
 export const MAX_SUPPORT_ACTIVITIES = 2;
+export const MAX_SELECTED_ACTIVITIES = 8;
+export const MIN_SELECTED_ACTIVITIES = 3;
+export const CHARS_PER_ACTIVITY = 70;
+/** 연계 판정 2차에 넣는 기록 수의 상한. 8건이면 쌍이 28개다(명세 No.184). */
+export const MAX_PAIR_RECORDS = 8;
+export const FALLBACK_SELECT_COUNT = 3;
 export const MAX_REGENERATIONS = 3;
 export const MAX_MODEL_ATTEMPTS_PER_STEP = 10;
 export const CLAIM_STALE_SECONDS = 120;

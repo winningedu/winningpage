@@ -34,7 +34,10 @@ export type PromptBundle = {
 };
 
 /** 단계별 응답 최대 출력 토큰. 잘리면 truncated 로 재요청하므로 넉넉히 두되 분량 규칙으로 누른다. */
-export const MAX_OUTPUT_TOKENS: Record<ModelStepKey, number> = {
+export const MAX_OUTPUT_TOKENS: Record<
+  Exclude<ModelStepKey, "link">,
+  number
+> = {
   analyze: 2048,
   write: 3072,
   verify: 3072,
