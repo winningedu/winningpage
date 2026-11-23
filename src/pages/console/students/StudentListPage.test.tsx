@@ -57,7 +57,7 @@ const noServices = {
 const student = (n: number, over: Record<string, unknown> = {}) => ({
   studentId: `s${n}`,
   displayName: n === 1 ? "김서연" : "이서준",
-  joinedAt: "2026-03-02",
+  joinedAt: "2026-03-02T12:00:00Z",
   grade: "고2",
   groupName: null,
   className: "3",
@@ -480,7 +480,7 @@ describe("W6 학생 관리 휴대폰", () => {
 const detail = {
   studentId: "s1",
   name: "김서연",
-  joinedAt: "2026-03-02",
+  joinedAt: "2026-03-02T12:00:00Z",
   flagged: false,
   summaries: {
     diagnosis: "학교생활 준비도 71",

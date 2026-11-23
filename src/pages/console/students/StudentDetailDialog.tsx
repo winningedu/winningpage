@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { consoleRequest } from "../api";
-import { kstDaysAgoText } from "../date";
+import { daysAgoText } from "../date";
 import { CONSOLE_BASE } from "../menu";
 import Notice from "../Notice";
 import { slotLabel } from "../slotLabel";
@@ -151,7 +151,7 @@ export default function StudentDetailDialog({
                 detail.enrollment.homeroomName &&
                   `담임 선생님 ${detail.enrollment.homeroomName}`,
                 detail.lastSeenAt &&
-                  `최근 접속 ${kstDaysAgoText(detail.lastSeenAt, new Date())}`,
+                  `최근 접속 ${daysAgoText(detail.lastSeenAt, new Date())}`,
               ]
                 .filter(Boolean)
                 .join(", ")}
