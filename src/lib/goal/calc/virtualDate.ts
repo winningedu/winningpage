@@ -38,7 +38,7 @@ export function toYMD(v: unknown) {
 // 이 모듈은 한국 서비스의 KST 영업일 규칙을 서버와 공유한다. 다른 시간대는 time 모듈의 ymdIn 으로 직접 계산한다.
 const KST_ZONE = "Asia/Seoul"; // tz-literal-ok: goal 계산 엔진의 KST 영업일 규칙(U4b-goal-api가 시간대 인자로 옮길 때까지 유지)
 
-/** 주어진 시각의 KST(Asia/Seoul) 날짜를 'YYYY-MM-DD' 로. 원본 student.mjs:152-159 */
+/** 주어진 시각의 KST 날짜를 'YYYY-MM-DD' 로. 원본 student.mjs:152-159 */
 export function kstYMD(date = new Date()) {
   return ymdIn(date, KST_ZONE);
 }
