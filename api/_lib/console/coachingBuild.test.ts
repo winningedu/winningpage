@@ -23,6 +23,7 @@ vi.mock("./coachingText.js", async (importOriginal) => {
 });
 
 import { buildCoaching } from "./coachingBuild.js";
+import { v3Payload } from "./diagnosisV3TestKit.js";
 
 let kit: KitState;
 
@@ -97,3 +98,50 @@ test("the inquiry stage, the self-assessment stage and the targets with probabil
     min: null,
   });
 });
+
+const withDiagnosis = (payload: unknown) => {
+  kit.rows.diagnosis_attempts = (f) =>
+    matchRows([{ id: "d1", profile_id: "s1" }], f);
+  kit.rows.diagnosis_reports = (f) =>
+    matchRows(
+      [
+        {
+          attempt_id: "d1",
+          profile_id: "s1",
+          diagnosed_at: "2026-11-09T00:00:00Z",
+          payload,
+          snapshot: null,
+        },
+      ],
+      f,
+    );
+};
+
+const learningOf = async () =>
+  (
+    await buildCoaching(
+      createFakeAdmin(kit) as never,
+      "s1",
+      ["diagnosis"],
+      "고1",
+    )
+  ).verdicts.learning;
+
+// 코칭 판정 문구표 r9~r12: 긴급도 높음 이상이면 위험, 실행 역량 50 미만이면 위험, 75 이상이면 양호, 그 밖은 주의.
+test("a v3 student's learning verdict is risk when the stored urgency step is very high", async () => {
+  withDiagnosis(v3Payload({ level: "L4", total1: 80 }));
+  expect(await learningOf()).toEqual({ level: "risk" });
+});
+
+test.each([
+  { level: "L1", total1: 75, expected: { level: "good" } },
+  { level: "L2", total1: 62, expected: { level: "caution" } },
+  { level: "L1", total1: 49, expected: { level: "risk" } },
+  { level: "L3", total1: 80, expected: { level: "risk" } },
+] as const)(
+  "a v3 student with $level and page 1 total $total1 has learning $expected.level",
+  async ({ level, total1, expected }) => {
+    withDiagnosis(v3Payload({ level, total1 }));
+    expect(await learningOf()).toEqual(expected);
+  },
+);

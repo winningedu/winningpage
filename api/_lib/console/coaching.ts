@@ -79,16 +79,16 @@ export function urgencyOf(areas: AreaScores): Urgency {
 export const urgencyOfAreas = (set: DiagnosisAreas): Urgency =>
   set.version === "v3" ? urgencyOfV3(set.scores) : urgencyOf(set.areas);
 
-export interface LearningInput {
-  areas: AreaScores;
-  /** 학습 실행 역량: 1쪽 6영역 평균. */
+/** 긴급도는 v2 는 영역 점수에서(areas), v3 는 엔진이 저장한 단계(urgency)로 받는다. */
+export type LearningInput = {
+  /** 학습 실행 역량: v2 는 1쪽 6영역 평균, v3 는 1쪽 총점. */
   executionAvg: number;
-}
+} & ({ areas: AreaScores } | { urgency: Urgency });
 
 /** 판정 축 ② 학습역량(문구표 r9~r12). 긴급도 높음은 높음과 매우 높음이다. */
 export function learningVerdict(input: LearningInput | null): Verdict {
   if (!input) return { level: "no_data" };
-  const urgency = urgencyOf(input.areas);
+  const urgency = "urgency" in input ? input.urgency : urgencyOf(input.areas);
   if (
     urgency === "high" ||
     urgency === "very_high" ||
