@@ -614,6 +614,28 @@ describe("SurveyStepShell v3 제출", () => {
     );
   });
 
+  it("서버가 답안을 거절하면 첫 오류 문항의 화면으로 보낸다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "proceed", status: "free_used" });
+    submitMock.mockResolvedValue({
+      ok: false,
+      reason: "rejected",
+      status: 400,
+      code: "INVALID_ANSWERS",
+      message: "답안이 올바르지 않습니다.",
+      errors: [
+        { question: "q13", reason: "invalid" },
+        { question: "q14", reason: "invalid" },
+      ],
+    });
+    renderSubmit(vi.fn());
+    await answerAllAndSubmit();
+    // 13 B24: q13 is on screen 4
+    expect(await screen.findByText(/설문 4단계/)).toBeInTheDocument();
+    expect(window.alert).toHaveBeenCalledWith(
+      "응답하지 않은 문항이 있어요. 문항을 다시 확인해 주세요.",
+    );
+  });
+
   it("목표 대학 입결 키를 확인하지 못하면 소진하지 않고 다시 시도 안내를 보인다", async () => {
     resolveMock.mockResolvedValue({ ok: false });
     const onResult = vi.fn();

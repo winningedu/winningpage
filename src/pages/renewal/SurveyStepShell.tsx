@@ -274,6 +274,10 @@ export default function SurveyStepShell() {
         navigate(`/login?redirect=${encodeURIComponent(pathname)}`);
         return null;
       }
+      if (result.reason === "rejected" && result.errors) {
+        showAnswerProblem(result.errors);
+        return null;
+      }
       window.alert("진단 결과를 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.");
       return null;
     }
