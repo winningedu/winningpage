@@ -77,24 +77,19 @@ select pg_temp.expect_text('day_start: 뉴욕 DST 시작일 2026-03-08 은 -05:0
   (public.fn_day_start('2026-03-08', 'America/New_York') at time zone 'UTC')::text, '2026-03-08 05:00:00');
 
 -- ---------------------------------------------------------------------
--- fn_add_months: Asia/Seoul 에서 fn_add_months_kst 와 같다
+-- fn_add_months: Asia/Seoul 기대값(옛 fn_add_months_kst 와 같은 규칙)
 -- ---------------------------------------------------------------------
-create function pg_temp.same_as_kst(t text, p_ts timestamptz, p_months int) returns void
-language plpgsql as $$
-declare
-  v_new timestamptz := public.fn_add_months(p_ts, p_months, 'Asia/Seoul');
-  v_old timestamptz := public.fn_add_months_kst(p_ts, p_months);
-begin
-  if v_new is distinct from v_old then
-    raise exception '[FAIL] %: fn_add_months %, fn_add_months_kst %', t, v_new, v_old;
-  end if;
-  raise notice '[PASS] % = %', t, v_new;
-end $$;
-
-select pg_temp.same_as_kst('add_months: 1/31 + 1개월', '2026-01-30 15:00:00+00', 1);
-select pg_temp.same_as_kst('add_months: 윤년 2/29 + 12개월', '2028-02-28 15:00:00+00', 12);
-select pg_temp.same_as_kst('add_months: KST 하루 끝 14:59:59Z', '2026-01-31 14:59:59+00', 1);
-select pg_temp.same_as_kst('add_months: KST 다음 날 첫 15:00:00Z', '2026-01-31 15:00:00+00', 1);
+select pg_temp.expect_text('add_months: 서울 1/31 00:00 + 1개월 은 2/28 서울 자정',
+  (public.fn_add_months('2026-01-30 15:00:00+00', 1, 'Asia/Seoul') at time zone 'UTC')::text, '2026-02-27 15:00:00');
+select pg_temp.expect_text('add_months: 서울 윤년 2/29 + 12개월 은 2029-02-28 서울 자정',
+  (public.fn_add_months('2028-02-28 15:00:00+00', 12, 'Asia/Seoul') at time zone 'UTC')::text, '2029-02-27 15:00:00');
+select pg_temp.expect_text('add_months: 서울 하루 끝 14:59:59Z 는 1/31 로 보고 2/28 서울 자정',
+  (public.fn_add_months('2026-01-31 14:59:59+00', 1, 'Asia/Seoul') at time zone 'UTC')::text, '2026-02-27 15:00:00');
+select pg_temp.expect_text('add_months: 서울 다음 날 첫 15:00:00Z 는 3월 1일 서울 자정',
+  (public.fn_add_months('2026-01-31 15:00:00+00', 1, 'Asia/Seoul') at time zone 'UTC')::text, '2026-02-28 15:00:00');
+select pg_temp.expect_text('옛 KST 함수 fn_add_months_kst, fn_kst_day_start 는 지워졌다',
+  (to_regprocedure('public.fn_add_months_kst(timestamptz,integer)') is null
+   and to_regprocedure('public.fn_kst_day_start(timestamptz)') is null)::text, 'true');
 select pg_temp.expect_text('add_months: months null 은 null',
   (public.fn_add_months('2026-01-31 00:00:00+00', null, 'Asia/Seoul') is null)::text, 'true');
 select pg_temp.expect_text('add_months: 뉴욕 2026-01-31 12:00-05 + 1개월 은 2/28 뉴욕 자정',

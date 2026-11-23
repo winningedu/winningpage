@@ -204,7 +204,7 @@ begin
   perform pg_temp.expect_int('T3 granted_sessions', g.granted_sessions, 2);
   perform pg_temp.expect_int('T3 paid_amount', g.paid_amount, 4000);
   perform pg_temp.expect_bool('T3 starts_at = 결제일 KST 자정',
-    g.starts_at = public.fn_kst_day_start(now()), true);
+    g.starts_at = public.fn_day_start(public.fn_local_date(now(), 'Asia/Seoul'), 'Asia/Seoul'), true);
   perform pg_temp.expect_bool('T3 기존 부여 만료 뒤로 밀리지 않음',
     g.starts_at < v_base_expires, true);
   perform pg_temp.expect_bool('T3 expires_at = starts_at + 30일',

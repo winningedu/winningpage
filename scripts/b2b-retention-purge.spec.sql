@@ -140,14 +140,6 @@ select pg_temp.log('view', interval '1 day');
 insert into public.admin_access_logs (actor_email, action, resource_key, reason, created_at)
   values ('t23-hq@t.local', 'download', 't23.hq', 't23 legacy hq', now() - interval '3 years');
 
--- 로그인 기록(profile_login_days): KST 날짜가 2년보다 오래된 행만 지운다(접근 로그와 같은 2년, 분석 grill Q1).
-create function pg_temp.kst_today() returns date language sql as $$ select (now() at time zone 'Asia/Seoul')::date $$;
-insert into public.profile_login_days (profile_id, kst_date) values
-  (pg_temp.fx('active'), (pg_temp.kst_today() - interval '3 years')::date),
-  (pg_temp.fx('active'), (pg_temp.kst_today() - interval '2 years 1 day')::date),
-  (pg_temp.fx('active'), (pg_temp.kst_today() - interval '2 years')::date),
-  (pg_temp.fx('active'), pg_temp.kst_today());
-
 -- 로그인 기록(profile_login_slots): slot_start 가 지금보다 2년 넘게 앞선 행만 지운다. 순간 기준이라 시간대가 없다.
 insert into public.profile_login_slots (profile_id, slot_start) values
   (pg_temp.fx('active'), now() - interval '3 years'),
@@ -235,17 +227,15 @@ select pg_temp.expect_int('6개월 된 member_purge 보존', pg_temp.logs_n('mem
 select pg_temp.expect_int('옛 본사 행은 3년이 지나도 보존',
   (select count(*) from public.admin_access_logs where resource_key = 't23.hq' and actor_kind is null), 1);
 
-select pg_temp.expect_int('2년보다 오래된 로그인 기록 삭제',
-  (select count(*) from public.profile_login_days where profile_id = pg_temp.fx('active')
-     and kst_date < (pg_temp.kst_today() - interval '2 years')::date), 0);
-select pg_temp.expect_int('딱 2년 전과 오늘 로그인 기록은 보존',
-  (select count(*) from public.profile_login_days where profile_id = pg_temp.fx('active')), 2);
-
 select pg_temp.expect_int('2년보다 오래된 로그인 칸 삭제',
   (select count(*) from public.profile_login_slots where profile_id = pg_temp.fx('active')
      and slot_start < now() - interval '2 years'), 0);
 select pg_temp.expect_int('2년이 안 된 로그인 칸과 지금 칸은 보존',
   (select count(*) from public.profile_login_slots where profile_id = pg_temp.fx('active')), 2);
+
+-- 옛 KST 로그인 기록 테이블은 지워졌다. 반환 건수 login_days_deleted 는 로그인 칸에서 지운 수다(아래 반환 건수).
+select pg_temp.expect_bool('profile_login_days 테이블이 없다',
+  to_regclass('public.profile_login_days') is null, true);
 
 -- 반환 건수는 지운 행 수 이상이다(로컬 DB 에 다른 행이 있을 수 있다).
 select pg_temp.expect_bool('반환 건수',
