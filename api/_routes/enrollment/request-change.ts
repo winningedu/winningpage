@@ -70,7 +70,7 @@ export default defineHandler({
     const className =
       body.className === null ? null : normalizeClassName(body.className);
     if (className === "") {
-      sendError(res, "coded", 400, "반은 숫자만 적어요", "CLASS_INVALID");
+      sendError(res, "coded", 400, "반을 적어요", "CLASS_INVALID");
       return;
     }
 

@@ -276,7 +276,7 @@ describe("POST /api/signup/school-student", () => {
     expect(kit.state.events).not.toContain("rpc:fn_student_signup");
   });
 
-  test.each(["A", "B반", "3학년 2반", "1-2", "3 반", "0"])(
+  test.each(["반", "0", "00반"])(
     "반 '%s' 은 400 CLASS_INVALID 이고 가입 확정을 부르지 않는다",
     async (className) => {
       happyPath();
@@ -286,7 +286,7 @@ describe("POST /api/signup/school-student", () => {
       expect(r.status).toBe(400);
       expect(r.body).toMatchObject({
         code: "CLASS_INVALID",
-        message: "반은 숫자만 적어요",
+        message: "반을 적어요",
         field: "className",
       });
       expect(kit.state.events).not.toContain("rpc:fn_student_signup");

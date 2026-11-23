@@ -109,7 +109,7 @@ describe("POST /api/enrollment/join-tenant", () => {
     expect(join).not.toHaveBeenCalled();
   });
 
-  test.each(["A", "B반", "3학년 2반", "1-2", "3 반", "0"])(
+  test.each(["반", "0", "00반"])(
     "class name '%s' is a 400 CLASS_INVALID before any DB call",
     async (className) => {
       const join = vi.fn();
@@ -118,7 +118,7 @@ describe("POST /api/enrollment/join-tenant", () => {
       expect(await post({ ...BODY, className })).toMatchObject({
         status: 400,
         body: {
-          error: { code: "CLASS_INVALID", message: "반은 숫자만 적어요" },
+          error: { code: "CLASS_INVALID", message: "반을 적어요" },
         },
       });
       expect(join).not.toHaveBeenCalled();
@@ -128,6 +128,8 @@ describe("POST /api/enrollment/join-tenant", () => {
   test.each([
     ["3반", "3"],
     [" 03 ", "3"],
+    ["A반", "A"],
+    ["B 반", "B"],
     ["12반", "12"],
   ])("class name '%s' goes to the DB as '%s'", async (className, want) => {
     const calls: Record<string, unknown>[] = [];

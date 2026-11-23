@@ -137,13 +137,13 @@ describe("POST /api/enrollment/request-change", () => {
     expect((await post(BODY)).status).toBe(500);
   });
 
-  test.each(["A", "B반", "3학년 2반", "1-2", "3 반", "0"])(
+  test.each(["반", "0", "00반"])(
     "class name '%s' is a 400 CLASS_INVALID before the RPC",
     async (className) => {
       expect(await post({ ...BODY, className })).toMatchObject({
         status: 400,
         body: {
-          error: { code: "CLASS_INVALID", message: "반은 숫자만 적어요" },
+          error: { code: "CLASS_INVALID", message: "반을 적어요" },
         },
       });
       expect(state.userRpc).toEqual([]);
