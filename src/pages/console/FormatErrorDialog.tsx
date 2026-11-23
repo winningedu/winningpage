@@ -35,9 +35,11 @@ export function josaEunNeun(value: string): "은" | "는" {
 }
 
 const lineOf = (item: FormatErrorItem) => {
+  const head =
+    item.name === "" ? `${item.row}행` : `${item.row}행 ${item.name}`;
   if (item.row === 0) return item.message;
-  if (item.value === "") return `${item.row}행 ${item.name}: ${item.message}`;
-  return `${item.row}행 ${item.name}: ${item.cell} "${item.value}"${josaEunNeun(item.value)} ${item.message}`;
+  if (item.value === "") return `${head}: ${item.message}`;
+  return `${head}: ${item.cell} "${item.value}"${josaEunNeun(item.value)} ${item.message}`;
 };
 
 export default function FormatErrorDialog({
