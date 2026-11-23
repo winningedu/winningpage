@@ -3,7 +3,7 @@
 // 본사가 계약 종료 기관 하나의 회원 삭제 대상을 미리 본다(사 #162, 결정 102.1, 102.3, 102.4). 계약 종료일, 유예 종료일,
 // 삭제 가능일(유예 종료 다음 날)과 D-day, 학생 목록(가린 이름, 학년, 반, 번호, 회원번호, 유료 전환 보호 표시)을 돌려준다.
 // 이름은 가려서 내보내므로 풀어 본 것이 아니라 접근 로그를 남기지 않는다. 후보 조건은 실행 함수(fn_anonymize_expired_b2b_members)와
-// 같고, 날짜 계산은 KST 다. 학생이 없는 기관은 DB 가 날짜만 담은 한 줄(profile_id 없음)을 준다.
+// 같고, D-day 의 오늘은 DB 가 기관 시간대(tenants.time_zone)로 센 local_today 다. 학생이 없는 기관은 DB 가 날짜만 담은 한 줄(profile_id 없음)을 준다.
 // 권한: 로그인 + HQ 권한 tenants view 이상(fn_admin_effective_permissions). 스쿨멘토 사이트에서만 열린다.
 
 import { maskName } from "../../../_lib/console/maskName.js";
@@ -17,14 +17,9 @@ export const config = { runtime: "nodejs" };
 
 const TENANTS_RESOURCE_KEY = "tenants";
 const DAY_MS = 24 * 60 * 60 * 1000;
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 function dayNumber(ymd: string): number {
   return Math.floor(Date.parse(`${ymd}T00:00:00Z`) / DAY_MS);
-}
-
-function todayKstDayNumber(): number {
-  return Math.floor((Date.now() + KST_OFFSET_MS) / DAY_MS);
 }
 
 function dayNumberToYmd(day: number): string {
@@ -79,7 +74,10 @@ export default defineHandler({
       graceEnd,
       deletableFrom:
         deletableDay === null ? null : dayNumberToYmd(deletableDay),
-      dDay: deletableDay === null ? null : deletableDay - todayKstDayNumber(),
+      dDay:
+        deletableDay === null || first?.local_today == null
+          ? null
+          : deletableDay - dayNumber(first.local_today),
       students: rows
         .filter((row) => row.profile_id !== null)
         .map((row) => ({
