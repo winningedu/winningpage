@@ -127,6 +127,7 @@ function writeInput(over: Partial<WritePromptInput> = {}): WritePromptInput {
     core: {
       activityName: "이차함수 탐구",
       activityId: "a1",
+      sourceType: "P",
       analysis: analysis({
         motive: "record",
         method: "student",
@@ -134,6 +135,7 @@ function writeInput(over: Partial<WritePromptInput> = {}): WritePromptInput {
       }),
     },
     supports: [],
+    memos: [],
     area: "subject",
     subject: "수학",
     activityName: null,
@@ -153,7 +155,14 @@ describe("buildWritePrompt", () => {
     const sys = buildWritePrompt(
       writeInput({
         supports: [
-          { activityId: "s1", activityName: "보조탐구", summary: "요약" },
+          {
+            activityId: "s1",
+            activityName: "보조탐구",
+            sourceType: "D",
+            summary: "요약",
+            link: null,
+            items: ["method"],
+          },
         ],
       }),
     ).system;
@@ -181,7 +190,14 @@ describe("buildWritePrompt", () => {
     const withSupport = buildWritePrompt(
       writeInput({
         supports: [
-          { activityId: "s1", activityName: "보조탐구", summary: "요약" },
+          {
+            activityId: "s1",
+            activityName: "보조탐구",
+            sourceType: "D",
+            summary: "요약",
+            link: null,
+            items: ["method"],
+          },
         ],
       }),
     );
@@ -204,6 +220,7 @@ describe("buildWritePrompt", () => {
         core: {
           activityName: "이차함수 탐구",
           activityId: "a1",
+          sourceType: "P",
           analysis: analysis({ motive: "record", next: "record" }),
         },
       }),
@@ -293,14 +310,84 @@ describe("buildWritePrompt", () => {
     expect(buildWritePrompt(writeInput()).user).not.toContain("성장설계");
   });
 
-  it("응답 스키마는 role 없이 문단과 문장 evidence nullable 구조다", () => {
+  it("응답 스키마는 role 없이 문단과 문장 evidence 배열 구조이고 모델 feeling 신고는 받지 않는다", () => {
     const b = buildWritePrompt(writeInput());
     const json = JSON.stringify(b.responseSchema);
     for (const r of ["link", "process", "judgment", "wrap"])
       expect(json).not.toContain(r);
     expect(json).toContain("evidence");
-    expect(json).toContain("feeling");
+    expect(json).not.toContain("feeling");
     expect(b.maxOutputTokens).toBe(3072);
+    const sentence = (
+      b.responseSchema as {
+        properties: {
+          paragraphs: {
+            items: {
+              properties: {
+                sentences: {
+                  items: {
+                    properties: {
+                      evidence: {
+                        type: string;
+                        items: { required: string[] };
+                      };
+                    };
+                  };
+                };
+              };
+            };
+          };
+        };
+      }
+    ).properties.paragraphs.items.properties.sentences.items.properties;
+    expect(sentence.evidence.type).toBe("array");
+    expect(sentence.evidence.items.required).toEqual([
+      "refId",
+      "item",
+      "weight",
+    ]);
+  });
+
+  it("근거 규칙: 후보만 내고 없으면 빈 배열, 수기 메모는 네 항목만, 가까운 기록을 붙이지 않는다", () => {
+    const sys = buildWritePrompt(writeInput()).system;
+    expect(sys).toContain("evidence 는 배열이고 항목마다 refId, item, weight");
+    expect(sys).toContain("근거가 없는 문장은 evidence 를 빈 배열로 둔다");
+    expect(sys).toContain("수기 메모는 motive, action, method, limitation");
+    expect(sys).toContain("가장 비슷한 기록을 근거로 붙이지 않는다");
+  });
+
+  it("핵심 활동 외 기록은 흐름 단계 어디서든 쓸 수 있고 항목, 유형, 연계 정보를 싣는다(명세 No.144)", () => {
+    const b = buildWritePrompt(
+      writeInput({
+        supports: [
+          {
+            activityId: "s1",
+            activityName: "보조탐구",
+            sourceType: "D",
+            summary: "방법: 표 정리 / 요약: 요약 글 / 성찰: 성찰 글",
+            link: '연계 유형 deepen, 인용 "앞 인용"',
+            items: ["method", "result"],
+          },
+        ],
+      }),
+    );
+    expect(b.user).not.toContain("연계 발전 지점에서만");
+    expect(b.user).toContain("id=s1");
+    expect(b.user).toContain("유형=D");
+    expect(b.user).toContain("method, result");
+    expect(b.user).toContain("성찰 글");
+    expect(b.user).toContain('연계 유형 deepen, 인용 "앞 인용"');
+  });
+
+  it("확인된 수기 메모를 날짜와 글과 함께 싣는다(명세 No.5, 161)", () => {
+    const b = buildWritePrompt(
+      writeInput({
+        memos: [{ id: "m1", writtenAt: "2026-05-03", text: "계수를 바꿔 봄" }],
+      }),
+    );
+    expect(b.user).toContain("[확인된 수기 메모]");
+    expect(b.user).toContain("id=m1 날짜=2026-05-03: 계수를 바꿔 봄");
+    expect(buildWritePrompt(writeInput()).user).not.toContain("수기 메모]");
   });
 
   it("금지 문자가 없다", () => {

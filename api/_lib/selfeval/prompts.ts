@@ -13,6 +13,7 @@ import {
   ANALYSIS_FIELD_LABELS,
   ANALYSIS_FIELDS,
   type Analysis,
+  type AnalysisField,
   AREA_LABELS,
   type Area,
   BODY_EVIDENCE_FIELDS,
@@ -161,8 +162,25 @@ export function buildAnalyzePrompt(
 // ---------------------------------------------------------------------------
 
 export type WritePromptInput = {
-  core: { activityName: string; analysis: Analysis; activityId: string };
-  supports: { activityId: string; activityName: string; summary: string }[];
+  core: {
+    activityName: string;
+    analysis: Analysis;
+    activityId: string;
+    sourceType: "P" | "D" | "A";
+  };
+  /** 핵심 활동 밖의 선택 기록(완료된 것만). 7항목, 요약, 성찰을 summary 에 담는다(명세 No.144). */
+  supports: {
+    activityId: string;
+    activityName: string;
+    sourceType: "P" | "D" | "A";
+    summary: string;
+    /** 연계 유형과 인용. 연결 정보가 없으면 null. */
+    link: string | null;
+    /** 근거로 쓸 수 있는(값이 있는) 항목. */
+    items: AnalysisField[];
+  }[];
+  /** 학생이 확인했고 포함으로 둔 수기 메모(명세 No.161). */
+  memos: { id: string; writtenAt: string | null; text: string }[];
   area: Area;
   subject: string | null;
   activityName: string | null;
@@ -200,17 +218,22 @@ const writeSchema = {
               properties: {
                 text: { type: "string" },
                 evidence: {
-                  type: "object",
-                  nullable: true,
-                  properties: {
-                    activityId: { type: "string" },
-                    field: { type: "string", enum: [...BODY_EVIDENCE_FIELDS] },
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      refId: { type: "string" },
+                      item: {
+                        type: "string",
+                        enum: [...BODY_EVIDENCE_FIELDS],
+                      },
+                      weight: { type: "string", enum: ["main", "sub"] },
+                    },
+                    required: ["refId", "item", "weight"],
                   },
-                  required: ["activityId", "field"],
                 },
-                feeling: { type: "boolean" },
               },
-              required: ["text", "evidence", "feeling"],
+              required: ["text", "evidence"],
             },
           },
         },
@@ -280,9 +303,10 @@ function writeSystem(input: WritePromptInput): string {
   ];
   const evidence = [
     "근거 표시",
-    "- 모든 문장에 evidence 를 붙인다. evidence 는 핵심 활동 id 와 값이 있는 항목 이름, 또는 연계에 쓴 보조 활동 id 와 항목 이름이다.",
-    "- 기록으로 확인되지 않는 느낌이나 판단을 쓴 문장은 evidence 를 null 로 두고 feeling 을 true 로 한다.",
+    "- 모든 문장에 evidence 를 붙인다. evidence 는 배열이고 항목마다 refId, item, weight 를 쓴다. refId 는 입력에 나온 기록 id 또는 수기 메모 id, item 은 그 기록에서 값이 있는 항목 이름이다. 핵심 문장에 쓴 근거는 main, 곁들인 근거는 sub 로 한다.",
+    "- 한 문장에 근거가 여럿이면 모두 쓴다. 근거가 없는 문장은 evidence 를 빈 배열로 둔다. 가장 비슷한 기록을 근거로 붙이지 않는다.",
     "- 값이 비어 있는 항목은 쓰지 않고 evidence 로도 가리키지 않는다.",
+    "- 수기 메모는 motive, action, method, limitation 항목의 근거로만 쓴다. 수기 메모만으로 결과 수치를 만들지 않는다.",
     "- 출처가 student 인 항목은 학생이 직접 적은 내용이므로 그대로 쓰되 evidence 를 붙인다.",
   ];
   const guide = [
@@ -326,12 +350,22 @@ function writeUser(input: WritePromptInput): string {
     ]
       .filter((x): x is string => x !== null)
       .join("\n"),
-    `[핵심 활동] id=${core.activityId} 이름=${core.activityName}\n근거로 쓸 수 있는 항목(field): ${filled.join(", ")}\n${fieldLines.join("\n")}`,
+    `[핵심 활동] id=${core.activityId} 유형=${core.sourceType} 이름=${core.activityName}\n근거로 쓸 수 있는 항목(field): ${filled.join(", ")}\n${fieldLines.join("\n")}`,
   ];
   if (input.supports.length > 0) {
     parts.push(
-      `[보조 활동] 연계 발전 지점에서만 쓴다.\n${input.supports
-        .map((s) => `- id=${s.activityId} 이름=${s.activityName}: ${s.summary}`)
+      `[다른 선택 기록] 흐름 단계 어디서든 근거가 있는 만큼 쓴다.\n${input.supports
+        .map(
+          (s) =>
+            `- id=${s.activityId} 유형=${s.sourceType} 이름=${s.activityName}: ${s.summary}\n  근거로 쓸 수 있는 항목(field): ${s.items.join(", ")}${s.link === null ? "" : `\n  ${s.link}`}`,
+        )
+        .join("\n")}`,
+    );
+  }
+  if (input.memos.length > 0) {
+    parts.push(
+      `[확인된 수기 메모] 근거 항목은 motive, action, method, limitation 만 쓴다.\n${input.memos
+        .map((m) => `- id=${m.id} 날짜=${m.writtenAt ?? "없음"}: ${m.text}`)
         .join("\n")}`,
     );
   }
