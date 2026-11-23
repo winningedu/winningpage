@@ -54,7 +54,7 @@ export function EvidencePanel({
       <ul className="mt-4 flex flex-col gap-2">
         {summaries.map((s) => (
           <li key={s.number} className="text-app-label text-ink-strong">
-            {s.number}문단 {s.roleLabel}
+            {s.number}문단
             {s.activityNames.length > 0 && `: ${s.activityNames.join(", ")}`}
           </li>
         ))}

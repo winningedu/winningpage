@@ -213,14 +213,15 @@ describe("ResultPage 결과", () => {
     expect(within(panel).getByText("배차표 자료를 비교했다")).toBeTruthy();
   });
 
-  test("문단별 근거 요약에 역할 라벨과 활동명이 나온다", async () => {
+  test("문단별 근거 요약에 문단 번호와 활동명이 나오고 역할 라벨은 없다", async () => {
     detailMock.mockResolvedValue(withReport());
     renderPage();
     const panel = await screen.findByRole("complementary", {
       name: "문장 근거",
     });
-    expect(within(panel).getByText(/1문단 연계 발전 지점/)).toBeTruthy();
+    expect(within(panel).getByText(/1문단/)).toBeTruthy();
     expect(within(panel).getByText(/버스 배차 분석/)).toBeTruthy();
+    expect(within(panel).queryByText(/연계 발전 지점/)).toBeNull();
   });
 
   test("확인이 필요한 표현은 목록에 나오고 맞아요는 확인 요청을 보낸다", async () => {

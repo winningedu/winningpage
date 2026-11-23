@@ -159,10 +159,10 @@ describe("evidenceOf", () => {
 });
 
 describe("paragraphSummaries", () => {
-  test("문단마다 역할 라벨과 근거 활동명을 중복 없이 모은다", () => {
+  test("문단 번호와 근거 활동명을 중복 없이 모으고 옛 role 은 쓰지 않는다", () => {
     expect(paragraphSummaries(SECTIONS, [activity()])).toEqual([
-      { number: 1, roleLabel: "연계 발전 지점", activityNames: ["설문 분석"] },
-      { number: 2, roleLabel: "결과와 판단", activityNames: [] },
+      { number: 1, activityNames: ["설문 분석"] },
+      { number: 2, activityNames: [] },
     ]);
   });
 });

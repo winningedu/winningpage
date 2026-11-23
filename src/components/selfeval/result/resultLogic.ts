@@ -4,7 +4,6 @@ import {
   type AnalysisField,
   type CharCount,
   type GenerationSections,
-  PARAGRAPH_ROLE_LABELS,
   type Sentence,
   type SessionActivityView,
   TARGET_TOLERANCE,
@@ -52,7 +51,7 @@ export function pendingFeelings(sections: GenerationSections): Sentence[] {
     .filter((x) => x.feeling && !x.confirmed);
 }
 
-/** 한 문장을 뺀 문단 텍스트. 문단 수는 유지한다(서버가 문단 수를 검사한다). */
+/** 한 문장을 뺀 문단 텍스트. 문단 수는 그대로 둔다. */
 export function textsWithoutSentence(
   sections: GenerationSections,
   sentenceId: string,
@@ -113,7 +112,6 @@ export function evidenceOf(
 
 export type ParagraphSummary = {
   number: number;
-  roleLabel: string;
   activityNames: string[];
 };
 
@@ -132,7 +130,6 @@ export function paragraphSummaries(
     }
     return {
       number: i + 1,
-      roleLabel: PARAGRAPH_ROLE_LABELS[p.role],
       activityNames: names,
     };
   });
