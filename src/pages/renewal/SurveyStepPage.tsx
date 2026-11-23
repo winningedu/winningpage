@@ -78,6 +78,7 @@ export default function SurveyStepPage() {
 
   const label = (() => {
     if (!complete) return "모든 항목에 응답해주세요";
+    if (isLastStep && submitting) return "진단 결과를 만드는 중…";
     if (isLastStep) return "진단 결과 보기";
     return `${remainingAfterScreen(step, answers)}개 문항이 남았어요`;
   })();
@@ -125,6 +126,7 @@ export default function SurveyStepPage() {
           complete={complete}
           label={label}
           onClick={handleClick}
+          busy={submitting}
         />
         <p aria-live="polite" className="sr-only">
           {highlightedId ? "응답하지 않은 문항으로 이동했어요." : ""}

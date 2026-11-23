@@ -116,6 +116,37 @@ describe("SurveyStepPage v3", () => {
     await waitFor(() => expect(submit).toHaveBeenCalled());
   });
 
+  it("제출하는 동안 버튼은 진행 중 문구로 바뀌고 눌리지 않는다", async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    const submit = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    renderStep(
+      "6",
+      {
+        q1: 3,
+        q23: Object.fromEntries([
+          ...Array.from({ length: 35 }, (_, i) => [String(i + 1), 2]),
+          ["V", 3],
+        ]),
+      },
+      submit,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "진단 결과 보기" }));
+    const busy = await screen.findByRole("button", {
+      name: "진단 결과를 만드는 중…",
+    });
+    expect(busy).toBeDisabled();
+    expect(busy).toHaveAttribute("aria-busy", "true");
+    finish(null);
+    expect(
+      await screen.findByRole("button", { name: "진단 결과 보기" }),
+    ).toBeEnabled();
+  });
+
   it("없는 화면 번호는 1번 화면으로 보낸다", () => {
     renderStep("7");
     expect(
