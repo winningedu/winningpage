@@ -350,12 +350,32 @@ describe("3단계 학생 정보 칸", () => {
     expect(screen.queryByLabelText("번호(선택)")).toBeNull();
   });
 
-  it("학교의 반 칸은 숫자만 받는다", async () => {
-    await goToStudentInfo("학교");
+  it.each(["학교", "학원"])(
+    "%s 의 반 칸은 숫자 키패드를 띄우고 3반 은 숫자 반으로 받는다",
+    async (orgType) => {
+      await goToStudentInfo(orgType);
 
-    type("반", "3반");
+      type("반", "3반");
 
-    expect(screen.getByLabelText("반")).toHaveValue("3");
+      expect(screen.getByLabelText("반")).toHaveAttribute(
+        "inputmode",
+        "numeric",
+      );
+      expect(screen.getByLabelText("반")).toHaveValue("3반");
+      expect(screen.queryByText("반은 숫자만 적어요")).toBeNull();
+    },
+  );
+
+  it.each([
+    ["학교", "A"],
+    ["학원", "B반"],
+    ["학원", "3학년 2반"],
+  ])("%s 의 반 %s 은 숫자만 적으라고 안내한다", async (orgType, bad) => {
+    await goToStudentInfo(orgType);
+
+    type("반", bad);
+
+    expect(screen.getByText("반은 숫자만 적어요")).toBeInTheDocument();
   });
 
   it("14세 미만에게도 성별을 받는다", async () => {

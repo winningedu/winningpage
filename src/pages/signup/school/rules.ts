@@ -5,6 +5,10 @@ import { normalizePhone } from "@/lib/phoneVerification";
 import { normalizeTenantCode } from "@/lib/tenantCode";
 import type { SchoolSignupBody } from "./api";
 
+export {
+  CLASS_NAME_INVALID_MESSAGE,
+  normalizeClassName,
+} from "../../../../api/_lib/console/className";
 export { ENROLLMENT_GRADES } from "../../../../api/_lib/console/enrollmentInput";
 
 const CLASS_NUMBER_PATTERN = /^[1-9][0-9]?$/;
