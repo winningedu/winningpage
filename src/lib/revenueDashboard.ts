@@ -10,6 +10,8 @@
 // ⚠️ 매출은 net_amount 합이다(사용자 확정 2026-08-23). 환불은 "승인"이 아니라
 //    실제 환불 완료 기준이고, 그 판정도 뷰가 마쳤다.
 
+import { ymdIn } from "./time/day";
+
 export type RevenueRowLike = {
   paid_at: string | null;
   item_name: string | null;
@@ -92,18 +94,18 @@ export function buildRevenueKpis(
 export type DailyTrendPoint = { ymd: string; paid: number; refund: number };
 
 /**
- * 일별 실납부·환불 추이. 날짜는 **KST 기준**이다 — UTC 로 자르면 매일 09:00
- * 이전 결제가 전날로 밀린다(RevenueAdmin.toKstYmd 와 같은 이유).
+ * 일별 실납부·환불 추이. 날짜는 넘겨받은 시간대(보는 사람의 브라우저 시간대)
+ * 기준이다 — UTC 로 자르면 한국에서는 매일 09:00 이전 결제가 전날로 밀린다.
  */
 export function buildDailyTrend(
   rows: RevenueRowLike[],
-  toYmd: (date: Date) => string,
+  timeZone: string,
 ): DailyTrendPoint[] {
   const byDay = new Map<string, DailyTrendPoint>();
 
   for (const row of rows) {
     if (!row.paid_at) continue;
-    const ymd = toYmd(new Date(row.paid_at));
+    const ymd = ymdIn(row.paid_at, timeZone);
     const point = byDay.get(ymd) ?? { ymd, paid: 0, refund: 0 };
     point.paid += num(row.paid_amount);
     point.refund += num(row.refunded_amount);
