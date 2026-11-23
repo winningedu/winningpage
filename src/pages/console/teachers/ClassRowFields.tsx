@@ -1,6 +1,10 @@
 // W14b 개별 등록과 W16a 담당 추가가 함께 쓰는 학급 입력 한 줄. 학년그룹, (그룹이 있으면) 그룹, 반.
 // 없는 학급은 서버가 만든다(fn_class_ensure)라 반은 목록에서 고르지 않고 적는다.
 
+import {
+  CLASS_NAME_INVALID_MESSAGE,
+  normalizeClassName,
+} from "../../../../api/_lib/console/className";
 import { MIXED_GRADE } from "../classLabel";
 import FilterSelect from "../FilterSelect";
 import TextField from "../TextField";
@@ -20,10 +24,12 @@ export function toClassBody(
   rows: ClassInput[],
 ): { grade: string | null; name: string; groupId?: string }[] | null {
   const filled = rows.filter((r) => r.grade !== "" || r.name.trim() !== "");
-  if (filled.some((r) => r.grade === "" || r.name.trim() === "")) return null;
+  if (filled.some((r) => r.grade === "" || normalizeClassName(r.name) === "")) {
+    return null;
+  }
   return filled.map((r) => ({
     grade: r.grade === MIXED_GRADE ? null : r.grade,
-    name: r.name.trim(),
+    name: normalizeClassName(r.name),
     ...(r.groupId ? { groupId: r.groupId } : {}),
   }));
 }
@@ -72,7 +78,13 @@ export default function ClassRowFields({
       <TextField
         label="반"
         value={value.name}
-        placeholder="예: 3반"
+        placeholder="예: 3"
+        inputMode="numeric"
+        error={
+          value.name.trim() !== "" && normalizeClassName(value.name) === ""
+            ? CLASS_NAME_INVALID_MESSAGE
+            : null
+        }
         onChange={(e) => onChange({ ...value, name: e.target.value })}
       />
       {academy && (

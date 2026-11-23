@@ -171,7 +171,7 @@ describe("W16a 반 추가", () => {
     ).toBeTruthy();
     expect(calls.find((c) => c.key.startsWith("POST"))?.body).toEqual({
       teacherId: "t-park",
-      add: [{ grade: "고2", name: "4반" }],
+      add: [{ grade: "고2", name: "4" }],
     });
     expect(onChanged).not.toHaveBeenCalled();
   });
