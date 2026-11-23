@@ -15,7 +15,16 @@ import type {
 type Computed = Extract<
   DiagnosisV3Scores["admission"],
   { readonly status: "COMPUTED" }
->;
+> & {
+  /** 22 r72 numbers; diff = mine - cut in grades, positive means 부족 */
+  readonly comparison: {
+    readonly cut50?: number;
+    readonly cut70: number;
+    readonly mine: number;
+    readonly diff50?: number;
+    readonly diff70: number;
+  };
+};
 
 export type AdmissionResult =
   | Exclude<DiagnosisV3Scores["admission"], { readonly status: "COMPUTED" }>
@@ -80,14 +89,27 @@ const delta = (
 
 const toMilli = (grade: number) => Math.round(grade * 1000);
 
-const bandOf = (mine: number, cut70: number): AdmissionBand =>
-  mine <= cut70 - MARGIN_MILLI
+/** 0.01 grid, half-up, sign kept; both inputs are thousandths. */
+const diffGrades = (mineMilli: number, cutMilli: number) => {
+  const diff = mineMilli - cutMilli;
+  return (Math.sign(diff) * roundHalfUpInt(Math.abs(diff), 10)) / 100;
+};
+
+/** 08 r6-r9 and spec r78: cut50 is null in basic mode. */
+const bandOf = (
+  mine: number,
+  cut70: number,
+  cut50: number | null,
+): AdmissionBand => {
+  const lowEdge = cut50 ?? cut70 - MARGIN_MILLI;
+  return mine <= lowEdge
     ? 1
     : mine <= cut70
       ? 2
       : mine <= cut70 + MARGIN_MILLI
         ? 3
         : 4;
+};
 
 export function computeAdmission(
   answers: DiagnosisV3Answers,
@@ -95,7 +117,13 @@ export function computeAdmission(
 ): AdmissionResult {
   const grade9 = toNineGrade(answers.q4, answers.q6) as number;
   const cut70 = context.admission?.cut70 as number;
-  const baseBand = bandOf(toMilli(grade9), toMilli(cut70));
+  const cut50 = context.admission?.cut50 ?? null;
+  const mineMilli = toMilli(grade9);
+  const baseBand = bandOf(
+    mineMilli,
+    toMilli(cut70),
+    cut50 === null ? null : toMilli(cut50),
+  );
   const raw =
     (BASE_MIDPOINT[baseBand - 1] as number) +
     delta(Q16_DELTA, answers.q16) +
@@ -109,12 +137,20 @@ export function computeAdmission(
   const band = (relabel === -1 ? 4 : relabel + 1) as AdmissionBand;
   return {
     status: "COMPUTED",
-    mode: "BASIC",
+    mode: cut50 === null ? "BASIC" : "PRECISE",
     grade9,
     baseBand,
     probability,
     probabilityLow: probability,
     probabilityHigh: probability,
     band,
+    comparison: {
+      ...(cut50 === null
+        ? {}
+        : { cut50, diff50: diffGrades(mineMilli, toMilli(cut50)) }),
+      cut70,
+      mine: grade9,
+      diff70: diffGrades(mineMilli, toMilli(cut70)),
+    },
   };
 }
