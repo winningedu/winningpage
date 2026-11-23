@@ -8974,6 +8974,8 @@ export type Database = {
           special_inactive_days: number | null;
           term_months: number | null;
           tier: string;
+          trial_end_date: string | null;
+          trial_start_date: string | null;
           updated_at: string;
         };
         SetofOptions: {
@@ -9167,10 +9169,7 @@ export type Database = {
           bucket_start: string;
         }[];
       };
-      fn_hq_is_b2c_tenant: {
-        Args: { p_tenant_id: string };
-        Returns: boolean;
-      };
+      fn_hq_is_b2c_tenant: { Args: { p_tenant_id: string }; Returns: boolean };
       fn_hq_login_buckets: {
         Args: {
           p_from: string;
