@@ -1,6 +1,6 @@
 // 본사 대시보드 서버 호출(api/admin/hq-dashboard/*). Bearer 토큰으로 부르고 실패는 던져 useQuery 가 오류로 받는다.
 
-import { browserTimeZone } from "@/lib/time/zone";
+import { apiFetch } from "@/lib/apiFetch";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 
 export type ContractStatus =
@@ -79,7 +79,7 @@ export interface HqUsage {
 
 async function getJson<T>(path: string, includeInternal: boolean): Promise<T> {
   const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-  const response = await fetch(
+  const response = await apiFetch(
     `${path}?includeInternal=${includeInternal ? "1" : "0"}`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
@@ -160,11 +160,8 @@ export interface LoginLogResponse {
 
 async function getWithSearch<T>(path: string, search: string): Promise<T> {
   const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-  const response = await fetch(`${path}?${search}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "X-Time-Zone": browserTimeZone(),
-    },
+  const response = await apiFetch(`${path}?${search}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
   const result = await response.json().catch(() => null);
   if (!response.ok || !result?.ok) {
