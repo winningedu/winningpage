@@ -13,6 +13,7 @@ describe("SELFEVAL_PATHS", () => {
     expect(SELFEVAL_PATHS.result("abc")).toBe("/app/selfeval/s/abc/result");
     expect(SELFEVAL_PATHS.verify("abc")).toBe("/app/selfeval/s/abc/verify");
     expect(SELFEVAL_PATHS.done("abc")).toBe("/app/selfeval/s/abc/done");
+    expect(SELFEVAL_PATHS.report("abc")).toBe("/app/selfeval/s/abc/report");
   });
 });
 

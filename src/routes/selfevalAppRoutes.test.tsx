@@ -23,7 +23,7 @@ function leaves(routes: RouteObject[], base = ""): Leaf[] {
 }
 
 describe("selfevalAppRoutes", () => {
-  test("자기평가서 앱 8개 화면 경로를 정의한다", () => {
+  test("자기평가서 앱 9개 화면 경로를 정의한다", () => {
     expect(leaves(selfevalAppRoutes).map((l) => l.url)).toEqual([
       SELFEVAL_PATHS.home,
       SELFEVAL_PATHS.new,
@@ -33,6 +33,7 @@ describe("selfevalAppRoutes", () => {
       `${SELFEVAL_PATHS.home}/s/:sessionId/result`,
       `${SELFEVAL_PATHS.home}/s/:sessionId/verify`,
       `${SELFEVAL_PATHS.home}/s/:sessionId/done`,
+      `${SELFEVAL_PATHS.home}/s/:sessionId/report`,
     ]);
   });
 
