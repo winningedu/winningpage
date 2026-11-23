@@ -1,4 +1,5 @@
 // 자동 생성 — 손으로 고치지 말 것. 재생성: npm run gen:types
+
 export type Json =
   | string
   | number
@@ -5776,6 +5777,7 @@ export type Database = {
           sms_agreed: boolean | null;
           tenant_id: string | null;
           terms_service_agreed: boolean | null;
+          time_zone: string;
           updated_at: string | null;
           username: string | null;
         };
@@ -5814,6 +5816,7 @@ export type Database = {
           sms_agreed?: boolean | null;
           tenant_id?: string | null;
           terms_service_agreed?: boolean | null;
+          time_zone?: string;
           updated_at?: string | null;
           username?: string | null;
         };
@@ -5851,6 +5854,7 @@ export type Database = {
           sms_agreed?: boolean | null;
           tenant_id?: string | null;
           terms_service_agreed?: boolean | null;
+          time_zone?: string;
           updated_at?: string | null;
           username?: string | null;
         };
@@ -7717,6 +7721,7 @@ export type Database = {
           special_inactive_days: number | null;
           term_months: number | null;
           tier: string;
+          time_zone: string;
           trial_end_date: string | null;
           trial_start_date: string | null;
           updated_at: string;
@@ -7749,6 +7754,7 @@ export type Database = {
           special_inactive_days?: number | null;
           term_months?: number | null;
           tier: string;
+          time_zone?: string;
           trial_end_date?: string | null;
           trial_start_date?: string | null;
           updated_at?: string;
@@ -7780,6 +7786,7 @@ export type Database = {
           special_inactive_days?: number | null;
           term_months?: number | null;
           tier?: string;
+          time_zone?: string;
           trial_end_date?: string | null;
           trial_start_date?: string | null;
           updated_at?: string;
@@ -8606,6 +8613,10 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      fn_add_months: {
+        Args: { p_months: number; p_ts: string; p_tz: string };
+        Returns: string;
+      };
       fn_add_months_kst: {
         Args: { p_months: number; p_ts: string };
         Returns: string;
@@ -8974,6 +8985,7 @@ export type Database = {
           special_inactive_days: number | null;
           term_months: number | null;
           tier: string;
+          time_zone: string;
           trial_end_date: string | null;
           trial_start_date: string | null;
           updated_at: string;
@@ -8985,6 +8997,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      fn_day_start: { Args: { p_date: string; p_tz: string }; Returns: string };
       fn_decide_enrollment_change: {
         Args: {
           p_actor: string;
@@ -9307,6 +9320,7 @@ export type Database = {
       };
       fn_is_qa_account: { Args: { p_profile_id?: string }; Returns: boolean };
       fn_is_super_admin: { Args: { p_profile_id?: string }; Returns: boolean };
+      fn_is_valid_time_zone: { Args: { p_tz: string }; Returns: boolean };
       fn_knowledge_near_duplicates: {
         Args: {
           filter_knowledge_type: string;
@@ -9321,6 +9335,7 @@ export type Database = {
         }[];
       };
       fn_kst_day_start: { Args: { p_ts: string }; Returns: string };
+      fn_local_date: { Args: { p_ts: string; p_tz: string }; Returns: string };
       fn_login_lock_begin: {
         Args: { p_account_hash: string; p_pair_hash: string };
         Returns: {
