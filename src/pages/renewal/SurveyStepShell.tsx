@@ -3,14 +3,17 @@ import { Outlet, useLocation, useNavigate } from "react-router";
 import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { site } from "@/config/site";
 import { useAuthOptional } from "@/context/AuthProvider";
-// QA 행348(2026-09-02) — q1(학년) 응답으로 q4(등급 체계)를 자동 결정한다(카드 자체는 화면에서 제거).
-import { getGradeSystemLabelForGradeLevel } from "@/data/renewalSurveyQuestions";
 // B-1(2026-08-11 확정) — q15 캐스케이드 fetch 상태(옵션 5벌 + loading + error)를 이 셸이 소유한다.
 import {
   type CascadeValue,
   useAdmissionCascade,
 } from "@/hooks/useAdmissionCascade";
 import { trackEvent } from "@/lib/analytics";
+import {
+  type AdmissionTarget,
+  type ValidationError,
+  validateAnswers,
+} from "@/lib/diagnosis-v3";
 // 학습진단 유료 게이팅(20260821, 이용 요금 구조 최종본 20260806) — 진입 판정(마운트 시
 // 1회)과 제출 소진(마지막 스텝 CTA) 둘 다 이 모듈을 거친다. 판정 정본은 서버이고,
 // 여기서는 호출·fail-open 흡수·리다이렉트만 한다.
@@ -19,32 +22,36 @@ import {
   consumeDiagnosisAttempt,
 } from "@/lib/diagnosisAccess";
 // 이어 답하기 초안(사 #44, 스쿨멘토 전용). 이 기기 localStorage 에 사용자별로 저장한다.
-import { clearDraft, loadDraft, saveDraft } from "@/lib/diagnosisDraft";
-// 리포트 '페이지'가 아니라 storage 모듈만 import 한다 — 페이지를 가져오면 인쇄 CSS 가 설문 번들로 끌려온다.
-// 저장 키·직렬화·스키마 검증의 정의처도 그 모듈 하나다(여기에 리터럴을 두면 읽기 쪽과 갈라진다).
-import { submitDiagnosisAnswers } from "@/lib/diagnosisInputStorage";
-// 리포트 영속화(diagnosis_reports, QA 행210) — buildReportFromInput 도 diagnosisReportBuild.ts
-// 하나뿐인 정본이다(FreeDiagnosisReport.tsx 의 ctx 조립 로직과 동일 규칙, 그 페이지는 아직
-// 이 헬퍼로 교체되지 않았다). saveDiagnosisReport 는 실패해도 던지지 않는다 — 저장 실패는
-// 열람(sessionStorage 경로)을 막지 않고, 리포트 페이지의 ensureDiagnosisReportSaved 가
-// 재시도한다.
-import { saveDiagnosisReport } from "@/lib/diagnosisReportApi";
-import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
-// sql/72(2026-08-13 확정) — 문항 제목/안내문구/선택지 라벨/리커트 문장 어드민 오버라이드.
-// mount 1회 fetch, 실패·0행이면 빈 Map(= 정적 문구 그대로) — MentorFaq.jsx 의 키 단위 폴백과 같은 계약이다.
-import { fetchSurveyCopyOverrides } from "@/lib/diagnosisSurveyCopyOverrides";
+import {
+  clearDraft,
+  clearPendingAttemptId,
+  loadDraft,
+  loadPendingAttemptId,
+  saveDraft,
+  savePendingAttemptId,
+} from "@/lib/diagnosisDraft";
+// v3 server scoring (judge-report 3-2): the browser sends answers and the
+// server scores and stores the report; nothing is scored or saved here.
+import {
+  type AdmissionCascadeValue,
+  resolveAdmissionTarget,
+  submitDiagnosisV3,
+} from "@/lib/diagnosisSubmitApi";
+import { kstYMD } from "@/lib/goal/calc/virtualDate";
 // 이용개시 시작 로그(programEntry.ts) — 진입 게이트가 allowed를 확인한 직후 기록한다.
 import { markProgramEntry } from "@/lib/programEntry";
 import {
+  applyAnswer,
+  firstErrorScreen,
   getStepPath,
-  isStepComplete,
+  isCascadeComplete,
+  reportPathFor,
   SURVEY_FIRST_STEP_PATH,
-  SURVEY_TOTAL_STEPS,
+  SURVEY_V3_STEPS,
+  screenProblems,
+  toSubmitAnswers,
 } from "@/lib/renewalSurvey";
 import type { TenantBlockReason } from "@/lib/tenantBlock";
-import type { Json } from "@/types/database.types";
-// Q-01(2026-08-11 확정) — 제출 시점에 로그인 학생 이름을 조회한다. 비로그인·조회 실패는 null.
-import { fetchLoggedInStudentName } from "./diagnosisStudentName";
 
 const SURVEY_BASE_PATH = SURVEY_FIRST_STEP_PATH.replace(/\/1$/, "");
 
@@ -64,12 +71,15 @@ export default function SurveyStepShell() {
   const userId = useAuthOptional()?.userId ?? null;
   const resumeEnabled = site.features.diagnosisResume && !!userId;
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
-  const [surveyCopyOverrides, setSurveyCopyOverrides] = useState<
-    Map<string, unknown>
-  >(() => new Map());
-  // 제출 플로우당 1회만 생성해 재사용한다(더블클릭 시 같은 attemptId로 재호출 →
-  // 서버가 already_recorded로 멱등 처리). 셸 인스턴스가 answers와 같은 생애주기를
-  // 공유하므로(새로고침 시 함께 소실 — 셸 상단 주석 참고) ref 하나로 충분하다.
+  // q23 shuffle seed (기능요구명세서 row 31): one per survey, kept in the draft
+  // so a resumed survey shows the same order.
+  const [seed, setSeed] = useState<string>(() => crypto.randomUUID());
+  // KST calendar date the survey runs on: q4 default and q13 date bounds.
+  // Submit moves it to the submit day, the date the server scores with.
+  const [diagnosedAt, setDiagnosedAt] = useState(() => kstYMD());
+  // One attemptId per submit flow, reused on retry (the server answers a
+  // repeated attemptId as already_recorded). rememberAttemptId keeps it
+  // across a reload until submit succeeds.
   const diagnosisAttemptIdRef = useRef<string | null>(null);
 
   // 스쿨멘토는 이용 거부를 결제 이동이 아니라 기관 사유 안내로 보인다(결정 99).
@@ -80,16 +90,6 @@ export default function SurveyStepShell() {
   const [accessCheck, setAccessCheck] = useState(0);
   // 스쿨멘토에서 진입 판정 자체를 못 받은 상태. 거부가 아니라 다시 시도하게 한다.
   const [accessFailed, setAccessFailed] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    fetchSurveyCopyOverrides().then((map) => {
-      if (alive) setSurveyCopyOverrides(map);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   // 진입 게이트 — 무료 1회 미사용이거나 이용권이 있으면 통과. 서버 판정 불가는
   // fail-open(진입 허용, checkDiagnosisAccess 내부 주석 참고).
@@ -125,22 +125,15 @@ export default function SurveyStepShell() {
     };
   }, [navigate, accessCheck]);
 
-  // QA 행348(2026-09-02) — q4(등급 체계) 카드를 없애고 q1(학년) 응답으로 자동 결정한다.
-  // q4 는 여전히 answers 맵에 라벨 문자열로 저장된다 — q6 입력 규격(GRADE_SYSTEM_INPUT_RULES)과
-  // 채점(diagnosisScoring.normalizeAnswers)이 그 계약을 그대로 기대하기 때문이다(양쪽 다 무수정).
-  const setAnswer = useCallback((questionId: string, nextValue: unknown) => {
-    setAnswers((prev) => {
-      if (questionId !== "q1") return { ...prev, [questionId]: nextValue };
-      const gradeSystemLabel = getGradeSystemLabelForGradeLevel(
-        nextValue as string,
+  // q1 fills the q4 default and resets track-specific answers (applyAnswer).
+  const setAnswer = useCallback(
+    (questionId: string, nextValue: unknown) => {
+      setAnswers((prev) =>
+        applyAnswer(prev, questionId, nextValue, diagnosedAt),
       );
-      return {
-        ...prev,
-        [questionId]: nextValue,
-        ...(gradeSystemLabel ? { q4: gradeSystemLabel } : {}),
-      };
-    });
-  }, []);
+    },
+    [diagnosedAt],
+  );
 
   // 이어 답하기(사 #44): 이 사용자의 초안이 있으면 답을 채운다. 막힌 사용자는 설문 화면이
   // 렌더되지 않아 채워도 보이지 않는다.
@@ -148,59 +141,112 @@ export default function SurveyStepShell() {
     if (!resumeEnabled || !userId) return;
     const draft = loadDraft(userId);
     if (!draft) return;
-    setAnswers((prev) => ({ ...draft, ...prev }));
+    setAnswers((prev) => ({ ...draft.answers, ...prev }));
+    setSeed(draft.seed);
+    if (draft.attemptId) diagnosisAttemptIdRef.current = draft.attemptId;
     // 1단계로 들어왔으면 답이 끝난 단계를 건너뛰어 첫 미완료 단계에서 이어 답하게 한다.
     // 인덱스 진입은 자식 라우트가 1단계로 리다이렉트하므로 둘 다 대상이다.
     const entry = entryPathRef.current;
     if (entry !== SURVEY_FIRST_STEP_PATH && entry !== SURVEY_BASE_PATH) return;
-    for (let step = 1; step <= SURVEY_TOTAL_STEPS; step++) {
-      if (isStepComplete(step, draft)) continue;
+    for (let step = 1; step <= SURVEY_V3_STEPS; step++) {
+      if (screenProblems(step, draft.answers, diagnosedAt).length === 0)
+        continue;
       if (step > 1) navigate(getStepPath(step), { replace: true });
       return;
     }
-  }, [resumeEnabled, userId, navigate]);
+  }, [resumeEnabled, userId, navigate, diagnosedAt]);
 
   // 이어 답하기(사 #44): 답이 바뀔 때마다 이 기기에 저장한다. 빈 답은 기존 초안을 덮지 않는다.
   useEffect(() => {
     if (!resumeEnabled || !userId) return;
     if (Object.keys(answers).length === 0) return;
-    saveDraft(userId, answers);
-  }, [answers, resumeEnabled, userId]);
+    const attemptId = diagnosisAttemptIdRef.current;
+    saveDraft(userId, { answers, seed, ...(attemptId ? { attemptId } : {}) });
+  }, [answers, seed, resumeEnabled, userId]);
 
   // B-1 — q15(목표 대학 입결 조회) 캐스케이드 옵션·컷 fetch 상태. answers.q15 가 바뀔 때마다
   // 훅 내부에서 대학→학과→전형유형/세부전형명/반영교과 순으로 필요한 조회만 다시 tap 한다.
   const admissionCascade = useAdmissionCascade(
     answers.q15 as CascadeValue | undefined,
   );
-  const { awaitCuts } = admissionCascade;
 
   /**
-   * 제출 — answers 를 DiagnosisInput 으로 정규화해 저장하고 그 값을 돌려준다(§7.4.2).
+   * Submit (v3): validate, consume, then POST /api/diagnosis/submit and open
+   * the stored report. Resolves the server payload, or null when anything
+   * stopped the flow (the caller then stays on the survey).
    *
-   * 감싸는 이유는 소유권이다. answers 를 들고 있는 것이 이 셸이고, 리포트로 이동하는 순간
-   * 이 인스턴스가 언마운트되며 응답이 사라진다. 스텝 페이지와 preview 가 각자
-   * `submitDiagnosisAnswers(answers)` 를 부르면 제출 진입점이 두 곳으로 갈라져,
-   * 한쪽만 고치면 그 경로로 들어온 진단만 조용히 저장되지 않는다.
-   *
-   * async 인 이유는 Q-01 이다 — 이름은 폼에 없고 제출 시점에 세션에서 조회한다. 입결 컷(B-1)은
-   * 스텝5 캐스케이드가 선택 시점에 이미 조회해 둔 값을 그대로 싣는다 — 제출 시점에 다시
-   * 조회하지 않는다. 단, **선택은 됐지만 조회가 아직 안 끝난 경합 구간(G-1a)**이 있을 수 있어
-   * cuts/cutsError 를 직접 읽지 않고 awaitCuts() 로 그 경합이 끝나길 기다린 뒤 확정값을 쓴다.
-   *
-   * 게이팅 소진(20260821) — 정규화·저장보다 **먼저** consumeDiagnosisAttempt 를 부른다.
-   * 서버가 명시적으로 거부하면(quota_exhausted 등) null 을 돌려주고 /pricing 으로 보낸다 —
-   * 호출부(SurveyStepPage/SurveyPreview)는 null 이면 리포트로 이동하지 않아야 한다.
-   * 네트워크 실패는 fail-open이라 계속 진행한다(diagnosisAccess.ts 내부 주석 참고).
+   * The answers are checked with validateAnswers before consume, so a
+   * malformed answer set never uses up an attempt. consume keeps its
+   * idempotent attemptId contract: a failed submit retried in the same flow
+   * reuses the attemptId, and the server returns the stored report for it.
    */
+  const showAnswerProblem = useCallback(
+    (errors: readonly ValidationError[]) => {
+      window.alert("응답하지 않은 문항이 있어요. 문항을 다시 확인해 주세요.");
+      navigate(getStepPath(firstErrorScreen(errors)));
+    },
+    [navigate],
+  );
+
+  // The attemptId outlives a reload until submit succeeds: in the draft where
+  // drafts exist (스쿨멘토), in sessionStorage otherwise (위닝).
+  const rememberAttemptId = useCallback(
+    (attemptId: string | null) => {
+      diagnosisAttemptIdRef.current = attemptId;
+      if (!userId) return;
+      if (resumeEnabled) {
+        saveDraft(userId, {
+          answers,
+          seed,
+          ...(attemptId ? { attemptId } : {}),
+        });
+      } else if (attemptId) {
+        savePendingAttemptId(userId, attemptId);
+      } else {
+        clearPendingAttemptId(userId);
+      }
+    },
+    [answers, seed, userId, resumeEnabled],
+  );
+
   const submitDiagnosis = useCallback(async () => {
-    if (!diagnosisAttemptIdRef.current) {
-      diagnosisAttemptIdRef.current = crypto.randomUUID();
+    let target: AdmissionTarget | null = null;
+    if (isCascadeComplete(answers.q15)) {
+      const resolved = await resolveAdmissionTarget(
+        answers.q15 as AdmissionCascadeValue,
+      );
+      if (!resolved.ok) {
+        window.alert(
+          "목표 대학 입결 정보를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+        );
+        return null;
+      }
+      target = resolved.target;
     }
-    const consumeResult = await consumeDiagnosisAttempt(
-      diagnosisAttemptIdRef.current,
-    );
-    if (consumeResult.outcome === "check-failed") {
-      // 스쿨멘토는 소진 판정을 못 받으면 저장하지 않는다. 같은 attemptId 로 다시 시도하면 멱등이다.
+    const submitAnswers = toSubmitAnswers(answers, target);
+    // The server checks the answers against the submit day (KST), so a survey
+    // that crossed midnight is checked again before consume (16 r30 dates).
+    const today = kstYMD();
+    setDiagnosedAt(today);
+    const checked = validateAnswers(submitAnswers, today);
+    if (!checked.ok) {
+      showAnswerProblem(checked.errors);
+      return null;
+    }
+
+    const attemptId =
+      diagnosisAttemptIdRef.current ??
+      (userId && !resumeEnabled ? loadPendingAttemptId(userId) : null) ??
+      crypto.randomUUID();
+    rememberAttemptId(attemptId);
+    const consumeResult = await consumeDiagnosisAttempt(attemptId);
+    if (
+      consumeResult.outcome === "check-failed" ||
+      consumeResult.outcome === "fail-open"
+    ) {
+      // Without a recorded attempt the server cannot store a report (404
+      // ATTEMPT_NOT_FOUND), so v3 stops on both sites. Retrying with the same
+      // attemptId is idempotent.
       window.alert(
         "이용 횟수를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
       );
@@ -211,7 +257,7 @@ export default function SurveyStepShell() {
         // 충돌은 서비스 막힘이 아니다. 서버 메시지를 보이고 다음 시도에 새 attemptId 를 쓴다.
         if (consumeResult.code === "ATTEMPT_CONFLICT") {
           window.alert(consumeResult.message);
-          diagnosisAttemptIdRef.current = null;
+          rememberAttemptId(null);
           return null;
         }
         setTenantBlock({ reason: consumeResult.tenantReason });
@@ -234,56 +280,53 @@ export default function SurveyStepShell() {
       return null;
     }
 
-    const [name, admissionResolved] = await Promise.all([
-      fetchLoggedInStudentName(),
-      // G-1a — cascadeComplete 직후 fetch 가 아직 안 끝난 채로 제출하면 cuts=null·cutsError=false
-      // (둘 다 초기값)로 읽혀 '조회 미확정'이 '자료 영구 부재'로 낙관 처리된다(3회 중 2회 재현
-      // 실측). awaitCuts() 가 진행 중인 조회를 기다린 뒤 그 순간의 확정 결과를 직접 돌려준다.
-      awaitCuts(),
-    ]);
-    const attemptId = diagnosisAttemptIdRef.current;
-    const payload = submitDiagnosisAnswers(answers, {
-      name,
-      // submitDiagnosisAnswers(범위 밖 파일)의 admissionCuts는 Record<string, unknown> | null 시그니처다.
-      // useAdmissionCascade의 CutsData(범위 밖 파일)는 필드가 이미 알려진 값이라 값 타입은 항상 unknown의 부분집합.
-      admissionCuts: admissionResolved.cuts as Record<string, unknown> | null,
-      admissionMeta: admissionResolved.cuts
-        ? { year: admissionResolved.cuts.year }
-        : null,
-      // F-22 — 참조 비교(ADMISSION_FETCH_ERROR)로 판정해 올린 불리언. 이 한 줄이 없으면
-      // '조회 실패'가 payload 에서 통째로 사라져 리포트가 일시 오류를 '자료 영구 부재'로 단정한다.
-      admissionCutsError: admissionResolved.cutsError,
+    const result = await submitDiagnosisV3({
       attemptId,
+      answers: submitAnswers,
     });
+    if (!result.ok) {
+      if (result.reason === "no-session") {
+        window.alert("로그인 정보를 확인할 수 없어요. 다시 로그인해 주세요.");
+        navigate(`/login?redirect=${encodeURIComponent(pathname)}`);
+        return null;
+      }
+      if (result.reason === "rejected" && result.errors) {
+        showAnswerProblem(result.errors);
+        return null;
+      }
+      // Other 4xx answers repeat on retry, so the server message is shown as
+      // is (like consume's blocked codes); retry is for network and 5xx only.
+      if (
+        result.reason === "rejected" &&
+        result.status < 500 &&
+        result.message
+      ) {
+        window.alert(result.message);
+        return null;
+      }
+      window.alert("진단 결과를 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.");
+      return null;
+    }
     // 이어 답하기(사 #44): 제출이 끝났으니 초안을 지운다.
     if (resumeEnabled && userId) clearDraft(userId);
-
-    // 리포트 영속화 — diagnosedAt 은 항상 이 함수(submitDiagnosisAnswers)가 방금 new
-    // Date().toISOString() 으로 채웠으므로 실제로는 항상 존재한다(엔진 자체는 시계를 읽지
-    // 않아 타입은 string|null 로 넓게 잡혀 있다). null 이면(있을 수 없는 손상 상태) 저장을
-    // 건너뛴다 — 저장 실패와 동일하게 열람 경로는 막지 않는다.
-    if (attemptId && payload.meta.diagnosedAt) {
-      const report = buildReportFromInput(payload);
-      const saveResult = await saveDiagnosisReport({
-        attemptId,
-        snapshot: payload as unknown as Json,
-        payload: report as unknown as Json,
-        schemaVersion: payload.meta.schemaVersion,
-        diagnosedAt: payload.meta.diagnosedAt,
-      });
-      if (!saveResult.ok) {
-        console.warn(
-          "[SurveyStepShell] 학습진단 리포트 저장 실패 — 열람은 sessionStorage 경로로 계속 가능:",
-          saveResult.reason,
-        );
-      }
-    }
-
+    if (userId) clearPendingAttemptId(userId);
+    // Replace the survey entry so Back cannot re-enter the submitted survey; the flag
+    // tells the report page to hold the user there (see FreeDiagnosisReport).
+    navigate(reportPathFor(attemptId), {
+      replace: true,
+      state: { fromSubmit: true },
+    });
     trackEvent("diagnosis_complete");
-    return payload;
-    // awaitCuts 는 훅 안에서 useCallback(빈 deps)로 안정된 참조라 이 콜백도 answers 가 바뀔 때만
-    // 재생성된다 — admissionCascade 객체 전체를 deps 에 넣으면 매 렌더 재생성되어 의미가 없다.
-  }, [answers, awaitCuts, navigate, userId, resumeEnabled]);
+    return result.payload;
+  }, [
+    answers,
+    navigate,
+    pathname,
+    userId,
+    resumeEnabled,
+    showAnswerProblem,
+    rememberAttemptId,
+  ]);
 
   if (accessFailed) {
     return (
@@ -339,7 +382,8 @@ export default function SurveyStepShell() {
                 나에게 딱 맞는 서비스를 추천받아요
               </h1>
               <p className="break-keep text-lg font-normal leading-[1.3] sm:text-2xl">
-                17개 문항을 답하면 가장 먼저 필요한 서비스를 추천해 드려요
+                {/* 기능요구명세서 row 3: 21개 문항 */}
+                21개 문항을 답하면 가장 먼저 필요한 서비스를 추천해 드려요
               </p>
             </div>
 
@@ -349,7 +393,8 @@ export default function SurveyStepShell() {
                 setAnswer,
                 submitDiagnosis,
                 cascadeLevels: admissionCascade.levels,
-                surveyCopyOverrides,
+                diagnosedAt,
+                seed,
               }}
             />
           </div>

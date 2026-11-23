@@ -15,6 +15,7 @@ import {
   makeDetail,
   makeReport,
   makeSections,
+  makeVerification,
 } from "./testFixtures";
 
 const {
@@ -120,7 +121,10 @@ const PLAN = {
   },
 };
 
-function completed(session: Record<string, unknown> = {}) {
+function completed(
+  session: Record<string, unknown> = {},
+  verification: ReturnType<typeof makeVerification> | null = makeVerification(),
+) {
   const sections = makeSections();
   sections.paragraphs[0]?.sentences.push(
     {
@@ -154,7 +158,13 @@ function completed(session: Record<string, unknown> = {}) {
       ...session,
     },
     activities: [makeActivity("core"), makeActivity("support")],
-    reports: { final },
+    reports: {
+      final,
+      verification:
+        verification === null
+          ? null
+          : makeReport(verification, { id: "v1", score: 82 }),
+    },
     current: final,
   });
 }
@@ -235,6 +245,36 @@ describe("DonePage", () => {
     expect(within(panel).getByText("제출 가능")).toBeTruthy();
     expect(within(panel).getByText("저장일 2026.10.02")).toBeTruthy();
     expect(within(panel).getByText("공백 포함 510자")).toBeTruthy();
+    expect(within(panel).getByText("사용한 활동 2건")).toBeTruthy();
+  });
+
+  test("필수 수정이 남은 채 저장한 최종본은 제출 가능으로 보이지 않고 남은 건수를 보인다", async () => {
+    detailMock.mockResolvedValue(
+      completed(
+        {},
+        makeVerification({
+          submittable: false,
+          mandatoryFixes: [
+            { key: "cliche", message: "상투어 밀도가 높아요", detail: null },
+          ],
+        }),
+      ),
+    );
+    renderPage();
+    const panel = await screen.findByRole("complementary", {
+      name: "검증 요약",
+    });
+    expect(within(panel).queryByText("제출 가능")).toBeNull();
+    expect(within(panel).getByText("필수 수정 1건 남음")).toBeTruthy();
+  });
+
+  test("검증 결과를 읽을 수 없으면 제출 여부를 보이지 않는다", async () => {
+    detailMock.mockResolvedValue(completed({}, null));
+    renderPage();
+    const panel = await screen.findByRole("complementary", {
+      name: "검증 요약",
+    });
+    expect(within(panel).queryByText("제출 가능")).toBeNull();
     expect(within(panel).getByText("사용한 활동 2건")).toBeTruthy();
   });
 

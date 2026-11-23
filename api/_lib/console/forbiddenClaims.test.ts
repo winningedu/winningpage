@@ -308,7 +308,11 @@ describe("코칭 문구 전체 훑기 (결정 106 7번)", () => {
           metrics: f.metrics,
           goalFacts: f.goal,
           targets: f.targets,
-          diagnosisPrevious: { ...AREAS, EXEC: 50 },
+          diagnosisAreas: { version: "v2", areas: AREAS },
+          diagnosisPreviousAreas: {
+            version: "v2",
+            areas: { ...AREAS, EXEC: 50 },
+          },
           diagnosisMeta: {
             schoolType: "일반고",
             gpa: "2.3",

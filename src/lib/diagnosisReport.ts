@@ -990,7 +990,7 @@ export function withStoredGradeRaw<T>(payload: T, snapshot: unknown): T {
  *          참조 동일성이 사라져 훅 밖에서는 판별할 수 없다. 훅이 불리언으로 바꿔 올린다.
  * @returns {object} renewalReportSample 과 동일 shape + traitsHeading + 화면 전용 확장 키
  */
-// input: 저장 페이로드(diagnosisInputStorage) 또는 normalizeAnswers() 결과가 그대로
+// input: 저장 페이로드 또는 normalizeAnswers() 결과가 그대로
 // 들어온다 — 둘 다 이 배치 범위 밖(하드 버킷·타 파일 소유)이라 정확한 셰이프를 강제하지
 // 않는다(원 JSDoc @param {object} input과 동일한 관용도). 내부에서는 DiagnosisInputLike로 좁힌다.
 export function buildReport(input: any, ctx: BuildReportCtx = {}) {
@@ -1103,7 +1103,3 @@ export function buildReport(input: any, ctx: BuildReportCtx = {}) {
     },
   };
 }
-
-// 저장 키(DIAGNOSIS_INPUT_STORAGE_KEY)·직렬화·스키마 검증은 src/lib/diagnosisInputStorage.js 가
-// 단독으로 소유한다. 여기 두면 설문 셸이 이 모듈을 import 하게 되어 제출 한 번을 위해 문구집과
-// 리포트 조립 코드가 통째로 설문 번들에 끌려오고, 리터럴이 두 벌로 갈라질 자리도 생긴다.

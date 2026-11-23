@@ -1,6 +1,7 @@
 // 코칭 문구 엔진 검증(W9). 문구표 r23~r179, r185~r201 의 행마다 설계 문서의 예시 문장과 같은지 본다.
 
 import { describe, expect, test } from "vitest";
+import { COPY_TEXT } from "../../../src/lib/diagnosis-v3/source/copyText.js";
 import {
   type AreaScores,
   type CoachingMetrics,
@@ -29,6 +30,8 @@ import {
   vsLastWeek,
   weaknesses,
 } from "./coachingText.js";
+import { v3Scores } from "./diagnosisV3TestKit.js";
+import { diagnosisViewOf } from "./diagnosisView.js";
 import { type GoalDay, summarizeGoalWeek } from "./goalRate.js";
 
 const day = (
@@ -1135,5 +1138,41 @@ describe("buildCoachingText", () => {
       "weaknesses",
     ]);
     expect(signalOf(f.verdicts, f.axes.axes).signal).toBe("caution");
+  });
+});
+
+describe("v3 student (diagnosisView only, no v2 areas)", () => {
+  const v3Facts = (code: "E1" | "E2") =>
+    facts(
+      { type: { code, name: "" } },
+      {
+        diagnosis: null,
+        diagnosisView: diagnosisViewOf({
+          version: "v3",
+          scores: v3Scores({ level: "L4", total1: 62.3 }),
+        }),
+      },
+    );
+
+  test("E1 priority task is written from the v3 lowest area, urgency and first step", () => {
+    const text = priorityTask(v3Facts("E1"));
+    expect(text).toContain("긴급도가 '매우 높음'");
+    expect(text).toContain("40점(취약)");
+    expect(text).toContain("첫 단계는 '" + COPY_TEXT.AREA_P1_EXEC_ACT1 + "'");
+  });
+
+  test("E2 priority task uses the page 1 total and the lowest page 1 area", () => {
+    const text = priorityTask(v3Facts("E2"));
+    expect(text).toContain(
+      "학습 실행 역량이 62점으로 목표 75점에 13점 못 미치고",
+    );
+    expect(text).toContain("(40점)");
+  });
+
+  test("E2 type tasks use the sheet steps 1, 3 and 4 of the lowest area", () => {
+    const tasks = typeTasks(v3Facts("E2"));
+    expect(tasks?.[0]).toContain(String(COPY_TEXT.AREA_P1_EXEC_ACT1));
+    expect(tasks?.[1]).toContain(String(COPY_TEXT.AREA_P1_EXEC_ACT3));
+    expect(tasks?.[1]).toContain(String(COPY_TEXT.AREA_P1_EXEC_ACT4));
   });
 });

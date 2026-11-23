@@ -4,7 +4,7 @@
 import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
+import { buildReport } from "@/lib/diagnosisReport";
 import { makeInput } from "@/lib/diagnosisScoringTestFixtures";
 import DiagnosisReportView, {
   type DiagnosisReportData,
@@ -16,7 +16,7 @@ describe("DiagnosisReportView — 표지", () => {
   });
 
   it("A4 시트 스택의 첫 자식으로 표지를 렌더한다", () => {
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     const { container } = render(<DiagnosisReportView data={data} />);
 
     const stack = container.querySelector(".fd-sheet-stack");
@@ -29,7 +29,7 @@ describe("DiagnosisReportView — 표지", () => {
   });
 
   it("표지 정보 줄에 학생명과 진단일을 반영하고 희망 학과는 넣지 않는다", () => {
-    const data = buildReportFromInput(
+    const data = buildReport(
       makeInput({
         goal: { targetMajor: "컴퓨터공학과" },
         meta: {
@@ -61,7 +61,7 @@ describe("DiagnosisReportView — 표지", () => {
       }
     }
     vi.stubGlobal("Date", SafariDate);
-    const built = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const built = buildReport(makeInput()) as DiagnosisReportData;
     const data = {
       ...built,
       student: { ...built.student, diagnosedAtRaw: "2026.10.08" },
@@ -76,7 +76,7 @@ describe("DiagnosisReportView — 표지", () => {
 
   it("학생 이름이 없으면 표지에 '미입력'을 찍지 않고 학생명 칸을 렌더하지 않는다", () => {
     // 표지는 표시용 폴백("미입력")을 그대로 받으면 안 된다(no-fallback-constants 원칙).
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     render(<DiagnosisReportView data={data} />);
 
     const cover = screen.getByLabelText(/리포트 표지/);
@@ -85,7 +85,7 @@ describe("DiagnosisReportView — 표지", () => {
   });
 
   it("표지 정보 줄에 학년을 표기용 문구로 반영한다", () => {
-    const data = buildReportFromInput(
+    const data = buildReport(
       makeInput({
         profile: { name: null, gradeLevel: "H2", schoolType: null },
       }),
@@ -99,7 +99,7 @@ describe("DiagnosisReportView — 표지", () => {
   });
 
   it("학년이 없으면 표지에 학년 칸을 렌더하지 않는다", () => {
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     render(<DiagnosisReportView data={data} studentName="김민준" />);
 
     const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(

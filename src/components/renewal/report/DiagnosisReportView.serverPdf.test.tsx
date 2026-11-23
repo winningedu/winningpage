@@ -4,8 +4,7 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { trackEvent } from "@/lib/analytics";
-import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
+import { buildReport } from "@/lib/diagnosisReport";
 import { makeInput } from "@/lib/diagnosisScoringTestFixtures";
 import * as buildPrintDocumentModule from "@/lib/report/buildPrintDocument";
 import * as downloadReportPdfModule from "@/lib/report/downloadReportPdf";
@@ -14,11 +13,8 @@ import DiagnosisReportView, {
   type DiagnosisReportData,
 } from "./DiagnosisReportView";
 
-vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
-
 afterEach(() => {
   vi.restoreAllMocks();
-  vi.mocked(trackEvent).mockClear();
 });
 
 describe("DiagnosisReportView — 서버 PDF 경로 분기", () => {
@@ -37,7 +33,7 @@ describe("DiagnosisReportView — 서버 PDF 경로 분기", () => {
       .mockImplementation(() => {});
     const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
 
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     const { findAllByRole } = render(<DiagnosisReportView data={data} />);
 
     const buttons = await findAllByRole("button", {
@@ -56,10 +52,6 @@ describe("DiagnosisReportView — 서버 PDF 경로 분기", () => {
       html: "<html>built</html>",
       accessToken: "test-token",
     });
-    expect(trackEvent).toHaveBeenCalledWith("report_export", {
-      service: "diagnosis",
-      method: "pdf",
-    });
   });
 
   it("데스크톱 UA(shouldUseServerPdf=false)면 기존 window.print() 경로를 그대로 쓴다", () => {
@@ -69,7 +61,7 @@ describe("DiagnosisReportView — 서버 PDF 경로 분기", () => {
     const downloadSpy = vi.spyOn(downloadReportPdfModule, "downloadReportPdf");
     const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
 
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     const { getAllByRole } = render(<DiagnosisReportView data={data} />);
 
     fireEvent.click(
@@ -80,9 +72,5 @@ describe("DiagnosisReportView — 서버 PDF 경로 분기", () => {
 
     expect(printSpy).toHaveBeenCalledTimes(1);
     expect(downloadSpy).not.toHaveBeenCalled();
-    expect(trackEvent).toHaveBeenCalledWith("report_export", {
-      service: "diagnosis",
-      method: "print",
-    });
   });
 });

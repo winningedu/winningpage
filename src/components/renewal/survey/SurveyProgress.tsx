@@ -16,12 +16,15 @@ type SurveyProgressProps = {
   complete?: boolean;
   label?: string;
   onClick?: () => void;
+  /** a request is running: the button is disabled and marked aria-busy */
+  busy?: boolean;
 };
 
 export default function SurveyProgress({
   complete,
   label,
   onClick,
+  busy = false,
 }: SurveyProgressProps) {
   const bannerClass =
     "flex h-perf-inset w-full items-center justify-center rounded-xl px-6 py-4 text-center text-xl font-semibold leading-5 text-white transition-colors duration-150 sm:px-18.75 focus:outline-hidden focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
@@ -34,7 +37,9 @@ export default function SurveyProgress({
     <button
       type="button"
       onClick={onClick}
-      className={`${bannerClass} ${stateClass}`}
+      disabled={busy}
+      aria-busy={busy}
+      className={`${bannerClass} ${stateClass} disabled:cursor-not-allowed disabled:opacity-60`}
     >
       {label}
     </button>

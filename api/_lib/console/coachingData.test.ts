@@ -8,6 +8,7 @@ import {
   type KitState,
   matchRows,
 } from "./consoleTestKit.js";
+import { v3Payload } from "./diagnosisV3TestKit.js";
 
 let kit: KitState;
 
@@ -225,5 +226,63 @@ describe("previous diagnosis and report meta (결정 106.4)", () => {
       null,
       null,
     ]);
+  });
+
+  test("a v3 report is read through payload.scores and tagged v3, never matched by Korean labels", async () => {
+    reports([
+      {
+        attempt_id: "a1",
+        diagnosed_at: "2026-11-09T00:00:00Z",
+        payload: v3Payload({ level: "L2" }),
+      },
+    ]);
+    const data = await load(["diagnosis"]);
+    expect(data.diagnosisAreas).toEqual({
+      version: "v3",
+      scores: v3Payload({ level: "L2" }).scores,
+    });
+    expect(data.metrics.diagnosis).toBeNull();
+    expect(data.diagnosisPreviousAreas).toBeNull();
+  });
+
+  test("the previous diagnosis is compared only inside the same version", async () => {
+    const v2 = (id: string, at: string) => ({
+      attempt_id: id,
+      diagnosed_at: at,
+      payload: payload(60),
+    });
+    const v3 = (id: string, at: string, level: "L1" | "L4") => ({
+      attempt_id: id,
+      diagnosed_at: at,
+      payload: v3Payload({ level }),
+    });
+    // v2 then v3: the v3 report has no comparable previous
+    reports([
+      v2("a1", "2026-10-01T00:00:00Z"),
+      v3("a2", "2026-11-09T00:00:00Z", "L4"),
+    ]);
+    const mixed = await load(["diagnosis"]);
+    expect(mixed.diagnosisAreas?.version).toBe("v3");
+    expect(mixed.diagnosisPreviousAreas).toBeNull();
+    expect(mixed.diagnosisPrevious).toBeNull();
+    // v3 then v3: previous is the earlier v3 scores
+    reports([
+      v3("a1", "2026-10-01T00:00:00Z", "L1"),
+      v3("a2", "2026-11-09T00:00:00Z", "L4"),
+    ]);
+    const same = await load(["diagnosis"]);
+    expect(same.diagnosisPreviousAreas).toEqual({
+      version: "v3",
+      scores: v3Payload({ level: "L1" }).scores,
+    });
+    // v3 then v2 (latest is old): previous v3 is not shown beside a v2 latest
+    reports([
+      v3("a1", "2026-10-01T00:00:00Z", "L1"),
+      v2("a2", "2026-11-09T00:00:00Z"),
+    ]);
+    const back = await load(["diagnosis"]);
+    expect(back.diagnosisAreas?.version).toBe("v2");
+    expect(back.diagnosisPreviousAreas).toBeNull();
+    expect(back.diagnosisPrevious).toBeNull();
   });
 });

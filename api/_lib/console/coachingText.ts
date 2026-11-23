@@ -4,11 +4,14 @@
 
 import {
   type AreaCode,
+  type AreaScores,
   type AxesResult,
   type AxisKey,
   type AxisResult,
   type CoachingMetrics,
   type Competency,
+  type DiagnosisView,
+  type DiagnosisViewArea,
   EXECUTION_AREAS,
   hasFinalConsonant,
   type IndicatorKey,
@@ -195,22 +198,58 @@ const ach = (f: TextFacts) => f.goal?.week.achievementPct ?? null;
 const vs = (f: TextFacts, form: "paren" | "list") =>
   vsLastWeek(ach(f), f.goal?.lastWeek?.achievementPct ?? null, form);
 
-function lowestArea(
-  f: TextFacts,
-  areas: readonly AreaCode[],
-): { code: AreaCode; score: number } | null {
-  const scores = f.metrics.diagnosis?.areas;
-  if (!scores) return null;
-  return areas.reduce<{ code: AreaCode; score: number } | null>(
-    (best, code) =>
-      best === null || scores[code] < best.score
-        ? { code, score: scores[code] }
-        : best,
-    null,
-  );
+/** v2 영역 점수를 버전 공통 값으로. 이름, 상태, 보강 단계는 v2 표(AREA_NAME, areaState, STRATEGIES)에서 온다. */
+export function v2View(areas: AreaScores): DiagnosisView {
+  const part = (
+    codes: readonly AreaCode[],
+    group: DiagnosisViewArea["group"],
+  ) =>
+    codes.map((code) => ({
+      name: AREA_NAME[code],
+      score: areas[code],
+      group,
+      state: areaState(code, areas[code]),
+      steps: STRATEGIES[code],
+    }));
+  const mean = (codes: readonly AreaCode[]) =>
+    codes.reduce((s, c) => s + areas[c], 0) / codes.length;
+  return {
+    urgency: urgencyOf(areas),
+    executionAvg: mean(EXECUTION_AREAS),
+    readinessAvg: mean(READINESS_AREAS),
+    areas: [
+      ...part(EXECUTION_AREAS, "execution"),
+      ...part(READINESS_AREAS, "readiness"),
+    ],
+  };
 }
 
-const first = (code: AreaCode) => STRATEGIES[code][0] as string;
+/** 소비처가 읽는 학습진단 값. 미응시면 null. */
+export const viewOf = (m: CoachingMetrics): DiagnosisView | null =>
+  m.diagnosisView ?? (m.diagnosis ? v2View(m.diagnosis.areas) : null);
+
+function lowestArea(
+  f: TextFacts,
+  groups: readonly DiagnosisViewArea["group"][],
+): DiagnosisViewArea | null {
+  const view = viewOf(f.metrics);
+  if (!view) return null;
+  return view.areas
+    .filter((a) => groups.includes(a.group))
+    .reduce<DiagnosisViewArea | null>(
+      (best, a) => (best === null || a.score < best.score ? a : best),
+      null,
+    );
+}
+
+/** 점수가 가장 높은 영역. 같으면 앞의 영역. */
+const highestArea = (areas: readonly DiagnosisViewArea[]) =>
+  areas.reduce<DiagnosisViewArea | null>(
+    (best, a) => (best === null || a.score > best.score ? a : best),
+    null,
+  );
+
+const first = (area: { steps: readonly string[] }) => area.steps[0] as string;
 
 /** 원인 지표별 상담 문구(문구표 r159~r176 의 화살표 뒤). 자료가 없으면 null. */
 export function counselFor(
@@ -218,12 +257,12 @@ export function counselFor(
   f: TextFacts,
 ): string | null {
   const area = (code: AreaCode) =>
-    `학습진단 ${AREA_NAME[code]}: ${first(code)}`;
+    `학습진단 ${AREA_NAME[code]}: ${STRATEGIES[code][0]}`;
   switch (key) {
     case "dxExecution": {
-      const low = lowestArea(f, EXECUTION_AREAS);
+      const low = lowestArea(f, ["execution"]);
       return low
-        ? `학습진단 가장 시급한 영역(${AREA_NAME[low.code]})부터, ${first(low.code)}`
+        ? `학습진단 가장 시급한 영역(${low.name})부터, ${first(low)}`
         : null;
     }
     case "goalAchievement":
@@ -288,13 +327,9 @@ export function priorityTask(f: TextFacts): string | null {
   const set = week?.setDays ?? 0;
   const met = week?.metDays ?? 0;
   const a = ach(f);
-  const lowExec = lowestArea(f, EXECUTION_AREAS);
-  const execAvg = f.metrics.diagnosis
-    ? EXECUTION_AREAS.reduce(
-        (s, c) => s + (f.metrics.diagnosis?.areas[c] as number),
-        0,
-      ) / EXECUTION_AREAS.length
-    : null;
+  const view = viewOf(f.metrics);
+  const lowExec = lowestArea(f, ["execution"]);
+  const execAvg = view?.executionAvg ?? null;
   const d = dept(f);
   switch (f.type.code) {
     case "C1":
@@ -318,21 +353,19 @@ export function priorityTask(f: TextFacts): string | null {
         ? null
         : `목표시간 달성율은 ${pct(a)}%지만 최소 목표시간을 못 지킨 날이 ${set - met}일 있어 날마다 편차가 큽니다. 우선 과제는 공부량이 적은 요일을 찾아 최소선을 채우는 것입니다.`;
     case "E1": {
-      const low = lowestArea(f, [...EXECUTION_AREAS, ...READINESS_AREAS]);
-      if (!low || !f.metrics.diagnosis) return null;
-      const urgency = URGENCY_LABEL[urgencyOf(f.metrics.diagnosis.areas)];
-      const page1 = (EXECUTION_AREAS as readonly string[]).includes(low.code);
-      const state = page1
-        ? areaState(low.code, low.score)
-        : "40점 미만, 학교생활 준비도";
-      const name = AREA_NAME[low.code];
-      return `${execPrefix(f)}학습진단 긴급도가 '${urgency}'이고, ${withParticle(name, "이", "가")} ${low.score}점(${state})입니다. 우선 과제는 ${name} 보강이며, 첫 단계는 '${first(low.code)}'입니다.`;
+      const low = lowestArea(f, ["execution", "readiness"]);
+      if (!low || !view) return null;
+      const urgency = URGENCY_LABEL[view.urgency];
+      const state =
+        low.group === "execution" ? low.state : "40점 미만, 학교생활 준비도";
+      const name = low.name;
+      return `${execPrefix(f)}학습진단 긴급도가 '${urgency}'이고, ${withParticle(name, "이", "가")} ${low.score}점(${state})입니다. 우선 과제는 ${name} 보강이며, 첫 단계는 '${first(low)}'입니다.`;
     }
     case "E2": {
       if (!lowExec || execAvg === null) return null;
-      const name = AREA_NAME[lowExec.code];
+      const name = lowExec.name;
       const avg = pct(execAvg);
-      return `${execPrefix(f)}학습 실행 역량이 ${avg}점으로 목표 75점에 ${Math.max(0, 75 - avg)}점 못 미치고, 가장 시급한 영역은 ${name}(${lowExec.score}점)입니다. 우선 과제는 ${name} 보강이며, 첫 단계는 '${first(lowExec.code)}'입니다.`;
+      return `${execPrefix(f)}학습 실행 역량이 ${avg}점으로 목표 75점에 ${Math.max(0, 75 - avg)}점 못 미치고, 가장 시급한 영역은 ${name}(${lowExec.score}점)입니다. 우선 과제는 ${name} 보강이며, 첫 단계는 '${first(lowExec)}'입니다.`;
     }
     case "K":
       return axisSentence(f, "readiness");
@@ -374,7 +407,7 @@ export function priorityTask(f: TextFacts): string | null {
       const noGoal = f.metrics.used.goal;
       const tail =
         lowExec && execAvg !== null
-          ? `학습 실행 역량은 ${pct(execAvg)}점(목표 75점)이고 ${lowExec.score < 75 ? `가장 시급한 영역은 ${AREA_NAME[lowExec.code]}(${lowExec.score}점)입니다` : "모든 영역이 목표 점수 이상입니다"}`
+          ? `학습 실행 역량은 ${pct(execAvg)}점(목표 75점)이고 ${lowExec.score < 75 ? `가장 시급한 영역은 ${lowExec.name}(${lowExec.score}점)입니다` : "모든 영역이 목표 점수 이상입니다"}`
           : null;
       if (!tail) return null;
       return `${noGoal ? "최근 7일 설정된 목표시간이 없어" : "목표관리 기록이 없어"} 실행 상태를 알 수 없습니다. ${tail}. 우선 과제는 ${noGoal ? "하루 이상, 최소 목표시간 설정" : "이상, 최소 목표대학과 하루 목표시간 설정"}입니다.`;
@@ -425,7 +458,7 @@ export function typeTasks(f: TextFacts): string[] | null {
     const r = f.axes.axes.find((x) => x.key === axis);
     return counselFor(r?.causeKey, f);
   };
-  const lowExec = lowestArea(f, EXECUTION_AREAS);
+  const lowExec = lowestArea(f, ["execution"]);
   switch (f.type.code) {
     case "C1":
       return [
@@ -458,19 +491,19 @@ export function typeTasks(f: TextFacts): string[] | null {
         `요일 편차 없이 달성율 ${a}% 이상 유지`,
       ];
     case "E1": {
-      const low = lowestArea(f, [...EXECUTION_AREAS, ...READINESS_AREAS]);
+      const low = lowestArea(f, ["execution", "readiness"]);
       if (!low) return null;
-      const n = AREA_NAME[low.code];
+      const n = low.name;
       return [
         `${n}(${low.score}점) 원인 점검 상담`,
-        `${n}: ${STRATEGIES[low.code][0]}, 이어서 ${STRATEGIES[low.code][1]}`,
+        `${n}: ${low.steps[0]}, 이어서 ${low.steps[1]}`,
         `학습진단 재응시로 ${n} 변화 확인`,
       ];
     }
     case "E2": {
       if (!lowExec) return null;
-      const n = AREA_NAME[lowExec.code];
-      const s = STRATEGIES[lowExec.code];
+      const n = lowExec.name;
+      const s = lowExec.steps;
       return [
         `${n}: ${s[0]}`,
         `${n}: ${s[2]}, 이어서 ${s[3]}`,
@@ -760,28 +793,23 @@ export function studyMethods(f: TextFacts): string[] {
     if (t) out.push(t);
   }
 
-  const dx = f.metrics.diagnosis;
+  const dx = viewOf(f.metrics);
   if (!dx) out.push("학습진단을 응시해 가장 시급한 영역 확인하기");
   else if (f.verdicts.learning.level === "good") {
-    const best = EXECUTION_AREAS.reduce((x, y) =>
-      dx.areas[y] > dx.areas[x] ? y : x,
-    );
-    const prep = lowestArea(f, READINESS_AREAS);
-    if (prep)
+    const best = highestArea(dx.areas.filter((a) => a.group === "execution"));
+    const prep = lowestArea(f, ["readiness"]);
+    if (best && prep)
       out.push(
-        `${AREA_NAME[best]}(${dx.areas[best]}점) 강점 유지, 학교생활 준비도 ${AREA_NAME[prep.code]}: ${first(prep.code)}`,
+        `${best.name}(${best.score}점) 강점 유지, 학교생활 준비도 ${prep.name}: ${first(prep)}`,
       );
   } else {
     const low = lowestArea(
       f,
       f.verdicts.learning.level === "risk"
-        ? [...EXECUTION_AREAS, ...READINESS_AREAS]
-        : EXECUTION_AREAS,
+        ? ["execution", "readiness"]
+        : ["execution"],
     );
-    if (low)
-      out.push(
-        `${AREA_NAME[low.code]}: ${STRATEGIES[low.code][0]}, 이어서 ${STRATEGIES[low.code][1]}`,
-      );
+    if (low) out.push(`${low.name}: ${low.steps[0]}, 이어서 ${low.steps[1]}`);
   }
 
   const pending = f.pendingPerformance[0];
@@ -811,13 +839,12 @@ export function strengths(f: TextFacts): string[] {
       `목표시간 달성율 ${pct(ach(f) ?? 0)}%${vs(f, "list")}, 최소 목표시간 ${week.metDays}/${week.setDays}일 충족${streak}`,
     );
   }
-  const dx = f.metrics.diagnosis;
+  const dx = viewOf(f.metrics);
   if (dx) {
-    const all = [...EXECUTION_AREAS, ...READINESS_AREAS];
-    const best = all.reduce((x, y) => (dx.areas[y] > dx.areas[x] ? y : x));
-    if (dx.areas[best] >= 80) {
+    const best = highestArea(dx.areas);
+    if (best && best.score >= 80) {
       out.push(
-        `${AREA_NAME[best]} ${dx.areas[best]}점(${areaState(best, dx.areas[best])}), 학습진단에서 가장 높은 영역으로 상담의 출발점`,
+        `${best.name} ${best.score}점(${best.state}), 학습진단에서 가장 높은 영역으로 상담의 출발점`,
       );
     }
   }
@@ -872,25 +899,25 @@ export function weaknesses(f: TextFacts): string[] {
       `목표시간 달성율 ${pct(ach(f) ?? 0)}%, 최소 충족 ${week.metDays}/${week.setDays}일: 계획 조정 필요`,
     );
   }
-  const dx = f.metrics.diagnosis;
+  const dx = viewOf(f.metrics);
   if (!dx) out.push("학습진단 미실시: 학습 역량 판단 불가");
   else if (
     f.verdicts.learning.level === "caution" ||
     f.verdicts.learning.level === "risk"
   ) {
-    const low = lowestArea(f, EXECUTION_AREAS);
+    const low = lowestArea(f, ["execution"]);
     if (low) {
       const rest =
         low.score >= 75 ? "목표 도달" : `목표까지 ${75 - low.score}점`;
       out.push(
-        `${AREA_NAME[low.code]} ${low.score}점(${areaState(low.code, low.score)}): 가장 시급한 영역, ${rest}`,
+        `${low.name} ${low.score}점(${low.state}): 가장 시급한 영역, ${rest}`,
       );
     }
   }
-  const prep = lowestArea(f, READINESS_AREAS);
+  const prep = lowestArea(f, ["readiness"]);
   if (out.length < 3 && prep && prep.score < 60) {
     out.push(
-      `학교생활 준비도: ${AREA_NAME[prep.code]} ${prep.score}점(${areaState(prep.code, prep.score)}): ${first(prep.code)}`,
+      `학교생활 준비도: ${prep.name} ${prep.score}점(${prep.state}): ${first(prep)}`,
     );
   }
   const link = f.axes.axes.find((a) => a.key === "careerLink");
@@ -1178,20 +1205,10 @@ export function serviceCards(f: TextFacts): ServiceCard[] {
           detail: "",
         };
 
-  const dx = m.diagnosis;
-  const low = lowestArea(f, EXECUTION_AREAS);
-  const prep = dx
-    ? Math.round(
-        READINESS_AREAS.reduce((s, c) => s + dx.areas[c], 0) /
-          READINESS_AREAS.length,
-      )
-    : null;
-  const execAvg = dx
-    ? Math.round(
-        EXECUTION_AREAS.reduce((s, c) => s + dx.areas[c], 0) /
-          EXECUTION_AREAS.length,
-      )
-    : null;
+  const dx = viewOf(m);
+  const low = lowestArea(f, ["execution"]);
+  const prep = dx ? Math.round(dx.readinessAvg) : null;
+  const execAvg = dx ? Math.round(dx.executionAvg) : null;
   const week = f.goal?.week;
   const level = f.verdicts.execution.level;
   const pending = f.pendingPerformance.length;
@@ -1203,10 +1220,10 @@ export function serviceCards(f: TextFacts): ServiceCard[] {
   return [
     card("diagnosis", "학습진단", {
       chip: "진단 완료",
-      value: dx ? `긴급도 ${URGENCY_LABEL[urgencyOf(dx.areas)]}` : "",
+      value: dx ? `긴급도 ${URGENCY_LABEL[dx.urgency]}` : "",
       detail:
         dx && low && execAvg !== null && prep !== null
-          ? `학습 실행 역량 ${execAvg}점, 학교생활 준비도 ${prep}점, 가장 시급한 영역 ${AREA_NAME[low.code]}(${low.score}점)`
+          ? `학습 실행 역량 ${execAvg}점, 학교생활 준비도 ${prep}점, 가장 시급한 영역 ${low.name}(${low.score}점)`
           : "",
     }),
     week && week.setDays > 0 && f.goal

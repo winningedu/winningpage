@@ -4,6 +4,7 @@ import {
   containsUniversity,
   countByMode,
   countChars,
+  ensureTerminalPunctuation,
   extractKeywords,
   extractNumbers,
   findPlanExpressions,
@@ -158,6 +159,21 @@ describe("findPlanExpressions", () => {
   it("공백이 달라도 찾고, 없으면 빈 배열이다", () => {
     expect(findPlanExpressions("발표할예정")).toEqual(["할 예정"]);
     expect(findPlanExpressions("값을 비교함.")).toEqual([]);
+  });
+});
+
+describe("ensureTerminalPunctuation", () => {
+  it("끝 부호가 없으면 마침표를 붙이고, 있으면 그대로 둔다", () => {
+    expect(ensureTerminalPunctuation("값을 확인함")).toBe("값을 확인함.");
+    expect(ensureTerminalPunctuation("값을 확인함  ")).toBe("값을 확인함.");
+    for (const s of ["확인함.", "맞는가?", "대단함!"]) {
+      expect(ensureTerminalPunctuation(s)).toBe(s);
+    }
+  });
+
+  it("닫는 따옴표 뒤에서도 끝 부호를 판단한다", () => {
+    expect(ensureTerminalPunctuation('"충분함."')).toBe('"충분함."');
+    expect(ensureTerminalPunctuation('"충분함"')).toBe('"충분함".');
   });
 });
 

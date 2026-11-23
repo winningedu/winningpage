@@ -8,10 +8,10 @@ import type { AiTrace } from "../../ai/telemetry/trace.js";
 import { buildRetryNotes, type PromptBundle } from "../prompts.js";
 import { MAX_MODEL_ATTEMPTS_PER_STEP } from "../types.js";
 import { parseModelJson } from "../validation.js";
-import { validateCompose } from "./factCheck.js";
+import { MAX_TEXT_CHARS, validateCompose } from "./factCheck.js";
 import type { ComposeNeed } from "./needs.js";
 
-const MAX_OUTPUT_TOKENS = 3072;
+const MAX_OUTPUT_TOKENS = 8192;
 /** 요청 한 번에서 모델을 부르는 최대 횟수. 첫 시도와 재요청 1회. */
 const MAX_TRIES = 2;
 
@@ -34,7 +34,8 @@ const SYSTEM = [
   "너는 학생의 자기평가서 리포트에 들어갈 설명 문장을 쓴다.",
   "- 항목마다 주어진 근거 원문에 있는 내용만 쓴다. 원문에 없는 행동, 숫자, 감정을 만들지 않고 순서를 바꾸지 않는다.",
   "- 숫자는 근거 원문에 있는 그대로만 쓴다. 번호, 목록, 라벨, 비율은 코드가 정하므로 만들지 않는다.",
-  "- 직접 인용은 근거 원문에 그대로 있는 구절만 큰따옴표로 감싸고 길이 상한을 지킨다.",
+  `- 항목마다 쓰는 문장은 1~2문장이고 공백 포함 ${MAX_TEXT_CHARS}자 이내로 쓴다. 넘으면 그 항목은 버려진다.`,
+  "- 직접 인용은 근거 원문에 그대로 있는 구절만 큰따옴표로 감싸고 길이 상한을 지킨다. 기록과 메모 인용은 30자 이내, 관계 설명 인용은 15자 이내다.",
   "- 꼬리표(P1, D1, H1 등)와 문장 번호(①)는 항목에 주어진 것만 쓴다.",
   "- 문체는 ~함, ~했음, ~입니다 중 한 가지로 간결하게 쓴다. 가운뎃점, 긴 줄표, 화살표는 쓰지 않는다.",
   "- 응답은 items 배열이고 항목마다 id 와 text 를 그대로 돌려준다.",
@@ -79,11 +80,15 @@ export async function composeTexts(args: {
   if (args.needs.length === 0) return { kind: "ok", texts: {}, attempts: 0 };
   let attempts = 0;
   let retryNotes: string[] = [];
+  // 한 응답에서 자기 검사를 통과한 항목은 재요청에서 깨져도 남긴다(No.137, 138).
+  const kept: Record<string, string> = {};
+  const finish = (): ComposeOutcome =>
+    Object.keys(kept).length > 0
+      ? { kind: "ok", texts: kept, attempts }
+      : { kind: "invalid", attempts };
   for (let i = 0; i < MAX_TRIES; i++) {
     if (args.attemptsSoFar + attempts >= MAX_MODEL_ATTEMPTS_PER_STEP) {
-      return attempts === 0
-        ? { kind: "exhausted", attempts }
-        : { kind: "invalid", attempts };
+      return attempts === 0 ? { kind: "exhausted", attempts } : finish();
     }
     const bundle = buildComposePrompt(args.needs, retryNotes);
     attempts++;
@@ -104,10 +109,13 @@ export async function composeTexts(args: {
     const parsed = parseModelJson(reply.text, reply.finishReason);
     const verdict = parsed.ok
       ? validateCompose(parsed.value, args.needs)
-      : { ok: false as const, issues: [parsed.issue] };
+      : { ok: false as const, issues: [parsed.issue], texts: {} };
+    for (const [id, text] of Object.entries(verdict.texts)) {
+      kept[id] ??= text;
+    }
     if (verdict.ok) {
       args.trace?.annotateLastCall({ validation: "ok" });
-      return { kind: "ok", texts: verdict.texts, attempts };
+      return { kind: "ok", texts: kept, attempts };
     }
     args.trace?.annotateLastCall({
       validation: "failed",
@@ -115,5 +123,5 @@ export async function composeTexts(args: {
     });
     retryNotes = buildRetryNotes(verdict.issues);
   }
-  return { kind: "invalid", attempts };
+  return finish();
 }

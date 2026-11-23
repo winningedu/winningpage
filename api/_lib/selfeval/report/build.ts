@@ -42,6 +42,8 @@ export function buildReport(
       ch04,
       ch05: buildCh05(input, body, ch02, ch04, text),
       composeMissing: needs.length > 0 && compose === null,
+      composePartial:
+        compose !== null && needs.some((n) => compose[n.id] === undefined),
     },
     tagMap: ch02.tagMap,
     needs,
