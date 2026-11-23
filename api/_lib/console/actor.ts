@@ -64,7 +64,8 @@ export async function resolveConsoleActor(
       .select("reason")
       .eq("id", row.proxy_session_id)
       .maybeSingle();
-    if (sessionError || !session) throw new Error("console actor lookup failed");
+    if (sessionError || !session)
+      throw new Error("console actor lookup failed");
     readOnly = session.reason === "read_only";
   }
 

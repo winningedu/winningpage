@@ -18,9 +18,9 @@ vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+import { routes } from "../manifest.js";
 import { routes as routes30 } from "../manifest-30.js";
 import { routes as routes60 } from "../manifest-60.js";
-import { routes } from "../manifest.js";
 
 const CONSOLE_ROUTES = Object.entries({ ...routes, ...routes30, ...routes60 })
   .filter(([path]) => path.startsWith("console/"))
