@@ -90,4 +90,26 @@ describe("buildPlan", () => {
       ["FIX_CHECK_4", "2026-12-06"],
     ]);
   });
+
+  test("calc example A33: 수행평가 Day 19 adds D-5 and D-1 tasks, 20 tasks in all", () => {
+    const plan = calcPlan();
+    expect(plan.tasks).toHaveLength(20);
+    const perf = { kind: "PERF", date: "2026-11-27" };
+    expect(plan.tasks.filter((t) => t.taskId.startsWith("EVT_"))).toEqual([
+      {
+        date: "2026-11-22",
+        day: 14,
+        week: 2,
+        taskId: "EVT_PERF_PREP",
+        event: perf,
+      },
+      {
+        date: "2026-11-26",
+        day: 18,
+        week: 3,
+        taskId: "EVT_PERF_SUBMIT",
+        event: perf,
+      },
+    ]);
+  });
 });

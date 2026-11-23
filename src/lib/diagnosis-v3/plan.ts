@@ -7,6 +7,7 @@ import { COPY_TEXT } from "./source/copyText.js";
 import type {
   DiagnosisV3Answers,
   DiagnosisV3Scores,
+  EventKind,
   IsoDate,
   Ordinal,
   PlanTask,
@@ -73,7 +74,32 @@ const rank = (taskId: string): number => {
   return 5;
 };
 
+// 21 r21-r25: per event kind, tasks "n일 전 EVT_*" (ETC has none)
+const planRow = (r: number) => {
+  const row = planSheet.find((x) => x.r === r);
+  if (!row) throw new Error(`missing 21_4주플랜 r${r}`);
+  return row;
+};
+const EVENT_TASKS: Readonly<
+  Record<EventKind, readonly { before: number; taskId: string }[]>
+> = Object.fromEntries(
+  [21, 22, 23, 24, 25].map((r) => [
+    textCell(planRow(r), 1).slice("EVENT:".length),
+    [...planCell(r).matchAll(/(\d+)일 전 (EVT_\w+)/g)].map((m) => ({
+      before: Number(m[1]),
+      taskId: String(m[2]),
+    })),
+  ]),
+) as Record<EventKind, readonly { before: number; taskId: string }[]>;
+
 const DAY_MS = 86_400_000;
+
+/** Day number of a date, Day 1 = diagnosedAt. */
+export function dayOfDate(diagnosedAt: IsoDate, date: IsoDate): number {
+  const diff =
+    Date.parse(`${date}T00:00:00Z`) - Date.parse(`${diagnosedAt}T00:00:00Z`);
+  return Math.round(diff / DAY_MS) + 1;
+}
 
 /** Calendar date of a Day number, Day 1 = diagnosedAt. */
 export function dateOfDay(diagnosedAt: IsoDate, day: number): IsoDate {
@@ -121,7 +147,23 @@ export function buildPlan(input: PlanInput): Pick<Plan, "columns" | "tasks"> {
       task(from + CHECK_OFFSET, { taskId: `FIX_CHECK_${week}` }),
     ),
   ];
-  const tasks = [...areaTasks, ...fixedTasks].sort(
+  const lastDay = first(WEEKS, WEEKS.length - 1, "week").to;
+  const events = Array.isArray(input.schedule) ? input.schedule : [];
+  const within = events.filter((e) => {
+    const day = dayOfDate(input.diagnosedAt, e.date);
+    return day >= 1 && day <= lastDay;
+  });
+  // 21 r21-r25 offsets; 21 C26: a task that lands before Day 1 is dropped
+  const eventTasks = within.flatMap((event) =>
+    EVENT_TASKS[event.kind]
+      .map(({ before, taskId }) => ({
+        day: dayOfDate(input.diagnosedAt, event.date) - before,
+        taskId,
+      }))
+      .filter(({ day }) => day >= 1)
+      .map(({ day, taskId }) => task(day, { taskId, event })),
+  );
+  const tasks = [...areaTasks, ...fixedTasks, ...eventTasks].sort(
     (a, b) => a.day - b.day || rank(a.taskId) - rank(b.taskId),
   );
   return { columns, tasks };
