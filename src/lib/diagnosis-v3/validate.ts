@@ -166,7 +166,7 @@ const withoutLoneExclusive = (rows: readonly OptionRow[], picks: number[]) => {
 };
 
 /** 06 C55: q13 dates may fall on Day 1..42. */
-const EVENT_WINDOW_DAYS = numberCell(thresholdRow("일정 수집 범위"), 2);
+export const EVENT_WINDOW_DAYS = numberCell(thresholdRow("일정 수집 범위"), 2);
 const MAX_EVENTS = maxPicks("q13");
 
 /** Exclusive q13 choices, the 14 EVENT: codes without a date kind. */

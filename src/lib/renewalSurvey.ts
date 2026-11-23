@@ -16,8 +16,13 @@ import {
 import { renewalSurveyQuestions } from "@/data/renewalSurveyQuestions.js";
 import type { QuestionId, TrackCode } from "@/lib/diagnosis-v3/codes";
 import { OPTIONS, trackOf } from "@/lib/diagnosis-v3/options";
-import type { AdmissionTarget } from "@/lib/diagnosis-v3/types";
-import { isHidden, Q3_TARGET_ORDINALS } from "@/lib/diagnosis-v3/validate";
+import type { AdmissionTarget, IsoDate } from "@/lib/diagnosis-v3/types";
+import {
+  EVENT_WINDOW_DAYS,
+  isHidden,
+  Q3_TARGET_ORDINALS,
+  validateAnswers,
+} from "@/lib/diagnosis-v3/validate";
 
 // renewalSurveyQuestions.js는 타입 선언 없는 순수 JS 데이터 배열이라 문항 형태를 여기서
 // 직접 규정한다(원본 데이터 파일은 이번 전환 대상이 아니라 손대지 않는다).
@@ -318,4 +323,38 @@ export function toSubmitAnswers(
   const goal = showsQ3Target(draft) ? filledText(draft.q3Target) : undefined;
   if (goal) answers.q3Target = goal;
   return answers;
+}
+
+/**
+ * Questions on one screen that block the next screen, in screen order:
+ * required ones left empty and any answer validateAnswers rejects (a half
+ * filled schedule row, a date outside Day 1..42, an unfinished scale).
+ */
+export function screenProblems(
+  page: number,
+  draft: SurveyDraft,
+  diagnosedAt: IsoDate,
+): QuestionId[] {
+  const result = validateAnswers(toSubmitAnswers(draft, null), diagnosedAt);
+  if (result.ok) return [];
+  const blocked = new Set<string>(
+    result.errors
+      // visibility is decided by visibleQuestionIds; q15 keys are resolved
+      // only at submit, so q16..q18 read as hidden here
+      .filter((error) => error.reason !== "hidden")
+      .map((error) => (error.question === "q3Target" ? "q3" : error.question)),
+  );
+  return visibleQuestionIds(page, draft).filter((id) => blocked.has(id));
+}
+
+const DAY_MS = 86_400_000;
+
+const addDays = (date: IsoDate, days: number): IsoDate =>
+  new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS)
+    .toISOString()
+    .slice(0, 10);
+
+/** 16 r30, 06 C55: q13 dates from Day 1 (diagnosedAt) to Day 42. */
+export function scheduleDateBounds(diagnosedAt: IsoDate) {
+  return { min: diagnosedAt, max: addDays(diagnosedAt, EVENT_WINDOW_DAYS - 1) };
 }

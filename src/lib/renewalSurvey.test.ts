@@ -6,6 +6,8 @@ import {
 } from "@/lib/diagnosis-v3/testFixtures";
 import type { LikertBlock } from "@/lib/diagnosis-v3/types";
 import {
+  scheduleDateBounds,
+  screenProblems,
   showsQ3Target,
   toSubmitAnswers,
   visibleQuestionIds,
@@ -154,5 +156,50 @@ describe("v3 제출 답안", () => {
     expect(answers.q6s).toEqual({ KOR: 2 });
     expect(answers.q6r).toBe(2.5);
     expect(answers.q6m).toEqual({ month: 6, grades: { KOR: 3 } });
+  });
+});
+
+describe("v3 화면 필수 게이트", () => {
+  const day = CALC_EXAMPLE_CONTEXT.diagnosedAt;
+
+  it("필수 문항을 비우면 그 화면을 넘길 수 없다", () => {
+    expect(screenProblems(1, {}, day)).toEqual(["q1", "q2", "q3"]);
+    expect(screenProblems(1, calcDraft, day)).toEqual([]);
+    expect(screenProblems(6, { ...calcDraft, q23: undefined }, day)).toEqual([
+      "q23",
+    ]);
+  });
+
+  it("척도 문장을 하나라도 비우면 막는다", () => {
+    const { V: _v, ...partial } = likertMap(CALC_EXAMPLE.q9);
+    expect(screenProblems(3, { ...calcDraft, q9: partial }, day)).toEqual([
+      "q9",
+    ]);
+  });
+
+  it("선택 문항은 비워도 되지만 반쯤 쓴 일정은 막는다", () => {
+    expect(screenProblems(4, { ...calcDraft, q13: undefined }, day)).toEqual(
+      [],
+    );
+    expect(
+      screenProblems(
+        4,
+        { ...calcDraft, q13: [{ kind: "EXAM", date: "" }] },
+        day,
+      ),
+    ).toEqual(["q13"]);
+  });
+
+  it("13번 날짜는 진단일부터 Day 42까지만 받는다", () => {
+    expect(scheduleDateBounds("2026-11-09")).toEqual({
+      min: "2026-11-09",
+      max: "2026-12-20",
+    });
+    const at = (date: string) =>
+      screenProblems(4, { ...calcDraft, q13: [{ kind: "EXAM", date }] }, day);
+    expect(at("2026-11-08")).toEqual(["q13"]);
+    expect(at("2026-11-09")).toEqual([]);
+    expect(at("2026-12-20")).toEqual([]);
+    expect(at("2026-12-21")).toEqual(["q13"]);
   });
 });
