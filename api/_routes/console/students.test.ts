@@ -478,7 +478,7 @@ describe("GET /api/console/students", () => {
   });
 
   test("weeklyGoalRate is the rounded rate over the 7 days before today for goal users, null for the others and for goal users with no target", async () => {
-    const day = weekWindows(ymdIn(new Date(), "UTC")).thisWeek.find(
+    const day = weekWindows(ymdIn(new Date(), "Asia/Seoul")).thisWeek.find(
       (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
     );
     kit.state.rows.goal_daily_records = (f) =>
@@ -742,7 +742,7 @@ describe("GET /api/console/students special students", () => {
   });
 
   test("a raw weekly rate of 39.6 rounds to 40 and does not fire the low rate reason", async () => {
-    const day = weekWindows(ymdIn(new Date(), "UTC")).thisWeek.find(
+    const day = weekWindows(ymdIn(new Date(), "Asia/Seoul")).thisWeek.find(
       (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
     );
     kit.state.rows.goal_daily_records = (f) =>
@@ -877,7 +877,7 @@ describe("GET /api/console/students special students", () => {
   });
 
   test("the low rate reason uses the default 40 percent when the tenant sets none, the tenant value when set, and the response carries all three thresholds", async () => {
-    const day = weekWindows(ymdIn(new Date(), "UTC")).thisWeek.find(
+    const day = weekWindows(ymdIn(new Date(), "Asia/Seoul")).thisWeek.find(
       (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
     );
     kit.state.rows.goal_daily_records = (f) =>
