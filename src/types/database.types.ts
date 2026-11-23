@@ -9891,6 +9891,7 @@ export type Database = {
           org_type: string;
         }[];
       };
+      fn_signup_time_zone: { Args: { p_user_id: string }; Returns: string };
       fn_student_parent: {
         Args: Record<PropertyKey, never>;
         Returns: {
