@@ -128,4 +128,33 @@ begin
   raise notice '[PASS] 세션 TimeZone 이 달라도 같은 결과 %', v_a;
 end $$;
 
+-- ---------------------------------------------------------------------
+-- tenants.time_zone, profiles.time_zone
+-- ---------------------------------------------------------------------
+select pg_temp.expect_text('tenants: 기존 행은 모두 Asia/Seoul',
+  (select coalesce(string_agg(distinct time_zone, ','), 'none') from public.tenants), 'Asia/Seoul');
+select pg_temp.expect_text('profiles: 기존 행은 모두 Asia/Seoul',
+  (select coalesce(string_agg(distinct time_zone, ','), 'none') from public.profiles), 'Asia/Seoul');
+
+insert into public.tenants (code, name, region, org_type, tier)
+  values ('TZAAAAAA', 'u0b-a', '서울', '학교', 'B');
+select pg_temp.expect_text('tenants: 새 행 기본값은 Asia/Seoul',
+  (select time_zone from public.tenants where code = 'TZAAAAAA'), 'Asia/Seoul');
+select pg_temp.expect_ok('tenants: America/New_York update 통과',
+  $$update public.tenants set time_zone = 'America/New_York' where code = 'TZAAAAAA'$$);
+select pg_temp.expect_error('tenants: KST update 거부',
+  $$update public.tenants set time_zone = 'KST' where code = 'TZAAAAAA'$$, '23514');
+select pg_temp.expect_error('tenants: KST insert 거부',
+  $$insert into public.tenants (code, name, region, org_type, tier, time_zone)
+    values ('TZBBBBBB', 'u0b-b', '서울', '학교', 'B', 'KST')$$, '23514');
+select pg_temp.expect_error('tenants: null 거부',
+  $$update public.tenants set time_zone = null where code = 'TZAAAAAA'$$, '23502');
+
+select pg_temp.expect_ok('profiles: America/New_York update 통과',
+  $$update public.profiles set time_zone = 'America/New_York' where id = (select id from public.profiles limit 1)$$);
+select pg_temp.expect_error('profiles: KST update 거부',
+  $$update public.profiles set time_zone = 'KST' where id = (select id from public.profiles limit 1)$$, '23514');
+select pg_temp.expect_error('profiles: null 거부',
+  $$update public.profiles set time_zone = null where id = (select id from public.profiles limit 1)$$, '23502');
+
 rollback;
