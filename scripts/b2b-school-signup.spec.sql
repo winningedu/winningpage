@@ -318,6 +318,49 @@ select pg_temp.expect_int('문자 인증은 소비된다',
   (select count(*) from public.phone_verifications where phone = '01040000001' and consumed_at is not null), 1);
 
 -- ---------------------------------------------------------------------
+-- 가입 시 브라우저 시간대(D5): signUp 메타데이터 time_zone 이 profiles.time_zone 이 된다
+-- 메타데이터가 없거나 틀리면 열 기본값('Asia/Seoul')이다. prod 에는 auth.users 트리거가 없어 가입 RPC 가 행을 만든다.
+-- ---------------------------------------------------------------------
+-- 프로필 행 없이 auth 계정만 만든다(가입 RPC 가 행을 만드는 prod 와 같은 상태).
+create function pg_temp.new_auth_only(p_email text, p_meta jsonb) returns uuid
+language plpgsql as $$
+declare
+  v_id uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, email, aud, role, email_confirmed_at, raw_user_meta_data)
+  values (v_id, p_email, 'authenticated', 'authenticated', now(), p_meta);
+  return v_id;
+end $$;
+
+-- 번호 n 마다 따로 만든 계정으로 가입시키고 저장된 시간대를 돌려준다.
+create function pg_temp.signup_zone(n int, p_meta jsonb, p_birth date default date '2010-03-02') returns text
+language plpgsql as $$
+declare
+  v_phone text := '010-60' || lpad(n::text, 2, '0') || '-0001';
+  v_uid uuid;
+begin
+  perform pg_temp.verify(v_phone);
+  v_uid := pg_temp.new_auth_only('zone' || n || '@example.com', p_meta);
+  perform pg_temp.su(v_uid, jsonb_build_object('phone', v_phone, 'number', n, 'birth_date', p_birth));
+  return (select time_zone from public.profiles where id = v_uid);
+end $$;
+
+select pg_temp.expect_text('뉴욕 브라우저로 가입하면 America/New_York 이 저장된다',
+  pg_temp.signup_zone(1, '{"time_zone": "America/New_York"}'), 'America/New_York');
+select pg_temp.expect_text('틀린 시간대는 기본값이 저장된다',
+  pg_temp.signup_zone(2, '{"time_zone": "KST"}'), 'Asia/Seoul');
+select pg_temp.expect_text('시간대가 없으면 기본값이 저장된다',
+  pg_temp.signup_zone(3, '{}'), 'Asia/Seoul');
+select pg_temp.expect_text('메타데이터가 아예 없어도 기본값이 저장된다',
+  pg_temp.signup_zone(4, null), 'Asia/Seoul');
+select pg_temp.expect_error('profiles.time_zone 에 틀린 값을 쓰면 23514', $$
+  update public.profiles set time_zone = 'KST' where email = 'zone1@example.com'
+$$, '23514');
+select pg_temp.expect_ok('마이페이지처럼 본인이 시간대를 바꿀 수 있다', $$
+  update public.profiles set time_zone = 'Europe/Paris' where email = 'zone1@example.com'
+$$);
+
+-- ---------------------------------------------------------------------
 -- 입력 검증과 가입 게이트(번호 n 마다 따로 만든 계정, 아이디, 이메일, 번호를 쓴다)
 -- ---------------------------------------------------------------------
 -- 예외 메시지까지 확인한다(plpgsql 평문 예외는 모두 P0001 이라 메시지로 구분한다).
