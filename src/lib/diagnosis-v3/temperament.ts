@@ -1,7 +1,12 @@
 // Temperament engine (spec rows 87-110, score sheet 18_기질설정, copy sheet 13).
 // Pure TS: sheet constants are read at module load, text lives in COPY_TEXT.
 
-import { TEMP_DIMS, type TempDim } from "./codes.js";
+import {
+  TEMP_DIMS,
+  TEMP_FACTORS,
+  type TempDim,
+  type TempFactor,
+} from "./codes.js";
 import { type Likert, SCALE_ITEMS, scaleValue } from "./likert.js";
 import { roundHalfUpInt } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
@@ -101,4 +106,99 @@ export function representativeTemperament(
   return mixed
     ? { kind: "mixed", dim: first, dims: [first, second], ranked }
     : { kind: "single", dim: first, ranked };
+}
+
+type LabelBand = {
+  readonly op: "ge" | "lt" | "else";
+  readonly value: number;
+  readonly label: string;
+};
+
+/** "61 이상 안정형 / 31 이상 균형형 / 그 외 긴장 민감형 (note)", first segment only. */
+const parseBands = (note: string): readonly LabelBand[] =>
+  (note.split(" \u00b7 ")[0] ?? "")
+    .replace(/\s*\(.*$/, "")
+    .split(" / ")
+    .map((part): LabelBand => {
+      const bounded = part.match(/^(\d+) (이상|미만) (.+)$/);
+      if (bounded?.[1] && bounded[3]) {
+        return {
+          op: bounded[2] === "이상" ? "ge" : "lt",
+          value: Number(bounded[1]),
+          label: bounded[3],
+        };
+      }
+      const rest = part.match(/^그 외 (.+)$/);
+      if (!rest?.[1]) throw new Error(`bad band ${part}`);
+      return { op: "else", value: 0, label: rest[1] };
+    });
+
+// 18 r22-r25: B = "F_x name", D = label bands.
+const FACTOR_ROWS = Object.fromEntries(
+  TEMP_FACTORS.map((factor, i) => {
+    const row = tempRow(22 + i);
+    const [code, ...name] = textCell(row, 1).split(" ");
+    if (code !== factor) throw new Error(`18 r${row.r} is ${code}`);
+    return [
+      factor,
+      { name: name.join(" "), bands: parseBands(textCell(row, 3)) },
+    ];
+  }),
+) as Record<TempFactor, { name: string; bands: readonly LabelBand[] }>;
+
+const labelOf = (factor: TempFactor, score: number): string => {
+  const band = FACTOR_ROWS[factor].bands.find(
+    (b) =>
+      b.op === "else" || (b.op === "ge" ? score >= b.value : score < b.value),
+  );
+  if (!band) throw new Error(`no label for ${factor} ${score}`);
+  return band.label;
+};
+
+export type SwayCause = "NS" | "SD" | "RD";
+
+export type TemperamentFactors = {
+  readonly scores: Readonly<Record<TempFactor, number>>;
+  /** copy id suffix, TEMP_F_<x>_<label> */
+  readonly labels: Readonly<Record<TempFactor, string>>;
+  readonly names: Readonly<Record<TempFactor, string>>;
+  readonly swayCause: SwayCause;
+};
+
+/** 18 r22-r25 formulas on exact integers, half-up (judge-report 3-1). */
+export function temperamentFactors(
+  dims: Readonly<Record<TempDim, { readonly score: number }>>,
+): TemperamentFactors {
+  const [ns, ha, rd, ps, sd] = [
+    dims.NS.score,
+    dims.HA.score,
+    dims.RD.score,
+    dims.PS.score,
+    dims.SD.score,
+  ] as const;
+  const scores: Record<TempFactor, number> = {
+    F_STAB: 100 - ha, // 18 C22
+    F_SWAY: roundHalfUpInt(ns + (100 - sd) + rd, 3), // 18 C23
+    F_PRESS: roundHalfUpInt(2 * (100 - ha) + sd + ps, 4), // 18 C24
+    F_SUST: roundHalfUpInt(2 * ps + sd + (100 - ns), 4), // 18 C25
+  };
+  // 18 D23 names the largest of NS, 100-SD, RD; ties follow that order (R12).
+  const causes: readonly (readonly [SwayCause, number])[] = [
+    ["NS", ns],
+    ["SD", 100 - sd],
+    ["RD", rd],
+  ];
+  const swayCause = causes.reduce((best, next) =>
+    next[1] > best[1] ? next : best,
+  )[0];
+  return {
+    scores,
+    labels: Object.fromEntries(
+      TEMP_FACTORS.map((f) => [f, labelOf(f, scores[f])]),
+    ) as Record<TempFactor, string>,
+    names: Object.fromEntries(
+      TEMP_FACTORS.map((f) => [f, FACTOR_ROWS[f].name]),
+    ) as Record<TempFactor, string>,
+    swayCause,
+  };
 }
