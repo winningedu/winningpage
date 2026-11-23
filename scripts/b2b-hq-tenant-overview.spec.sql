@@ -1,6 +1,6 @@
 -- =====================================================================
 -- 본사 대시보드 기관 현황 SQL 스펙: fn_hq_tenant_students, fn_hq_tenant_overview
--- (분석 grill Q5, Q9, 계획 4번 A1 A2 A3 A4)
+-- (분석 grill Q5, Q9, 계획 4번 A1 A2 A3 A4, 계획 5번 시범기간 결정 117)
 --
 -- 실행: 마이그레이션이 전부 적용된 스택에서
 --   psql "$DB_URL" -v ON_ERROR_STOP=1 -f scripts/b2b-hq-tenant-overview.spec.sql
@@ -103,6 +103,24 @@ select pg_temp.mk_tenant('grace_default', 'HQJJJJJJ', pg_temp.today() - 100, pg_
 select pg_temp.mk_tenant('grace_set', 'HQKKKKKK', pg_temp.today() - 100, pg_temp.today() - 40, pg_temp.today() + 1);
 select pg_temp.mk_tenant('expired', 'HQMMMMMM', pg_temp.today() - 100, pg_temp.today() - 31, null);
 select pg_temp.mk_tenant('expired_set', 'HQNNNNNN', pg_temp.today() - 100, pg_temp.today() - 3, pg_temp.today() - 1);
+-- 시범기간(결정 117): 계약 기간 안(active, ending_soon)이 아니고 오늘이 시범기간 안이면 trial.
+select pg_temp.mk_tenant('trial_none', 'HQQQQQQQ', null, null, null);
+select pg_temp.mk_tenant('trial_up', 'HQRRRRRR', pg_temp.today() + 5, pg_temp.today() + 200, null);
+select pg_temp.mk_tenant('trial_active', 'HQSSSSSS', pg_temp.today() - 10, pg_temp.today() + 100, null);
+select pg_temp.mk_tenant('trial_soon', 'HQTTTTTT', pg_temp.today() - 100, pg_temp.today() + 3, null);
+select pg_temp.mk_tenant('trial_grace', 'HQUUUUUU', pg_temp.today() - 100, pg_temp.today() - 3, null);
+select pg_temp.mk_tenant('trial_last', 'HQVVVVVV', null, null, null);
+select pg_temp.mk_tenant('trial_over', 'HQWWWWWW', null, null, null);
+select pg_temp.mk_tenant('trial_later', 'HQXXXXXX', null, null, null);
+update public.tenants set trial_start_date = pg_temp.today() - 3, trial_end_date = pg_temp.today() + 3
+ where id in (pg_temp.fx('trial_none'), pg_temp.fx('trial_up'), pg_temp.fx('trial_active'),
+              pg_temp.fx('trial_soon'), pg_temp.fx('trial_grace'));
+update public.tenants set trial_start_date = pg_temp.today() - 3, trial_end_date = pg_temp.today()
+ where id = pg_temp.fx('trial_last');
+update public.tenants set trial_start_date = pg_temp.today() - 10, trial_end_date = pg_temp.today() - 1
+ where id = pg_temp.fx('trial_over');
+update public.tenants set trial_start_date = pg_temp.today() + 1, trial_end_date = pg_temp.today() + 10
+ where id = pg_temp.fx('trial_later');
 
 -- 기타 소속(is_catch_all)은 전체에서 하나뿐이라 없을 때만 만든다.
 insert into public.tenants (code, name, region, org_type, tier, is_catch_all)
@@ -227,6 +245,21 @@ select pg_temp.expect_text('grace_ends_on 이 지났으면 기본 일수 안이�
   (pg_temp.ov('expired_set')).contract_status, 'expired');
 select pg_temp.expect_text('계약 중인 기관의 grace_end 는 종료일 + 기본 일수',
   (pg_temp.ov('active')).grace_end::text, (pg_temp.today() + 61)::text);
+
+-- 시범기간: trial 은 계약 기간 밖에서만 덮는다.
+select pg_temp.expect_text('계약 없음, 시범기간 안이면 trial', (pg_temp.ov('trial_none')).contract_status, 'trial');
+select pg_temp.expect_text('계약 시작 전, 시범기간 안이면 trial', (pg_temp.ov('trial_up')).contract_status, 'trial');
+select pg_temp.expect_text('계약 중이면 시범기간이어도 active', (pg_temp.ov('trial_active')).contract_status, 'active');
+select pg_temp.expect_text('종료 임박이면 시범기간이어도 ending_soon', (pg_temp.ov('trial_soon')).contract_status, 'ending_soon');
+select pg_temp.expect_text('유예 중이어도 시범기간 안이면 trial', (pg_temp.ov('trial_grace')).contract_status, 'trial');
+select pg_temp.expect_text('시범 마지막 날까지 trial', (pg_temp.ov('trial_last')).contract_status, 'trial');
+select pg_temp.expect_text('시범이 끝나면 계약 상태로 돌아간다(none)', (pg_temp.ov('trial_over')).contract_status, 'none');
+select pg_temp.expect_text('시범 시작 전이면 계약 상태 그대로(none)', (pg_temp.ov('trial_later')).contract_status, 'none');
+select pg_temp.expect_text('시범 시작일과 종료일을 함께 준다',
+  (pg_temp.ov('trial_none')).trial_start_date::text || '/' || (pg_temp.ov('trial_none')).trial_end_date::text,
+  (pg_temp.today() - 3)::text || '/' || (pg_temp.today() + 3)::text);
+select pg_temp.expect_text('시범이 없는 기관은 시범 날짜가 null',
+  (pg_temp.ov('active')).trial_start_date::text, null);
 
 delete from public.app_settings where key = 'contract_grace_days';
 select pg_temp.expect_text('기본 유예 일수가 없고 grace_ends_on 도 없으면 종료 다음 날부터 expired',

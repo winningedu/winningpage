@@ -7717,6 +7717,8 @@ export type Database = {
           special_inactive_days: number | null;
           term_months: number | null;
           tier: string;
+          trial_end_date: string | null;
+          trial_start_date: string | null;
           updated_at: string;
         };
         ComputedFields: never;
@@ -7747,6 +7749,8 @@ export type Database = {
           special_inactive_days?: number | null;
           term_months?: number | null;
           tier: string;
+          trial_end_date?: string | null;
+          trial_start_date?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -7776,6 +7780,8 @@ export type Database = {
           special_inactive_days?: number | null;
           term_months?: number | null;
           tier?: string;
+          trial_end_date?: string | null;
+          trial_start_date?: string | null;
           updated_at?: string;
         };
         Relationships: [
@@ -9190,6 +9196,8 @@ export type Database = {
           student_without_enrollment_count: number;
           teacher_count: number;
           tenant_id: string;
+          trial_end_date: string;
+          trial_start_date: string;
         }[];
       };
       fn_hq_tenant_students: {
