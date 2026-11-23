@@ -1,8 +1,6 @@
 {
   "api/_lib/hq-dashboard/period.ts": 1,
   "api/_lib/selfeval/manualLogs.ts": 1,
-  "api/_lib/selfeval/report/date.ts": 4,
-  "api/_lib/selfeval/session.ts": 2,
   "api/_lib/signup/schoolStudent.ts": 1,
   "api/_lib/web-analytics/report.ts": 1,
   "api/_routes/admin/access-logs.ts": 1,
@@ -12,7 +10,6 @@
   "api/_routes/nice-identity-callback.ts": 1,
   "src/components/inquiry/reports/reportsLogic.ts": 1,
   "src/components/report/formatCoverDate.ts": 1,
-  "src/components/selfeval/activities/activitiesLogic.ts": 3,
   "src/data/diagnosisScoringTable.ts": 2,
   "src/lib/diagnosis-v3/plan.ts": 1,
   "src/lib/diagnosis-v3/validate.ts": 1,
@@ -22,6 +19,5 @@
   "src/lib/growth/format.ts": 2,
   "src/lib/paymentReceiptFormat.ts": 2,
   "src/lib/validators.ts": 1,
-  "src/pages/admin/tenants/contract.ts": 1,
-  "src/pages/selfeval/testFixtures.ts": 1
+  "src/pages/admin/tenants/contract.ts": 1
 }
