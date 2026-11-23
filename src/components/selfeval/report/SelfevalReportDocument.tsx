@@ -5,6 +5,7 @@ import { REPORT_COVER_PRESETS } from "@/components/report/coverPresets";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
 import type { ReportPayload } from "@/lib/selfeval/reportTypes";
 import ReportCh01 from "./ReportCh01";
+import ReportCh02 from "./ReportCh02";
 import ReportChapterFrame from "./ReportChapterFrame";
 import {
   ch01Intro,
@@ -66,11 +67,11 @@ export default function SelfevalReportDocument({
       <ReportChapterFrame
         no="02"
         title={TITLES[1] as string}
-        intro=""
+        intro={`올해(${cover.academicYear}학년도) 제출한 수행평가, 심화탐구 보고서 전체와, 각 보고서가 자기평가에 얼마나 반영됐는지 보여줍니다.`}
         page={nextPage()}
         footer={footer}
       >
-        {null}
+        <ReportCh02 ch={payload.ch02} />
       </ReportChapterFrame>
       <ReportChapterFrame
         no="03"
