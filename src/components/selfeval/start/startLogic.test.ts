@@ -81,6 +81,17 @@ describe("monthsSince", () => {
     expect(monthsSince("2026-04-07T00:00:00Z", now)).toBe(5);
     expect(monthsSince("2026-10-01T00:00:00Z", now)).toBe(0);
   });
+  test("달력 날짜는 넘겨 준 시간대로 센다", () => {
+    // 서울 4월 7일 0시(UTC 4월 6일 15:00), 지금은 서울 10월 7일 0시 직전
+    const from = "2026-04-06T15:00:00Z";
+    expect(
+      monthsSince(from, new Date("2026-10-06T14:59:59Z"), "Asia/Seoul"),
+    ).toBe(5);
+    expect(
+      monthsSince(from, new Date("2026-10-06T15:00:00Z"), "Asia/Seoul"),
+    ).toBe(6);
+    expect(monthsSince(from, new Date("2026-10-06T14:59:59Z"), "UTC")).toBe(6);
+  });
   test("해석할 수 없는 날짜는 null", () => {
     expect(monthsSince("nope", now)).toBeNull();
   });
