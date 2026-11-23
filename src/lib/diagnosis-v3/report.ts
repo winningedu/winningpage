@@ -12,6 +12,7 @@ import { buildPage3 } from "./pages/p3.js";
 import { buildPage4 } from "./pages/p4.js";
 import { buildPage5 } from "./pages/p5.js";
 import { buildPage6 } from "./pages/p6.js";
+import { buildPage7 } from "./pages/p7.js";
 import { buildPlan } from "./plan.js";
 import { buildPrescriptions } from "./prescription.js";
 import { scoreReliability } from "./reliability.js";
@@ -152,6 +153,7 @@ export function buildPages(engine: Engine): Partial<DiagnosisV3Pages> {
     engine.temperament,
     engine.scores.reliability.temperament,
   );
+  const p7 = buildPage7(engine);
   return {
     p1: buildPage1(engine, p9.hero.name),
     p2: buildPage2(engine),
@@ -159,6 +161,7 @@ export function buildPages(engine: Engine): Partial<DiagnosisV3Pages> {
     p4: buildPage4(engine),
     p5: buildPage5(engine),
     p6: buildPage6(engine),
+    ...(p7 ? { p7 } : {}),
     p9,
   };
 }

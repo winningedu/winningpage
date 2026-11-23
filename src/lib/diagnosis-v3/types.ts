@@ -670,7 +670,10 @@ export type Page7 = {
           readonly cut50?: { readonly label: string; readonly value: number };
           readonly cut70: { readonly label: string; readonly value: number };
           readonly mine: { readonly label: string; readonly value: number };
+          /** gap to the 70% cut (diff_short / diff_over / diff_base) */
           readonly diff: string;
+          /** gap to the 50% cut, when that cut is shown */
+          readonly diff50?: string;
           readonly source: string;
         };
         /** 22 r73 */

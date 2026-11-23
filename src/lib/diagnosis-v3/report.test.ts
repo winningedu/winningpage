@@ -2,7 +2,11 @@ import { describe, expect, test } from "vitest";
 import { scoreDiagnosisV3 } from "./index.js";
 import { SCALE_ITEMS } from "./likert.js";
 import { COPY_SHEETS, COPY_TEXT } from "./source/copyText.js";
-import { CALC_EXAMPLE, CALC_EXAMPLE_CONTEXT } from "./testFixtures.js";
+import {
+  CALC_EXAMPLE,
+  CALC_EXAMPLE_CONTEXT,
+  validAnswers,
+} from "./testFixtures.js";
 import type { DiagnosisV3Answers } from "./types.js";
 
 const run = (answers: DiagnosisV3Answers = CALC_EXAMPLE) =>
@@ -444,5 +448,103 @@ describe("6p 학교생활 \u00b7 입시 준비도 (22 r63-r69)", () => {
     expect(p6.strengths).toEqual([]);
     expect(p6.strengthNote).toBe(COPY_TEXT.STR_NONE);
     expect(p6.weaknesses).toHaveLength(4);
+  });
+});
+
+describe("7p 입결 (22 r71-r77)", () => {
+  test("계산 예시: BAND_4 위험 in basic mode, no number shown (계산 예시 D29)", () => {
+    const { p7 } = run().pages;
+    expect(p7?.title).toBe(COPY_TEXT.ADM_HEAD_4);
+    if (p7?.result.kind !== "computed") throw new Error("expected computed");
+    expect(p7.result.comparison).toEqual({
+      cut70: { label: COPY_TEXT["cut_labels.cut70"], value: 1.28 },
+      mine: { label: COPY_TEXT["cut_labels.mine"], value: 2.25 },
+      diff: COPY_TEXT.diff_short?.replace("{v}", "0.97"),
+      source: COPY_TEXT.admission_source
+        ?.replace("{university}", "연세대학교")
+        .replace("{major}", "경영학과")
+        .replace("{type}", "학생부교과(추천형)")
+        .replace("{year}", "2026"),
+    });
+    expect(p7.result.band).toEqual({
+      headline: COPY_TEXT.admission_headline?.replace("{band}", "위험"),
+      text: COPY_TEXT.BAND_4,
+      precision: COPY_TEXT.BAND_PRECISION,
+    });
+    expect(p7.cards).toEqual([
+      {
+        question: "목표 전형의 수능 최저 기준을 맞출 수 있을 것 같나요?",
+        answer: "목표 전형에 수능 최저가 없어요.",
+        text: COPY_TEXT.ADM_Q16_4,
+      },
+      {
+        question: "학생부종합전형 준비 상태는 어디에 가깝나요?",
+        answer: "성적은 괜찮지만 탐구 활동이 부족해요.",
+        text: COPY_TEXT.ADM_Q17_3,
+      },
+      {
+        question: "면접 준비 상태는 어디에 가깝나요?",
+        answer: "아직 해당 없음 (고1)",
+        text: COPY_TEXT.ADM_Q18_6,
+      },
+    ]);
+    const [when, text] = String(COPY_TEXT.ROAD_고1_1).split("|");
+    expect(p7.roadmap.title).toBe(
+      COPY_TEXT.ROAD_TITLE?.replace("{grade}", "고1"),
+    );
+    expect(p7.roadmap.steps).toHaveLength(3);
+    expect(p7.roadmap.steps[0]).toEqual({ when, text });
+    expect(p7.notes).toEqual([COPY_TEXT.ADMISSION_NOTE, COPY_TEXT.PROB_NOTE]);
+  });
+
+  test("M3 has no 7p; no target skips; no cut is NODATA (22 r70, r74)", () => {
+    expect(run(validAnswers("M3")).pages.p7).toBeUndefined();
+    const { q15: _q15, ...noTarget } = CALC_EXAMPLE;
+    const skipped = run(noTarget).pages.p7;
+    expect(skipped?.title).toBe(COPY_TEXT.ADM_HEAD_SKIP);
+    expect(skipped?.result).toEqual({
+      kind: "notice",
+      text: COPY_TEXT.BAND_SKIPPED,
+    });
+    expect(skipped?.cards).toBeUndefined();
+    const admission = {
+      ...CALC_EXAMPLE_CONTEXT.admission,
+      cut70: null,
+    } as typeof CALC_EXAMPLE_CONTEXT.admission;
+    const nodata = scoreDiagnosisV3(CALC_EXAMPLE, {
+      ...CALC_EXAMPLE_CONTEXT,
+      admission,
+    }).pages.p7;
+    expect(nodata?.title).toBe(COPY_TEXT.ADM_HEAD_NODATA);
+    expect(nodata?.result).toEqual({
+      kind: "notice",
+      text: COPY_TEXT.BAND_NODATA,
+      universityName: "연세대학교",
+      unitName: "경영학과",
+    });
+  });
+
+  test("precise mode shows both cuts with their gaps (22 r72)", () => {
+    const admission = {
+      ...CALC_EXAMPLE_CONTEXT.admission,
+      cut50: 2.5,
+      cut70: 2.8,
+    } as typeof CALC_EXAMPLE_CONTEXT.admission;
+    const p7 = scoreDiagnosisV3(CALC_EXAMPLE, {
+      ...CALC_EXAMPLE_CONTEXT,
+      admission,
+    }).pages.p7;
+    if (p7?.result.kind !== "computed") throw new Error("expected computed");
+    expect(p7.result.comparison.cut50).toEqual({
+      label: COPY_TEXT["cut_labels.cut50"],
+      value: 2.5,
+    });
+    expect(p7.result.comparison.diff50).toBe(
+      COPY_TEXT.diff_over?.replace("{v}", "0.25"),
+    );
+    expect(p7.result.comparison.diff).toBe(
+      COPY_TEXT.diff_over?.replace("{v}", "0.55"),
+    );
+    expect(p7.result.band.precision).toBeUndefined();
   });
 });
