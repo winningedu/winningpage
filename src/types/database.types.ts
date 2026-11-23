@@ -6601,6 +6601,7 @@ export type Database = {
         Row: {
           attempts: number;
           built_at: string;
+          claimed_at: string | null;
           final_revision: number;
           payload: NonNullable<Json>;
           session_id: string;
@@ -6611,6 +6612,7 @@ export type Database = {
         Insert: {
           attempts?: number;
           built_at?: string;
+          claimed_at?: string | null;
           final_revision: number;
           payload?: NonNullable<Json>;
           session_id: string;
@@ -6620,6 +6622,7 @@ export type Database = {
         Update: {
           attempts?: number;
           built_at?: string;
+          claimed_at?: string | null;
           final_revision?: number;
           payload?: NonNullable<Json>;
           session_id?: string;

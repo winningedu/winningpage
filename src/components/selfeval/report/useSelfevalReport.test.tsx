@@ -102,6 +102,29 @@ describe("useSelfevalReport", () => {
     expect(buildReportMock).toHaveBeenCalledTimes(2);
   });
 
+  test("다른 요청이 처음 만드는 중이면(building) 실패로 보지 않고 진행 중으로 둔다", async () => {
+    fetchReportMock.mockResolvedValue(
+      ok(view({ status: "building", payload: null })),
+    );
+    const { result } = setup();
+    await waitFor(() => expect(result.current.phase).toBe("building"));
+    expect(buildReportMock).not.toHaveBeenCalled();
+  });
+
+  test("만들기가 REPORT_BUSY 로 거절되면 실패로 두지 않고 저장본을 다시 읽는다", async () => {
+    fetchReportMock.mockResolvedValueOnce({ ...notFound });
+    buildReportMock.mockResolvedValueOnce({
+      kind: "error" as const,
+      status: 409,
+      code: "REPORT_BUSY",
+      message: "busy",
+    });
+    fetchReportMock.mockResolvedValue(ok(view()));
+    const { result } = setup();
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    expect(fetchReportMock).toHaveBeenCalledTimes(2);
+  });
+
   test("저장본이 failed 상태면 자동으로 부르지 않고 failed 로 둔다", async () => {
     fetchReportMock.mockResolvedValue(
       ok(view({ status: "failed", payload: null })),

@@ -228,7 +228,8 @@ export type ReportPayload = {
 /** 태그 번호를 첫 생성 때 고정한 맵(No.146). 값은 기록 id 또는 수기 로그 id. */
 export type ReportTagMap = Record<ReportTag, string>;
 
-export type ReportViewStatus = "ready" | "failed";
+/** building 은 저장되지 않고, 선점이 진행 중일 때 읽기가 돌려준다. */
+export type ReportViewStatus = "ready" | "failed" | "building";
 
 /** GET /api/selfeval/report 응답 본문. */
 export type ReportView = {

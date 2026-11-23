@@ -11,12 +11,21 @@ import {
 } from "@/lib/selfeval/queries";
 import type { ReportPayload, ReportView } from "@/lib/selfeval/reportTypes";
 
+const REFETCH_WHILE_BUILDING_MS = 3000;
+
 export type ReportPhase = "loading" | "building" | "ready" | "failed";
 
 export function useSelfevalReport(sessionId: string) {
   const { userId } = useSession();
   const queryClient = useQueryClient();
-  const stored = useQuery(selfevalReportQuery(userId, sessionId));
+  const stored = useQuery({
+    ...selfevalReportQuery(userId, sessionId),
+    // 다른 요청이 만드는 중이면 끝날 때까지 다시 읽는다.
+    refetchInterval: (query) =>
+      query.state.data?.status === "building"
+        ? REFETCH_WHILE_BUILDING_MS
+        : false,
+  });
   const [building, setBuilding] = useState(false);
   const [buildFailed, setBuildFailed] = useState(false);
   const autoTried = useRef(false);
@@ -30,6 +39,11 @@ export function useSelfevalReport(sessionId: string) {
         selfevalQueryKeys.report(userId, sessionId),
         result.data.report,
       );
+    } else if (result.kind === "error" && result.code === "REPORT_BUSY") {
+      // 다른 요청이 만드는 중이다. 실패로 두지 않고 저장본을 다시 읽는다.
+      await queryClient.invalidateQueries({
+        queryKey: selfevalQueryKeys.report(userId, sessionId),
+      });
     } else {
       setBuildFailed(true);
     }
@@ -48,7 +62,7 @@ export function useSelfevalReport(sessionId: string) {
 
   const view: ReportView | null = stored.data ?? null;
   let phase: ReportPhase;
-  if (building) phase = "building";
+  if (building || view?.status === "building") phase = "building";
   else if (view?.status === "ready" && view.payload) phase = "ready";
   else if (view || buildFailed || (stored.error && !missing)) phase = "failed";
   else phase = "loading";

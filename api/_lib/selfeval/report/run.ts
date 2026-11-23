@@ -1,7 +1,7 @@
 // 리포트 생성 실행기(명세 No.133, 138, 173, 201). finalize 뒤에 불리며 최종 저장은 건드리지 않는다.
 // 같은 final 리비전은 한 번만 만든다(재요청은 저장본을 돌려준다). 문장이 비었거나 실패한 리포트의
 // 다시 만들기는 같은 리비전 안에서 고정된 꼬리표를 그대로 쓴다.
-// 동시 요청은 built_at 을 조건으로 한 선점(claim)으로 막고, 선점하지 못하면 모델을 부르지 않는다.
+// 동시 요청은 claimed_at 을 조건으로 한 선점(claim)으로 막고, 선점하지 못하면 모델을 부르지 않는다.
 
 import type {
   ReportPayload,
@@ -29,15 +29,15 @@ export type StoredReport = {
 export type ReportStore = {
   read(): Promise<StoredReport | null>;
   /**
-   * 만들기 권한을 잡는다. 저장본이 없으면 자리표시 행을 넣고, 있으면 built_at 이 읽은 값 그대로일 때만
-   * 갱신한다. 리비전이 바뀐 저장본은 자리표시로 바꾼다. 못 잡으면 false.
+   * 만들기 권한을 잡는다. 저장본이 없으면 자리표시 행을 넣고, 있으면 built_at 이 읽은 값 그대로이고
+   * 선점 시각이 비었거나 단계 예산보다 오래됐을 때만 갱신한다. 리비전이 바뀐 저장본은 자리표시로 바꾼다. 못 잡으면 false.
    */
   claim(args: {
     finalRevision: number;
     existing: StoredReport | null;
     claimedAt: string;
   }): Promise<boolean>;
-  /** 선점한 built_at 이 그대로일 때만 결과를 쓴다. */
+  /** 선점한 claimed_at 이 그대로일 때만 결과를 쓰고 선점을 푼다. */
   finish(claimedAt: string, row: StoredReport): Promise<boolean>;
 };
 
