@@ -125,6 +125,55 @@ describe("1p 요약 (22 r9-r27)", () => {
     });
   });
 
+  test("one verify flag is 보통 and shows RELIAB_MID (17 r15, 22 r18)", () => {
+    const mid = run({ ...CALC_EXAMPLE, q9: { ...CALC_EXAMPLE.q9, verify: 4 } });
+    expect(mid.scores.reliability.diagnosis).toBe("MID");
+    expect(mid.pages.p1.profile.reliability).toBe(COPY_TEXT.RELIAB_MID);
+  });
+
+  test("KPI labels: KPI2_LABEL, KPI2_LABEL_M3 for 중3, KPI3_LABEL (22 r21-r22)", () => {
+    const { p1 } = run().pages;
+    expect(p1.kpi2.label).toBe(COPY_TEXT.KPI2_LABEL);
+    expect(p1.kpi3.label).toBe(COPY_TEXT.KPI3_LABEL);
+    expect(run(validAnswers("M3")).pages.p1.kpi2.label).toBe(
+      COPY_TEXT.KPI2_LABEL_M3,
+    );
+  });
+
+  const titled = (id: string, area: string, score: number) =>
+    String(COPY_TEXT[id])
+      .replace("{area}", area)
+      .replace("{score}", String(score));
+
+  test("trait titles below 70: TRAIT_TITLE_1, TRAIT_TITLE_2, TRAIT_TITLE_3 (22 r24-r26)", () => {
+    const { traits } = run().pages.p1;
+    expect(traits[0].heading).toBe(titled("TRAIT_TITLE_1", "활동 기록", 41));
+    expect(traits[1].heading).toBe(titled("TRAIT_TITLE_2", "탐구 심화", 26));
+    expect(traits[2].heading).toMatch(/^\u2462 마음 상태: /);
+    expect(traits[2].heading).toBe(
+      titled(
+        "TRAIT_TITLE_3",
+        run().pages.p1.kpi3.area.label,
+        run().pages.p1.kpi3.area.score,
+      ),
+    );
+  });
+
+  test("trait titles at 70 or more: TRAIT_TITLE_1_OK and TRAIT_TITLE_2_OK (22 r24-r25)", () => {
+    const high = run({
+      ...omit(CALC_EXAMPLE, "q12"),
+      q9: { items: Array(15).fill(4), verify: 1 },
+      q11: { items: Array(12).fill(4), verify: 1 },
+    }).pages.p1;
+    expect(high.kpi1.area.score).toBeGreaterThanOrEqual(70);
+    expect(high.traits[0].heading).toBe(
+      titled("TRAIT_TITLE_1_OK", high.kpi1.area.label, high.kpi1.area.score),
+    );
+    const [, lowP2] = high.kpi2.sub.match(/: (.+) \d+점$/) ?? [];
+    expect(high.traits[1].heading).toMatch(/^\u2461 학교생활 6개 영역이 모두/);
+    expect(high.traits[1].heading).toContain(String(lowP2));
+  });
+
   test("응답 단순 skips the type (22 r9-r11, r18, r23, r27)", () => {
     const { p1 } = run(SIMPLE).pages;
     expect(p1.title).toBe(COPY_TEXT.SINCERITY_HEAD);
