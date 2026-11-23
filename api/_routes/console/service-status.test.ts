@@ -17,10 +17,17 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+import { withTimeZone } from "../../_lib/console/zoneTestKit.js";
 import handler from "./service-status.js";
 
-const get = (query: Record<string, string> = {}) =>
-  callHandler(handler, undefined, "GET", { service: "diagnosis", ...query });
+const get = (
+  query: Record<string, string> = {},
+  zone: string | null = "Asia/Seoul",
+) =>
+  callHandler(withTimeZone(handler, zone), undefined, "GET", {
+    service: "diagnosis",
+    ...query,
+  });
 
 const enrollment = (student: string, classId: string, number: number) => ({
   tenant_id: "tenant-1",
@@ -180,7 +187,7 @@ describe("GET /api/console/service-status (diagnosis)", () => {
           executionAvg: 73,
           readinessAvg: 73,
           weakest: { name: "축1", score: 60, status: "보통" },
-          diagnosedAt: "2026-03-10",
+          diagnosedAt: "2026-03-10T05:00:00.000Z",
         },
       },
       expect.objectContaining({
@@ -361,7 +368,7 @@ describe("GET /api/console/service-status (diagnosis)", () => {
       executionAvg: null,
       readinessAvg: null,
       weakest: null,
-      diagnosedAt: "2026-03-10",
+      diagnosedAt: "2026-03-10T05:00:00.000Z",
     });
   });
 
@@ -395,7 +402,10 @@ describe("GET /api/console/service-status (diagnosis)", () => {
           items: { detail: { urgency: string; diagnosedAt: string } }[];
         }
       ).items[0]?.detail,
-    ).toMatchObject({ urgency: "low", diagnosedAt: "2026-05-01" });
+    ).toMatchObject({
+      urgency: "low",
+      diagnosedAt: "2026-05-01T05:00:00.000Z",
+    });
   });
 
   test("goal tab: weekly rate over the 7 days ending yesterday (a target day with no record counts 0 hours, Sunday only adds to the numerator), minimum-goal days, streak and the ideal and minimum targets with probabilities", async () => {
@@ -578,7 +588,7 @@ describe("GET /api/console/service-status (diagnosis)", () => {
       stage: "설계 리포트",
       submissionCount: 2,
       feedback: "done",
-      lastSubmittedAt: "2026-10-20",
+      lastSubmittedAt: "2026-10-20T01:00:00.000Z",
     });
     expect(items[1]?.detail).toEqual({
       step: 1,
@@ -694,12 +704,23 @@ describe("GET /api/console/service-status (diagnosis)", () => {
     });
   });
 
-  test("asOf is today's date in KST and orgType tells school from academy", async () => {
+  test("asOf is today's date in the viewer zone and orgType tells school from academy", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-11-05T16:00:00Z"));
 
-    const res = await get();
+    const seoul = await get({}, "Asia/Seoul");
+    const la = await get({}, "America/Los_Angeles");
 
-    expect(res.body).toMatchObject({ asOf: "2026-11-06", orgType: "학교" });
+    expect(seoul.body).toMatchObject({ asOf: "2026-11-06", orgType: "학교" });
+    expect(la.body).toMatchObject({ asOf: "2026-11-05" });
+  });
+
+  test("without X-Time-Zone the answer is 400 TIME_ZONE_REQUIRED", async () => {
+    const res = await get({}, null);
+
+    expect(res.status).toBe(400);
+    expect((res.body as { error: { code: string } }).error.code).toBe(
+      "TIME_ZONE_REQUIRED",
+    );
   });
 });

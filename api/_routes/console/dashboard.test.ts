@@ -18,26 +18,13 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+import { withTimeZone } from "../../_lib/console/zoneTestKit.js";
 import handler from "./dashboard.js";
-
-// 보는 사람의 시간대는 X-Time-Zone 헤더로 온다. 기본은 서울.
-const withZone =
-  (zone: string | null): typeof handler =>
-  (req, res) =>
-    handler(
-      zone === null
-        ? req
-        : ({
-            ...req,
-            headers: { ...req.headers, "x-time-zone": zone },
-          } as unknown as typeof req),
-      res,
-    );
 
 const get = (
   query: Record<string, string> = {},
   zone: string | null = "Asia/Seoul",
-) => callHandler(withZone(zone), undefined, "GET", query);
+) => callHandler(withTimeZone(handler, zone), undefined, "GET", query);
 
 const CLASSES = [
   {

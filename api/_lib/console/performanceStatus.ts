@@ -4,7 +4,6 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { readAll } from "./directory.js";
-import { kstDateOffset } from "./kstDate.js";
 
 export const PERFORMANCE_STEPS = [
   "기본 정보",
@@ -122,7 +121,7 @@ export async function loadPerformanceStatus(
               ? "done"
               : "waiting"
             : null,
-          lastSubmittedAt: last ? kstDateOffset(new Date(last.at), 0) : null,
+          lastSubmittedAt: last ? new Date(last.at).toISOString() : null,
         },
       ];
     }),
