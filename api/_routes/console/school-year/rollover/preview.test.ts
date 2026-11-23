@@ -138,10 +138,10 @@ beforeEach(() => {
 
 const TEXT = [
   "이름\t기존 학년그룹\t그룹\t반\t번호\t새 학년그룹\t그룹\t반\t번호",
-  "김하늘\t1학년\tA레벨\t4\t7\t2학년\tA레벨\t3\t1",
-  "윤하린\t1학년\tA레벨\t4\t8\t2학년\tA레벨\t5\t2",
-  "박서준\t3학년\t없음\t3\t1\t\t\t\t",
-  "없는사람\t1학년\t\t4\t1\t2학년\t\t3\t1",
+  "김하늘\t고1\tA레벨\t4\t7\t고2\tA레벨\t3\t1",
+  "윤하린\t고1\tA레벨\t4\t8\t고2\tA레벨\t5\t2",
+  "박서준\t고3\t없음\t3\t1\t\t\t\t",
+  "없는사람\t고1\t\t4\t1\t고2\t\t3\t1",
 ].join("\n");
 
 describe("POST /api/console/school-year/rollover/preview", () => {
@@ -201,6 +201,20 @@ describe("POST /api/console/school-year/rollover/preview", () => {
     });
   });
 
+  test("a 3학년 line is a format_error with the grade reason and is neither applied nor stored", async () => {
+    const r = await post({
+      toYear: 2027,
+      text: "김하늘\t3학년\tA레벨\t4\t7\t고2\tA레벨\t3\t1",
+    });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({
+      rows: [{ line: 1, result: "format_error", reasons: ["grade"] }],
+      applyRows: [],
+      pendingRows: [],
+    });
+  });
+
   describe("mixed-grade class (다학년)", () => {
     const MIXED_CLASS = {
       id: "c-mix",
@@ -210,7 +224,7 @@ describe("POST /api/console/school-year/rollover/preview", () => {
       group_id: null,
       name: "다",
     };
-    const MIXED_TEXT = "김하늘\t1학년\tA레벨\t4\t7\t다학년\t\t다\t1";
+    const MIXED_TEXT = "김하늘\t고1\tA레벨\t4\t7\t다학년\t\t다\t1";
 
     beforeEach(() => {
       const baseClasses = kit.state.rows.classes;
@@ -254,7 +268,7 @@ describe("POST /api/console/school-year/rollover/preview", () => {
     test("a grade line into a class that already exists as mixed becomes a mixed line", async () => {
       const r = await post({
         toYear: 2027,
-        text: "김하늘\t1학년\tA레벨\t4\t7\t2학년\t\t다\t1",
+        text: "김하늘\t고1\tA레벨\t4\t7\t고2\t\t다\t1",
       });
 
       expect(r.body).toMatchObject({
@@ -283,7 +297,7 @@ describe("POST /api/console/school-year/rollover/preview", () => {
 
       const r = await post({
         toYear: 2027,
-        text: "김하늘\t1학년\tA레벨\t4\t7\t2학년\t\t혼\t1",
+        text: "김하늘\t고1\tA레벨\t4\t7\t고2\t\t혼\t1",
       });
 
       expect(r.body).toMatchObject({
@@ -294,8 +308,8 @@ describe("POST /api/console/school-year/rollover/preview", () => {
 
     test("a 다학년 line into a name that already exists as a graded class of the target year is a check, but a real grade line goes on as graded", async () => {
       // c-next(고2, A레벨 그룹, 이름 3)가 새 학년도의 학년 학급이다.
-      const mixedText = "김하늘\t1학년\tA레벨\t4\t7\t다학년\tA레벨\t3\t1";
-      const gradedText = "김하늘\t1학년\tA레벨\t4\t7\t2학년\tA레벨\t3\t1";
+      const mixedText = "김하늘\t고1\tA레벨\t4\t7\t다학년\tA레벨\t3\t1";
+      const gradedText = "김하늘\t고1\tA레벨\t4\t7\t고2\tA레벨\t3\t1";
 
       const mixed = await post({ toYear: 2027, text: mixedText });
       const graded = await post({ toYear: 2027, text: gradedText });
@@ -330,7 +344,7 @@ describe("POST /api/console/school-year/rollover/preview", () => {
 
       const r = await post({
         toYear: 2027,
-        text: "김하늘\t1학년\tA레벨\t4\t7\t2학년\tA레벨\t3\t1",
+        text: "김하늘\t고1\tA레벨\t4\t7\t고2\tA레벨\t3\t1",
       });
 
       expect(r.body).toMatchObject({ applyRows: [{ studentId: "s1" }] });
@@ -366,19 +380,19 @@ describe("POST /api/console/school-year/rollover/preview", () => {
 
       const r = await post({
         toYear: 2026,
-        text: "김하늘\t1학년\tA레벨\t4\t7\t1학년\tA레벨\t4\t9",
+        text: "김하늘\t고1\tA레벨\t4\t7\t고1\tA레벨\t4\t9",
       });
 
       expect(r.body).toMatchObject({ rows: [{ result: "no_homeroom" }] });
     });
 
-    test("a school tenant never sees mixed classes: the same text is a wrong grade needing a check", async () => {
+    test("a school tenant never sees mixed classes: the same text is a format error", async () => {
       kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학교" });
 
       const r = await post({ toYear: 2027, text: MIXED_TEXT });
 
       expect(r.body).toMatchObject({
-        rows: [{ result: "check_target" }],
+        rows: [{ result: "format_error", reasons: ["grade"] }],
         applyRows: [],
       });
       expect(JSON.stringify(r.body)).not.toContain("mixed");
@@ -391,8 +405,8 @@ describe("POST /api/console/school-year/rollover/preview", () => {
     });
 
     const MIDYEAR_TEXT = [
-      "김하늘\t1학년\tA레벨\t4\t7\t1학년\tA레벨\t5\t2",
-      "없는사람\t1학년\t\t4\t1\t\t\t\t",
+      "김하늘\t고1\tA레벨\t4\t7\t고1\tA레벨\t5\t2",
+      "없는사람\t고1\t\t4\t1\t\t\t\t",
     ].join("\n");
 
     test("the year to ask for is the tenant's own year: grade stays, only the class slot changes, the version rides along, and the missing person is a pending row", async () => {
