@@ -37,6 +37,8 @@ type SurveyQuestionListProps = {
   seed: string;
   /** q15 cascade options and fetch state, owned by SurveyStepShell */
   cascadeLevels?: CascadeLevel[] | undefined;
+  /** card the bottom CTA scrolled to (first unanswered question) */
+  highlightedId?: string | null;
 };
 
 /**
@@ -51,6 +53,7 @@ export default function SurveyQuestionList({
   diagnosedAt,
   seed,
   cascadeLevels,
+  highlightedId = null,
 }: SurveyQuestionListProps) {
   // null until q1 is answered; only q11 and q12 depend on it
   const track = draftTrack(answers);
@@ -70,6 +73,7 @@ export default function SurveyQuestionList({
             maxSelect={question.maxPicks}
             selectedCount={Array.isArray(value) ? value.length : 0}
             questionId={id}
+            highlighted={id === highlightedId}
           >
             {(question.kind === "single" || question.kind === "multi") && (
               <ChoiceField

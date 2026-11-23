@@ -431,3 +431,18 @@ export const SURVEY_V3_STEPS = SURVEY_V3_PAGES;
 export function reportPathFor(attemptId: string) {
   return `/learning-diagnosis/report/${attemptId}`;
 }
+
+/**
+ * Main questions (screen numbers without a sub number) still visible on the
+ * screens after this one, for the "N개 문항이 남았어요" CTA.
+ */
+export function remainingAfterScreen(page: number, draft: SurveyDraft) {
+  let count = 0;
+  for (let next = page + 1; next <= SURVEY_V3_PAGES; next++) {
+    count += visibleQuestionIds(next, draft).filter(
+      (id) =>
+        !SURVEY_V3_QUESTIONS.find((q) => q.id === id)?.label.includes("-"),
+    ).length;
+  }
+  return count;
+}
