@@ -452,6 +452,8 @@ export type VerifyPromptInput = {
   teacherNote: string | null;
   coreTerms: { concepts: string[]; roles: string[]; sources: string[] };
   supportNames: string[];
+  /** 연계 문장을 써야 하고 본문이 인용한 기록. 모델이 연계 판정을 낸다(명세 No.182, 190). */
+  linkTargets: { recordId: string; label: string; sentenceIds: string[] }[];
   growth: { stageLabel: string | null; currentSubtheme: string | null } | null;
 };
 
@@ -464,6 +466,7 @@ const VERIFY_RULES = [
   "- 협업을 서술했는지는 채점하지 않는다.",
   '- "계획을 세움", "~할 예정" 같은 미래 계획 문장은 인정하지 않는다. 후속 항목은 실제로 한 후속 행동만 통과로 본다.',
   "- 확인 문장의 text 는 바꾸지 않고 순서도 그대로 둔다.",
+  "- 연계 점검 대상이 있으면 linkChecks 에 대상마다 recordId, linkShown, standsWithout 을 낸다. 이 판정은 점수와 무관하다. linkShown 은 그 기록이 처음 나오는 문장에서 무엇을 이어받았는지, 빌렸는지, 보완했는지가 드러나면 true 다. standsWithout 은 그 기록을 인용한 문장을 모두 빼도 나머지 문장이 그대로 성립하면 true 다.",
 ].join("\n");
 
 const checkSchema = {
@@ -487,8 +490,20 @@ const verifySchema = {
       },
     },
     stageChecks: { type: "array", items: checkSchema },
+    linkChecks: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          recordId: { type: "string" },
+          linkShown: { type: "boolean" },
+          standsWithout: { type: "boolean" },
+        },
+        required: ["recordId", "linkShown", "standsWithout"],
+      },
+    },
   },
-  required: ["items", "stageChecks"],
+  required: ["items", "stageChecks", "linkChecks"],
 };
 
 export function buildVerifyPrompt(
@@ -523,6 +538,16 @@ export function buildVerifyPrompt(
   if (input.supportNames.length > 0) {
     parts.push(`[앞선 활동 이름]\n${input.supportNames.join(", ")}`);
   }
+  parts.push(
+    input.linkTargets.length > 0
+      ? `[연계 점검 대상]\n${input.linkTargets
+          .map(
+            (t) =>
+              `- recordId=${t.recordId} 이름=${t.label} 인용한 문장: ${t.sentenceIds.join(", ")}`,
+          )
+          .join("\n")}`
+      : "linkChecks 는 빈 배열로 낸다.",
+  );
   if (input.growth) {
     parts.push(
       [

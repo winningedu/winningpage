@@ -9,7 +9,7 @@ import {
   SENTENCE_STYLE,
 } from "./dictionaries.js";
 import { type EvidenceSources, resolveSentenceEvidence } from "./evidence.js";
-import type { SupportLinkState } from "./linkWrite.js";
+import type { LinkJudgment, SupportLinkState } from "./linkWrite.js";
 import {
   containsUniversity,
   countByMode,
@@ -431,6 +431,7 @@ export type VerifyValidation =
       ok: true;
       checks: Record<ScoreItemKey, ScoreCheck[]>;
       stageChecks: ScoreCheck[];
+      linkJudgments: LinkJudgment[];
     }
   | { ok: false; issues: ValidationIssue[] };
 
@@ -440,7 +441,12 @@ export type VerifyValidation =
  */
 export function validateVerifyResponse(
   value: unknown,
-  ctx: { expectGrowth: boolean; promptMissing?: boolean },
+  ctx: {
+    expectGrowth: boolean;
+    promptMissing?: boolean;
+    /** 연계 판정을 받아야 하는 기록 id(명세 No.182, 190). */
+    linkRecordIds?: string[];
+  },
 ): VerifyValidation {
   const rawItems =
     isRecord(value) && Array.isArray(value.items) ? value.items : null;
@@ -518,7 +524,31 @@ export function validateVerifyResponse(
       }));
     }
   }
+
+  const rawLinks =
+    isRecord(value) && Array.isArray(value.linkChecks) ? value.linkChecks : [];
+  const linkJudgments: LinkJudgment[] = [];
+  for (const recordId of ctx.linkRecordIds ?? []) {
+    const raw = rawLinks.find((c) => isRecord(c) && c.recordId === recordId);
+    if (
+      !isRecord(raw) ||
+      typeof raw.linkShown !== "boolean" ||
+      typeof raw.standsWithout !== "boolean"
+    ) {
+      issues.push({
+        code: "link_check_missing",
+        message: `linkChecks 에 기록 ${recordId} 의 linkShown 과 standsWithout 이 true 또는 false 로 있어야 합니다.`,
+        path: "linkChecks",
+      });
+      continue;
+    }
+    linkJudgments.push({
+      recordId,
+      linkShown: raw.linkShown,
+      standsWithout: raw.standsWithout,
+    });
+  }
   return issues.length > 0
     ? { ok: false, issues }
-    : { ok: true, checks, stageChecks };
+    : { ok: true, checks, stageChecks, linkJudgments };
 }

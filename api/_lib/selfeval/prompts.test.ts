@@ -497,6 +497,7 @@ describe("학교 문항 없음 프롬프트", () => {
       teacherNote: null,
       coreTerms: { concepts: [], roles: [], sources: [] },
       supportNames: [],
+      linkTargets: [],
       growth: null,
     });
     expect(b.user).not.toContain("[학교 문항]");
@@ -516,8 +517,41 @@ describe("buildVerifyPrompt", () => {
     teacherNote: null,
     coreTerms: { concepts: ["판별식"], roles: ["조장"], sources: ["교과서"] },
     supportNames: ["보조탐구"],
+    linkTargets: [],
     growth: null,
   };
+
+  it("연계 점검 대상이 있으면 기록별 판정을 점수와 따로 요구한다(명세 No.182, 190)", () => {
+    const b = buildVerifyPrompt({
+      ...vin,
+      linkTargets: [
+        { recordId: "s1", label: "보조탐구", sentenceIds: ["p1-s2", "p1-s3"] },
+      ],
+    });
+    expect(b.user).toContain("[연계 점검 대상]");
+    expect(b.user).toContain(
+      "recordId=s1 이름=보조탐구 인용한 문장: p1-s2, p1-s3",
+    );
+    expect(b.system).toContain("linkShown");
+    expect(b.system).toContain("standsWithout");
+    expect(b.system).toContain("점수와 무관하다");
+    const schema = b.responseSchema as {
+      required: string[];
+      properties: { linkChecks: { items: { required: string[] } } };
+    };
+    expect(schema.required).toContain("linkChecks");
+    expect(schema.properties.linkChecks.items.required).toEqual([
+      "recordId",
+      "linkShown",
+      "standsWithout",
+    ]);
+  });
+
+  it("연계 점검 대상이 없으면 linkChecks 를 빈 배열로 내게 한다", () => {
+    const b = buildVerifyPrompt(vin);
+    expect(b.user).not.toContain("[연계 점검 대상]");
+    expect(b.user).toContain("linkChecks 는 빈 배열로 낸다");
+  });
 
   it("미래 계획 문장은 인정하지 않는다는 규칙을 넣는다(명세 No.53)", () => {
     const sys = buildVerifyPrompt(vin).system;

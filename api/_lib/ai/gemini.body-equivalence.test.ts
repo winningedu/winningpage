@@ -341,6 +341,7 @@ const SCHEMAS: Array<[string, Record<string, unknown>]> = [
       teacherNote: null,
       coreTerms: { concepts: [], roles: [], sources: [] },
       supportNames: [],
+      linkTargets: [],
       growth: null,
     }).responseSchema,
   ],

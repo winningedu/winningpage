@@ -686,6 +686,60 @@ describe("validateVerifyResponse", () => {
     }
   });
 
+  describe("연계 점검 판정(명세 No.182, 190)", () => {
+    const ctx = { expectGrowth: false, linkRecordIds: ["s1", "s2"] };
+    const withLinks = (linkChecks: unknown) => ({
+      ...verifyBody(),
+      linkChecks,
+    });
+
+    it("대상 기록마다 linkShown 과 standsWithout 을 돌려준다", () => {
+      const r = validateVerifyResponse(
+        withLinks([
+          { recordId: "s2", linkShown: false, standsWithout: true },
+          { recordId: "s1", linkShown: true, standsWithout: false },
+        ]),
+        ctx,
+      );
+      expect(r.ok && r.linkJudgments).toEqual([
+        { recordId: "s1", linkShown: true, standsWithout: false },
+        { recordId: "s2", linkShown: false, standsWithout: true },
+      ]);
+    });
+
+    it("대상이 없으면 linkChecks 가 없어도 통과하고 응답에 있는 판정은 버린다", () => {
+      const none = validateVerifyResponse(verifyBody(), {
+        expectGrowth: false,
+      });
+      expect(none.ok && none.linkJudgments).toEqual([]);
+      const extra = validateVerifyResponse(
+        withLinks([{ recordId: "zz", linkShown: true, standsWithout: true }]),
+        { expectGrowth: false },
+      );
+      expect(extra.ok && extra.linkJudgments).toEqual([]);
+    });
+
+    it("대상 기록의 판정이 빠지거나 불리언이 아니면 link_check_missing 이다", () => {
+      for (const bad of [
+        [{ recordId: "s1", linkShown: true, standsWithout: false }],
+        [
+          { recordId: "s1", linkShown: true, standsWithout: false },
+          { recordId: "s2", linkShown: "yes", standsWithout: false },
+        ],
+        undefined,
+      ]) {
+        const r = validateVerifyResponse(withLinks(bad), ctx);
+        expect(r.ok).toBe(false);
+        if (!r.ok) {
+          expect(r.issues.length).toBeGreaterThan(0);
+          expect(r.issues.every((i) => i.code === "link_check_missing")).toBe(
+            true,
+          );
+        }
+      }
+    });
+  });
+
   it("문항이 없으면 문항 대응 항목이 응답에 없어도 통과하고 빈 확인을 돌려준다", () => {
     const b = verifyBody();
     b.items = b.items.filter((i) => i.key !== "prompt");
