@@ -1,7 +1,7 @@
 // 본사 대시보드 기관 현황(계획 4번 A1, A2, A3, A4, A6, A8, A9). 합계 카드와 기관 표.
 // 검색, 필터, 정렬, 쪽, "QA, 관리자 계정 포함" 스위치는 모두 URL 검색 파라미터에 둔다.
 // 기관을 고르면 onSelectTenant 로 넘긴다(읽기 전용 대행 시작은 부르는 쪽이 정한다).
-// 시범기간, 사용량과 한도 열은 나중에 표의 열과 카드에 더한다.
+// 시범기간(결정 117)은 카드, 상태 필터, 표의 시범기간 열에 있다. 사용량과 한도 열은 나중에 더한다.
 
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
@@ -36,6 +36,7 @@ import {
   readTenantTableParams,
   type SortKey,
   tenantExportRow,
+  trialPeriod,
 } from "./tenantTable";
 
 const INCLUDE_PARAM = "includeInternal";
@@ -47,6 +48,7 @@ const COLUMNS: { label: string; sort?: SortKey; className?: string }[] = [
   { label: "기관 유형" },
   { label: "계약 상태" },
   { label: "계약 기간", sort: "contractEndDate" },
+  { label: "시범기간" },
   { label: "학생 수", sort: "studentCount", className: "text-right" },
   { label: "선생님 수", sort: "teacherCount", className: "text-right" },
   { label: "마지막 활동일", sort: "lastActivityOn" },
@@ -195,6 +197,7 @@ export default function TenantOverview({
           />
           <StatCard label="선생님" value={s.teacherCount} />
           <StatCard label={CONTRACT_LABELS.active} value={s.contracts.active} />
+          <StatCard label={CONTRACT_LABELS.trial} value={s.contracts.trial} />
           <StatCard
             label={CONTRACT_LABELS.ending_soon}
             value={s.contracts.endingSoon}
@@ -340,6 +343,9 @@ export default function TenantOverview({
                     </TableCell>
                     <TableCell className="px-4 py-3">
                       {contractPeriod(row)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      {trialPeriod(row)}
                     </TableCell>
                     <TableCell className="px-4 py-3 text-right">
                       {row.studentCount.toLocaleString()}

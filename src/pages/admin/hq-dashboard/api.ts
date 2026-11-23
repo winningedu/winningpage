@@ -3,6 +3,7 @@
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 
 export type ContractStatus =
+  | "trial"
   | "none"
   | "upcoming"
   | "active"
@@ -17,6 +18,7 @@ export interface HqSummary {
   studentWithoutEnrollmentCount: number;
   teacherCount: number;
   contracts: {
+    trial: number;
     none: number;
     upcoming: number;
     active: number;
@@ -34,6 +36,9 @@ export interface HqTenantRow {
   contractStartDate: string | null;
   contractEndDate: string | null;
   graceEnd: string | null;
+  trialStartDate: string | null;
+  trialEndDate: string | null;
+  /** trial 은 시범기간 안이고 계약 기간(active, ending_soon) 밖인 기관(결정 117). */
   contractStatus: ContractStatus;
   studentCount: number;
   /** 학적이 없는 학생 수. 화면은 "학년, 반 미상"으로 보인다. */

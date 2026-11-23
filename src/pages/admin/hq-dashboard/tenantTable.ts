@@ -8,6 +8,7 @@ export const TENANT_PAGE_SIZE = 20;
 export const CONTRACT_LABELS: Record<ContractStatus, string> = {
   none: "계약 정보 없음",
   upcoming: "계약 전",
+  trial: "시범기간 중",
   active: "계약 중",
   ending_soon: "종료 임박",
   grace: "유예 중",
@@ -112,6 +113,11 @@ export function contractPeriod(row: HqTenantRow): string {
   return `${row.contractStartDate ?? ""} ~ ${row.contractEndDate ?? ""}`.trim();
 }
 
+export function trialPeriod(row: HqTenantRow): string {
+  if (!row.trialStartDate || !row.trialEndDate) return "-";
+  return `${row.trialStartDate} ~ ${row.trialEndDate}`;
+}
+
 /** 엑셀 한 행. 열 이름은 화면 표와 같다. */
 export function tenantExportRow(
   row: HqTenantRow,
@@ -123,6 +129,7 @@ export function tenantExportRow(
     계약상태: CONTRACT_LABELS[row.contractStatus],
     계약기간: contractPeriod(row),
     유예종료일: row.graceEnd ?? "-",
+    시범기간: trialPeriod(row),
     학생수: row.studentCount,
     "학년, 반 미상": row.studentWithoutEnrollmentCount,
     선생님수: row.teacherCount,

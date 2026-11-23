@@ -16,6 +16,8 @@ function row(overrides: Partial<HqTenantRow> = {}): HqTenantRow {
     contractStartDate: "2026-03-01",
     contractEndDate: "2027-02-28",
     graceEnd: "2027-03-30",
+    trialStartDate: null,
+    trialEndDate: null,
     contractStatus: "active",
     studentCount: 10,
     studentWithoutEnrollmentCount: 0,
@@ -160,6 +162,29 @@ describe("applyTenantTable", () => {
   });
 });
 
+test("시범기간 기관: 상태 필터 값 trial 을 읽고 엑셀에 시범기간 중과 시범 날짜를 쓴다(결정 117)", () => {
+  expect(params("tenantStatus=trial").status).toBe("trial");
+  const trial = row({
+    contractStatus: "trial",
+    contractStartDate: null,
+    contractEndDate: null,
+    graceEnd: null,
+    trialStartDate: "2026-11-20",
+    trialEndDate: "2026-12-19",
+  });
+  expect(tenantExportRow(trial)).toMatchObject({
+    계약상태: "시범기간 중",
+    계약기간: "-",
+    시범기간: "2026-11-20 ~ 2026-12-19",
+  });
+  expect(
+    applyTenantTable(
+      [row({ tenantId: "x" }), trial],
+      params("tenantStatus=trial"),
+    ).filtered,
+  ).toEqual([trial]);
+});
+
 test("엑셀 행은 화면 표와 같은 열 이름과 한국어 상태를 쓴다", () => {
   expect(
     tenantExportRow(
@@ -177,6 +202,7 @@ test("엑셀 행은 화면 표와 같은 열 이름과 한국어 상태를 쓴�
     계약상태: "종료 임박",
     계약기간: "2026-03-01 ~ 2027-02-28",
     유예종료일: "2027-03-30",
+    시범기간: "-",
     학생수: 10,
     "학년, 반 미상": 3,
     선생님수: 2,

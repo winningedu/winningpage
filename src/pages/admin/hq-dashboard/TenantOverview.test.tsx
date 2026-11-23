@@ -42,6 +42,8 @@ function row(overrides: Partial<HqTenantRow> = {}): HqTenantRow {
     contractStartDate: "2026-03-01",
     contractEndDate: "2027-02-28",
     graceEnd: "2027-03-30",
+    trialStartDate: null,
+    trialEndDate: null,
     contractStatus: "active",
     studentCount: 10,
     studentWithoutEnrollmentCount: 0,
@@ -115,6 +117,7 @@ beforeEach(() => {
     studentWithoutEnrollmentCount: 4,
     teacherCount: 6,
     contracts: {
+      trial: 1,
       none: 0,
       upcoming: 0,
       active: 2,
@@ -160,6 +163,50 @@ describe("합계 카드", () => {
     );
     renderAt("/admin/hqDashboard");
     expect(await screen.findByText(/합계를 불러오지 못했습니다/)).toBeTruthy();
+  });
+});
+
+describe("시범기간(결정 117)", () => {
+  test("합계 카드에 시범기간 중 기관 수를 보인다", async () => {
+    renderAt("/admin/hqDashboard");
+    const cards = await screen.findByRole("region", { name: "기관 합계" });
+    expect(
+      within(cards).getByText("시범기간 중").nextSibling?.textContent,
+    ).toBe("1");
+  });
+
+  test("계약 상태 필터에 시범기간 중이 있고, 표에 상태와 시범 날짜를 보인다", async () => {
+    vi.mocked(api.fetchHqTenants).mockResolvedValue({
+      asOf: "2026-11-23",
+      tenants: [
+        ...ROWS,
+        row({
+          tenantId: "t-4",
+          name: "라온고",
+          contractStatus: "trial",
+          contractStartDate: null,
+          contractEndDate: null,
+          trialStartDate: "2026-11-20",
+          trialEndDate: "2026-12-19",
+        }),
+      ],
+    });
+    renderAt("/admin/hqDashboard");
+    await screen.findByText("라온고");
+    const select = screen.getByRole("combobox", {
+      name: "계약 상태",
+    }) as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toContain(
+      "시범기간 중",
+    );
+    fireEvent.change(select, { target: { value: "trial" } });
+    expect(search().get("tenantStatus")).toBe("trial");
+    expect(tableNames()).toEqual(["라온고"]);
+    const cells = within(screen.getAllByRole("row")[1] as HTMLElement)
+      .getAllByRole("cell")
+      .map((c) => c.textContent);
+    expect(cells).toContain("시범기간 중");
+    expect(cells).toContain("2026-11-20 ~ 2026-12-19");
   });
 });
 
