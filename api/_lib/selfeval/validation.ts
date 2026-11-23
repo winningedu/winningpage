@@ -3,12 +3,12 @@
 // soft 는 재요청 사유로만 쓰고 두 번째에도 벗어나면 통과시킨다(분량 오차는 학생이 고칠 수 있다).
 
 import {
-  FEELING_PATTERNS,
   FORBIDDEN_PHRASES,
   SCHOOL_NAME_PATTERN,
   SCORE_RUBRIC,
   SENTENCE_STYLE,
 } from "./dictionaries.js";
+import { type EvidenceSources, resolveSentenceEvidence } from "./evidence.js";
 import {
   containsUniversity,
   countByMode,
@@ -21,7 +21,6 @@ import {
   type ActivityRecordLike,
   ANALYSIS_FIELDS,
   type AnalysisField,
-  BODY_EVIDENCE_FIELDS,
   type CharCount,
   type GenerationSections,
   type Paragraph,
@@ -196,10 +195,8 @@ export function validateAnalyzeResponse(
 // ---------------------------------------------------------------------------
 
 export type WriteValidationContext = {
-  coreActivityId: string;
-  supportActivityIds: string[];
-  /** 핵심 활동 분석에서 비어 있지 않은 항목만. 비운 항목을 evidence 로 쓰면 막는다. */
-  allowedFields: AnalysisField[];
+  /** 이번 세션의 선택 기록과 포함된 수기 메모. 근거는 이 안에서만 인정한다. */
+  sources: EvidenceSources;
   targetChars: number | null;
   mode: TargetCharsMode;
   universities: string[];
@@ -229,52 +226,13 @@ function isNominalStyle(text: string): boolean {
   return code >= 0 && code <= 11171 && code % 28 === JONG_MIEUM;
 }
 
-function readEvidence(
-  raw: unknown,
-  ctx: WriteValidationContext,
-  path: string,
-  issues: ValidationIssue[],
-): Sentence["evidence"] {
-  if (raw === null || raw === undefined) return null;
-  const known = [ctx.coreActivityId, ...ctx.supportActivityIds];
-  if (
-    !isRecord(raw) ||
-    typeof raw.activityId !== "string" ||
-    !known.includes(raw.activityId)
-  ) {
-    issues.push({
-      code: "unknown_evidence",
-      message: `문장 ${path} 의 evidence.activityId 가 입력에 없는 활동입니다.`,
-      path,
-    });
-    return null;
-  }
-  const field = raw.field;
-  // 비운 항목 제한은 핵심 활동에만 건다. 보조 활동은 요약 문장만 받으므로
-  // 핵심에서 비운 항목이 보조 근거까지 막으면 정당한 연계 근거를 못 쓴다.
-  // 다음 단계(next)는 리포트의 다음 단계 제안에만 쓰고 본문 근거로는 쓰지 않는다(명세 No.37).
-  const allowed = (
-    raw.activityId === ctx.coreActivityId
-      ? (ctx.allowedFields as string[])
-      : (ANALYSIS_FIELDS as readonly string[])
-  ).filter((f) => (BODY_EVIDENCE_FIELDS as readonly string[]).includes(f));
-  if (typeof field !== "string" || !allowed.includes(field)) {
-    issues.push({
-      code: "empty_field_used",
-      message: `문장 ${path} 이(가) 비어 있거나 없는 항목 "${String(field)}" 을(를) 근거로 썼습니다. 값이 있는 항목만 근거로 씁니다.`,
-      path,
-    });
-    return null;
-  }
-  return { activityId: raw.activityId, field: field as AnalysisField };
-}
-
 /**
  * 본문 생성 응답을 검증하고 저장 모양으로 정규화한다.
  * hard 사유(구조, 근거, 금지어)는 재요청 뒤에도 남으면 실패이고, soft 사유(분량)는
  * softIssues 로 돌려 호출자가 첫 시도에만 재요청하게 한다.
- * feeling 은 모델 신고를 믿지 않고 서버가 판정한다(명세 No.48): 근거가 없거나
- * 느낌 표현 패턴이 걸리면 true. 학생이 확인하기 전까지 제출을 막는 표시라서 보수적으로 올린다.
+ * feeling 은 모델 신고를 보지 않고 서버가 판정한다(명세 No.48, 199): 근거가 하나도 없거나
+ * 완료되지 않은 기록을 가리켰거나 근거로 설명되지 않는 수치가 있으면 true. 근거가 있는 문장은
+ * 느낌 표현 패턴이 걸려도 표시하지 않는다(명세 No.49 결정). 규칙은 evidence.ts 에 있다.
  */
 export function validateWriteResponse(
   value: unknown,
@@ -331,12 +289,29 @@ export function validateWriteResponse(
           path: id,
         });
       }
-      const evidence = readEvidence(s.evidence, ctx, id, issues);
-      const feeling =
-        s.feeling === true ||
-        evidence === null ||
-        FEELING_PATTERNS.some((re) => re.test(text));
-      sentences.push({ id, text, evidence, feeling, confirmed: false });
+      if (
+        s.evidence !== undefined &&
+        s.evidence !== null &&
+        !Array.isArray(s.evidence)
+      ) {
+        issues.push({
+          code: "invalid_evidence",
+          message: `문장 ${id} 의 evidence 는 배열이어야 합니다.`,
+          path: id,
+        });
+      }
+      const { evidence, needsConfirmation } = resolveSentenceEvidence(
+        s.evidence,
+        text,
+        ctx.sources,
+      );
+      sentences.push({
+        id,
+        text,
+        evidence,
+        feeling: needsConfirmation,
+        confirmed: false,
+      });
     });
     paragraphs.push({ sentences });
   });

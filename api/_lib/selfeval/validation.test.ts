@@ -160,12 +160,21 @@ describe("validateAnalyzeResponse", () => {
   });
 });
 
+// 모델 응답의 근거 후보 하나. 출처 유형은 서버가 붙이므로 모델은 refId, item, weight 만 낸다.
+const ev = (refId: string, item: string, weight = "main") => ({
+  refId,
+  item,
+  weight,
+});
+
 // 문장 하나를 만드는 도우미. evidence 기본값은 핵심 활동의 method.
 const sent = (
   text: string,
-  evidence: unknown = { activityId: "core1", field: "method" },
-  feeling = false,
-) => ({ text, evidence, feeling });
+  evidence: unknown = [ev("core1", "method")],
+): { text: string; evidence: unknown; feeling?: boolean } => ({
+  text,
+  evidence,
+});
 
 function para(
   b: { paragraphs: { role: string; sentences: unknown[] }[] },
@@ -183,9 +192,34 @@ function sentenceAt(sections: GenerationSections, p: number, s: number) {
 }
 
 const wctx: WriteValidationContext = {
-  coreActivityId: "core1",
-  supportActivityIds: ["sup1"],
-  allowedFields: ["motive", "method", "result", "limitation"],
+  sources: {
+    records: [
+      {
+        id: "core1",
+        sourceType: "P",
+        completed: true,
+        itemTexts: {
+          motive: "그래프가 궁금했음",
+          method: "계수를 바꿔 관찰함",
+          result: "계수가 커질수록 폭이 좁아짐",
+          limitation: "정수 계수만 확인함",
+        },
+      },
+      {
+        id: "sup1",
+        sourceType: "D",
+        completed: true,
+        itemTexts: { method: "표로 정리함", career: "공학 진로와 이어짐" },
+      },
+      {
+        id: "wip1",
+        sourceType: "A",
+        completed: false,
+        itemTexts: { method: "진행 중 방법" },
+      },
+    ],
+    memos: [{ id: "m1", text: "수업 뒤 한계를 적어 둠" }],
+  },
   targetChars: null,
   mode: "without_space",
   universities: ["한국대학교"],
@@ -204,20 +238,16 @@ function body3(over: Record<string, unknown>[] = []) {
       {
         role: "judgment",
         sentences: [
-          sent("계수가 커질수록 폭이 좁아진다고 판단함.", {
-            activityId: "core1",
-            field: "result",
-          }),
-          sent("정수 계수만 확인한 점이 한계임.", {
-            activityId: "core1",
-            field: "limitation",
-          }),
+          sent("계수가 커질수록 폭이 좁아진다고 판단함.", [
+            ev("core1", "result"),
+          ]),
+          sent("정수 계수만 확인한 점이 한계임.", [ev("core1", "limitation")]),
         ],
       },
       {
         role: "wrap",
         sentences: [
-          sent("다음에는 소수 계수를 확인하고 싶음.", null, true),
+          sent("다음에는 소수 계수를 확인하고 싶음.", []),
           sent("이 과정에서 방법을 고침."),
         ],
       },
@@ -274,72 +304,81 @@ describe("validateWriteResponse", () => {
     expect(validateWriteResponse(swapped, wctx).ok).toBe(true);
   });
 
-  it("다음 단계(next) 항목은 근거로 쓸 수 없다(명세 No.37)", () => {
-    for (const activityId of ["core1", "sup1"]) {
-      const b = body3();
-      para(b, 0).sentences[0] = sent("다음 단계로 이어 확인함.", {
-        activityId,
-        field: "next",
-      });
-      const r = validateWriteResponse(b, {
-        ...wctx,
-        allowedFields: [...wctx.allowedFields, "next"],
-      });
-      expect(r.ok, activityId).toBe(false);
-      if (!r.ok)
-        expect(r.issues.map((i) => i.code)).toContain("empty_field_used");
+  it("다음 단계(next) 항목은 근거로 쓸 수 없고 버려진다(명세 No.37)", () => {
+    const b = body3();
+    para(b, 0).sentences[0] = sent("다음 단계로 이어 확인함.", [
+      ev("core1", "next"),
+    ]);
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(sentenceAt(r.sections, 0, 0).evidence).toEqual([]);
+      expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
     }
   });
 
-  it("빈 문장, 모르는 활동, 비운 항목, 잘못된 모양 evidence 를 막는다", () => {
+  it("빈 문장은 막고, 선택 밖 기록과 비운 항목 근거는 버리되 실패시키지 않는다", () => {
     const b = body3();
     para(b, 0).sentences[0] = sent("  ");
-    para(b, 0).sentences[1] = sent("가나다 라마함.", {
-      activityId: "zzz",
-      field: "method",
-    });
-    para(b, 1).sentences[0] = sent("가나다 라마함.", {
-      activityId: "core1",
-      field: "role",
-    });
-    para(b, 1).sentences[1] = sent("가나다 라마함.", { student: true });
+    para(b, 0).sentences[1] = sent("가나다 라마함.", [ev("zzz", "method")]);
+    para(b, 1).sentences[0] = sent("가나다 라마함.", [ev("core1", "role")]);
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(false);
-    if (r.ok) return;
-    const codes = r.issues.map((i) => i.code);
-    expect(codes).toContain("empty_sentence");
-    expect(codes).toContain("unknown_evidence");
-    expect(codes).toContain("empty_field_used");
+    if (!r.ok) expect(r.issues.map((i) => i.code)).toEqual(["empty_sentence"]);
+    para(b, 0).sentences.shift();
+    const r2 = validateWriteResponse(b, wctx);
+    expect(r2.ok).toBe(true);
+    if (r2.ok) {
+      expect(sentenceAt(r2.sections, 0, 0).evidence).toEqual([]);
+      expect(sentenceAt(r2.sections, 0, 0).feeling).toBe(true);
+      expect(sentenceAt(r2.sections, 1, 0).evidence).toEqual([]);
+    }
   });
 
-  it("보조 활동 id 는 허용된다", () => {
+  it("evidence 가 배열이 아닌 값이면 invalid_evidence 로 막는다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("보조 활동에서 나온 방법을 이음.", {
-      activityId: "sup1",
-      field: "method",
-    });
-    expect(validateWriteResponse(b, wctx).ok).toBe(true);
-  });
-
-  it("보조 활동 evidence 는 핵심 활동의 allowedFields 로 막지 않는다", () => {
-    const b = body3();
-    para(b, 0).sentences[0] = sent("보조 활동의 진로 연결을 이음.", {
-      activityId: "sup1",
-      field: "career",
-    });
-    expect(validateWriteResponse(b, wctx).ok).toBe(true);
-  });
-
-  it("보조 활동 evidence 도 field 가 11항목 밖이면 막는다", () => {
-    const b = body3();
-    para(b, 0).sentences[0] = sent("보조 활동 근거를 씀.", {
-      activityId: "sup1",
-      field: "nonsense",
-    });
+    para(b, 0).sentences[0] = sent("가나다 라마함.", { activityId: "core1" });
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(false);
-    if (!r.ok)
-      expect(r.issues.map((i) => i.code)).toContain("empty_field_used");
+    if (!r.ok) {
+      const issue = r.issues.find((i) => i.code === "invalid_evidence");
+      expect(issue?.path).toBe("p1-s1");
+    }
+  });
+
+  it("보조 기록 근거도 값이 있는 항목이면 붙고 출처 유형은 서버가 정한다", () => {
+    const b = body3();
+    para(b, 0).sentences[0] = sent("보조 활동에서 나온 방법을 이음.", [
+      ev("sup1", "method"),
+    ]);
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(sentenceAt(r.sections, 0, 0).evidence).toEqual([
+        { sourceType: "D", refId: "sup1", item: "method", weight: "main" },
+      ]);
+    }
+  });
+
+  it("진행 중 기록과 수기 메모 근거를 다룬다(명세 No.200, 161)", () => {
+    const b = body3();
+    para(b, 0).sentences[0] = sent("진행 중 기록을 근거로 씀.", [
+      ev("wip1", "method"),
+    ]);
+    para(b, 0).sentences[1] = sent("메모의 한계를 씀.", [
+      ev("m1", "limitation"),
+      ev("m1", "result"),
+    ]);
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(sentenceAt(r.sections, 0, 0).evidence).toEqual([]);
+      expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
+      expect(sentenceAt(r.sections, 0, 1).evidence.map((e) => e.item)).toEqual([
+        "limitation",
+      ]);
+      expect(sentenceAt(r.sections, 0, 1).feeling).toBe(false);
+    }
   });
 
   it("했습니다, 해요, 했다 같은 종결은 sentence_style 로 막는다", () => {
@@ -398,38 +437,51 @@ describe("validateWriteResponse", () => {
       expect(codes).toContain(c);
   });
 
-  it("evidence 가 없고 feeling 도 false 면 feeling true 로 올린다", () => {
+  it("근거가 없으면 모델이 feeling 을 false 로 신고해도 서버가 true 로 올린다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("그냥 쓴 문장임.", null, false);
+    para(b, 0).sentences[0] = sent("그냥 쓴 문장임.", []);
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(true);
     if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
   });
 
-  it("느낌 표현 패턴이 걸리면 evidence 가 있어도 feeling true 다", () => {
+  it("모델이 feeling 을 true 로 신고해도 근거가 있으면 올리지 않는다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("계수를 바꾸며 뿌듯함.");
+    para(b, 0).sentences[0] = { ...sent("계수를 바꿔 관찰함."), feeling: true };
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
+    if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(false);
   });
 
-  it("~함 형태 느낌 표현도 feeling true 다(명세 No.49)", () => {
+  it("느낌 표현 패턴이 걸려도 근거가 있으면 표시하지 않는다(명세 No.49 결정)", () => {
     for (const f of [
+      "계수를 바꾸며 뿌듯함.",
       "수업에서 새로운 느낌을 받음.",
       "한계를 깨달음.",
-      "결과가 흥미로웠음.",
-      "직접 만들어 보니 뿌듯함.",
-      "끝까지 해내서 보람참.",
       "그래프가 인상 깊었음.",
-      "처음과 같았음.",
     ]) {
       const b = body3();
       para(b, 0).sentences[0] = sent(f);
       const r = validateWriteResponse(b, wctx);
       expect(r.ok, f).toBe(true);
-      if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling, f).toBe(true);
+      if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling, f).toBe(false);
     }
+  });
+
+  it("느낌 표현 패턴이 걸리고 근거가 없으면 표시한다", () => {
+    const b = body3();
+    para(b, 0).sentences[0] = sent("직접 만들어 보니 뿌듯함.", []);
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
+  });
+
+  it("근거 글에 없는 수치가 문장에 있으면 표시한다(명세 No.5)", () => {
+    const b = body3();
+    para(b, 0).sentences[0] = sent("계수를 99번 바꿔 관찰함.");
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
   });
 
   it("느낌 표현이 없는 ~함 문장은 근거가 있으면 feeling false 다", () => {
