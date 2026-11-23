@@ -118,6 +118,7 @@ export default function OptionGroup({
 
   return (
     <div className="flex w-full flex-col items-start">
+      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: role is dynamic (group or radiogroup); both take aria-label. */}
       <div
         className={containerClass}
         role={multiple ? "group" : "radiogroup"}

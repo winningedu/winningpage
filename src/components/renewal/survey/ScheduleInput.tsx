@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -49,6 +50,7 @@ export default function ScheduleInput({
   const rows = Array.isArray(value) ? (value as ScheduleRow[]) : [];
   const choice = typeof value === "string" ? value : null;
   const bounds = scheduleDateBounds(diagnosedAt);
+  const baseId = useId();
 
   const update = (index: number, patch: Partial<ScheduleRow>) =>
     onChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -57,6 +59,7 @@ export default function ScheduleInput({
     <div className="flex w-full flex-col gap-5">
       {rows.map((row, index) => {
         const n = index + 1;
+        const fieldId = (field: string) => `${baseId}-${field}-${n}`;
         return (
           <fieldset
             // rows have no stable id; order is the identity while editing
@@ -64,9 +67,13 @@ export default function ScheduleInput({
             key={index}
             className="flex w-full flex-col gap-3 rounded-2xl border border-[#EDEDED] p-4 sm:flex-row sm:items-end"
           >
-            <label className="flex flex-col gap-1 text-base font-medium text-[#808080]">
+            <label
+              htmlFor={fieldId("kind")}
+              className="flex flex-col gap-1 text-base font-medium text-[#808080]"
+            >
               {SCHEDULE_FIELD_LABELS.kind}
               <NativeSelect
+                id={fieldId("kind")}
                 aria-label={`${SCHEDULE_FIELD_LABELS.kind} ${n}`}
                 value={row.kind}
                 onChange={(event) =>
@@ -87,10 +94,14 @@ export default function ScheduleInput({
                 ))}
               </NativeSelect>
             </label>
-            <label className="flex flex-col gap-1 text-base font-medium text-[#808080]">
+            <label
+              htmlFor={fieldId("date")}
+              className="flex flex-col gap-1 text-base font-medium text-[#808080]"
+            >
               {SCHEDULE_FIELD_LABELS.date}
               <Input
                 type="date"
+                id={fieldId("date")}
                 aria-label={`${SCHEDULE_FIELD_LABELS.date} ${n}`}
                 min={bounds.min}
                 max={bounds.max}
@@ -101,10 +112,14 @@ export default function ScheduleInput({
                 className={fieldClass}
               />
             </label>
-            <label className="flex flex-1 flex-col gap-1 text-base font-medium text-[#808080]">
+            <label
+              htmlFor={fieldId("subject")}
+              className="flex flex-1 flex-col gap-1 text-base font-medium text-[#808080]"
+            >
               {SCHEDULE_FIELD_LABELS.subject}
               <Input
                 type="text"
+                id={fieldId("subject")}
                 aria-label={`${SCHEDULE_FIELD_LABELS.subject} ${n}`}
                 value={row.subject}
                 onChange={(event) =>
