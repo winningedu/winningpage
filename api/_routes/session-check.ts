@@ -5,7 +5,9 @@
 // JWT expiry 300s — 그 설정 자체는 코드 밖, 이 라우트의 범위가 아니다) 하에서,
 // 킥당한 탭이 "내가 지금도 유효한 세션인지"를 물어보는 엔드포인트다. 판정은 조회뿐이고,
 // 유효한 세션이면 부수적으로 profiles.last_seen_at(최근 접속)을 30분에 한 번 적는다
-// (결정 105). 이 기록은 실패해도 응답을 바꾸지 않고, 폐기된 세션에서는 적지 않는다.
+// (결정 105). 같은 호출에서 회원별 KST 하루 1행 로그인 기록(profile_login_days)도 남긴다(분석 grill Q1).
+// 하루 기록은 30분 간격과 따로 판단한다(23:50 에 접속 기록을 적은 사용자가 00:10 에 와도 새 날 행이 생긴다).
+// 두 기록 모두 실패해도 응답을 바꾸지 않고, 폐기된 세션에서는 적지 않는다.
 // 탭 focus 시(refetchOnWindowFocus) 클라이언트가 이 라우트를 부른다 — 폴링·
 // Realtime 없음(src/lib/queryClient.ts sessionCheckQueryOptions 참고).
 //
@@ -38,6 +40,7 @@ import {
   isAuthApiError,
   isAuthSessionMissingError,
 } from "@supabase/supabase-js";
+import { kstYMD } from "../../src/lib/goal/calc/index.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import { getBearerToken } from "../_lib/serviceAccess.js";
@@ -138,6 +141,21 @@ export default defineHandler({
       }
     } catch (stampThrown) {
       console.warn("session-check: last_seen_at 기록 예외", stampThrown);
+    }
+
+    // 하루 로그인 기록도 부가 기능이다. 기본 키 (profile_id, kst_date) 에 on conflict do nothing 이라 하루 한 줄이다.
+    try {
+      const { error: loginError } = await ctx.supabaseAdmin
+        .from("profile_login_days")
+        .upsert(
+          { profile_id: data.user.id, kst_date: kstYMD(new Date()) },
+          { onConflict: "profile_id,kst_date", ignoreDuplicates: true },
+        );
+      if (loginError) {
+        console.warn("session-check: 로그인 기록 실패", loginError);
+      }
+    } catch (loginThrown) {
+      console.warn("session-check: 로그인 기록 예외", loginThrown);
     }
 
     res.status(200).json({ ok: true });
