@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { OPTIONS } from "./options.js";
-import { judgeSubjects, SUBJECT_CODES } from "./subjects.js";
+import { COPY_TEXT } from "./source/copyText.js";
+import { judgeSubjects, SUBJECT_CODES, subjectTextId } from "./subjects.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
 import type { DiagnosisV3Answers } from "./types.js";
 
@@ -58,6 +59,21 @@ describe("judgeSubjects (22 r44)", () => {
     const { q6s: _q6s, ...rest } = PDF_STUDENT;
     expect(judgeSubjects(rest)).toBeNull();
     expect(judgeSubjects({ ...PDF_STUDENT, q6s: {} })).toBeNull();
+  });
+
+  test("PDF p3 text ids: SUBJ_J1_ without mock, SUBJ_J_ with mock", () => {
+    expect(COPY_TEXT[subjectTextId(PDF_STUDENT, "MATH", "CHECK")]).toBe(
+      "입력한 과목 중 내신이 가장 낮거나 내려가는 중입니다. 오답 원인을 확인합니다.",
+    );
+    expect(COPY_TEXT[subjectTextId(PDF_STUDENT, "KOR", "STRENGTH")]).toBe(
+      "내신에서 최상위입니다. 현재 방식을 유지합니다.",
+    );
+    const withMock = {
+      ...PDF_STUDENT,
+      q6m: { month: 9, grades: { KOR: 1 } },
+    };
+    expect(subjectTextId(withMock, "KOR", "STRENGTH")).toBe("SUBJ_J_강점");
+    expect(subjectTextId(withMock, "MATH", "KEEP")).toBe("SUBJ_J1_유지");
   });
 
   test("q8s ordinals 1..5 follow the 13 F12 subject order", () => {

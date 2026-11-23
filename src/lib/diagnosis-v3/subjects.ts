@@ -2,6 +2,7 @@
 // (q6m) are judged inside their own scale, then combined per subject.
 
 import { OPTIONS } from "./options.js";
+import { COPY_TEXT } from "./source/copyText.js";
 import type {
   DiagnosisV3Answers,
   DiagnosisV3Scores,
@@ -20,6 +21,14 @@ export const SUBJECT_CODES: readonly SubjectCode[] = [
 
 /** judge-report B D3, PDF p3: "1등급" is a value of 1.0 or better. */
 const ONE_GRADE = 1;
+
+/** 22 r44 verdict words, the suffix of the 17 SUBJ_J_ and SUBJ_J1_ copy ids. */
+const VERDICT_WORDS: Readonly<Record<SubjectVerdict, string>> = {
+  PRIORITY: "우선 보완",
+  CHECK: "점검",
+  STRENGTH: "강점",
+  KEEP: "유지",
+};
 
 type Grades = Readonly<Partial<Record<SubjectCode, number>>>;
 
@@ -80,4 +89,17 @@ export function judgeSubjects(
             : "KEEP";
   }
   return verdicts;
+}
+
+/** 22 r44 E: SUBJ_J_ when the subject has a mock grade, else SUBJ_J1_. */
+export function subjectTextId(
+  answers: DiagnosisV3Answers,
+  subject: SubjectCode,
+  verdict: SubjectVerdict,
+): string {
+  const prefix =
+    answers.q6m?.grades[subject] === undefined ? "SUBJ_J1_" : "SUBJ_J_";
+  const id = `${prefix}${VERDICT_WORDS[verdict]}`;
+  if (!(id in COPY_TEXT)) throw new Error(`missing copy ${id}`);
+  return id;
 }
