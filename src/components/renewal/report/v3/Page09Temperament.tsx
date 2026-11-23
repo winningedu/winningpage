@@ -1,12 +1,20 @@
 // Page 9: temperament profile (22_리포트요소 r86-r94).
 import type { Page9 } from "@/lib/diagnosis-v3/types";
-import { Bullets, Note, PageTitle, Para, SectionTitle } from "./LaterShared";
+import {
+  Bullets,
+  Note,
+  PageEyebrow,
+  PageTitle,
+  Para,
+  SectionTitle,
+} from "./LaterShared";
 import ReportSheet from "./parts/ReportSheet";
 
 export default function Page09Temperament({ page }: { page: Page9 }) {
   return (
     <ReportSheet page={9}>
       {/* 22 r86, r87 */}
+      <PageEyebrow page={9} />
       <PageTitle>{page.title}</PageTitle>
       <Para>{page.lead}</Para>
       <Note>{page.scaleNote}</Note>

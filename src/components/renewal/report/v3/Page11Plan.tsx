@@ -1,6 +1,6 @@
 // Page 11: 4 week plan (22_리포트요소 r101-r107).
 import type { Page11 } from "@/lib/diagnosis-v3/types";
-import { Bullets, Note, PageTitle, Para } from "./LaterShared";
+import { Bullets, Note, PageEyebrow, PageTitle, Para } from "./LaterShared";
 import ReportSheet from "./parts/ReportSheet";
 
 export default function Page11Plan({ page }: { page: Page11 }) {
@@ -8,6 +8,7 @@ export default function Page11Plan({ page }: { page: Page11 }) {
   return (
     <ReportSheet page={11}>
       {/* 22 r101 */}
+      <PageEyebrow page={11} />
       <PageTitle>{page.title}</PageTitle>
       <Para>{page.lead}</Para>
       {/* 22 r102 */}

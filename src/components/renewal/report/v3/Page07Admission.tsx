@@ -1,12 +1,20 @@
 // Page 7: admission comparison (22_리포트요소 r71-r77). Absent for M3 (r70), handled by LaterPages.
 import type { Page7 } from "@/lib/diagnosis-v3/types";
-import { Bullets, Note, PageTitle, Para, SectionTitle } from "./LaterShared";
+import {
+  Bullets,
+  Note,
+  PageEyebrow,
+  PageTitle,
+  Para,
+  SectionTitle,
+} from "./LaterShared";
 import ReportSheet from "./parts/ReportSheet";
 
 export default function Page07Admission({ page }: { page: Page7 }) {
   const { result } = page;
   return (
     <ReportSheet page={7}>
+      <PageEyebrow page={7} />
       <PageTitle>{page.title}</PageTitle>
       {result.kind === "computed" ? (
         <section className="flex flex-col gap-3">

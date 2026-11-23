@@ -33,6 +33,22 @@ describe("ReportV3View", () => {
     ).toHaveTextContent(FRONT_PAGES.p1.title);
   });
 
+  it("page headers show the PDF titles, not the engine toc names", () => {
+    const cover = {
+      ...FRONT_PAGES.cover,
+      toc: FRONT_PAGES.cover.toc.map((entry) => ({
+        ...entry,
+        title: "섹션명",
+      })),
+    };
+    render(<ReportV3View pages={{ ...FRONT_PAGES, cover }} />);
+    const sheets = Array.from(document.querySelectorAll(".fd-report-sheet"));
+    expect(sheets[1]).toHaveTextContent("01진단 요약");
+    expect(sheets[4]).toHaveTextContent("04\u0037단계 학습관리 사이클");
+    expect(sheets[6]).toHaveTextContent("06학교생활\u00b7입시 준비도");
+    expect(sheets[6]).not.toHaveTextContent("섹션명");
+  });
+
   it("surfaces an error when the toc lacks one of pages 1 to 6", () => {
     const cover = {
       ...FRONT_PAGES.cover,

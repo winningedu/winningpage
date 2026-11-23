@@ -1,6 +1,6 @@
 // Pages 12 to 15: weekly planner (22_리포트요소 r109-r113).
 import type { PlannerPage as PlannerData } from "@/lib/diagnosis-v3/types";
-import { Bullets, PageTitle, Para } from "./LaterShared";
+import { Bullets, PageEyebrow, PageTitle, Para } from "./LaterShared";
 import ReportSheet from "./parts/ReportSheet";
 
 export default function PlannerPage({
@@ -14,6 +14,7 @@ export default function PlannerPage({
     <ReportSheet page={no}>
       {/* 22 r109 */}
       <header className="flex flex-col gap-1">
+        <PageEyebrow page={no} />
         <PageTitle>{page.goal}</PageTitle>
         <p className="text-sm font-bold text-ink">{page.badge}</p>
         <Para>{page.redx}</Para>

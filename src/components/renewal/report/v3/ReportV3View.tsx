@@ -15,6 +15,7 @@ import Page03Grades from "./Page03Grades";
 import Page04Cycle from "./Page04Cycle";
 import Page05Obstacles from "./Page05Obstacles";
 import Page06School from "./Page06School";
+import { pageTitle } from "./parts/labels";
 
 // Same A4 print rule as DiagnosisReportView (legacy view): the rule is a
 // <style> that exists only while the report is mounted, so the global @page and
@@ -73,7 +74,8 @@ export default function ReportV3View({
   const tocTitle = (page: number) => {
     const entry = pages.cover.toc.find((item) => item.page === page);
     if (!entry) throw new Error(`v3 report toc has no page ${page}`);
-    return entry.title;
+    // The toc entry only proves the page is shown; titles are PDF layout labels.
+    return pageTitle(entry.page);
   };
 
   const handleServerPdfDownload = (fileName: string) => {

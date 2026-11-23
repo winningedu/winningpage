@@ -1,12 +1,20 @@
 // Page 16: services (22_리포트요소 r115-r121).
 import type { Page16 } from "@/lib/diagnosis-v3/types";
-import { Bullets, Note, PageTitle, Para, SectionTitle } from "./LaterShared";
+import {
+  Bullets,
+  Note,
+  PageEyebrow,
+  PageTitle,
+  Para,
+  SectionTitle,
+} from "./LaterShared";
 import ReportSheet from "./parts/ReportSheet";
 
 export default function Page16Services({ page }: { page: Page16 }) {
   return (
     <ReportSheet page={16}>
       {/* 22 r115 */}
+      <PageEyebrow page={16} />
       <PageTitle>{page.title}</PageTitle>
       {/* 22 r116 */}
       <ul className="flex flex-wrap gap-2">

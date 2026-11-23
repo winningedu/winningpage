@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import LaterPages from "./LaterPages";
 import { laterPages } from "./laterPagesFixture";
+import { PAGE_TITLES } from "./parts/labels";
 
 vi.mock("@/config/site", () => ({ site: { brandName: "TEST" } }));
 
@@ -22,6 +23,17 @@ describe("LaterPages", () => {
       expect(
         screen.getByRole("region", { name: new RegExp(`${n} / 16`) }),
       ).toBeInTheDocument();
+    }
+  });
+
+  it("opens every later page with its fixed number and PDF title", () => {
+    render(<LaterPages pages={laterPages} />);
+    for (const [n, title] of Object.entries(PAGE_TITLES)) {
+      if (Number(n) < 7) continue;
+      const sheet = screen.getByRole("region", {
+        name: new RegExp(`${n} / 16`),
+      });
+      expect(sheet).toHaveTextContent(`${n.padStart(2, "0")}${title}`);
     }
   });
 

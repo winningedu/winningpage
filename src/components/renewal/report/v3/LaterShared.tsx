@@ -1,6 +1,19 @@
 // Text blocks for report v3 pages 7 to 16 (title, paragraph, bullets, note). The sheet frame is parts/ReportSheet.
 import type { ReactNode } from "react";
 import { withDedupedKeys } from "@/lib/reactKeys";
+import { pageTitle, twoDigitPage } from "./parts/labels";
+
+/** "07 입시 준비도 ..." eyebrow of the PDF page header; the number is fixed (R9). */
+export function PageEyebrow({ page }: { page: number }) {
+  return (
+    <p className="text-sm text-ink-sub">
+      <span className="mr-2 font-semibold text-ink-strong">
+        {twoDigitPage(page)}
+      </span>
+      <span>{pageTitle(page)}</span>
+    </p>
+  );
+}
 
 export function PageTitle({ children }: { children: ReactNode }) {
   return (
