@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateCompose } from "./factCheck.js";
+import { MAX_TEXT_CHARS, validateCompose } from "./factCheck.js";
 import type { ComposeNeed } from "./needs.js";
 
 const need = (over: Partial<ComposeNeed> = {}): ComposeNeed => ({
@@ -70,7 +70,9 @@ describe("validateCompose", () => {
   it("rejects banned characters, empty and over long text", () => {
     expect(codes(check("가격 \u00b7 이익"))).toContain("banned_char");
     expect(codes(check(" "))).toContain("empty_text");
-    expect(codes(check("가".repeat(200)))).toContain("too_long");
+    expect(MAX_TEXT_CHARS).toBe(200);
+    expect(codes(check("가".repeat(MAX_TEXT_CHARS)))).not.toContain("too_long");
+    expect(codes(check("가".repeat(MAX_TEXT_CHARS + 1)))).toContain("too_long");
   });
 
   it("reports a missing item and a reply that is not the expected shape", () => {
@@ -80,6 +82,23 @@ describe("validateCompose", () => {
     expect(codes(validateCompose({ nope: 1 }, [need()]))).toContain(
       "invalid_shape",
     );
+  });
+
+  it("keeps the items that pass their own checks when others fail", () => {
+    const a = need({ id: "summary:P1" });
+    const b = need({ id: "summary:P2" });
+    const r = validateCompose(
+      reply([
+        { id: a.id, text: "P1 기록이 출발점임." },
+        { id: b.id, text: "가".repeat(MAX_TEXT_CHARS + 1) },
+      ]),
+      [a, b],
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.texts).toEqual({ "summary:P1": "P1 기록이 출발점임." });
+      expect(r.issues.map((i) => i.path)).toEqual(["summary:P2"]);
+    }
   });
 
   it("collects every problem with the item id as the path", () => {
