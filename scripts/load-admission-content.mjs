@@ -72,7 +72,7 @@
 //   node scripts/load-admission-content.mjs --apply --force-regenerate --ignore-regression  # 무조건 덮어쓰기(위험)
 //
 // 키 조회 순서(하드코딩 금지) — scripts/seed-admission-universities.mjs와 동일:
-//   1) SEED_SUPABASE_URL / SEED_SERVICE_ROLE_KEY 환경변수
+//   1) SEED_SUPABASE_URL / SEED_SECRET_KEY 환경변수
 //   2) --keys-file <path>
 //   3) 기본값: scratchpad의 dev-keys.json (SEED_KEYS_FILE 로 재지정 가능)
 // =====================================================================
@@ -165,7 +165,7 @@ const CATEGORY_JSON_KEY = {
 
 async function resolveCredentials() {
   const envUrl = process.env.SEED_SUPABASE_URL;
-  const envKey = process.env.SEED_SERVICE_ROLE_KEY;
+  const envKey = process.env.SEED_SECRET_KEY;
   if (envUrl && envKey) return { url: envUrl, serviceKey: envKey };
 
   const keysFile =

@@ -11,7 +11,7 @@
 // 종료 코드: 전부 통과하면 0, 하나라도 실패하면 1.
 //
 // 키 조회 순서(하드코딩 금지) — scripts/load-admission-content.mjs와 동일:
-//   1) SEED_SUPABASE_URL / SEED_SERVICE_ROLE_KEY 환경변수
+//   1) SEED_SUPABASE_URL / SEED_SECRET_KEY 환경변수
 //   2) --keys-file <path>
 //   3) 기본값: 저장소 루트의 .dev-keys.json (gitignore 처리됨,
 //      SEED_KEYS_FILE 로 재지정 가능)
@@ -125,7 +125,7 @@ function hasChipsBlocks(doc) {
 
 async function resolveCredentials(keysFile) {
   const envUrl = process.env.SEED_SUPABASE_URL;
-  const envKey = process.env.SEED_SERVICE_ROLE_KEY;
+  const envKey = process.env.SEED_SECRET_KEY;
   if (envUrl && envKey) return { url: envUrl, serviceKey: envKey };
   const raw = JSON.parse(await readFile(keysFile, "utf-8"));
   const serviceEntry = raw.find((entry) => entry.name === "service_role");

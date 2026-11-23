@@ -41,8 +41,8 @@ function loadEnv() {
 
 const env = loadEnv();
 const SUPABASE_URL = env.SUPABASE_URL;
-const SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
-const ANON_KEY = env.VITE_SUPABASE_ANON_KEY;
+const SECRET_KEY = env.SUPABASE_SECRET_KEY;
+const PUBLISHABLE_KEY = env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const refMatch = SUPABASE_URL.match(/https:\/\/([a-z0-9]+)\./);
 const ref = refMatch?.[1];
@@ -56,7 +56,7 @@ if (ref !== EXPECTED_REF) {
 
 console.log(`[env] dev DB ref 확인 완료: ${ref}`);
 
-const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+const admin = createClient(SUPABASE_URL, SECRET_KEY);
 
 // ---------------------------------------------------------------------------
 // 1) 세션 발급 — admin generate_link(magiclink) → verify → supabase-js
@@ -67,8 +67,7 @@ async function mintSession() {
   const glRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
     method: "POST",
     headers: {
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      apikey: SECRET_KEY,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ type: "magiclink", email: TEST_EMAIL }),
@@ -85,7 +84,7 @@ async function mintSession() {
 
   const vfRes = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
     method: "POST",
-    headers: { apikey: ANON_KEY, "Content-Type": "application/json" },
+    headers: { apikey: PUBLISHABLE_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({ type: "magiclink", token_hash: tokenHash }),
   });
   const session = await vfRes.json();

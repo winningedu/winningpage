@@ -87,13 +87,13 @@ let args = {};
 // -----------------------------------------------------------------------
 async function resolveCredentials() {
   const envUrl = process.env.SEED_SUPABASE_URL;
-  const envKey = process.env.SEED_SERVICE_ROLE_KEY;
+  const envKey = process.env.SEED_SECRET_KEY;
   if (envUrl && envKey) return { url: envUrl, serviceKey: envKey };
 
   const keysFile = args["keys-file"] || process.env.SEED_KEYS_FILE;
   if (!keysFile) {
     throw new Error(
-      "DB 자격증명을 찾을 수 없습니다. SEED_SUPABASE_URL/SEED_SERVICE_ROLE_KEY 환경변수를 " +
+      "DB 자격증명을 찾을 수 없습니다. SEED_SUPABASE_URL/SEED_SECRET_KEY 환경변수를 " +
         "설정하거나 --keys-file <path>를 지정하세요.",
     );
   }

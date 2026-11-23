@@ -9,7 +9,7 @@
 //   node scripts/seed-admission-universities.mjs [--dry-run]
 //
 // 키 조회 순서 (하드코딩 금지):
-//   1) SEED_SUPABASE_URL / SEED_SERVICE_ROLE_KEY 환경변수
+//   1) SEED_SUPABASE_URL / SEED_SECRET_KEY 환경변수
 //   2) --keys-file <path> 로 지정한 JSON (Supabase 대시보드 API keys export 형식,
 //      name === 'service_role' 항목의 api_key 사용)
 //   3) 기본값: scratchpad의 dev-keys.json (SEED_KEYS_FILE 로 재지정 가능)
@@ -118,7 +118,7 @@ async function parseUniversitySource() {
 // ---------------------------------------------------------------------
 async function resolveCredentials() {
   const envUrl = process.env.SEED_SUPABASE_URL;
-  const envKey = process.env.SEED_SERVICE_ROLE_KEY;
+  const envKey = process.env.SEED_SECRET_KEY;
   if (envUrl && envKey) {
     return { url: envUrl, serviceKey: envKey };
   }
