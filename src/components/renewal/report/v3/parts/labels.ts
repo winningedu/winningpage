@@ -87,6 +87,9 @@ export const REPORT_LABELS = {
   subjectTable: "두 기준을 겹쳐 본 과목 진단",
   subject: "과목",
   verdict: "판정",
+  /** PDF p4 cards */
+  myCycle: "나의 학습관리 사이클",
+  breakPoints: "끊김 지점",
   /** joins two short values on one line, as the PDF does */
   joiner: " \u00b7 ",
   studentOnly: "학생 전용",
