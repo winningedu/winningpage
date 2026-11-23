@@ -2,7 +2,7 @@
 // number is read from the sheets at module load.
 
 import { toNineGrade } from "./gradeConvert.js";
-import { OPTIONS } from "./options.js";
+import { OPTIONS, trackOf } from "./options.js";
 import { roundHalfUpInt } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
 import type {
@@ -17,6 +17,8 @@ type Computed = Extract<
   { readonly status: "COMPUTED" }
 > & {
   /** 22 r72 numbers; diff = mine - cut in grades, positive means 부족 */
+  /** BAND_PRECISION is appended when there is no 50% cut (spec r81) */
+  readonly precisionNote: boolean;
   readonly comparison: {
     readonly cut50?: number;
     readonly cut70: number;
@@ -115,8 +117,14 @@ export function computeAdmission(
   answers: DiagnosisV3Answers,
   context: DiagnosisV3Context,
 ): AdmissionResult {
-  const grade9 = toNineGrade(answers.q4, answers.q6) as number;
-  const cut70 = context.admission?.cut70 as number;
+  // 22 r70: 7p is hidden for the middle school 3 track
+  if (trackOf(answers.q1) === "M3") return { status: "HIDDEN" };
+  // 08 r48: no target, or q4 잘 모르겠어요 (no 9-grade value)
+  const grade9 = answers.q15 ? toNineGrade(answers.q4, answers.q6) : null;
+  if (grade9 === null) return { status: "SKIPPED" };
+  // 08 r49: no 70% cut means no data, whatever the 50% cut is
+  const cut70 = context.admission?.cut70 ?? null;
+  if (cut70 === null) return { status: "NODATA" };
   const cut50 = context.admission?.cut50 ?? null;
   const mineMilli = toMilli(grade9);
   const baseBand = bandOf(
@@ -138,6 +146,7 @@ export function computeAdmission(
   return {
     status: "COMPUTED",
     mode: cut50 === null ? "BASIC" : "PRECISE",
+    precisionNote: cut50 === null,
     grade9,
     baseBand,
     probability,
