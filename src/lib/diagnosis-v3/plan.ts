@@ -4,7 +4,7 @@
 import type { P1Code, P2Code } from "./codes.js";
 import { OPTIONS } from "./options.js";
 import { sheetRows, textCell } from "./sheet.js";
-import { COPY_TEXT } from "./source/copyText.js";
+import { COPY_SHEETS, COPY_TEXT } from "./source/copyText.js";
 import type {
   DiagnosisV3Answers,
   DiagnosisV3Scores,
@@ -295,16 +295,44 @@ export function formatDue(date: IsoDate): string {
   });
 }
 
+// 21 C31: target run rate per week, "1주 50%"
+export const RATES: readonly number[] = [
+  ...planCell(31).matchAll(/(\d)주 (\d+)%/g),
+].map((m) => Number(m[2]));
+
+const taskRows = COPY_SHEETS["15_4주과제"];
+if (!taskRows) throw new Error("missing copy sheet 15_4주과제");
+/** 15 B (kind) and D (done criterion) of a copy id. */
+const taskRow = (id: string) => {
+  const row = taskRows.find((x) => x.c[0] === id);
+  if (!row) throw new Error(`missing 15_4주과제 ${id}`);
+  return { kind: String(row.c[1]), done: String(row.c[3]) };
+};
+
 /** 22 r109-r113: one planner page per week. */
 export function buildPlannerPages(plan: Plan): PlannerPage[] {
-  return WEEKS.map(({ week, from, to }) => ({
-    week,
-    goal: copy(`WEEK_GOAL_${week}`),
-    badge: fillCopy("plan.week_badge", { n: week, d1: from, d2: to }),
-    redx: fillCopy("plan.redx", { date: formatDue(plan.redxDate) }),
-    done: [],
-    tasks: [],
-    days: [],
-    slip: [],
-  }));
+  const logDone = taskRow("FIX_LOG").done;
+  return WEEKS.map(({ week, from, to }) => {
+    const weekTasks = plan.tasks.filter((t) => t.week === week);
+    // 22 r110: record days, plan.rate, first column done that differs from FIX_LOG's
+    const columnDone = weekTasks
+      .filter((t) => t.column !== undefined && t.doneId !== undefined)
+      .map((t) => taskRow(String(t.doneId)).done)
+      .find((done) => done !== logDone);
+    const rate = first(RATES, week - 1, "week rate");
+    return {
+      week,
+      goal: copy(`WEEK_GOAL_${week}`),
+      badge: fillCopy("plan.week_badge", { n: week, d1: from, d2: to }),
+      redx: fillCopy("plan.redx", { date: formatDue(plan.redxDate) }),
+      done: [
+        logDone,
+        fillCopy("plan.rate", { rate }),
+        ...(columnDone === undefined ? [] : [columnDone]),
+      ],
+      tasks: [],
+      days: [],
+      slip: [],
+    };
+  });
 }

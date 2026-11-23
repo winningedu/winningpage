@@ -69,6 +69,20 @@ describe("buildPlannerPages (22 r109-r113)", () => {
     expect(week1?.badge).toBe("1 / 4주 \u00b7 Day 1\u20137");
     expect(week1?.redx).toBe("4주 학습진단 \u00b7 재진단 12/8(화)");
   });
+
+  test("PDF p12, p15 done criteria: record 5 days, plan.rate, first column done", () => {
+    const all = pages();
+    expect(all[0]?.done).toEqual([
+      "주 7일 중 5일 이상",
+      "실행률 50% 이상",
+      "중요\u00b7급함 4칸 표 1장",
+    ]);
+    expect(all[3]?.done).toEqual([
+      "주 7일 중 5일 이상",
+      "실행률 70% 이상",
+      "다음 주 우선순위 3개",
+    ]);
+  });
 });
 
 describe("buildPlan", () => {
