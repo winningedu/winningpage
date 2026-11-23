@@ -48,6 +48,12 @@ const MID_SUM = numberIn(verdictCell("학습진단", "보통"), /= (\d+)/);
 // 17 C11 "같은 응답이 10개 이상 연속 AND q10 미선택"
 const F5_RUN = numberIn(cellOf("F5", 2), /(\d+)개 이상 연속/);
 
+// 17 C12 "가장 많이 고른 응답이 28개(80%) 이상"
+const F6_COUNT = numberIn(cellOf("F6", 2), /(\d+)개/);
+
+const mostPicked = (items: readonly Likert[]) =>
+  Math.max(...LIKERT_LEVELS.map((_, a) => items.filter((i) => i === a).length));
+
 const longestRun = (items: readonly Likert[]) => {
   let longest = 0;
   let current = 0;
@@ -66,7 +72,7 @@ export function scoreReliability(answers: DiagnosisV3Answers): Reliability {
     F4: !V4_PASS.includes(answers.q23.verify),
     // 16 r26: any q10 pick, the exclusive one included, counts as picked
     F5: longestRun(answers.q9.items) >= F5_RUN && !answers.q10?.length,
-    F6: false,
+    F6: mostPicked(answers.q23.items) >= F6_COUNT,
   };
   const verifyFlags = [flags.F1, flags.F2, flags.F3].filter(Boolean).length;
   const diagnosis =

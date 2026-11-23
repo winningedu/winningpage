@@ -91,4 +91,23 @@ describe("response reliability (17_신뢰도, spec No 42-47)", () => {
     expect(f5Case(15, [16]).flags.F5).toBe(false);
     expect(f5Case(15, [3]).flags.F5).toBe(false);
   });
+
+  const q23With = (same: number) => ({
+    ...CALC_EXAMPLE,
+    q23: {
+      ...CALC_EXAMPLE.q23,
+      items: Array.from({ length: 35 }, (_, i) =>
+        i < same ? 3 : i % 2 === 0 ? 1 : 0,
+      ) as Likert[],
+    },
+  });
+
+  test("F6: one answer 28 times or more in q23 is 기질 주의 (17 C12)", () => {
+    expect(scoreReliability(q23With(28))).toMatchObject({
+      flags: { F6: true },
+      diagnosis: "GOOD",
+      temperament: "CAUTION",
+    });
+    expect(scoreReliability(q23With(27)).flags.F6).toBe(false);
+  });
 });
