@@ -63,6 +63,8 @@ const SINGLE_CHOICES = {
   q4: OPTIONS.q4,
   q5: OPTIONS.q5,
   q8: OPTIONS.q8,
+  q8s: OPTIONS.q8s,
+  q8d: OPTIONS.q8d,
   q16: OPTIONS.q16,
   q17: OPTIONS.q17,
   q18: OPTIONS.q18,
@@ -200,7 +202,38 @@ const isEvent = (value: unknown, diagnosedAt: IsoDate) => {
   return day !== null && day >= 1 && day <= EVENT_WINDOW_DAYS;
 };
 
-const isValid = (question: QuestionId, value: unknown, input: Raw) => {
+const SUBJECTS = ["KOR", "MATH", "ENG", "SOC", "SCI"];
+const MOCK_SUBJECTS = [...SUBJECTS, "HIST"];
+/** judge-report R3: one exam month, March to November. */
+const MOCK_MONTHS = { first: 3, last: 11 };
+/** Mock exams always use the 9-grade scale. */
+const MOCK_GRADE_MAX = 9;
+
+const isGradeMap = (
+  value: unknown,
+  subjects: readonly string[],
+  isGradeValue: (grade: unknown) => boolean,
+) =>
+  isRecord(value) &&
+  Object.entries(value).every(
+    ([subject, grade]) => subjects.includes(subject) && isGradeValue(grade),
+  );
+
+const isText = (value: unknown) => typeof value === "string" && value !== "";
+
+const isAdmissionTarget = (value: unknown) =>
+  isRecord(value) &&
+  isText(value.universityKey) &&
+  isText(value.departmentKey) &&
+  isText(value.mainTrack) &&
+  isText(value.admissionTrack) &&
+  (value.subjectReflection === null || isText(value.subjectReflection));
+
+const isValid = (
+  question: QuestionId | "q3Target",
+  value: unknown,
+  input: Raw,
+) => {
   if (question in SINGLE_CHOICES) {
     return isOrdinalOf(
       SINGLE_CHOICES[question as keyof typeof SINGLE_CHOICES],
@@ -215,7 +248,30 @@ const isValid = (question: QuestionId, value: unknown, input: Raw) => {
   }
   switch (question) {
     case "q6":
+    case "q6r":
       return isGrade(value, input.q4);
+    case "q6s":
+      return isGradeMap(value, SUBJECTS, (grade) => isGrade(grade, input.q4));
+    case "q6m":
+      return (
+        isRecord(value) &&
+        Number.isInteger(value.month) &&
+        (value.month as number) >= MOCK_MONTHS.first &&
+        (value.month as number) <= MOCK_MONTHS.last &&
+        isGradeMap(
+          value.grades,
+          MOCK_SUBJECTS,
+          (grade) =>
+            typeof grade === "number" && grade >= 1 && grade <= MOCK_GRADE_MAX,
+        )
+      );
+    case "q15":
+      return isAdmissionTarget(value);
+    case "q3Target":
+      return (
+        isRecord(value) &&
+        Object.values(value).every((text) => typeof text === "string")
+      );
     case "q21":
       return (
         isRecord(value) &&
@@ -249,7 +305,7 @@ export function validateAnswers(
   const track = isOrdinalOf(OPTIONS.q1, input.q1)
     ? trackOf(input.q1 as number)
     : null;
-  for (const question of Object.keys(input) as QuestionId[]) {
+  for (const question of Object.keys(input) as (QuestionId | "q3Target")[]) {
     const value = input[question];
     if (value === undefined) continue;
     if (isHidden(question, input, track)) {

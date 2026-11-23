@@ -226,3 +226,36 @@ describe("q13 schedule (13 r24, 06 C55 window, Day 1 = diagnosedAt)", () => {
     ]);
   });
 });
+
+describe("other optional values", () => {
+  test.each([
+    ["q3Target", { university: 3 }],
+    ["q3Target", "연세대"],
+    ["q6s", { KOR: 0 }],
+    ["q6s", { KOREAN: 2 }],
+    ["q6r", -1],
+    ["q6m", { month: 2, grades: { KOR: 3 } }],
+    ["q6m", { month: 9, grades: { HIST: 10 } }],
+    ["q15", { ...H12.q15, universityKey: "" }],
+    ["q15", { universityKey: "yonsei" }],
+  ])("%s = %j is invalid", (question, value) => {
+    expect(errorsOf({ ...H12, [question]: value })).toEqual([
+      { question, reason: "invalid" },
+    ]);
+  });
+
+  test("q8s and q8d must be their option ordinals", () => {
+    expect(errorsOf({ ...H12, q8: 4, q8s: 8 })).toEqual([
+      { question: "q8s", reason: "invalid" },
+    ]);
+    expect(errorsOf({ ...H12, q8: 4, q8s: 1, q8d: 4 })).toEqual([
+      { question: "q8d", reason: "invalid" },
+    ]);
+  });
+
+  test("q6m grades are on the 9-grade mock scale", () => {
+    expect(
+      errorsOf({ ...H12, q6m: { month: 11, grades: { HIST: 9, SCI: 1 } } }),
+    ).toEqual([]);
+  });
+});
