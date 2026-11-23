@@ -37,11 +37,12 @@ describe("W15 teacher-roster.xlsx", () => {
       expect(example[0]).not.toBe("");
       expect(example[1]).toMatch(/^010-\d{4}-\d{4}$/);
       expect(["중1", "중2", "중3", "고1", "고2", "고3"]).toContain(example[2]);
-      expect(example[4]).toMatch(/^[0-9]+$/);
     }
+    expect(rows[1]).toEqual(["박지훈", "010-1234-5678", "고2", "", "3"]);
+    expect(rows[2]).toEqual(["임채원", "010-4321-8765", "고1", "ACE1", "A"]);
   });
 
-  test("columns carry data validation: 학년 list of six grades, no 반 rule (letters allowed), 전화번호 text format", () => {
+  test("columns carry data validation: 학년 list of six grades, 반 custom rule (no 반 character), 전화번호 text format", () => {
     const xml = execFileSync(
       "unzip",
       ["-p", TEMPLATE, "xl/worksheets/sheet1.xml"],
@@ -55,8 +56,12 @@ describe("W15 teacher-roster.xlsx", () => {
 
     expect(rule("C2:C500")).toContain('type="list"');
     expect(rule("C2:C500")).toContain("중1,중2,중3,고1,고2,고3");
-    expect(rule("E2:E500")).toBe("");
-    expect(rules).toHaveLength(1);
+    expect(rule("E2:E500")).toContain('type="custom"');
+    expect(rule("E2:E500")).toContain(
+      '<formula1>ISERROR(SEARCH("반",E2))</formula1>',
+    );
+    expect(rule("E2:E500")).toContain("반 칸에는");
+    expect(rules).toHaveLength(2);
 
     // numFmtId 49 is the built-in text format "@"; it must be the style of every 전화번호 cell.
     const styles = execFileSync("unzip", ["-p", TEMPLATE, "xl/styles.xml"], {
@@ -66,7 +71,7 @@ describe("W15 teacher-roster.xlsx", () => {
       styles.split("<cellXfs")[1]?.match(/<xf [^>]*>/g) ?? ([] as string[])
     ).findIndex((x) => x.includes('numFmtId="49"'));
     expect(textXf).toBeGreaterThan(0);
-    for (const ref of ["B2", "B3", "B4", "B500"]) {
+    for (const ref of ["B2", "B3", "B4", "B500", "E2", "E3", "E500"]) {
       expect(xml).toMatch(new RegExp(`<c r="${ref}" s="${textXf}"`));
     }
   });

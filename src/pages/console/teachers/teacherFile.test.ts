@@ -144,7 +144,7 @@ describe("parseTeacherLines", () => {
 });
 
 describe("양식 파일(public/templates/teacher-roster.xlsx)", () => {
-  it("앱이 읽는 길로 읽으면 학교 예시와 학원 예시가 숫자 반으로 나온다", async () => {
+  it("앱이 읽는 길로 읽으면 학교 예시는 숫자 반, 학원 예시는 글자 반으로 나온다", async () => {
     const bytes = readFileSync(
       join(process.cwd(), "public", "templates", "teacher-roster.xlsx"),
     );
@@ -166,8 +166,8 @@ describe("양식 파일(public/templates/teacher-roster.xlsx)", () => {
     expect(academy).toMatchObject({
       phone: "010-4321-8765",
       grade: "고1",
-      group: "A반",
-      className: "1",
+      group: "ACE1",
+      className: "A",
     });
     expect(school?.name).not.toBe("");
     expect(academy?.name).not.toBe("");
