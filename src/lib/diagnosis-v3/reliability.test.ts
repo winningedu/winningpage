@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { Likert } from "./likert.js";
 import { scoreReliability } from "./reliability.js";
+import { SCORE_SHEETS } from "./source/scoreSheets.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
 import type { DiagnosisV3Answers } from "./types.js";
 
@@ -109,5 +110,21 @@ describe("response reliability (17_신뢰도, spec No 42-47)", () => {
       temperament: "CAUTION",
     });
     expect(scoreReliability(q23With(27)).flags.F6).toBe(false);
+  });
+
+  test("the verdict rules this module hard-codes still read the same in 17 C11-C17", () => {
+    const cells = (SCORE_SHEETS["17_신뢰도"] ?? [])
+      .filter((row) => row.r >= 11 && row.r <= 18)
+      .map((row) => row.c[2])
+      .filter((cell) => cell !== null);
+    expect(cells).toEqual([
+      "같은 응답이 10개 이상 연속 AND q10 미선택",
+      "가장 많이 고른 응답이 28개(80%) 이상",
+      "F5 또는 (F1+F2+F3) \u2265 2",
+      "(F1+F2+F3) = 1 이고 F5 아님",
+      "그 외",
+      "F4 또는 F6",
+      "그 외",
+    ]);
   });
 });
