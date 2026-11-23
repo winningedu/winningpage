@@ -144,7 +144,9 @@ describe("사용량 행", () => {
         },
       ],
     });
-    expect(typeof (res.body as { asOf: unknown }).asOf).toBe("string");
+    expect((res.body as { asOf: string }).asOf).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+    );
   });
 
   test("1000행이 넘어도 모두 읽는다(기관 200곳 넘음)", async () => {
