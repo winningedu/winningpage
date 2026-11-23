@@ -207,3 +207,43 @@ describe("composites (05 E weights, spec No 38-39)", () => {
     expect(compositeOf(areas, P1_CODES)).toBe(66.4);
   });
 });
+
+describe("area order and MIND extremes (23_동점규칙)", () => {
+  test("PAGE1 order low to high matches 계산 예시 A13", () => {
+    expect(scoreAreas(CALC_EXAMPLE).page1.order).toEqual([
+      "P1_LOG",
+      "P1_PLAN",
+      "P1_ADJ",
+      "P1_PATT",
+      "P1_EXEC",
+      "P1_GOAL",
+      "P1_PRIO",
+    ]);
+  });
+
+  test("PAGE2 order low to high: 65 and 74 ties fall to weight, then display order", () => {
+    expect(scoreAreas(CALC_EXAMPLE).page2.order).toEqual([
+      "H12_DEEP",
+      "H12_STRA",
+      "H12_PERF",
+      "H12_LINK",
+      "H12_SUBJ",
+      "H12_REC",
+    ]);
+  });
+
+  test("MIND lowest and highest", () => {
+    const { mind } = scoreAreas(CALC_EXAMPLE);
+    expect(mind.lowest).toBe("MIND_RECV");
+    expect(mind.highest).toBe("MIND_EFF");
+  });
+
+  test("MIND highest tie keeps display order (R2 (a), weights all 0)", () => {
+    // 9-1, 9-2 = 75, 75 and 9-3 reversed 75, 9-4 = 75: both 75, minItem 75
+    const { mind } = scoreAreas(
+      withAnswers({ q20: { ...CALC_EXAMPLE.q20, items: [3, 3, 1, 3, 3, 2] } }),
+    );
+    expect(mind.areas.MIND_GROW.score).toBe(75);
+    expect(mind.highest).toBe("MIND_EFF");
+  });
+});

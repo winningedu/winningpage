@@ -14,10 +14,12 @@ import { type Likert, SCALE_ITEMS, scaleValue } from "./likert.js";
 import { OPTIONS, trackOf } from "./options.js";
 import { roundHalfUp1, roundHalfUpInt } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
+import { orderHighToLow, orderLowToHigh } from "./tie.js";
 import type {
   AreaScore,
   AreaState,
   DiagnosisV3Answers,
+  DiagnosisV3Scores,
   GradeLevel,
 } from "./types.js";
 
@@ -199,10 +201,28 @@ const composite = <C extends AreaCode>(
   codes: readonly C[],
 ) => {
   const total = compositeOf(areas, codes);
-  return { areas, total, level: gradeLevel(total) };
+  return {
+    areas,
+    total,
+    level: gradeLevel(total),
+    order: orderLowToHigh(areas, codes),
+  };
 };
 
-export function scoreAreas(answers: DiagnosisV3Answers) {
+const mindOf = (areas: Record<MindCode, AreaScore>) => {
+  const [lowest] = orderLowToHigh(areas, MIND_CODES);
+  const [highest] = orderHighToLow(areas, MIND_CODES);
+  if (!lowest || !highest) throw new Error("no MIND areas");
+  return { areas, lowest, highest };
+};
+
+/** The area fields of DiagnosisV3Scores. */
+export type AreaScores = Pick<
+  DiagnosisV3Scores,
+  "track" | "grade" | "page1" | "mind" | "page2"
+>;
+
+export function scoreAreas(answers: DiagnosisV3Answers): AreaScores {
   const track = trackOf(answers.q1);
   // 23 r7: q10 for the seven stages and MIND_RECV, q12 for the track areas.
   const q10: Picks = { options: OPTIONS.q10, picked: answers.q10 };
@@ -214,15 +234,15 @@ export function scoreAreas(answers: DiagnosisV3Answers) {
       scoresOf(P1_CODES, SCALE_ITEMS.q9, answers.q9.items, q10, answers),
       P1_CODES,
     ),
-    mind: {
-      areas: scoresOf<MindCode>(
+    mind: mindOf(
+      scoresOf<MindCode>(
         MIND_CODES,
         SCALE_ITEMS.q20,
         answers.q20.items,
         q10,
         answers,
       ),
-    },
+    ),
     page2: composite(
       scoresOf<P2Code>(
         P2_CODES[track],
