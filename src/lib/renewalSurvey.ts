@@ -7,7 +7,12 @@
  */
 // 확장자 .js 명시 — verify 스크립트가 이 모듈(진행 판정 술어)을 plain node ESM 으로 직접 import 한다.
 // node 는 Vite 와 달리 확장자 생략을 해석하지 못해 ERR_MODULE_NOT_FOUND 로 죽는다.
+
+import { SURVEY_V3_QUESTIONS } from "@/data/diagnosisSurveyV3";
 import { renewalSurveyQuestions } from "@/data/renewalSurveyQuestions.js";
+import type { QuestionId, TrackCode } from "@/lib/diagnosis-v3/codes";
+import { OPTIONS, trackOf } from "@/lib/diagnosis-v3/options";
+import { isHidden, Q3_TARGET_ORDINALS } from "@/lib/diagnosis-v3/validate";
 
 // renewalSurveyQuestions.js는 타입 선언 없는 순수 JS 데이터 배열이라 문항 형태를 여기서
 // 직접 규정한다(원본 데이터 파일은 이번 전환 대상이 아니라 손대지 않는다).
@@ -152,4 +157,57 @@ export function isAnswered(type: string | undefined, value: unknown) {
     );
   }
   return typeof value === "string" && value.trim().length > 0;
+}
+
+// ---------------------------------------------------------------------------
+// v3 survey (score source 13_문항메타, 16_문항규칙)
+// ---------------------------------------------------------------------------
+
+/** Survey state while answering: v3 answer fields plus in-progress inputs. */
+export type SurveyDraft = Readonly<Record<string, unknown>>;
+
+/** Track of the q1 answer (14 TRACK codes); null before q1 is answered. */
+export function draftTrack(draft: SurveyDraft): TrackCode | null {
+  const grade = draft.q1;
+  return OPTIONS.q1.some((option) => option.ordinal === grade)
+    ? trackOf(grade as number)
+    : null;
+}
+
+// 13 F27 연쇄선택 4단: university, department, type, detail.
+const CASCADE_STEPS = [
+  "university",
+  "department",
+  "admissionType",
+  "detailType",
+] as const;
+
+/** q15 counts as entered once all four cascade steps are picked. */
+export function isCascadeComplete(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return CASCADE_STEPS.every(
+    (step) => typeof record[step] === "string" && record[step] !== "",
+  );
+}
+
+/** 13 H7: q3 options 1..3 open the target university and major inputs. */
+export function showsQ3Target(draft: SurveyDraft): boolean {
+  return Q3_TARGET_ORDINALS.includes(draft.q3 as number);
+}
+
+/** Visible question ids of one screen, 13 H and 16 hiding rules. */
+export function visibleQuestionIds(
+  page: number,
+  draft: SurveyDraft,
+): QuestionId[] {
+  const track = draftTrack(draft);
+  // 13 H28-H30: q16..q18 open only when q15 is entered.
+  const view = {
+    ...draft,
+    q15: isCascadeComplete(draft.q15) ? draft.q15 : undefined,
+  };
+  return SURVEY_V3_QUESTIONS.filter(
+    (question) => question.page === page && !isHidden(question.id, view, track),
+  ).map((question) => question.id);
 }

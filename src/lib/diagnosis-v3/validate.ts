@@ -90,7 +90,7 @@ const Q3_NO_TARGET = hidingOption("q3r", OPTIONS.q3);
 const Q8_NOT_COMPARABLE = hidingOption("q8s", OPTIONS.q8);
 const Q8S_UNKNOWN = hidingOption("q8d", OPTIONS.q8s);
 /** 13 H7: q3 options 1..3 open the target university and major inputs. */
-const Q3_TARGET_ORDINALS = [1, 2, 3];
+export const Q3_TARGET_ORDINALS = [1, 2, 3];
 
 /** One 06_임계값 row by its B label. */
 const thresholdRow = (label: string) => {
@@ -101,7 +101,7 @@ const thresholdRow = (label: string) => {
 /** 06 C51 switch for q6s, q6r, q6m. */
 const SUBJECT_GRADES_ON = thresholdRow("과목별 성적 수집").c[2] === "사용";
 
-const isHidden = (
+export const isHidden = (
   question: QuestionId | "q3Target",
   input: Raw,
   track: TrackCode | null,
