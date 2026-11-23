@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
@@ -49,10 +50,16 @@ vi.mock("./admin/hq-dashboard/LoginSection", () => ({ default: () => null }));
 import { AdminSectionRoute } from "./Admin";
 
 function renderSection(section: string) {
+  // 방문 분석 화면이 react-query 로 읽어서 provider 가 필요하다.
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <MemoryRouter initialEntries={[`/admin/${section}`]}>
-      <AdminSectionRoute section={section} />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[`/admin/${section}`]}>
+        <AdminSectionRoute section={section} />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -74,7 +81,7 @@ describe("Admin 섹션 셸", () => {
   it.each([
     ["hqDashboard", "대시보드"],
     ["webAnalytics", "방문 분석"],
-  ])("%s 섹션은 빈 화면 제목을 그린다", async (section, heading) => {
+  ])("%s 섹션은 화면 제목을 그린다", async (section, heading) => {
     state.hang = false;
     renderSection(section);
 
