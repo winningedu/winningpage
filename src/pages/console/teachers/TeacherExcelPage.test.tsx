@@ -263,6 +263,27 @@ describe("W15 미리보기", () => {
     );
   });
 
+  it("확인 창은 틀린 전화번호를 자연스러운 문장으로 보인다", async () => {
+    stubPage({
+      [PREVIEW]: {
+        body: {
+          rows: [{ index: 0, verdict: "format_error", reasons: ["phone"] }],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/excel");
+    await screen.findByText("1. 양식 내려받기");
+    paste("박지훈\t0101234\t중1\t\t3");
+    fireEvent.click(screen.getByRole("button", { name: "올리기" }));
+
+    expect(
+      await screen.findByText(
+        '1행 박지훈: 전화번호 "0101234"는 형식이 맞지 않아요',
+      ),
+    ).toBeTruthy();
+  });
+
   it("형식 오류가 없으면 확인 창을 열지 않는다", async () => {
     stubPage({ [PREVIEW]: { body: verdictsBody("new", "new", "new") } });
 

@@ -111,7 +111,10 @@ function formatErrorItems(rows: PreviewRow[]): FormatErrorItem[] {
         name: r.displayName,
         cell: FORMAT_CELL_LABEL[reason],
         value: r.values?.[reason] ?? "",
-        message: dropSubject(FORMAT_REASON_LABEL[reason]),
+        message:
+          reason === "group"
+            ? "그룹 관리에 등록되지 않은 그룹이에요"
+            : dropSubject(FORMAT_REASON_LABEL[reason]),
       })),
     );
 }
