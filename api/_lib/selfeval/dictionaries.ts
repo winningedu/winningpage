@@ -32,6 +32,16 @@ export const PLAN_EXPRESSIONS: readonly string[] = [
   "하고 싶음",
 ];
 
+/**
+ * 확인하지 않은 암묵 연계를 인과나 출처로 단정하는 표현(명세 No.193). 본문에서 그 기록을 인용한
+ * 문장에 있으면 확인 필요로 본다. 공백을 지우고 비교한다.
+ */
+export const CAUSAL_LINK_PHRASES: readonly string[] = [
+  "을 바탕으로",
+  "를 바탕으로",
+  "에서 이어",
+];
+
 /** 합격을 암시하는 표현. 위닝 점수는 학교 채점 예측이 아니라서 본문과 안내에 쓰지 않는다. */
 export const FORBIDDEN_PHRASES: readonly string[] = [
   "합격 가능성",

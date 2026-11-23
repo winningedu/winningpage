@@ -160,7 +160,9 @@ describe("buildWritePrompt", () => {
             activityName: "보조탐구",
             sourceType: "D",
             summary: "요약",
-            link: null,
+            link: "연계 유형 이어받음, 핵심에서 1단계, 명시, 학생 확인",
+            linkMode: "link",
+            carried: ["수요"],
             items: ["method"],
           },
         ],
@@ -195,7 +197,9 @@ describe("buildWritePrompt", () => {
             activityName: "보조탐구",
             sourceType: "D",
             summary: "요약",
-            link: null,
+            link: "연계 유형 이어받음, 핵심에서 1단계, 명시, 학생 확인",
+            linkMode: "link",
+            carried: ["수요"],
             items: ["method"],
           },
         ],
@@ -205,6 +209,72 @@ describe("buildWritePrompt", () => {
     expect(withSupport.system).not.toContain("연계 발전 지점은 쓰지 않는다");
     expect(withSupport.user).toContain("s1");
     expect(withSupport.user).toContain("보조탐구");
+  });
+
+  describe("연계 문장 규칙(명세 No.181, 189, 193~195)", () => {
+    const linked = {
+      activityId: "s1",
+      activityName: "보조탐구",
+      sourceType: "D" as const,
+      summary: "요약",
+      link: "연계 유형 이어받음, 핵심에서 1단계, 명시, 학생 확인",
+      linkMode: "link" as const,
+      carried: ["수요", "탄력성"],
+      items: ["method" as const],
+    };
+    const contrib = {
+      ...linked,
+      activityId: "s2",
+      activityName: "곁탐구",
+      link: null,
+      linkMode: "contribute" as const,
+      carried: [],
+    };
+
+    it("연계 기록은 처음 나오는 문장에서 연계를 드러내고 구체물 낱말을 적게 한다", () => {
+      const b = buildWritePrompt(writeInput({ supports: [linked] }));
+      expect(b.system).toContain("처음 나오는 문장에서 연계가 드러나게 쓴다");
+      expect(b.system).toContain("무엇을 이어받았는지, 빌렸는지, 보완했는지");
+      expect(b.system).toContain("기록 이름만 늘어놓는 문장은 쓰지 않는다");
+      expect(b.system).toContain("구체물 낱말");
+      expect(b.user).toContain("[연계 기록]");
+      expect(b.user).toContain(
+        "연계 유형 이어받음, 핵심에서 1단계, 명시, 학생 확인",
+      );
+      expect(b.user).toContain("구체물 낱말: 수요, 탄력성");
+    });
+
+    it("기여 항목으로만 쓸 기록은 따로 나누고 연계 문장과 인과 표현을 막는다", () => {
+      const b = buildWritePrompt(writeInput({ supports: [linked, contrib] }));
+      expect(b.user).toContain("[기여 항목으로만 쓸 기록]");
+      expect(b.user.indexOf("곁탐구")).toBeGreaterThan(
+        b.user.indexOf("[기여 항목으로만 쓸 기록]"),
+      );
+      expect(b.user.indexOf("보조탐구")).toBeLessThan(
+        b.user.indexOf("[기여 항목으로만 쓸 기록]"),
+      );
+      expect(b.system).toContain("연계 문장은 만들지 않는다");
+      for (const phrase of ["을 바탕으로", "를 바탕으로", "에서 이어"]) {
+        expect(b.system).toContain(`'~${phrase}'`);
+      }
+      expect(b.system).toContain("학생이 지운 연계를 되살려 쓰지 않는다");
+    });
+
+    it("연계 기록이 없으면 핵심만으로 쓰고 연계 문장과 연계 발전 지점을 쓰지 않는다", () => {
+      for (const supports of [[], [contrib]]) {
+        const b = buildWritePrompt(writeInput({ supports }));
+        expect(b.system).toContain("핵심 기록만으로 쓰고");
+        expect(b.system).toContain("연계 없는 기록으로 분량을 채우지 않는다");
+        expect(b.system).not.toContain("- 연계 발전 지점:");
+        expect(b.system).not.toContain("처음 나오는 문장에서 연계가 드러나게");
+      }
+    });
+
+    it("연계 기록만 있으면 기여 항목 구역과 규칙을 넣지 않는다", () => {
+      const b = buildWritePrompt(writeInput({ supports: [linked] }));
+      expect(b.user).not.toContain("[기여 항목으로만 쓸 기록]");
+      expect(b.system).not.toContain("연계 문장은 만들지 않는다");
+    });
   });
 
   it("계획과 예정 문장을 쓰지 않고 후속은 기록 근거가 있는 실제 행동만 쓰게 한다", () => {
@@ -366,6 +436,8 @@ describe("buildWritePrompt", () => {
             sourceType: "D",
             summary: "방법: 표 정리 / 요약: 요약 글 / 성찰: 성찰 글",
             link: '연계 유형 deepen, 인용 "앞 인용"',
+            linkMode: "link",
+            carried: [],
             items: ["method", "result"],
           },
         ],

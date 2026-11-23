@@ -276,6 +276,8 @@ describe("buildWriteInput", () => {
         sourceType: "P",
         summary: expect.stringContaining("방법: 기상청 자료 분석"),
         link: null,
+        linkMode: "contribute",
+        carried: [],
         items: ["concept", "method", "result", "limitation"],
       },
     ]);

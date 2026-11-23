@@ -185,6 +185,8 @@ export function buildWriteInput(
                 sourceType: info.sourceType,
                 summary: info.summary,
                 link: info.link,
+                linkMode: info.linkMode,
+                carried: info.carried,
                 items: info.items,
               },
             ];

@@ -4,6 +4,7 @@
 // 여기 프롬프트와 validation.ts 검증기 양쪽에서 강제한다. 프롬프트만 믿으면 새어 나온다.
 
 import {
+  CAUSAL_LINK_PHRASES,
   FORBIDDEN_PHRASES,
   SCORE_RUBRIC,
   SENTENCE_STYLE,
@@ -174,8 +175,12 @@ export type WritePromptInput = {
     activityName: string;
     sourceType: "P" | "D" | "A";
     summary: string;
-    /** 연계 유형과 인용. 연결 정보가 없으면 null. */
+    /** 연계 문장을 쓸 기록이면 연계 유형, 단계, 강도, 인용. 기여 항목으로만 쓰면 null. */
     link: string | null;
+    /** link 는 연계 문장을 쓰고, contribute 는 기여 항목으로만 쓴다(명세 No.181, 193~195). */
+    linkMode: "link" | "contribute";
+    /** 연계 문장에 적을 앞 기록의 구체물 낱말(명세 No.189). */
+    carried: string[];
     /** 근거로 쓸 수 있는(값이 있는) 항목. */
     items: AnalysisField[];
   }[];
@@ -284,7 +289,8 @@ function lengthRules(
 }
 
 function writeSystem(input: WritePromptInput): string {
-  const hasLink = input.supports.length > 0;
+  const hasLink = input.supports.some((s) => s.linkMode === "link");
+  const hasContribute = input.supports.some((s) => s.linkMode === "contribute");
   const steps = hasLink
     ? (["link", "process", "judgment", "wrap"] as const)
     : (["process", "judgment", "wrap"] as const);
@@ -296,6 +302,20 @@ function writeSystem(input: WritePromptInput): string {
       : [
           "- 연계된 보조 활동이 없으므로 연계 발전 지점은 쓰지 않는다. 없는 앞 활동을 지어내지 않는다.",
         ]),
+    ...(hasLink
+      ? [
+          "- 연계 기록은 그 기록이 처음 나오는 문장에서 연계가 드러나게 쓴다. 무엇을 이어받았는지, 빌렸는지, 보완했는지를 밝히고, 기록 이름만 늘어놓는 문장은 쓰지 않는다.",
+          "- 그 연계 문장에는 입력에 적힌 구체물 낱말(개념명, 자료명, 방법명, 수치) 중 하나를 반드시 적는다.",
+          "- 연계 유형과 인용은 입력에 적힌 것만 쓴다. 입력에 없는 연계를 지어내지 않는다.",
+        ]
+      : [
+          "- 연계 문장은 쓰지 않는다. 핵심 기록만으로 쓰고, 연계 없는 기록으로 분량을 채우지 않는다.",
+        ]),
+    ...(hasContribute
+      ? [
+          `- [기여 항목으로만 쓸 기록]은 근거로 쓸 수 있는 항목만 문장에 더하고 연계 문장은 만들지 않는다. ${CAUSAL_LINK_PHRASES.map((p) => `'~${p}'`).join(", ")} 처럼 인과나 출처를 말하는 표현으로 그 기록을 잇지 않는다. 학생이 지운 연계를 되살려 쓰지 않는다.`,
+        ]
+      : []),
     "- 하지 않은 계획이나 예정 문장은 쓰지 않는다(계획을 세움, ~할 예정, ~할 것임, ~하고 싶음). 다음 단계는 기록 근거가 있는 실제 후속 행동만 쓴다.",
     `- 모든 문장은 '~${SENTENCE_STYLE}' 처럼 명사형으로 끝낸다(예: 확인함, 세움, 깨달음, 있음, 없음). '~했다', '~한다', '~합니다', '~해요' 는 쓰지 않는다.`,
     "- 한 문장 안에서 어미를 섞어 쓰지 않는다. 앞 절은 연결형으로 이어 쓰고 문장 끝만 명사형으로 맺는다(예: '표를 만들고 값을 비교함').",
@@ -352,14 +372,20 @@ function writeUser(input: WritePromptInput): string {
       .join("\n"),
     `[핵심 활동] id=${core.activityId} 유형=${core.sourceType} 이름=${core.activityName}\n근거로 쓸 수 있는 항목(field): ${filled.join(", ")}\n${fieldLines.join("\n")}`,
   ];
-  if (input.supports.length > 0) {
+  const supportLine = (s: WritePromptInput["supports"][number]) =>
+    `- id=${s.activityId} 유형=${s.sourceType} 이름=${s.activityName}: ${s.summary}\n  근거로 쓸 수 있는 항목(field): ${s.items.join(", ")}${s.link === null ? "" : `\n  ${s.link}`}${s.carried.length === 0 ? "" : `\n  구체물 낱말: ${s.carried.join(", ")}`}`;
+  const linked = input.supports.filter((s) => s.linkMode === "link");
+  const contributeOnly = input.supports.filter(
+    (s) => s.linkMode === "contribute",
+  );
+  if (linked.length > 0) {
     parts.push(
-      `[다른 선택 기록] 흐름 단계 어디서든 근거가 있는 만큼 쓴다.\n${input.supports
-        .map(
-          (s) =>
-            `- id=${s.activityId} 유형=${s.sourceType} 이름=${s.activityName}: ${s.summary}\n  근거로 쓸 수 있는 항목(field): ${s.items.join(", ")}${s.link === null ? "" : `\n  ${s.link}`}`,
-        )
-        .join("\n")}`,
+      `[연계 기록] 흐름 단계 어디서든 근거가 있는 만큼 쓰되, 처음 나오는 문장에서 연계를 드러낸다.\n${linked.map(supportLine).join("\n")}`,
+    );
+  }
+  if (contributeOnly.length > 0) {
+    parts.push(
+      `[기여 항목으로만 쓸 기록] 연계 문장 없이 근거로 쓸 수 있는 항목만 쓴다.\n${contributeOnly.map(supportLine).join("\n")}`,
     );
   }
   if (input.memos.length > 0) {
