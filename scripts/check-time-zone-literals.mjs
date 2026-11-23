@@ -2,7 +2,7 @@
 // 시간대 하드코딩 검사 — 새로 들어오는 고정 시간대(Asia/Seoul, +09:00 등)를 막는다.
 //
 // 검사 대상: git 추적 파일 중 api/, src/, supabase/migrations/, scripts/ 아래의
-// .ts .tsx .mjs .js .sql. 기존 적중 수는 scripts/time-zone-literals.baseline.json
+// .ts .tsx .mjs .js .sql. 이미 적용된 마이그레이션(아래 기준 시각 이하)은 제외한다. 기존 적중 수는 scripts/time-zone-literals.baseline.json
 // (파일 경로, 적중 수)에 고정하고, 그보다 늘면 실패한다.
 //
 // 사용:
@@ -39,6 +39,15 @@ const EXEMPT = [
   /^scripts\/check-time-zone-literals\.(mjs|test\.mjs)$/,
 ];
 
+// dev와 운영에 이미 적용된 마이그레이션은 고칠 수 없는 기록이라 세지 않는다.
+// 파일명 앞 14자리 시각이 이 값 이하면 건너뛰고, 이후 마이그레이션만 검사한다.
+const APPLIED_MIGRATION_CUTOFF = "20261123111847";
+
+function isAppliedMigration(file) {
+  const m = /^supabase\/migrations\/(\d{14})/.exec(file);
+  return m !== null && m[1] <= APPLIED_MIGRATION_CUTOFF;
+}
+
 export function scan(root) {
   const files = execFileSync("git", ["ls-files"], {
     cwd: root,
@@ -47,7 +56,8 @@ export function scan(root) {
     .split("\n")
     .filter((f) => /^(api|src|supabase\/migrations|scripts)\//.test(f))
     .filter((f) => /\.(ts|tsx|mjs|js|sql)$/.test(f))
-    .filter((f) => !EXEMPT.some((re) => re.test(f)));
+    .filter((f) => !EXEMPT.some((re) => re.test(f)))
+    .filter((f) => !isAppliedMigration(f));
   const hits = {};
   for (const file of files) {
     const lines = readFileSync(join(root, file), "utf8").split("\n");

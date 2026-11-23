@@ -156,4 +156,24 @@ describe("check-time-zone-literals", () => {
     ).toBe(first);
     expect(run().code).toBe(0);
   });
+
+  test("적용이 끝난 마이그레이션(기준 시각 이하)은 세지 않고 이후 것은 센다", () => {
+    const line = "select now() at time zone 'Asia/Seoul';\n";
+    put("supabase/migrations/20261001000000_x.sql", line);
+    expect(run().code).toBe(0);
+
+    put("supabase/migrations/20261124000000_x.sql", line);
+    const r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("20261124000000_x.sql");
+    expect(r.out).not.toContain("20261001000000_x.sql");
+  });
+
+  test("기준 시각과 같은 마이그레이션도 건너뛴다", () => {
+    put(
+      "supabase/migrations/20261123111847_x.sql",
+      "select now() at time zone 'Asia/Seoul';\n",
+    );
+    expect(run().code).toBe(0);
+  });
 });
