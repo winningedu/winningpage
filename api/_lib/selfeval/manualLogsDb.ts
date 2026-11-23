@@ -7,6 +7,30 @@ import type { ManualStore, MemoRow } from "./manualLogsRun.js";
 const COLUMNS =
   "id, session_id, written_at, text, ocr, confirmed, included, belongs_to";
 
+/**
+ * 수기 업로드 호출을 세션당 상한 안에서 하나 센다. 세는 일은 DB 함수가 세션 행 잠금 안에서 한다.
+ * 상한 안이면 true, 다 썼으면 false. 닫힌 세션이나 알 수 없는 응답은 던진다.
+ */
+export async function claimUploadAttempt(
+  db: Db,
+  userId: string,
+  sessionId: string,
+  cap: number,
+): Promise<boolean> {
+  const { data, error } = await db.rpc("fn_selfeval_claim_upload", {
+    p_session_id: sessionId,
+    p_profile_id: userId,
+    p_cap: cap,
+  });
+  if (error) throw new Error("fn_selfeval_claim_upload 호출 실패");
+  const kind = (data as { kind?: unknown } | null)?.kind;
+  if (kind === "claimed") return true;
+  if (kind === "limit") return false;
+  throw new Error(
+    `fn_selfeval_claim_upload 응답을 읽을 수 없음: ${String(kind)}`,
+  );
+}
+
 export function manualLogsStore(db: Db): ManualStore {
   return {
     async list(sessionId) {

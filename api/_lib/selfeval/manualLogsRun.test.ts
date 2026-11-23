@@ -55,9 +55,14 @@ function deps(over: Partial<ManualDeps> = {}) {
     store,
     extractFile: vi.fn<ManualDeps["extractFile"]>(async () => modelJson()),
     extractText: vi.fn<ManualDeps["extractText"]>(async () => modelJson()),
+    // 저장소(DB)가 세는 호출 횟수. 상한 안이면 한 번 더하고 true.
     attempts: {
-      count: (id: string) => counts.get(id) ?? 0,
-      add: (id: string) => counts.set(id, (counts.get(id) ?? 0) + 1),
+      claim: async (id: string) => {
+        const used = counts.get(id) ?? 0;
+        if (used >= UPLOAD_ATTEMPT_CAP) return false;
+        counts.set(id, used + 1);
+        return true;
+      },
     },
     ...over,
   };

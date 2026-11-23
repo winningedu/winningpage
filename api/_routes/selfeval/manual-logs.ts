@@ -11,33 +11,34 @@
 //   200 { ok, memos[MemoView] | memo, personNameDetected? }
 //   400 INVALID_BODY / UPLOAD_INPUT / TEXT_TOO_LONG / TEXT_REQUIRED / FILE_TYPE / FILE_INVALID
 //       / FILE_TOO_LARGE / DATE_REQUIRED / DATE_OUT_OF_YEAR / NO_ACADEMIC_YEAR
+//   403 NO_ENTITLEMENT
 //   404 SESSION_NOT_FOUND / MEMO_NOT_FOUND
 //   409 SESSION_NOT_OPEN
 //   422 RECORD_BOOK_DETECTED / NO_TEXT
 //   429 UPLOAD_LIMIT
 //   502 MODEL_FAILED
 //
-// 이용 횟수는 쓰지 않는다. 서비스 유형과 관계없이 세션 주인이면 쓴다(명세 No.160).
+// 이용 횟수는 쓰지 않는다. 서비스 유형과 관계없이 세션 주인이고 이용권이 있으면 쓴다(명세 No.160).
 // 원본 파일은 메모리에서만 다루고 저장하지 않는다. 메모 글은 로그에 남기지 않는다.
-// 업로드 호출 횟수는 인스턴스 메모리로 센다(세션당 10번). 서버리스 인스턴스가 바뀌면 다시 센다.
+// 업로드 호출 횟수는 DB 함수(fn_selfeval_claim_upload)가 세션당 10번까지 센다.
 
 import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { fail } from "../../_lib/selfeval/access.js";
+import { fail, readSelfevalAccess } from "../../_lib/selfeval/access.js";
 import { loadSession } from "../../_lib/selfeval/db.js";
 import { validateManualLogsBody } from "../../_lib/selfeval/manualLogs.js";
-import { manualLogsStore } from "../../_lib/selfeval/manualLogsDb.js";
+import {
+  claimUploadAttempt,
+  manualLogsStore,
+} from "../../_lib/selfeval/manualLogsDb.js";
 import {
   extractFromFile,
   extractFromText,
 } from "../../_lib/selfeval/manualLogsModel.js";
-import { runManualLogs } from "../../_lib/selfeval/manualLogsRun.js";
-
-const attemptCounts = new Map<string, number>();
-const attempts = {
-  count: (sessionId: string) => attemptCounts.get(sessionId) ?? 0,
-  add: (sessionId: string) =>
-    attemptCounts.set(sessionId, (attemptCounts.get(sessionId) ?? 0) + 1),
-};
+import {
+  runManualLogs,
+  UPLOAD_ATTEMPT_CAP,
+} from "../../_lib/selfeval/manualLogsRun.js";
+import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
 export default defineHandler({
   methods: ["POST"],
@@ -59,6 +60,17 @@ export default defineHandler({
       fail(res, 400, parsed.code, parsed.message);
       return;
     }
+    const access = await readSelfevalAccess(db, userId);
+    if (!access.allowed) {
+      fail(
+        res,
+        403,
+        "NO_ENTITLEMENT",
+        "이용권이 없어요. 자기평가서는 이용권 1회로 하나를 만들어요.",
+        tenantReasonExtra(access.tenantReason),
+      );
+      return;
+    }
     const { body } = parsed;
     const session = await loadSession(db, userId, body.sessionId);
     if (!session) {
@@ -73,7 +85,10 @@ export default defineHandler({
       store: manualLogsStore(db),
       extractFile: extractFromFile,
       extractText: extractFromText,
-      attempts,
+      attempts: {
+        claim: (sessionId) =>
+          claimUploadAttempt(db, userId, sessionId, UPLOAD_ATTEMPT_CAP),
+      },
     });
     res.status(result.status).json(result.body);
   },

@@ -1,6 +1,6 @@
 // 수기 메모 동작 본체(명세 No.158~161, 77, 90, 91). 저장소와 모델 호출은 deps 로 받는다.
 // 원본 파일은 메모리 바이트로만 모델에 넘기고 저장하지 않는다. 글자를 뽑은 뒤에는 참조를 버린다.
-// 이용 횟수는 쓰지 않는다. 모델 호출 횟수만 세션당 10번으로 막는다.
+// 이용 횟수는 쓰지 않는다. 모델 호출 횟수만 세션당 10번으로 막고, 센 값은 DB 에 남긴다.
 
 import {
   checkConfirmable,
@@ -48,7 +48,8 @@ export type ManualDeps = {
   store: ManualStore;
   extractFile(file: { bytes: Buffer; mimeType: string }): Promise<string>;
   extractText(text: string): Promise<string>;
-  attempts: { count(sessionId: string): number; add(sessionId: string): void };
+  /** 호출 하나를 센다. 상한 안이면 true, 다 썼으면 false. */
+  attempts: { claim(sessionId: string): Promise<boolean> };
 };
 
 export type RunResult = { status: number; body: Record<string, unknown> };
@@ -95,14 +96,13 @@ async function upload(
     if (word)
       return err(422, "RECORD_BOOK_DETECTED", RECORD_BOOK_MESSAGE(word));
   }
-  if (deps.attempts.count(session.id) >= UPLOAD_ATTEMPT_CAP) {
+  if (!(await deps.attempts.claim(session.id))) {
     return err(
       429,
       "UPLOAD_LIMIT",
       `한 자기평가서에서 올릴 수 있는 횟수(${UPLOAD_ATTEMPT_CAP}번)를 다 썼어요. 이미 올린 메모를 고쳐서 써 주세요.`,
     );
   }
-  deps.attempts.add(session.id);
 
   let raw: string;
   try {

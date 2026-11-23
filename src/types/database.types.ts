@@ -9616,6 +9616,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_selfeval_claim_upload: {
+        Args: { p_cap?: number; p_profile_id: string; p_session_id: string };
+        Returns: Json;
+      };
       fn_selfeval_finalize: {
         Args: {
           p_char_count: Json;
