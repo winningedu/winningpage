@@ -1,5 +1,4 @@
 // 자동 생성 — 손으로 고치지 말 것. 재생성: npm run gen:types
-
 export type Json =
   | string
   | number
