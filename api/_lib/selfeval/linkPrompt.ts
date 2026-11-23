@@ -65,7 +65,7 @@ const RULES = [
   "",
   "판정 방법",
   "- 1차: R0(핵심 기록)과 나머지 기록 R1, R2, ... 를 하나씩 짝지어 판정한다.",
-  "- 2차: 1차에서 연계라고 한 기록이 둘 이상이면 그 기록끼리 모든 쌍도 같은 응답에서 판정한다.",
+  "- 2차: 1차에서 연계라고 한 기록이 있으면 그 기록과 다른 기록 사이의 쌍도 같은 응답에서 판정한다. 핵심이나 이미 연계된 기록과 이어지면 연계다.",
   "- 판정마다 from 기록의 원문과 to 기록의 원문에서 근거 문장을 글자 그대로 가져와 quote_from, quote_to 에 쓴다. 고쳐 쓰지 않는다.",
   "- 이어받음(inherit)과 같은 질문 심화(deepen)는 from 이 먼저 제출한 기록이고 to 가 나중에 제출한 기록이다.",
   "- 연계가 아니면 linked 를 false 로 하고 나머지는 빈 문자열로 둔다.",
@@ -155,7 +155,7 @@ const str = (v: unknown): string => (typeof v === "string" ? v : "");
 
 /**
  * 모델 응답을 코드 규칙으로 걸러 인정된 연계만 남긴다. 핵심과 이어진 1차 쌍을 먼저 확인하고,
- * 1차를 통과한 기록 중 앞의 8건 사이의 쌍만 2차로 인정한다(명세 No.184).
+ * 1차를 통과한 기록 중 앞의 8건에 한쪽이라도 닿는 쌍만 2차로 인정한다(명세 No.174, 184).
  */
 export function validateLinkResponse(
   value: unknown,
@@ -224,6 +224,7 @@ export function validateLinkResponse(
       .slice(0, MAX_PAIR_RECORDS)
       .map((r) => r.id),
   );
-  const second = pass2.filter((l) => pool.has(l.fromId) && pool.has(l.toId));
+  // 한쪽 끝만 1차 통과 기록이어도 남긴다. 다른 끝은 그 기록을 거친 2단계 기록이 된다.
+  const second = pass2.filter((l) => pool.has(l.fromId) || pool.has(l.toId));
   return { ok: true, links: [...pass1, ...second], rejected };
 }

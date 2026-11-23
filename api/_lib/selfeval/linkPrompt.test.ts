@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildLinkGraph, linkBonus } from "./linkGraph.js";
 import { buildLinkPrompt, validateLinkResponse } from "./linkPrompt.js";
 import type { ActivityRecordLike } from "./types.js";
 import { LINK_TYPE_LABELS, LINK_TYPES } from "./types.js";
@@ -124,7 +125,7 @@ describe("validateLinkResponse", () => {
     expect(v.links).toEqual([]);
   });
 
-  it("keeps a pass 2 pair only when both records passed pass 1", () => {
+  it("keeps a pass 2 pair when at least one record passed pass 1, so the other becomes a two hop record", () => {
     const v = validateLinkResponse(
       {
         judgments: [
@@ -138,21 +139,44 @@ describe("validateLinkResponse", () => {
     );
     if (!v.ok) throw new Error("ok 여야 한다");
     const pairs = v.links.map((l) => `${l.fromId}>${l.toId}`);
-    expect(pairs).toEqual(["core>o1", "core>o2", "o1>o2"]);
+    // o3 는 1차를 통과하지 못했지만 통과한 o1 과 이어지므로 o1 을 거친 2단계 기록이 된다(명세 No.174).
+    expect(pairs).toEqual(["core>o1", "core>o2", "o1>o2", "o1>o3"]);
+    const graph = buildLinkGraph(v.links, "core");
+    expect(graph.get("o3")?.hop).toBe(2);
+    const o3 = graph.get("o3");
+    // 2단계 연계는 명시 +8, 암묵 +5(명세 No.179).
+    expect(
+      linkBonus(2, o3?.strength ?? "implicit", o3?.confirmed ?? false),
+    ).toBe(o3?.strength === "explicit" ? 8 : 5);
   });
 
-  it("limits pass 2 to the first eight records that passed pass 1", () => {
-    const os = others(9);
+  it("drops a pass 2 pair when neither record passed pass 1", () => {
+    const v = validateLinkResponse(
+      {
+        judgments: [yes("R0", "R1"), yes("R2", "R3")],
+      },
+      input(others(3)),
+    );
+    if (!v.ok) throw new Error("ok 여야 한다");
+    expect(v.links.map((l) => `${l.fromId}>${l.toId}`)).toEqual(["core>o1"]);
+  });
+
+  it("limits pass 2 to pairs that touch the first eight records that passed pass 1", () => {
+    const os = others(10);
     const judgments = [
-      ...os.map((_, i) => yes("R0", `R${i + 1}`)),
+      ...os.slice(0, 9).map((_, i) => yes("R0", `R${i + 1}`)),
       yes("R1", "R8"),
       yes("R1", "R9"),
+      yes("R9", "R10"),
+      yes("R1", "R10"),
     ];
     const v = validateLinkResponse({ judgments }, input(os));
     if (!v.ok) throw new Error("ok 여야 한다");
     const pairs = v.links.map((l) => `${l.fromId}>${l.toId}`);
     expect(pairs).toContain("o1>o8");
-    expect(pairs).not.toContain("o1>o9");
+    expect(pairs).toContain("o1>o9");
+    expect(pairs).not.toContain("o9>o10");
+    expect(pairs).toContain("o1>o10");
     expect(pairs).toContain("core>o9");
   });
 
