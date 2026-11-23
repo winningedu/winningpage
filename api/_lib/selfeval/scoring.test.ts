@@ -207,7 +207,12 @@ describe("문항 없음 채점", () => {
     const items = scoreItems(noPrompt({ judgment: [true, false] }), {
       promptMissing: true,
     });
-    const fixes = mandatoryFixes({ items, format: allPass(), clicheHits: [] });
+    const fixes = mandatoryFixes({
+      items,
+      format: allPass(),
+      clicheHits: [],
+      planHits: [],
+    });
     expect(fixes.map((f) => f.key)).toContain("judgment_low");
   });
 
