@@ -14,7 +14,6 @@ import { getSubjectLabel } from "@/components/goal/subjectTokens";
 import { useAuth } from "@/context/AuthProvider";
 import {
   getDayIndexFromYMDServer,
-  kstYMD,
   VIRTUAL_DAY_NAMES,
 } from "@/lib/goal/calc/index.js";
 import {
@@ -25,6 +24,7 @@ import {
   stopGoalTimer,
 } from "@/lib/goalApi";
 import { goalStudentQueryOptions } from "@/lib/queryClient";
+import { ymdIn } from "@/lib/time/day";
 
 const POLL_INTERVAL_MS = 20 * 1000; // GET 폴링 15~30초 범위(임무 지시)
 
@@ -119,7 +119,11 @@ export default function Timer() {
       {}) as Record<string, { ideal: number; min: number } | undefined>;
     // getDayIndexFromYMDServer는 항상 0~6을 반환하고 VIRTUAL_DAY_NAMES는 7개 고정이다.
     const dayName =
-      VIRTUAL_DAY_NAMES[getDayIndexFromYMDServer(kstYMD(new Date()))]!;
+      VIRTUAL_DAY_NAMES[
+        getDayIndexFromYMDServer(
+          ymdIn(new Date(), goalStudentResult.student.timeZone),
+        )
+      ]!;
     const idealToday = weeklySchedule?.[dayName]?.ideal;
     setIdealTodayHours(typeof idealToday === "number" ? idealToday : null);
   }, [goalStudentResult]);
