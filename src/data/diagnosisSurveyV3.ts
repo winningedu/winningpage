@@ -175,12 +175,17 @@ const verifyText = (code: string) => {
   return textCell(row, 2);
 };
 
-/** 01_척도문항 items by No (key "1".."n") plus the 17 check item (key "V"). */
+/**
+ * 01_척도문항 items by No (key "1".."n") plus the 17 check item (key "V").
+ * q11 items depend on the track; before q1 is answered q11 has none.
+ */
 export function statementsFor(
   id: LikertQuestion,
-  track: TrackCode,
+  track: TrackCode | null,
 ): readonly Statement[] {
-  const items = id === "q11" ? SCALE_ITEMS.q11[track] : SCALE_ITEMS[id];
+  if (id === "q11" && track === null) return [];
+  const items =
+    id === "q11" ? SCALE_ITEMS.q11[track as TrackCode] : SCALE_ITEMS[id];
   return [
     ...items.map((item) => ({ key: String(item.no), text: item.text })),
     { key: "V", text: verifyText(VERIFY_CODES[id]) },

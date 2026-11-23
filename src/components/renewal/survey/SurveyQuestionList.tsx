@@ -4,16 +4,20 @@ import {
   PAIR_CHOICES,
   Q3_TARGET_LABELS,
   SURVEY_V3_QUESTIONS,
+  statementsFor,
 } from "@/data/diagnosisSurveyV3";
 import type { QuestionId, TrackCode } from "@/lib/diagnosis-v3/codes";
+import { LIKERT_LEVELS } from "@/lib/diagnosis-v3/likert";
 import type { OptionRow } from "@/lib/diagnosis-v3/options";
 import type { IsoDate } from "@/lib/diagnosis-v3/types";
 import {
   draftTrack,
+  q23Order,
   type SurveyDraft,
   showsQ3Target,
 } from "@/lib/renewalSurvey";
 import ConditionalTextInput from "./ConditionalTextInput";
+import LikertMatrix from "./LikertMatrix";
 import OptionGroup from "./OptionGroup";
 import QuestionCard from "./QuestionCard";
 
@@ -35,6 +39,7 @@ export default function SurveyQuestionList({
   questionIds,
   answers,
   onAnswer,
+  seed,
 }: SurveyQuestionListProps) {
   // null until q1 is answered; only q11 and q12 depend on it
   const track = draftTrack(answers);
@@ -70,6 +75,15 @@ export default function SurveyQuestionList({
               <TargetFields
                 value={answers.q3Target}
                 onChange={(next) => onAnswer("q3Target", next)}
+              />
+            )}
+            {question.kind === "likert" && (
+              <LikertField
+                id={id as LikertQuestion}
+                track={track}
+                seed={seed}
+                value={value}
+                onChange={(next) => onAnswer(id, next)}
               />
             )}
             {question.kind === "pair" && (
@@ -194,5 +208,52 @@ function PairField({
         </div>
       ))}
     </div>
+  );
+}
+
+type LikertQuestion = "q9" | "q20" | "q11" | "q23";
+
+// 기능요구명세서 row 8 (D10): columns run 매우 그렇다 to 전혀 그렇지 않다, left to
+// right. LIKERT_LEVELS (01 A2) is low to high, so column c is Likert 4 - c.
+const SCALE_LABELS = [...LIKERT_LEVELS].reverse().map((level) => level.label);
+const TOP = LIKERT_LEVELS.length - 1;
+
+function LikertField({
+  id,
+  track,
+  seed,
+  value,
+  onChange,
+}: {
+  id: LikertQuestion;
+  track: TrackCode | null;
+  seed: string;
+  value: unknown;
+  onChange: (value: Record<string, number>) => void;
+}) {
+  const statements = statementsFor(id, track);
+  if (statements.length === 0) return null;
+  // 기능요구명세서 row 31: q23 items shuffled, V4 always last
+  const rows =
+    id === "q23"
+      ? q23Order(seed).map((key) => statements.find((s) => s.key === key))
+      : statements;
+  const answers = fieldsOf(value) as Readonly<Record<string, number>>;
+  const columns = Object.fromEntries(
+    Object.entries(answers).map(([key, likert]) => [key, TOP - likert]),
+  );
+  return (
+    <LikertMatrix
+      statements={rows.flatMap((row) => (row ? [row] : []))}
+      scale={SCALE_LABELS}
+      value={columns}
+      onChange={(next) =>
+        onChange(
+          Object.fromEntries(
+            Object.entries(next).map(([key, column]) => [key, TOP - column]),
+          ),
+        )
+      }
+    />
   );
 }

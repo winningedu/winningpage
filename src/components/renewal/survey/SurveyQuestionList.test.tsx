@@ -8,8 +8,11 @@ import {
 } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
+import { statementsFor } from "@/data/diagnosisSurveyV3";
 import type { QuestionId } from "@/lib/diagnosis-v3/codes";
+import { LIKERT_LEVELS } from "@/lib/diagnosis-v3/likert";
 import { OPTIONS } from "@/lib/diagnosis-v3/options";
+import { q23Order } from "@/lib/renewalSurvey";
 import SurveyQuestionList from "./SurveyQuestionList";
 
 afterEach(cleanup);
@@ -136,5 +139,57 @@ describe("SurveyQuestionList 특수 선택 문항", () => {
     });
     fireEvent.click(screen.getByRole("radio", { name: label(OPTIONS.q3, 4) }));
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+});
+
+describe("SurveyQuestionList 척도 문항", () => {
+  /** Desktop rows come first; the mobile layout repeats them. */
+  const rowNames = () => {
+    const groups = screen.getAllByRole("radiogroup");
+    return groups
+      .slice(0, groups.length / 2)
+      .map((group) => group.getAttribute("aria-label"));
+  };
+
+  it("왼쪽부터 매우 그렇다에서 전혀 그렇지 않다 순서로 보이고 역문항 표시는 없다", () => {
+    render(<Harness ids={["q20"]} initial={{ q1: 3 }} />);
+    const header = [...LIKERT_LEVELS].reverse().map((level) => level.label);
+    const first = screen.getAllByRole("radiogroup")[0] as HTMLElement;
+    expect(
+      within(first)
+        .getAllByRole("radio")
+        .map((radio) => radio.getAttribute("aria-label")),
+    ).toEqual(
+      header.map((name) => `${first.getAttribute("aria-label")} - ${name}`),
+    );
+    expect(screen.queryByText(/역문항/)).not.toBeInTheDocument();
+  });
+
+  it("맨 왼쪽(매우 그렇다)을 고르면 4, 맨 오른쪽은 0으로 저장한다", () => {
+    render(<Harness ids={["q20"]} initial={{ q1: 3 }} />);
+    const [first, second] = screen.getAllByRole("radiogroup") as HTMLElement[];
+    fireEvent.click(
+      within(first as HTMLElement).getAllByRole("radio")[0] as HTMLElement,
+    );
+    fireEvent.click(
+      within(second as HTMLElement).getAllByRole("radio")[4] as HTMLElement,
+    );
+    expect(latest.q20).toEqual({ "1": 4, "2": 0 });
+  });
+
+  it("11번 문장은 학년 트랙에 따라 바뀐다", () => {
+    render(<Harness ids={["q11"]} initial={{ q1: 2 }} />);
+    expect(rowNames()).toEqual(statementsFor("q11", "M3").map((s) => s.text));
+    cleanup();
+    render(<Harness ids={["q11"]} initial={{ q1: 5 }} />);
+    expect(rowNames()).toEqual(statementsFor("q11", "H3").map((s) => s.text));
+  });
+
+  it("21번은 시드 순서로 섞어 보이고 응답 확인 문항은 마지막이다", () => {
+    render(<Harness ids={["q23"]} initial={{ q1: 3 }} />);
+    const texts = new Map(
+      statementsFor("q23", "H12").map((s) => [s.key, s.text]),
+    );
+    expect(rowNames()).toEqual(q23Order("seed-1").map((key) => texts.get(key)));
   });
 });
