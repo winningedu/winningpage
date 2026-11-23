@@ -30,6 +30,7 @@ import { ymdIn } from "../../../src/lib/time/day.js";
 import { isRankingVisible } from "../../_lib/goal/rankingVisibility.js";
 import {
   getStudentTimeZone,
+  narrowGoalSession,
   num,
   openGoalSession,
 } from "../../_lib/goal/repo.js";
@@ -94,7 +95,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
     }
 
-    const { profileId, allowed } = session;
+    const { allowed } = session;
+    const { profileId } = narrowGoalSession(session);
     // openGoalSession(api/_lib/goal/repo.ts, Stage3 대상)의 JSDoc은 supabaseAdmin을 약한
     // `object`로만 선언한다, 이 파일은 api/_lib/goal/repo.ts 헬퍼를 거치지 않고 supabase
     // 클라이언트를 직접 호출하는 유일한 goal/* 라우트라 실제 클라이언트 타입으로

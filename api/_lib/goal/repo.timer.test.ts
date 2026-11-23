@@ -12,7 +12,10 @@ type Row = Record<string, unknown>;
 /** profiles 와 goal_timer_sessions 만 흉내 내는 최소 인메모리 supabase. */
 function fakeSupabase(timeZone: string | null, sessions: Row[]) {
   let seq = 0;
-  const tables: Record<string, Row[]> = {
+  const tables: Record<string, Row[]> & {
+    profiles: Row[];
+    goal_timer_sessions: Row[];
+  } = {
     profiles: timeZone === null ? [] : [{ id: "p1", time_zone: timeZone }],
     goal_timer_sessions: sessions,
   };
@@ -20,12 +23,12 @@ function fakeSupabase(timeZone: string | null, sessions: Row[]) {
     const filters: ((r: Row) => boolean)[] = [];
     let mode: "select" | "insert" | "update" = "select";
     let payload: Row = {};
-    const matched = () =>
-      tables[name].filter((r) => filters.every((f) => f(r)));
+    const table = tables[name as "profiles"];
+    const matched = () => table.filter((r) => filters.every((f) => f(r)));
     const run = () => {
       if (mode === "insert") {
         const row = { id: `s${++seq}`, ended_at: null, ...payload };
-        tables[name].push(row);
+        table.push(row);
         return [row];
       }
       const rows = matched();
@@ -88,7 +91,7 @@ describe("타이머 하루 경계", () => {
       "math",
       new Date("2026-11-22T15:30:00Z"),
     );
-    expect(sessions[0].session_date).toBe("2026-11-23");
+    expect(sessions[0]?.session_date).toBe("2026-11-23");
   });
 
   it("LA 학생은 같은 순간이 전날로 열린다", async () => {
@@ -99,7 +102,7 @@ describe("타이머 하루 경계", () => {
       "math",
       new Date("2026-11-22T15:30:00Z"),
     );
-    expect(sessions[0].session_date).toBe("2026-11-22");
+    expect(sessions[0]?.session_date).toBe("2026-11-22");
   });
 
   it("현지 23:30 에서 자정 너머로 가는 세션을 현지 자정에 나눈다", async () => {
@@ -120,8 +123,8 @@ describe("타이머 하루 경계", () => {
       "p1",
       new Date("2026-11-22T15:02:00Z"),
     );
-    expect(sessions[0].ended_at).toBe("2026-11-22T15:00:00.000Z");
-    expect(sessions[0].end_reason).toBe("midnight");
+    expect(sessions[0]?.ended_at).toBe("2026-11-22T15:00:00.000Z");
+    expect(sessions[0]?.end_reason).toBe("midnight");
     expect(open?.session_date).toBe("2026-11-23");
     expect(open?.started_at).toBe("2026-11-22T15:00:00.000Z");
   });
