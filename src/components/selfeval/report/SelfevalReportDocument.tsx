@@ -46,12 +46,16 @@ export default function SelfevalReportDocument({
 
   return (
     <div className="flex flex-col gap-6 print:gap-0">
-      {payload.composeMissing && (
+      {(payload.composeMissing || payload.composePartial) && (
         <div
           role="status"
           className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-surface-info px-4 py-3 text-app-label text-ink-strong print:hidden"
         >
-          <p>설명 문장을 만들지 못해 비워 두었어요.</p>
+          <p>
+            {payload.composeMissing
+              ? "설명 문장을 만들지 못해 비워 두었어요."
+              : "일부 설명 문장을 만들지 못해 비워 두었어요."}
+          </p>
           <Button type="button" variant="outline" onClick={onRebuild}>
             다시 만들기
           </Button>

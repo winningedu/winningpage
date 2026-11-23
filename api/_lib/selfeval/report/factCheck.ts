@@ -7,7 +7,8 @@ import { extractNumbers } from "../text.js";
 import type { StepIssue } from "../types.js";
 import type { ComposeNeed } from "./needs.js";
 
-const MAX_TEXT_CHARS = 160;
+/** 1~2문장 설명의 글자 상한. 프롬프트에도 같은 숫자를 적는다. */
+export const MAX_TEXT_CHARS = 200;
 const BANNED = /[\u00b7\u2014\u2013\u2192\u2190\u21d2]/;
 const TAG = /(?<![A-Za-z])[PDAH]\d+/g;
 const CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
@@ -21,7 +22,8 @@ const QUOTE_PATTERNS: readonly RegExp[] = [
 
 export type ComposeVerdict =
   | { ok: true; texts: Record<string, string> }
-  | { ok: false; issues: StepIssue[] };
+  /** texts 는 실패한 응답에서도 자기 검사를 통과한 항목이다. */
+  | { ok: false; issues: StepIssue[]; texts: Record<string, string> };
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -117,6 +119,7 @@ export function validateCompose(
     return {
       ok: false,
       issues: [{ code: "invalid_shape", message: "items 배열이 없습니다." }],
+      texts: {},
     };
   }
   const given = new Map<string, string>();
@@ -141,5 +144,5 @@ export function validateCompose(
     if (found.length > 0) issues.push(...found);
     else texts[n.id] = text.trim();
   }
-  return issues.length > 0 ? { ok: false, issues } : { ok: true, texts };
+  return issues.length > 0 ? { ok: false, issues, texts } : { ok: true, texts };
 }

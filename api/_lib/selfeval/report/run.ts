@@ -63,7 +63,10 @@ export type RunOutcome =
   | { kind: "failed" };
 
 const isComplete = (r: StoredReport) =>
-  r.status === "ready" && r.payload !== null && !r.payload.composeMissing;
+  r.status === "ready" &&
+  r.payload !== null &&
+  !r.payload.composeMissing &&
+  !r.payload.composePartial;
 
 export async function runReport(deps: RunDeps): Promise<RunOutcome> {
   const { sessionId } = deps;
