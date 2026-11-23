@@ -5714,6 +5714,33 @@ export type Database = {
           },
         ];
       };
+      profile_login_days: {
+        Row: {
+          first_seen_at: string;
+          kst_date: string;
+          profile_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          first_seen_at?: string;
+          kst_date: string;
+          profile_id: string;
+        };
+        Update: {
+          first_seen_at?: string;
+          kst_date?: string;
+          profile_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_login_days_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           address: string | null;
@@ -9110,6 +9137,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_hq_stat_included: {
+        Args: { p_include_internal: boolean; p_profile_id: string };
+        Returns: boolean;
+      };
       fn_inquiry_claim_generation: {
         Args: {
           p_mode: string;
@@ -9305,6 +9336,7 @@ export type Database = {
           counsel_statuses_deleted: number;
           enrollment_changes_deleted: number;
           enrollments_deleted: number;
+          login_days_deleted: number;
           memos_deleted: number;
           student_flags_deleted: number;
         }[];
