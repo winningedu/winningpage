@@ -50,6 +50,16 @@ const SRC_ROOT = join(process.cwd(), "src") + "/";
 // diagnosisCopy.js 는 제외한다(문구집 원문에 '학생부종합' 같은 어휘가 정당하게 들어 있다).
 // admissionParsing.js 도 제외 — 전형 유형 문자열을 쓰지만 입결 HTML 파싱이라 도메인이 다르다.
 const REPORT_COMPONENT_DIR = "components/renewal/report/";
+
+// 하위 폴더(v3/)는 재귀로 내려가고 폴더 자체는 목록에 넣지 않는다. 폴더를 파일처럼 읽으면 EISDIR 이다.
+function filesUnder(dir: string): string[] {
+  return readdirSync(SRC_ROOT + dir, { withFileTypes: true }).flatMap(
+    (entry) =>
+      entry.isDirectory()
+        ? filesUnder(dir + entry.name + "/")
+        : [dir + entry.name],
+  );
+}
 const DIAGNOSIS_SURFACE = [
   "lib/diagnosisScoring.ts",
   "lib/diagnosisCopyBinding.ts",
@@ -63,13 +73,23 @@ const DIAGNOSIS_SURFACE = [
   "hooks/useAdmissionCascade.ts",
   "pages/renewal/FreeDiagnosisReport.tsx",
   "pages/renewal/SurveyStepShell.tsx",
-  ...readdirSync(SRC_ROOT + REPORT_COMPONENT_DIR).map(
-    (file) => REPORT_COMPONENT_DIR + file,
-  ),
+  ...filesUnder(REPORT_COMPONENT_DIR),
 ].filter((path) => existsInSrc(path));
 
 test("소비 표면 스캔 대상이 실재한다(경로 오타로 스캔이 0건이 되지 않는다)", () => {
   expect(DIAGNOSIS_SURFACE.length >= 10).toBe(true);
+});
+
+test("소비 표면은 파일만 담고, 레거시 리포트 컴포넌트와 v3 하위 폴더 파일을 모두 포함한다", () => {
+  expect(DIAGNOSIS_SURFACE).toContain(
+    REPORT_COMPONENT_DIR + "DiagnosisReportView.tsx",
+  );
+  expect(DIAGNOSIS_SURFACE).toContain(
+    REPORT_COMPONENT_DIR + "v3/CoverPage.tsx",
+  );
+  expect(DIAGNOSIS_SURFACE.filter((path) => !/\.[a-z]+$/.test(path))).toEqual(
+    [],
+  );
 });
 
 /* ---- 격리 1. 표시 계층 자체 결정 문자열 — 정의처 1곳, 소비처 0곳 ---- */
