@@ -6,6 +6,7 @@ import type { AreaCode } from "./codes.js";
 import { P1_CODES, P2_CODES } from "./codes.js";
 import { judgeExamOps } from "./examOps.js";
 import { scoreMbti } from "./mbti.js";
+import { buildPage1 } from "./pages/p1.js";
 import { goalOf } from "./pages/p2.js";
 import { buildPlan } from "./plan.js";
 import { buildPrescriptions } from "./prescription.js";
@@ -14,7 +15,11 @@ import { scoreAreas } from "./scoring.js";
 import { recommendServices, type ServicesResult } from "./services.js";
 import { studentType } from "./studentType.js";
 import { judgeSubjects } from "./subjects.js";
-import { scoreTemperament, type TemperamentResult } from "./temperament.js";
+import {
+  scoreTemperament,
+  type TemperamentResult,
+  temperamentPage9,
+} from "./temperament.js";
 import type {
   DiagnosisV3Answers,
   DiagnosisV3Context,
@@ -138,6 +143,13 @@ export function scoreEngine(
 }
 
 /** 22_리포트요소 pages; filled page by page. */
-export function buildPages(_engine: Engine): Partial<DiagnosisV3Pages> {
-  return {};
+export function buildPages(engine: Engine): Partial<DiagnosisV3Pages> {
+  const p9 = temperamentPage9(
+    engine.temperament,
+    engine.scores.reliability.temperament,
+  );
+  return {
+    p1: buildPage1(engine, p9.hero.name),
+    p9,
+  };
 }
