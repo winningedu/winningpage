@@ -125,38 +125,48 @@ describe("resolveAdmissionTarget", () => {
 
   test("16번 선택 이름을 입결 자연키로 바꾼다", async () => {
     expect(await resolveAdmissionTarget(CASCADE)).toEqual({
-      universityKey: "yonsei",
-      departmentKey: "biz",
-      mainTrack: "교과",
-      admissionTrack: "추천형",
-      subjectReflection: null,
+      ok: true,
+      target: {
+        universityKey: "yonsei",
+        departmentKey: "biz",
+        mainTrack: "교과",
+        admissionTrack: "추천형",
+        subjectReflection: null,
+      },
     });
     expect(mockDepartments).toHaveBeenCalledWith("yonsei");
   });
 
   test("반영교과 전체는 null, 고른 값은 그대로다", async () => {
     expect(
-      (
-        await resolveAdmissionTarget({
-          ...CASCADE,
-          subjectReflection: NO_SUBJECT_REFLECTION_LABEL,
-        })
-      )?.subjectReflection,
-    ).toBeNull();
+      await resolveAdmissionTarget({
+        ...CASCADE,
+        subjectReflection: NO_SUBJECT_REFLECTION_LABEL,
+      }),
+    ).toMatchObject({ ok: true, target: { subjectReflection: null } });
     expect(
-      (
-        await resolveAdmissionTarget({
-          ...CASCADE,
-          subjectReflection: "국수영",
-        })
-      )?.subjectReflection,
-    ).toBe("국수영");
+      await resolveAdmissionTarget({
+        ...CASCADE,
+        subjectReflection: "국수영",
+      }),
+    ).toMatchObject({ ok: true, target: { subjectReflection: "국수영" } });
   });
 
-  test("키를 못 찾거나 조회가 실패하면 null 이다", async () => {
+  test("고른 이름이 목록에 없으면 실패다", async () => {
     mockDepartments.mockResolvedValue({ data: [], error: null });
-    expect(await resolveAdmissionTarget(CASCADE)).toBeNull();
+    expect(await resolveAdmissionTarget(CASCADE)).toEqual({ ok: false });
+  });
+
+  test("대학 목록 조회가 실패하면 실패다", async () => {
     mockUniversities.mockResolvedValue({ data: [], error: new Error("x") });
-    expect(await resolveAdmissionTarget(CASCADE)).toBeNull();
+    expect(await resolveAdmissionTarget(CASCADE)).toEqual({ ok: false });
+  });
+
+  test("학과 목록 조회가 실패하면 고른 이름이 있어도 실패다", async () => {
+    mockDepartments.mockResolvedValue({
+      data: [{ department_key: "biz", department_name: "경영학과" }],
+      error: new Error("x"),
+    });
+    expect(await resolveAdmissionTarget(CASCADE)).toEqual({ ok: false });
   });
 });

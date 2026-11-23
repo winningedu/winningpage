@@ -8,7 +8,7 @@ import {
   type CascadeValue,
   useAdmissionCascade,
 } from "@/hooks/useAdmissionCascade";
-import { validateAnswers } from "@/lib/diagnosis-v3";
+import { type AdmissionTarget, validateAnswers } from "@/lib/diagnosis-v3";
 // 학습진단 유료 게이팅(20260821, 이용 요금 구조 최종본 20260806) — 진입 판정(마운트 시
 // 1회)과 제출 소진(마지막 스텝 CTA) 둘 다 이 모듈을 거친다. 판정 정본은 서버이고,
 // 여기서는 호출·fail-open 흡수·리다이렉트만 한다.
@@ -182,9 +182,19 @@ export default function SurveyStepShell() {
    * reuses the attemptId, and the server returns the stored report for it.
    */
   const submitDiagnosis = useCallback(async () => {
-    const target = isCascadeComplete(answers.q15)
-      ? await resolveAdmissionTarget(answers.q15 as AdmissionCascadeValue)
-      : null;
+    let target: AdmissionTarget | null = null;
+    if (isCascadeComplete(answers.q15)) {
+      const resolved = await resolveAdmissionTarget(
+        answers.q15 as AdmissionCascadeValue,
+      );
+      if (!resolved.ok) {
+        window.alert(
+          "목표 대학 입결 정보를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+        );
+        return null;
+      }
+      target = resolved.target;
+    }
     const submitAnswers = toSubmitAnswers(answers, target);
     if (!validateAnswers(submitAnswers, diagnosedAt).ok) {
       window.alert("응답하지 않은 문항이 있어요. 문항을 다시 확인해 주세요.");

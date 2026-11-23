@@ -23,6 +23,7 @@ const authState = vi.hoisted(() => ({ userId: "u1" as string | null }));
 const accessMock = vi.hoisted(() => vi.fn());
 const consumeMock = vi.hoisted(() => vi.fn());
 const submitMock = vi.hoisted(() => vi.fn());
+const resolveMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/config/site", async (orig) => {
   const actual = await orig<typeof import("@/config/site")>();
@@ -51,7 +52,7 @@ vi.mock("@/lib/diagnosisAccess", () => ({
 }));
 vi.mock("@/lib/diagnosisSubmitApi", () => ({
   submitDiagnosisV3: submitMock,
-  resolveAdmissionTarget: async () => CALC_EXAMPLE.q15,
+  resolveAdmissionTarget: resolveMock,
 }));
 vi.mock("@/lib/diagnosisSurveyCopyOverrides", () => ({
   fetchSurveyCopyOverrides: async () => new Map(),
@@ -179,6 +180,8 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-09T03:00:00Z"));
   submitMock.mockReset();
+  resolveMock.mockReset();
+  resolveMock.mockResolvedValue({ ok: true, target: CALC_EXAMPLE.q15 });
   localStorage.clear();
   gateState.resume = false;
   authState.userId = "u1";
@@ -531,6 +534,19 @@ describe("SurveyStepShell v3 제출", () => {
     fireEvent.click(screen.getByRole("button", { name: "뒤로" }));
     expect(screen.getByText("리포트 페이지")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "제출" })).toBeNull();
+  });
+
+  it("목표 대학 입결 키를 확인하지 못하면 소진하지 않고 다시 시도 안내를 보인다", async () => {
+    resolveMock.mockResolvedValue({ ok: false });
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    await answerAllAndSubmit();
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+    expect(consumeMock).not.toHaveBeenCalled();
+    expect(submitMock).not.toHaveBeenCalled();
+    expect(window.alert).toHaveBeenCalledWith(
+      "목표 대학 입결 정보를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+    );
   });
 
   it("답안이 검증을 통과하지 못하면 소진하지 않고 보내지 않는다", async () => {

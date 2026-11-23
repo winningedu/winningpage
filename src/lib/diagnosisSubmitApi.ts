@@ -60,35 +60,47 @@ export type AdmissionCascadeValue = {
   readonly subjectReflection?: string;
 };
 
+export type AdmissionTargetResult =
+  | { ok: true; target: AdmissionTarget }
+  | { ok: false };
+
 /**
  * The q15 cascade holds display names; the server looks admission_results up
  * by university_key and department_key, so the names are mapped back here.
- * null when a key cannot be found (the report then shows 입결 미진행).
+ * A failed lookup or a name missing from the list is a failure, never an
+ * absent q15: the stored report would otherwise lose q15..q18 for good.
  */
 export async function resolveAdmissionTarget(
   cascade: AdmissionCascadeValue,
-): Promise<AdmissionTarget | null> {
+): Promise<AdmissionTargetResult> {
   const { university, department, admissionType, detailType } = cascade;
-  if (!university || !department || !admissionType || !detailType) return null;
+  if (!university || !department || !admissionType || !detailType) {
+    return { ok: false };
+  }
   const universities = await fetchAdmissionUniversities();
+  if (universities.error) return { ok: false };
   const universityKey = universities.data.find(
     (row) => row.university_name === university,
   )?.university_key;
-  if (!universityKey) return null;
+  if (!universityKey) return { ok: false };
   const departments = await fetchAdmissionDepartments(universityKey);
+  if (departments.error) return { ok: false };
   const departmentKey = departments.data.find(
     (row) => row.department_name === department,
   )?.department_key;
-  if (!departmentKey) return null;
+  if (!departmentKey) return { ok: false };
   const reflection = cascade.subjectReflection;
   return {
-    universityKey,
-    departmentKey,
-    mainTrack: admissionType,
-    admissionTrack: detailType,
-    subjectReflection:
-      !reflection || reflection === NO_SUBJECT_REFLECTION_LABEL
-        ? null
-        : reflection,
+    ok: true,
+    target: {
+      universityKey,
+      departmentKey,
+      mainTrack: admissionType,
+      admissionTrack: detailType,
+      subjectReflection:
+        !reflection || reflection === NO_SUBJECT_REFLECTION_LABEL
+          ? null
+          : reflection,
+    },
   };
 }
