@@ -327,7 +327,11 @@ export type FormatCheck = {
   skipped: boolean;
 };
 
-export type MandatoryFixKey = "pending_feelings" | "cliche" | "judgment_low";
+export type MandatoryFixKey =
+  | "pending_feelings"
+  | "cliche"
+  | "judgment_low"
+  | "plan_expression";
 
 export type MandatoryFix = {
   key: MandatoryFixKey;

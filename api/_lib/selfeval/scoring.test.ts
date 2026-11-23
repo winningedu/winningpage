@@ -65,6 +65,7 @@ const allPass = (): FormatCheck[] => [
   fmt("min_sentences", true),
   fmt("no_university", true),
   fmt("no_pending_feelings", true),
+  fmt("no_plan_expression", true),
 ];
 
 describe("mandatoryFixes", () => {
@@ -73,6 +74,7 @@ describe("mandatoryFixes", () => {
       items: scoreItems(checks()),
       format: allPass(),
       clicheHits: [],
+      planHits: [],
     });
     expect(fixes).toEqual([]);
     expect(isSubmittable(fixes)).toBe(true);
@@ -86,6 +88,7 @@ describe("mandatoryFixes", () => {
       items: scoreItems(checks({ judgment: [false, false] })),
       format,
       clicheHits: ["성실", "탁월", "성실"],
+      planHits: [],
     });
     expect(fixes.map((f) => f.key)).toEqual([
       "pending_feelings",
@@ -97,11 +100,33 @@ describe("mandatoryFixes", () => {
     expect(isSubmittable(fixes)).toBe(false);
   });
 
+  it("계획 표현이 남아 있으면 plan_expression 이 마지막에 붙고 찾은 표현이 detail 이다", () => {
+    const format = allPass();
+    format[6] = fmt("no_plan_expression", false);
+    const fixes = mandatoryFixes({
+      items: scoreItems(checks({ judgment: [false, false] })),
+      format,
+      clicheHits: [],
+      planHits: ["계획임", "할 예정"],
+    });
+    expect(fixes.map((f) => f.key)).toEqual([
+      "judgment_low",
+      "plan_expression",
+    ]);
+    const plan = fixes[1];
+    expect(plan?.message).toBe(
+      "계획 표현이 남아 있어요. 실제로 한 일만 쓰고 계획 문장은 지워 주세요",
+    );
+    expect(plan?.detail).toBe("계획임, 할 예정");
+    expect(isSubmittable(fixes)).toBe(false);
+  });
+
   it("판단 확인 2개 중 1개만 통과하면 13점이라 필수 수정이다", () => {
     const ok = mandatoryFixes({
       items: scoreItems(checks({ judgment: [true, false] })),
       format: allPass(),
       clicheHits: [],
+      planHits: [],
     });
     expect(ok.map((f) => f.key)).toEqual(["judgment_low"]);
   });

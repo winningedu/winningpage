@@ -12,6 +12,7 @@ import {
   countChars,
   countSentences,
   extractNumbers,
+  findPlanExpressions,
 } from "./text.js";
 import type {
   FormatCheck,
@@ -73,6 +74,7 @@ export function mandatoryFixes(input: {
   items: ScoreItem[];
   format: FormatCheck[];
   clicheHits: string[];
+  planHits: string[];
 }): MandatoryFix[] {
   const failed = (key: FormatCheck["key"]) =>
     input.format.some((f) => f.key === key && !f.pass);
@@ -102,6 +104,14 @@ export function mandatoryFixes(input: {
       message:
         "결과로 무엇을 판단했는지가 약해요. 판단 문장과 근거 자료를 넣어 주세요",
       detail: `판단 ${judgment.score}점, ${JUDGMENT_MIN_SCORE}점 이상이어야 해요`,
+    });
+  }
+  if (failed("no_plan_expression")) {
+    fixes.push({
+      key: "plan_expression",
+      message:
+        "계획 표현이 남아 있어요. 실제로 한 일만 쓰고 계획 문장은 지워 주세요",
+      detail: input.planHits.length > 0 ? input.planHits.join(", ") : null,
     });
   }
   return fixes;
@@ -146,7 +156,12 @@ export function assembleVerification(input: {
     sentences: input.sentences,
   });
   const cliche = clicheDensity(input.text, input.mode);
-  const fixes = mandatoryFixes({ items, format, clicheHits: cliche.hits });
+  const fixes = mandatoryFixes({
+    items,
+    format,
+    clicheHits: cliche.hits,
+    planHits: findPlanExpressions(input.text),
+  });
   return {
     items,
     total: totalScore(items),
