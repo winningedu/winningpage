@@ -185,6 +185,48 @@ describe("W15 미리보기", () => {
     ).toBeTruthy();
   });
 
+  it("형식 오류 줄에는 어긋난 칸마다 이유를 풀어서 보인다", async () => {
+    stubPage({
+      [PREVIEW]: {
+        body: {
+          rows: [
+            {
+              index: 0,
+              verdict: "format_error",
+              reasons: ["name", "phone", "grade", "class"],
+            },
+            {
+              index: 1,
+              verdict: "format_error",
+              reasons: ["group_without_class"],
+            },
+            { index: 2, verdict: "new" },
+          ],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/excel");
+    await screen.findByText("1. 양식 내려받기");
+    paste(PASTED);
+    fireEvent.click(screen.getByRole("button", { name: "올리기" }));
+
+    await screen.findByText("3. 행 판정 미리보기");
+    const rows = screen.getAllByRole("row").slice(1);
+    const first = within(rows[0] as HTMLElement);
+    expect(first.getByText("형식 오류")).toBeTruthy();
+    expect(first.getByText("이름을 적어요")).toBeTruthy();
+    expect(first.getByText("전화번호를 확인해 주세요")).toBeTruthy();
+    expect(first.getByText("학년은 중1~고3 중에서 골라 적어요")).toBeTruthy();
+    expect(first.getByText("반은 숫자만 적어요")).toBeTruthy();
+    expect(
+      within(rows[1] as HTMLElement).getByText(
+        "그룹을 적었다면 학년과 반도 적어요",
+      ),
+    ).toBeTruthy();
+    expect(within(rows[2] as HTMLElement).queryByText(/적어요/)).toBeNull();
+  });
+
   it("취소하면 처음 화면으로 돌아간다", async () => {
     stubPage({ [PREVIEW]: { body: verdictsBody("new", "new", "new") } });
 

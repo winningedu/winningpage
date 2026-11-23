@@ -15,6 +15,8 @@ import Notice from "../Notice";
 import {
   type ApplyMode,
   isErrorVerdict,
+  REASON_LABEL,
+  type Reason,
   VERDICT_LABEL,
   type Verdict,
 } from "./excelImport";
@@ -35,6 +37,8 @@ const TONE: Record<Verdict, ChipTone> = {
 interface ExcelPreviewProps {
   rows: TeacherFileRow[];
   verdicts: Verdict[];
+  /** 줄마다 형식 오류의 이유(형식 오류가 아닌 줄은 비어 있다). */
+  reasons: Reason[][];
   mode: ApplyMode;
   busy: boolean;
   error: string | null;
@@ -46,6 +50,7 @@ interface ExcelPreviewProps {
 export default function ExcelPreview({
   rows,
   verdicts,
+  reasons,
   mode,
   busy,
   error,
@@ -97,6 +102,14 @@ export default function ExcelPreview({
                 <TableCell>{row.className}</TableCell>
                 <TableCell>
                   <Chip tone={TONE[verdict]}>{VERDICT_LABEL[verdict]}</Chip>
+                  {(reasons[i] ?? []).map((reason) => (
+                    <p
+                      key={reason}
+                      className="text-app-caption text-ink-danger"
+                    >
+                      {REASON_LABEL[reason]}
+                    </p>
+                  ))}
                 </TableCell>
               </TableRow>
             );
