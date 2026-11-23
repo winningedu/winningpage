@@ -578,6 +578,41 @@ begin
   end;
 end $$;
 
+-- ---------------------------------------------------------------------
+-- UTC 전환 U4b — 구매자 시간대(profiles.time_zone)로 이용 기간과 환불 월 단계를 계산한다.
+-- 기존 서울 구매자 단언(T1~T19)은 그대로이고, 아래는 뉴욕 구매자 단언이다.
+-- ---------------------------------------------------------------------
+do $$
+declare
+  p uuid; s uuid;
+  g record;
+  q record;
+  c_paid constant timestamptz := '2026-11-23T03:00:00Z';
+begin
+  -- U1 뉴욕 1개월권: 현지 11-22 22:00 결제 => 현지 11-22 00:00(=05:00Z) 시작, 현지 12-22 00:00(=05:00Z) 만료.
+  p := pg_temp.mk_user('ny1-p@t.local', 'user', 'parent');
+  s := pg_temp.mk_user('ny1-s@t.local', 'user', 'student');
+  update public.profiles set time_zone = 'America/New_York' where id = p;
+  perform pg_temp.mk_order('zt-ny1', p, s,
+    '[{"slug":"zt-goal-1m","list":25000,"price":25000}]', 0, c_paid);
+  select pg.starts_at, pg.expires_at into g
+    from public.program_access_grants pg where pg.order_id = 'zt-ny1';
+  perform pg_temp.expect_text('NY1 starts_at', (g.starts_at at time zone 'UTC')::text, '2026-11-22 05:00:00');
+  perform pg_temp.expect_text('NY1 expires_at', (g.expires_at at time zone 'UTC')::text, '2026-12-22 05:00:00');
+
+  -- U2 뉴욕 12개월권 환불: 월 단계는 뉴욕 현지 달력. 1개월째 경계(현지 03-28 00:00 EDT = 04:00Z) 1시간 전.
+  p := pg_temp.mk_user('ny2-p@t.local', 'user', 'parent');
+  s := pg_temp.mk_user('ny2-s@t.local', 'user', 'student');
+  update public.profiles set time_zone = 'America/New_York' where id = p;
+  perform pg_temp.mk_order('zt-ny2', p, s,
+    '[{"slug":"zt-goal-12m","list":300000,"price":180000}]', 120000, '2026-03-01T03:00:00Z');
+  perform pg_temp.mark_accessed('zt-ny2', 'zt-goal-12m');
+  perform pg_temp.as_user((select id from public.profiles where email = 'admin@t.local'));
+  select * into q from public.fn_refund_quote('zt-ny2', null, false, '2026-03-28T03:00:00Z');
+  -- k=0, 그 달 안 경과율 > 1/2 이므로 c=1: 180000 - 25000 * 1 = 155000.
+  perform pg_temp.expect_int('NY2 refund', q.refund_amount, 155000);
+end $$;
+
 do $$ begin raise notice '=== refund-quote-ver10.spec: 전체 통과 ==='; end $$;
 
 rollback;
