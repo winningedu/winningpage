@@ -7,3 +7,5 @@ export {
   type RadarAxis,
 } from "./RadarChart7";
 export { default as ReportSheet } from "./ReportSheet";
+export { default as ScoreBars } from "./ScoreBars";
+export { default as StatusBadge } from "./StatusBadge";
