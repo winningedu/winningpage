@@ -33,6 +33,17 @@ describe("Page07Admission (22 r71-r77)", () => {
     expect(screen.getByText("7 / 16")).toBeInTheDocument();
   });
 
+  it("renders no description paragraph for an unanswered card (22 r75)", () => {
+    const { container } = render(
+      <Page07Admission
+        page={{ ...p7, cards: [{ question: "CARD q", answer: "CARD na" }] }}
+      />,
+    );
+    const card = screen.getByText("CARD q").closest("article");
+    expect(card?.querySelectorAll("p")).toHaveLength(2);
+    expect(container.querySelector("article p:empty")).toBeNull();
+  });
+
   it("shows only the notice and names when the result is not computed (22 r74)", () => {
     render(
       <Page07Admission

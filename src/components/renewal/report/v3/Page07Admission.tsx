@@ -61,7 +61,7 @@ export default function Page07Admission({ page }: { page: Page7 }) {
             >
               <p className="text-sm font-bold text-ink">{card.question}</p>
               <p className="text-sm text-ink">{card.answer}</p>
-              <Para>{card.text}</Para>
+              {card.text ? <Para>{card.text}</Para> : null}
             </article>
           ))}
         </section>
