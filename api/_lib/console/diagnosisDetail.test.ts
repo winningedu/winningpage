@@ -10,7 +10,7 @@ import { sheetRows } from "../../../src/lib/diagnosis-v3/sheet.js";
 import { COPY_TEXT } from "../../../src/lib/diagnosis-v3/source/copyText.js";
 import type { AreaScores } from "./coaching.js";
 import type { DiagnosisMeta } from "./coachingData.js";
-import { diagnosisDetail } from "./diagnosisDetail.js";
+import { copyOf, diagnosisDetail, requireRow } from "./diagnosisDetail.js";
 import { v3Scores } from "./diagnosisV3TestKit.js";
 
 const AREAS: AreaScores = {
@@ -264,5 +264,17 @@ describe("diagnosisDetail with v3 scores", () => {
       expect(bars).toHaveLength(13);
       for (const b of bars) expect(b.firstStep).toBeTruthy();
     }
+  });
+});
+
+describe("sheet and copy lookups never fall back (N1)", () => {
+  test("a missing copy id throws instead of returning undefined", () => {
+    expect(() => copyOf("AREA_NOPE_ACT1")).toThrow("AREA_NOPE_ACT1");
+    expect(copyOf("AREA_P1_EXEC_ACT1")).toBe(COPY_TEXT.AREA_P1_EXEC_ACT1);
+  });
+
+  test("a missing sheet row throws instead of using an empty row", () => {
+    expect(() => requireRow("06_임계값", 9999)).toThrow("06_임계값 r9999");
+    expect(requireRow("06_임계값", 37).r).toBe(37);
   });
 });

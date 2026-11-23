@@ -44,11 +44,22 @@ function averageMetric(
 
 export const TARGET_SCORE = 75;
 
+/** 시트 행. 없으면 오류다(대체 행 없음). */
+export function requireRow(sheet: string, r: number) {
+  const row = sheetRows(sheet).find((x) => x.r === r);
+  if (!row) throw new Error(`${sheet} r${r} missing`);
+  return row;
+}
+
+/** 문구 원본의 문장. id 가 없으면 오류다. */
+export function copyOf(id: string): string {
+  const text = COPY_TEXT[id];
+  if (typeof text !== "string") throw new Error(`copy ${id} missing`);
+  return text;
+}
+
 /** 06_임계값 r37: 우선순위 뱃지 5~7번째는 이 점수 이상이면 유지, 미만이면 점검. */
-const MAINTAIN_FROM = numberCell(
-  sheetRows("06_임계값").find((r) => r.r === 37) ?? { r: 37, c: [] },
-  2,
-);
+const MAINTAIN_FROM = numberCell(requireRow("06_임계값", 37), 2);
 
 /** W9a 시안의 준비도 줄 순서. 영역 상수(READINESS_AREAS)의 순서와 다르다. */
 const READINESS_BAR_ORDER = [
@@ -167,7 +178,7 @@ const v3Bar = (
   score: area.score,
   status: stateLabel(area.state, page),
   // 03_영역문구 AREA_<code>_ACT1: the first action of the area
-  firstStep: COPY_TEXT[`AREA_${code}_ACT1`] as string,
+  firstStep: copyOf(`AREA_${code}_ACT1`),
   ...(group === "execution" && { target: TARGET_SCORE }),
 });
 
