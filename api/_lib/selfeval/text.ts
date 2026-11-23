@@ -207,6 +207,20 @@ export function hasMarkdown(text: string): boolean {
   return MARKDOWN_PATTERNS.some((p) => p.test(text));
 }
 
+const CLOSING_MARKS = /[\s"'\u201d\u2019)\]」』]+$/;
+
+/**
+ * 문장 끝에 . ? ! 가 없으면 마침표를 붙인다(명세 No.56 문장 수는 이 부호로 센다). 끝의 공백과
+ * 닫는 따옴표는 부호 판단에서 무시하고, 마침표는 맨 끝에 붙인다. 모델이 "~함" 문장을 부호 없이
+ * 돌려줘도 저장 문장이 한 문장씩으로 세어지게 하는 결정론 보정이다.
+ */
+export function ensureTerminalPunctuation(text: string): string {
+  const t = text.trimEnd();
+  if (t === "") return t;
+  const core = t.replace(CLOSING_MARKS, "");
+  return TERMINATORS.has(core.slice(-1)) ? t : `${t}.`;
+}
+
 /**
  * 본문 문체는 "~함" 한 가지다(명세 No.11, No.52). 기록의 "하였음", "했음" 서술을 "함"으로
  * 맞춘다. 예: "통제하지 못하였음" 은 "통제하지 못함". 어절 끝에서만 바꾼다.
