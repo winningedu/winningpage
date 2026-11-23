@@ -29,6 +29,7 @@ import { validateVerifyResponse } from "../validation.js";
 import {
   applyDeterministicChecks,
   growthSignalChecks,
+  recordTerms,
 } from "../verifyChecks.js";
 import { detailBody } from "../view.js";
 import {
@@ -90,6 +91,8 @@ export function buildVerifyInput(
 ): VerifyPromptInput {
   const snapshot = activeGrowth(session);
   const { values } = core.analysis;
+  const all = recordTerms([core.record, ...supports]);
+  const unique = (xs: string[]) => [...new Set(xs)];
   return {
     text: plainText(current),
     sentences: allSentences(current).map((s) => ({ id: s.id, text: s.text })),
@@ -100,12 +103,13 @@ export function buildVerifyInput(
         : extractPromptKeywords(session.school_prompt),
     teacherNote: session.teacher_note,
     coreTerms: {
-      concepts: extractKeywords(values.concept),
+      concepts: unique([...extractKeywords(values.concept), ...all.concepts]),
       roles: extractKeywords(values.role),
-      sources: promoteToRecord(
-        core.analysis,
-        activityNameOf(core.record, session),
-      ).sources,
+      sources: unique([
+        ...promoteToRecord(core.analysis, activityNameOf(core.record, session))
+          .sources,
+        ...all.sources,
+      ]),
     },
     supportNames: supports.map((s) => activityNameOf(s, session)),
     growth:

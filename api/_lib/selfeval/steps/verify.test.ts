@@ -216,6 +216,26 @@ describe("buildVerifyInput", () => {
     expect(input.growth).toBeNull();
   });
 
+  it("핵심 낱말은 핵심 분석만이 아니라 모든 선택 기록의 7항목에서 뽑는다(명세 No.55)", () => {
+    const input = buildVerifyInput(session(), sections, core(), [
+      record("s2", {
+        concept: "공급 곡선",
+        sources: ["통계청 가계동향조사"],
+      }),
+      record("s3", { concept: "비용 구조", sources: ["교과서 표"] }),
+    ]);
+    expect(input.coreTerms.concepts).toEqual(
+      expect.arrayContaining(["단위", "공급", "곡선", "비용", "구조"]),
+    );
+    expect(input.coreTerms.sources).toEqual(
+      expect.arrayContaining(["통계청 가계동향조사", "교과서 표"]),
+    );
+    expect(input.coreTerms.roles).toContain("측정");
+    expect(new Set(input.coreTerms.concepts).size).toBe(
+      input.coreTerms.concepts.length,
+    );
+  });
+
   it("성장설계가 켜져 있으면 현재 단계와 이번 학년 하위 주제를 싣는다", () => {
     const snapshot = {
       narrativeTheme: "주제",
