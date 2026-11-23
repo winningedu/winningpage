@@ -50,7 +50,6 @@ type SurveyQuestion = {
 
 type SurveyAnswers = Record<string, unknown>;
 
-export const SURVEY_TOTAL_STEPS = 5;
 // 설문 앱 라우트는 /app/{slug}/... 통일 규칙(App.jsx 154-156)에 마운트된다. 접두어를 빠뜨리면
 // 어떤 라우트와도 매치되지 않아 catch-all(홈)로 튕기며 답변이 소실된다. 리포트(/learning-diagnosis/report)는
 // 앱이 아니라 결과 문서라 /app 밖에 그대로 둔다.
@@ -82,14 +81,6 @@ export function getStepQuestions(step: number) {
   return surveyMainQuestions.filter((question) => question.page === step);
 }
 
-// 다음 스텝 이후에 남아 있는 문항 수(응답 무관). 1→13, 2→11, 3→9, 4→5, 5→0
-// (q5·q7 삭제로 17문항 · 분포 3/3/2/4/5 였던 것이, QA 행348(2026-09-02)로 q4 가 화면에서
-// 빠지면서 16문항 · 분포 3/2/2/4/5 가 되었다 — 스텝1 값만 14 → 13 으로 바뀌고 나머지는
-// page2 감소분이 총합 감소분과 상쇄되어 그대로다.)
-export function getRemainingAfterStep(step: number) {
-  return surveyMainQuestions.filter((question) => question.page > step).length;
-}
-
 /**
  * 진행(다음 스텝 이동) 요건에 들어가는 문항.
  * - 중첩 문항(number:null / extra.embeddedIn)은 surveyMainQuestions 단계에서 이미 제외된다.
@@ -109,11 +100,6 @@ function getStepUnansweredCount(step: number, answers?: SurveyAnswers) {
 
 export function isStepComplete(step: number, answers?: SurveyAnswers) {
   return getStepUnansweredCount(step, answers) === 0;
-}
-
-// '1'~'5' 만 통과. '01' · '1.0' · '1abc' · ' 1' 전부 거부.
-export function parseStepParam(raw: string | null | undefined) {
-  return /^[1-5]$/.test(raw ?? "") ? Number(raw) : null;
 }
 
 /**
