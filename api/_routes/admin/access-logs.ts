@@ -74,7 +74,7 @@ function isoInstant(value: string): string | null {
   if (!match) return null;
   const moment = new Date(value);
   if (Number.isNaN(moment.getTime())) return null;
-  if (moment.toISOString().slice(0, 10) !== match[1]) return null;
+  if (moment.toISOString().slice(0, 10) !== match[1]) return null; // tz-literal-ok: ISO Z 입력의 UTC 날짜 부분이 실존하는지만 본다
   return value;
 }
 

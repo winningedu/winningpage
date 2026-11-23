@@ -19,7 +19,7 @@ function dayNumber(ymd: string): number {
 }
 
 function addDays(ymd: string, days: number): string {
-  return new Date((dayNumber(ymd) + days) * DAY_MS).toISOString().slice(0, 10);
+  return new Date((dayNumber(ymd) + days) * DAY_MS).toISOString().slice(0, 10); // tz-literal-ok: Date.UTC 기준 달력 계산이라 시간대와 무관하다
 }
 
 /** 기관 시간대(tenants.time_zone)의 오늘 날짜(YYYY-MM-DD). */

@@ -81,7 +81,7 @@ export function isValidAdmissionYear(value: unknown) {
 
   const year = Number(digits);
 
-  return year >= MIN_ADMISSION_YEAR && year <= new Date().getFullYear() + 1;
+  return year >= MIN_ADMISSION_YEAR && year <= new Date().getFullYear() + 1; // tz-literal-ok: 브라우저 폼 검증이라 로컬 연도가 맞다
 }
 
 // textarea 글자수 상한(600 / 800 / 1000 / 2000자) 검사.

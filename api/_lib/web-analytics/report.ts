@@ -73,7 +73,7 @@ function isCalendarDate(date: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const moment = new Date(`${date}T00:00:00Z`);
   if (Number.isNaN(moment.getTime())) return false;
-  return moment.toISOString().slice(0, 10) === date;
+  return moment.toISOString().slice(0, 10) === date; // tz-literal-ok: Date.UTC 로 만든 날짜를 되돌려 YYYY-MM-DD 실존 여부만 본다(시간대 무관)
 }
 
 /** 시작일 0시(포함)부터 종료일 다음 날 0시 1ms 전(포함)까지, 하루 경계는 tz 기준. 틀리면 null. */

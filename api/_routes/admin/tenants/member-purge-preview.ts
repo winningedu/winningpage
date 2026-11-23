@@ -23,7 +23,7 @@ function dayNumber(ymd: string): number {
 }
 
 function dayNumberToYmd(day: number): string {
-  return new Date(day * DAY_MS).toISOString().slice(0, 10);
+  return new Date(day * DAY_MS).toISOString().slice(0, 10); // tz-literal-ok: Date.UTC 기준 달력 계산이라 시간대와 무관하다
 }
 
 export default defineHandler({

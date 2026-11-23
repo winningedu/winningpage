@@ -134,7 +134,7 @@ export function dayOfDate(diagnosedAt: IsoDate, date: IsoDate): number {
 /** Calendar date of a Day number, Day 1 = diagnosedAt. */
 export function dateOfDay(diagnosedAt: IsoDate, day: number): IsoDate {
   const base = Date.parse(`${diagnosedAt}T00:00:00Z`);
-  return new Date(base + (day - 1) * DAY_MS).toISOString().slice(0, 10);
+  return new Date(base + (day - 1) * DAY_MS).toISOString().slice(0, 10); // tz-literal-ok: UTC-anchored calendar math, zone-free
 }
 
 /** 21 C37, spec row 77: one task only when exam ops is RISK. */

@@ -32,7 +32,7 @@ export function toYMD(v: unknown) {
   // v 는 여기선 truthy 한 임의값이다(원본 그대로 Date 생성자에 그냥 넘긴다 — 방어 없음).
   const d = new Date(v as string | number | Date);
   if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
-  return d.toISOString().slice(0, 10);
+  return d.toISOString().slice(0, 10); // tz-literal-ok: Date 입력은 서버 규칙(UTC)대로 UTC 날짜로 읽는다
 }
 
 // 이 모듈은 한국 서비스의 KST 영업일 규칙을 서버와 공유한다. 다른 시간대는 time 모듈의 ymdIn 으로 직접 계산한다.
@@ -70,7 +70,7 @@ export function getRecordDateFromActualStart(
 
   // 달력 날짜끼리의 덧셈이라 실행 환경의 시간대와 DST 에 영향받지 않는다.
   start.setUTCDate(start.getUTCDate() + Number(recordIndex || 0));
-  return start.toISOString().slice(0, 10);
+  return start.toISOString().slice(0, 10); // tz-literal-ok: Date.UTC 기준 달력 계산이라 시간대와 무관하다
 }
 
 /**
@@ -100,7 +100,7 @@ export function addDaysYMD(ymd: unknown, days: unknown, now = new Date()) {
   const s = toYMD(ymd) || kstYMD(now);
   const [y, m, d] = s.split("-").map(Number);
   const dt = new Date(Date.UTC(y!, m! - 1, d! + Number(days || 0)));
-  return dt.toISOString().slice(0, 10);
+  return dt.toISOString().slice(0, 10); // tz-literal-ok: Date.UTC 기준 달력 계산이라 시간대와 무관하다
 }
 
 /** 해당 날짜가 속한 주의 월요일. 원본 student.mjs:757-759 */

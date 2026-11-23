@@ -49,7 +49,7 @@ function isValidDate(value: string): boolean {
   const parsed = new Date(`${value}T00:00:00Z`);
   return (
     !Number.isNaN(parsed.getTime()) &&
-    parsed.toISOString().slice(0, 10) === value
+    parsed.toISOString().slice(0, 10) === value // tz-literal-ok: Date.UTC 로 만든 날짜를 되돌려 YYYY-MM-DD 실존 여부만 본다(시간대 무관)
   );
 }
 

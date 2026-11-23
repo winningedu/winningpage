@@ -96,7 +96,7 @@ function isValidYmd(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value))
     return false;
   const d = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value; // tz-literal-ok: Date.UTC 로 만든 날짜를 되돌려 YYYY-MM-DD 실존 여부만 본다(시간대 무관)
 }
 
 function isValidYm(value: unknown): value is string {
@@ -127,7 +127,7 @@ export function lastDayOfMonthYmd(ym: string): string {
   const [y, m] = ym.split("-").map(Number) as [number, number];
   // UTC 기준 다음 달 0일 = 이번 달 마지막 날 (윤년 자동 처리, virtualDate.js addDaysYMD와 동일 기법).
   const d = new Date(Date.UTC(y, m, 0));
-  return d.toISOString().slice(0, 10);
+  return d.toISOString().slice(0, 10); // tz-literal-ok: Date.UTC 기준 달력 계산이라 시간대와 무관하다
 }
 
 /** 'YYYY-MM-DD' 두 날짜 사이(양끝 포함) 일수. 역순이면 0. */
