@@ -44,19 +44,5 @@
   "src/pages/console/date.ts": 1,
   "src/pages/mypage/ChildDiagnosisReports.tsx": 2,
   "src/pages/renewal/reportFileName.ts": 1,
-  "src/pages/selfeval/testFixtures.ts": 1,
-  "supabase/migrations/20261021014317_busan_oct_extension_goal_gift.sql": 15,
-  "supabase/migrations/20261105042109_b2b_tenants_contract_and_org_info.sql": 1,
-  "supabase/migrations/20261105045059_b2b_usage_limits.sql": 5,
-  "supabase/migrations/20261105052237_b2b_retention_purge.sql": 1,
-  "supabase/migrations/20261106015050_b2b_school_student_signup.sql": 1,
-  "supabase/migrations/20261106045002_b2b_tenant_service_gate.sql": 5,
-  "supabase/migrations/20261106084702_b2b_member_purge_targets.sql": 1,
-  "supabase/migrations/20261110010320_b2b_tenant_usage_teacher.sql": 5,
-  "supabase/migrations/20261117053745_schoolmentor_student_verified_email.sql": 1,
-  "supabase/migrations/20261123111835_hq_login_days.sql": 1,
-  "supabase/migrations/20261123111838_hq_tenant_overview.sql": 2,
-  "supabase/migrations/20261123111840_hq_login_stats.sql": 19,
-  "supabase/migrations/20261123111842_hq_tenant_trial.sql": 7,
-  "supabase/migrations/20261123111847_hq_b2c_trends.sql": 27
+  "src/pages/selfeval/testFixtures.ts": 1
 }
