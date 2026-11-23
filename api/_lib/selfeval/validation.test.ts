@@ -218,7 +218,7 @@ const wctx: WriteValidationContext = {
         itemTexts: { method: "진행 중 방법" },
       },
     ],
-    memos: [{ id: "m1", text: "수업 뒤 한계를 적어 둠" }],
+    memos: [{ id: "m1", text: "수업 뒤 한계를 적어 둠", belongsTo: "r1" }],
   },
   targetChars: null,
   mode: "without_space",

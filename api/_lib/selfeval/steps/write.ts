@@ -13,9 +13,10 @@ import {
   relinkEdited,
   repickEvidence,
 } from "../editLink.js";
-import { loadEvidenceRows } from "../evidenceDb.js";
+import { loadEvidenceRows, saveMemoBelongsTo } from "../evidenceDb.js";
 import { buildWriteEvidence, type WriteEvidence } from "../evidenceSources.js";
 import { stageLabel } from "../growth.js";
+import { inferMemoBelongsTo } from "../memoBelongs.js";
 import { linkStatusOf } from "../pickList.js";
 import { extractPromptKeywords } from "../promptKeywords.js";
 import { buildWritePrompt, type WritePromptInput } from "../prompts.js";
@@ -359,12 +360,21 @@ async function loadWriteEvidence(
     session.id,
     rows.map((r) => r.activity_record_id),
   );
+  // 모델을 부르기 전에 소속 없는 확인, 포함 메모의 소속을 결정론으로 정해 저장한다(명세 No.188).
+  const assigned = inferMemoBelongsTo(
+    loaded.memos.filter((m) => m.confirmed && m.included),
+    rows.map((r) => r.record),
+  );
+  if (assigned.size > 0) await saveMemoBelongsTo(db, session.id, assigned);
   return buildWriteEvidence(
     rows,
     loaded.extras,
     loaded.links,
     linkStatusOf(session.step_state) === "ok",
-    loaded.memos,
+    loaded.memos.map((m) => ({
+      ...m,
+      belongsTo: assigned.get(m.id) ?? m.belongsTo,
+    })),
   );
 }
 

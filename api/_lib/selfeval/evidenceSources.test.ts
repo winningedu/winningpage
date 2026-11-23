@@ -162,6 +162,7 @@ describe("buildWriteEvidence", () => {
         text: "메모 글",
         confirmed: true,
         included: true,
+        belongsTo: null,
       },
       {
         id: "m2",
@@ -169,6 +170,7 @@ describe("buildWriteEvidence", () => {
         text: "미확인",
         confirmed: false,
         included: true,
+        belongsTo: null,
       },
       {
         id: "m3",
@@ -176,6 +178,7 @@ describe("buildWriteEvidence", () => {
         text: "제외",
         confirmed: true,
         included: false,
+        belongsTo: null,
       },
     ],
   );
@@ -200,7 +203,9 @@ describe("buildWriteEvidence", () => {
   });
 
   it("확인했고 포함한 메모만 근거 원천과 프롬프트에 들어간다", () => {
-    expect(out.sources.memos).toEqual([{ id: "m1", text: "메모 글" }]);
+    expect(out.sources.memos).toEqual([
+      { id: "m1", text: "메모 글", belongsTo: null },
+    ]);
     expect(out.prompt.memos).toEqual([
       { id: "m1", writtenAt: "2026-05-03", text: "메모 글" },
     ]);

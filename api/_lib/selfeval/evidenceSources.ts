@@ -39,6 +39,7 @@ export type MemoRow = {
   text: string;
   confirmed: boolean;
   included: boolean;
+  belongsTo: string | null;
 };
 
 /**
@@ -282,6 +283,7 @@ export function buildWriteEvidence(
   const memos: MemoEvidenceSource[] = usable.map((m) => ({
     id: m.id,
     text: m.text,
+    belongsTo: m.belongsTo,
   }));
   return {
     sources: { records, memos },

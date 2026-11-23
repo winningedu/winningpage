@@ -38,6 +38,7 @@ type MemoDbRow = {
   text: string;
   confirmed: boolean;
   included: boolean;
+  belongs_to: string | null;
 };
 
 /** 학생이 확인했고 포함으로 둔 이 세션의 수기 메모. 화면이 문장 근거로 고르게 한다. */
@@ -89,7 +90,7 @@ export async function loadEvidenceRows(
     must(
       await db
         .from("selfeval_manual_logs")
-        .select("id, written_at, text, confirmed, included")
+        .select("id, written_at, text, confirmed, included, belongs_to")
         .eq("session_id", sessionId)
         .order("written_at", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true }),
@@ -131,6 +132,30 @@ export async function loadEvidenceRows(
       text: m.text,
       confirmed: m.confirmed,
       included: m.included,
+      belongsTo: m.belongs_to,
     })),
   };
+}
+
+/**
+ * 결정론으로 정한 메모 소속을 저장한다(명세 No.188). 아직 비어 있는 메모만 채워, 그 사이 학생이 정한
+ * 소속을 덮어쓰지 않는다. 같은 값을 다시 써도 결과가 같다.
+ */
+export async function saveMemoBelongsTo(
+  db: Db,
+  sessionId: string,
+  assigned: ReadonlyMap<string, string>,
+): Promise<void> {
+  for (const [memoId, recordId] of assigned) {
+    must(
+      await db
+        .from("selfeval_manual_logs")
+        .update({ belongs_to: recordId })
+        .eq("session_id", sessionId)
+        .eq("id", memoId)
+        .is("belongs_to", null)
+        .select("id"),
+      "selfeval_manual_logs 소속 저장 실패",
+    );
+  }
 }

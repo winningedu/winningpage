@@ -126,20 +126,28 @@ export type RecordEvidenceSource = {
 };
 
 /** 학생이 확인했고 포함으로 둔 수기 메모(명세 No.161). */
-export type MemoEvidenceSource = { id: string; text: string };
+export type MemoEvidenceSource = {
+  id: string;
+  text: string;
+  /** 소속 기록 id. 정하지 못했으면 null(명세 No.188). */
+  belongsTo: string | null;
+};
 
 export type EvidenceSources = {
   records: RecordEvidenceSource[];
   memos: MemoEvidenceSource[];
 };
 
-/** 수기 메모가 근거가 될 수 있는 항목: 계기, 한 일, 방법, 한계(명세 No.161). */
+/** 소속 기록이 있는 수기 메모가 근거가 될 수 있는 항목: 계기, 한 일, 방법, 한계(명세 No.161, 188). */
 export const MEMO_EVIDENCE_ITEMS: readonly AnalysisField[] = [
   "motive",
   "action",
   "method",
   "limitation",
 ];
+
+/** 소속 기록이 없는 수기 메모는 계기 항목의 단독 근거로만 쓴다(명세 No.188). */
+export const UNOWNED_MEMO_EVIDENCE_ITEMS: readonly AnalysisField[] = ["motive"];
 
 const numberCore = (token: string): string =>
   (token.match(/^[\d,.]+/)?.[0] ?? token).replace(/,/g, "");
@@ -192,7 +200,11 @@ export function resolveSentenceEvidence(
       cited = { sourceType: record.sourceType, refId, item: field, weight };
       citedText = itemText;
     } else if (memo !== undefined) {
-      if (!MEMO_EVIDENCE_ITEMS.includes(field)) continue;
+      const allowed =
+        memo.belongsTo === null
+          ? UNOWNED_MEMO_EVIDENCE_ITEMS
+          : MEMO_EVIDENCE_ITEMS;
+      if (!allowed.includes(field)) continue;
       cited = { sourceType: "H", refId, item: field, weight };
       citedText = memo.text;
     }

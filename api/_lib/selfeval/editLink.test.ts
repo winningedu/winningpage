@@ -163,7 +163,7 @@ describe("repickEvidence", () => {
         itemTexts: { method: "계수를 바꿈", result: "폭이 좁아짐" },
       },
     ],
-    memos: [{ id: "m1", text: "메모 글" }],
+    memos: [{ id: "m1", text: "메모 글", belongsTo: "r1" }],
   };
   const pick = (refId: string, item: string) => ({ refId, item });
 

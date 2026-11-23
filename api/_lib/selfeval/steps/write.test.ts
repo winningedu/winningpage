@@ -466,6 +466,7 @@ describe("runWrite", () => {
           text: "센서를 직접 설치함",
           confirmed: true,
           included: true,
+          belongsTo: "c1",
         },
       ],
     });

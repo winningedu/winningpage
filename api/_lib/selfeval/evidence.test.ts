@@ -95,7 +95,10 @@ const sources: EvidenceSources = {
       itemTexts: { method: "진행 중 방법" },
     },
   ],
-  memos: [{ id: "m1", text: "5월 3일 계수를 12번 바꿔 봄" }],
+  memos: [
+    { id: "m1", text: "5월 3일 계수를 12번 바꿔 봄", belongsTo: "r1" },
+    { id: "m2", text: "소속 없는 메모", belongsTo: null },
+  ],
 };
 const ref = (refId: string, item: string, weight = "main") => ({
   refId,
@@ -146,6 +149,23 @@ describe("resolveSentenceEvidence", () => {
     ]);
     expect(r.evidence).toEqual([
       { sourceType: "H", refId: "m1", item: "action", weight: "sub" },
+    ]);
+  });
+
+  it("소속 없는 수기 메모는 계기 항목만 근거가 되고 소속이 있으면 한 일, 방법, 한계도 된다(명세 No.188)", () => {
+    const r = run("계기가 있었음.", [
+      ref("m2", "motive"),
+      ref("m2", "action"),
+      ref("m2", "method"),
+      ref("m2", "limitation"),
+      ref("m1", "method"),
+      ref("m1", "limitation"),
+      ref("m1", "next"),
+    ]);
+    expect(r.evidence.map((e) => [e.refId, e.item])).toEqual([
+      ["m2", "motive"],
+      ["m1", "method"],
+      ["m1", "limitation"],
     ]);
   });
 
