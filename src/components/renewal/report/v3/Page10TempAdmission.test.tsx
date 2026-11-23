@@ -22,6 +22,18 @@ describe("Page10TempAdmission (22 r96-r99)", () => {
     }
   });
 
+  it("heads each area with its name and lists the basis values from the payload (22 r97 D)", () => {
+    render(<Page10TempAdmission page={p10} />);
+    expect(
+      screen.getByRole("heading", { level: 3, name: "AREA hs" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 3, name: "AREA pace" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("BASIS a 50")).toBeInTheDocument();
+    expect(screen.getByText("BASIS b 75")).toBeInTheDocument();
+  });
+
   it("shows the hidden notice instead of rules when admission is hidden (22 r98)", () => {
     render(
       <Page10TempAdmission
