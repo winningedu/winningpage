@@ -148,6 +148,13 @@ insert into public.profile_login_days (profile_id, kst_date) values
   (pg_temp.fx('active'), (pg_temp.kst_today() - interval '2 years')::date),
   (pg_temp.fx('active'), pg_temp.kst_today());
 
+-- 로그인 기록(profile_login_slots): slot_start 가 지금보다 2년 넘게 앞선 행만 지운다. 순간 기준이라 시간대가 없다.
+insert into public.profile_login_slots (profile_id, slot_start) values
+  (pg_temp.fx('active'), now() - interval '3 years'),
+  (pg_temp.fx('active'), now() - interval '2 years 1 hour'),
+  (pg_temp.fx('active'), now() - interval '2 years' + interval '1 hour'),
+  (pg_temp.fx('active'), now());
+
 -- 기관마다 따로(결정 64): 한 기관의 졸업이 2년 지났어도 다른 기관의 학적, 이력, 특이학생, 상담 상태는 지우지 않는다.
 insert into public.tenants (code, name, region, org_type, tier)
   values ('RPBBBBBB', 't23-b', '서울', '학교', 'B');
@@ -234,6 +241,12 @@ select pg_temp.expect_int('2년보다 오래된 로그인 기록 삭제',
 select pg_temp.expect_int('딱 2년 전과 오늘 로그인 기록은 보존',
   (select count(*) from public.profile_login_days where profile_id = pg_temp.fx('active')), 2);
 
+select pg_temp.expect_int('2년보다 오래된 로그인 칸 삭제',
+  (select count(*) from public.profile_login_slots where profile_id = pg_temp.fx('active')
+     and slot_start < now() - interval '2 years'), 0);
+select pg_temp.expect_int('2년이 안 된 로그인 칸과 지금 칸은 보존',
+  (select count(*) from public.profile_login_slots where profile_id = pg_temp.fx('active')), 2);
+
 -- 반환 건수는 지운 행 수 이상이다(로컬 DB 에 다른 행이 있을 수 있다).
 select pg_temp.expect_bool('반환 건수',
   (select enrollments_deleted >= 3 and enrollment_changes_deleted >= 2 and access_logs_deleted >= 3
@@ -247,6 +260,9 @@ select pg_temp.expect_int('재실행은 아무것도 지우지 않는다',
 -- ---------------------------------------------------------------------
 -- fn_anonymize_expired_b2b_members: 계약 종료 + 유예 뒤 학생 개인정보 익명화 (사 #162, #176, 사 결정 r16)
 -- ---------------------------------------------------------------------
+-- 로컬 DB 에 공통 유예 일수가 이미 있어도 "유예 설정이 없는 기관" 사례가 서도록 먼저 지운다(끝의 ROLLBACK 이 되돌린다).
+delete from public.app_settings where key = 'contract_grace_days';
+
 create function pg_temp.today() returns date language sql as $$ select (now() at time zone 'Asia/Seoul')::date $$;
 
 create function pg_temp.mk_tenant(p_k text, p_code text, p_end date, p_grace date) returns void
