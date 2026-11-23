@@ -1,4 +1,5 @@
 import CopyText from "./CopyText";
+import { twoDigitPage } from "./labels";
 
 type SectionHeaderProps = {
   /** fixed page number (judge-report R9) */
@@ -21,7 +22,7 @@ export default function SectionHeader({
     <header className="flex flex-col gap-3">
       <p className="text-sm text-ink-sub">
         <span className="mr-2 font-semibold text-ink-strong">
-          {String(page).padStart(2, "0")}
+          {twoDigitPage(page)}
         </span>
         <span>{tocTitle}</span>
       </p>

@@ -2,7 +2,7 @@
 // payload pieces (src/lib/diagnosis-v3/types.ts) as they are; no scoring here.
 
 export { default as CopyText } from "./CopyText";
-export { REPORT_LABELS, TOTAL_PAGES } from "./labels";
+export { REPORT_LABELS, TOTAL_PAGES, twoDigitPage } from "./labels";
 export { default as PrescriptionTable } from "./PrescriptionTable";
 export {
   default as RadarChart7,

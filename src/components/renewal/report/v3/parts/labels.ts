@@ -8,8 +8,19 @@
  */
 export const TOTAL_PAGES = 16;
 
+/** "01" style page number of the PDF toc and page eyebrows. */
+export const twoDigitPage = (page: number) => String(page).padStart(2, "0");
+
 export const REPORT_LABELS = {
   reportName: "학습진단 리포트",
+  /** PDF cover */
+  coverHeadline: "이번 진단의 한 줄",
+  coverToc: "목차",
+  coverStudent: "학생명",
+  coverGradeSchool: "학년 \u00b7 학교유형",
+  coverDate: "진단일",
+  /** joins two short values on one line, as the PDF does */
+  joiner: " \u00b7 ",
   studentOnly: "학생 전용",
   /** PDF p4 break mark */
   broken: "여기서 끊김",
