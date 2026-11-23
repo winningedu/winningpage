@@ -97,19 +97,19 @@ describe("W14b 개별 등록 다학년", () => {
     fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "mixed" },
     });
-    fill("반", "7반");
+    fill("반", "A반");
     fireEvent.click(screen.getByRole("button", { name: "등록" }));
 
     expect(await screen.findByText("SM26HB83W2RF7H")).toBeTruthy();
     expect(calls.find((c) => c.key.startsWith("POST"))?.body).toEqual({
       name: "윤서진",
       phone: "010-5678-1234",
-      classes: [{ grade: null, name: "7" }],
+      classes: [{ grade: null, name: "A" }],
     });
     fireEvent.click(screen.getByRole("button", { name: "안내 파일 내려받기" }));
     await waitFor(() =>
       expect(mocks.download).toHaveBeenCalledWith([
-        expect.objectContaining({ grade: "다학년", className: "7반" }),
+        expect.objectContaining({ grade: "다학년", className: "A반" }),
       ]),
     );
   });

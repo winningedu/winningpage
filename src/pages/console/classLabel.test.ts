@@ -65,6 +65,11 @@ describe("classLabel", () => {
     expect(classLabel(cls({ name: "5" }), academy)).toBe("고2 5반");
   });
 
+  test("반 이름 A 는 A반으로 보인다", () => {
+    expect(classLabel(cls({ name: "A" }), school)).toBe("2학년 A반");
+    expect(classLabel(cls({ name: "A" }), academy)).toBe("고2 A반");
+  });
+
   test("학원의 그룹과 다학년 반 5 는 그룹 다학년 5반이다", () => {
     expect(
       classLabel(cls({ grade: null, group: "ACE1", name: "5" }), academy),

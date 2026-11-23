@@ -208,9 +208,9 @@ describe("POST /api/console/school-year/rollover/preview", () => {
       school_year: 2027,
       grade: null,
       group_id: null,
-      name: "9",
+      name: "다",
     };
-    const MIXED_TEXT = "김하늘\t1학년\tA레벨\t4\t7\t다학년\t\t9\t1";
+    const MIXED_TEXT = "김하늘\t1학년\tA레벨\t4\t7\t다학년\t\t다\t1";
 
     beforeEach(() => {
       const baseClasses = kit.state.rows.classes;
@@ -236,14 +236,14 @@ describe("POST /api/console/school-year/rollover/preview", () => {
           {
             studentId: "s1",
             result: "applied",
-            to: { grade: null, mixed: true, className: "9", number: 1 },
+            to: { grade: null, mixed: true, className: "다", number: 1 },
           },
         ],
         applyRows: [
           {
             studentId: "s1",
             groupId: null,
-            className: "9",
+            className: "다",
             number: 1,
             mixed: true,
           },
@@ -254,11 +254,11 @@ describe("POST /api/console/school-year/rollover/preview", () => {
     test("a grade line into a class that already exists as mixed becomes a mixed line", async () => {
       const r = await post({
         toYear: 2027,
-        text: "김하늘\t1학년\tA레벨\t4\t7\t2학년\t\t9\t1",
+        text: "김하늘\t1학년\tA레벨\t4\t7\t2학년\t\t다\t1",
       });
 
       expect(r.body).toMatchObject({
-        applyRows: [{ studentId: "s1", className: "9", mixed: true }],
+        applyRows: [{ studentId: "s1", className: "다", mixed: true }],
       });
     });
 
@@ -274,7 +274,7 @@ describe("POST /api/console/school-year/rollover/preview", () => {
               school_year: 2026,
               grade: null,
               group_id: null,
-              name: "7",
+              name: "혼",
             },
           ],
           f,
@@ -283,11 +283,11 @@ describe("POST /api/console/school-year/rollover/preview", () => {
 
       const r = await post({
         toYear: 2027,
-        text: "김하늘\t1학년\tA레벨\t4\t7\t2학년\t\t7\t1",
+        text: "김하늘\t1학년\tA레벨\t4\t7\t2학년\t\t혼\t1",
       });
 
       expect(r.body).toMatchObject({
-        applyRows: [{ studentId: "s1", className: "7", mixed: true }],
+        applyRows: [{ studentId: "s1", className: "혼", mixed: true }],
         rows: [{ to: { grade: null, mixed: true } }],
       });
     });

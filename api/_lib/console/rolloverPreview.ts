@@ -339,7 +339,7 @@ const decidingGradeOf = (line: ParsedLine) =>
 /** 줄이 가리키는 학급: `${그룹id 또는 빈 문자열}|${반 이름 소문자}`. 반이 비었거나 모르는 그룹이면 null. */
 function classKeyOf(line: ParsedLine, input: PreviewInput): string | null {
   const cells = targetCellsOf(line);
-  const className = normalizeClassName(cells.className);
+  const className = normalizeClassName(cells.className).toLowerCase();
   if (className === "") return null;
   if (isNoGroup(cells.group)) return `|${className}`;
   const group = input.groups.get(cells.group.toLowerCase());

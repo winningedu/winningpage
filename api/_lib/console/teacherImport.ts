@@ -320,7 +320,7 @@ function judgeRows(
 
     const hasClass = grade !== "" || className !== "";
     const normalizedClass = normalizeClassName(className);
-    // 결정 118: 학년은 중1~고3 여섯 값만, 반은 숫자만(0만 있는 값 제외). 학교와 학원이 같다.
+    // 결정 118: 학년은 중1~고3 여섯 값만, 반은 비거나 0 뿐인 값만 막는다. 학교와 학원이 같다.
     const rowReasons: ImportReason[] = [];
     if (name === "") rowReasons.push("name");
     if (!/^01[0-9]{8,9}$/.test(phone)) rowReasons.push("phone");

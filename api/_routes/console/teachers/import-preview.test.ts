@@ -25,7 +25,7 @@ const row = (over: Record<string, string> = {}) => ({
   phone: "010-1111-2222",
   grade: "고1",
   group: "",
-  className: "3",
+  className: "3반",
   ...over,
 });
 
@@ -44,8 +44,8 @@ describe("POST /api/console/teachers/import-preview", () => {
     const r = await post({
       rows: [
         row(),
-        row({ name: "이교사", phone: "010-3333-4444", className: "3" }),
-        row({ name: "", phone: "010-5555-6666", className: "4" }),
+        row({ name: "이교사", phone: "010-3333-4444", className: "3반" }),
+        row({ name: "", phone: "010-5555-6666", className: "4반" }),
       ],
     });
 
@@ -87,7 +87,7 @@ describe("POST /api/console/teachers/import-preview", () => {
     const r = await post({
       rows: [
         row(),
-        row({ name: "박교사", phone: "010-7777-8888", className: "4" }),
+        row({ name: "박교사", phone: "010-7777-8888", className: "4반" }),
       ],
     });
 
@@ -117,8 +117,8 @@ describe("POST /api/console/teachers/import-preview", () => {
               },
             ];
       kit.state.rows.classes = () => [
-        { id: "c-g", grade: "고1", group_id: null, name: "1" },
-        { id: "c-m", grade: null, group_id: null, name: "1" },
+        { id: "c-g", grade: "고1", group_id: null, name: "A" },
+        { id: "c-m", grade: null, group_id: null, name: "A" },
       ];
       kit.state.rows.teacher_class_assignments = () => [
         { teacher_id: "t1", class_id: "c-m" },
@@ -126,14 +126,14 @@ describe("POST /api/console/teachers/import-preview", () => {
     });
 
     test("같은 그룹과 이름의 다학년 학급이 학년 학급보다 먼저라 그 학급의 담임과 견준다", async () => {
-      const same = await post({ rows: [row({ className: "1" })] });
+      const same = await post({ rows: [row({ className: "A" })] });
       const other = await post({
         rows: [
           row({
             name: "박교사",
             phone: "010-7777-8888",
             grade: "고2",
-            className: "1",
+            className: "A",
           }),
         ],
       });
@@ -151,12 +151,12 @@ describe("POST /api/console/teachers/import-preview", () => {
 
       const r = await post({
         rows: [
-          row({ className: "1" }),
+          row({ className: "A" }),
           row({
             name: "이교사",
             phone: "010-3333-4444",
             grade: "고2",
-            className: "1",
+            className: "A",
           }),
         ],
       });
@@ -168,14 +168,14 @@ describe("POST /api/console/teachers/import-preview", () => {
 
     test("다학년 학급이 아닌 이름은 지금처럼 그 학년의 학급과 견준다", async () => {
       kit.state.rows.classes = () => [
-        { id: "c-g", grade: "고1", group_id: null, name: "2" },
-        { id: "c-m", grade: null, group_id: null, name: "1" },
+        { id: "c-g", grade: "고1", group_id: null, name: "B" },
+        { id: "c-m", grade: null, group_id: null, name: "A" },
       ];
       kit.state.rows.teacher_class_assignments = () => [
         { teacher_id: "t1", class_id: "c-g" },
       ];
 
-      const r = await post({ rows: [row({ className: "2" })] });
+      const r = await post({ rows: [row({ className: "B" })] });
 
       expect((r.body as { rows: { verdict: string }[] }).rows[0]?.verdict).toBe(
         "same",
@@ -183,53 +183,36 @@ describe("POST /api/console/teachers/import-preview", () => {
     });
   });
 
-  describe("형식 오류(결정 118): 학년은 중1~고3, 반은 숫자만, 어긋난 칸을 reasons 로 알린다", () => {
+  describe("형식 오류(결정 118): 학년은 중1~고3, 반은 글자나 숫자, 어긋난 칸을 reasons 로 알린다", () => {
     const verdictOf = async (over: Record<string, string>) => {
       const r = await post({ rows: [row(over)] });
       return (r.body as { rows: Record<string, unknown>[] }).rows[0];
     };
 
-    test.each([
-      ["A", ["class"]],
-      ["B반", ["class"]],
-      ["3학년 2반", ["class"]],
-      ["1-2", ["class"]],
-      ["3 반", ["class"]],
-      ["0", ["class"]],
-      ["00", ["class"]],
-      ["", ["class"]],
-    ])("학교에서 반 '%s' 은 형식 오류이다", async (className, reasons) => {
-      expect(await verdictOf({ className })).toEqual({
-        index: 0,
-        verdict: "format_error",
-        reasons,
-      });
-    });
+    test.each([["반"], ["0"], ["00반"], [" 0 반"], [""]])(
+      "반 '%s' 은 형식 오류이다",
+      async (className) => {
+        expect(await verdictOf({ className })).toEqual({
+          index: 0,
+          verdict: "format_error",
+          reasons: ["class"],
+        });
+      },
+    );
 
-    test("끝의 반 한 번은 뗀 숫자 반으로 받는다(3반, 12반)", async () => {
-      expect((await verdictOf({ className: "3반" }))?.verdict).toBe("new");
-      expect((await verdictOf({ className: " 12반 " }))?.verdict).toBe("new");
-    });
+    test.each(["A", "B반", "3학년 2반", "1-2", "3 반", "3", "03반", " 12반 "])(
+      "학교에서 반 '%s' 은 유효하다",
+      async (className) => {
+        expect((await verdictOf({ className }))?.verdict).toBe("new");
+      },
+    );
 
-    test("학교와 학원 모두 앞뒤 공백을 뺀 숫자 반은 유효하다", async () => {
-      expect((await verdictOf({ className: " 03 " }))?.verdict).toBe("new");
+    test("학원도 글자 반은 유효하다", async () => {
       kit.state.rows.tenants = () => ({
         org_type: "캠퍼스",
         school_year: 2026,
       });
-      expect((await verdictOf({ className: "1" }))?.verdict).toBe("new");
-    });
-
-    test("학원도 숫자가 아닌 반은 형식 오류이다", async () => {
-      kit.state.rows.tenants = () => ({
-        org_type: "캠퍼스",
-        school_year: 2026,
-      });
-      expect(await verdictOf({ className: "A반" })).toEqual({
-        index: 0,
-        verdict: "format_error",
-        reasons: ["class"],
-      });
+      expect((await verdictOf({ className: "A반" }))?.verdict).toBe("new");
     });
 
     test.each(["3학년", "3", "고 3", "고4", ""])(
@@ -256,7 +239,7 @@ describe("POST /api/console/teachers/import-preview", () => {
           name: " ",
           phone: "123",
           grade: "7학년",
-          className: "가",
+          className: "반",
         }),
       ).toEqual({
         index: 0,

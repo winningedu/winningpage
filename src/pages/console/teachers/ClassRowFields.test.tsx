@@ -55,7 +55,7 @@ describe("ClassRowFields", () => {
     expect(screen.getByText(HELPER)).toBeTruthy();
   });
 
-  it("반 칸은 숫자 예시와 숫자 키패드를 쓴다", () => {
+  it("반 칸은 숫자와 글자 예시를 보이고 숫자 키패드를 강제하지 않는다", () => {
     render(
       <ClassRowFields
         value={EMPTY_CLASS}
@@ -66,46 +66,8 @@ describe("ClassRowFields", () => {
     );
 
     const input = screen.getByLabelText("반");
-    expect(input.getAttribute("placeholder")).toBe("예: 3");
-    expect(input.getAttribute("inputmode")).toBe("numeric");
-  });
-
-  it.each(["A", "3학년 2반"])(
-    "숫자가 아닌 반 %s 을 적으면 숫자만 적으라고 안내한다",
-    (name) => {
-      render(
-        <ClassRowFields
-          value={{ ...EMPTY_CLASS, name }}
-          groups={[]}
-          academy
-          onChange={() => {}}
-        />,
-      );
-
-      expect(screen.getByText("반은 숫자만 적어요")).toBeTruthy();
-    },
-  );
-
-  it("3반 과 비운 칸에는 안내가 없다", () => {
-    const { rerender } = render(
-      <ClassRowFields
-        value={{ ...EMPTY_CLASS, name: "3반" }}
-        groups={[]}
-        academy
-        onChange={() => {}}
-      />,
-    );
-    expect(screen.queryByText("반은 숫자만 적어요")).toBeNull();
-
-    rerender(
-      <ClassRowFields
-        value={EMPTY_CLASS}
-        groups={[]}
-        academy
-        onChange={() => {}}
-      />,
-    );
-    expect(screen.queryByText("반은 숫자만 적어요")).toBeNull();
+    expect(input.getAttribute("placeholder")).toBe("예: 3 또는 A");
+    expect(input.getAttribute("inputmode")).toBeNull();
   });
 
   it("다학년을 고르면 mixed 값이 전해진다", () => {
@@ -142,8 +104,18 @@ describe("toClassBody", () => {
     expect(toClassBody([EMPTY_CLASS])).toEqual([]);
   });
 
-  it.each(["A", "B반", "3학년 2반", "1-2", "3 반", "0"])(
-    "숫자가 아닌 반 %s 이 든 줄이 있으면 null 이다",
+  it.each([
+    ["A반", "A"],
+    ["B 반", "B"],
+    ["03", "3"],
+  ])("반 '%s' 은 '%s' 로 보낸다", (name, want) => {
+    expect(toClassBody([{ grade: "고1", groupId: "", name }])).toEqual([
+      { grade: "고1", name: want },
+    ]);
+  });
+
+  it.each(["반", "0", "00반"])(
+    "올바른 반이 아닌 %s 이 든 줄이 있으면 null 이다",
     (name) => {
       expect(toClassBody([{ grade: "고1", groupId: "", name }])).toBeNull();
     },

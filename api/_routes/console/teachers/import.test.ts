@@ -34,7 +34,7 @@ const row = (over: Partial<Row> = {}): Row => ({
   name: "김교사",
   phone: "010-1111-2222",
   grade: "고1",
-  className: "3",
+  className: "3반",
   ...over,
 });
 
@@ -132,7 +132,7 @@ describe("POST /api/console/teachers/import", () => {
       p_name: "김교사",
       p_phone: "01011112222",
       p_role: "homeroom",
-      p_classes: [{ grade: "고1", name: "3" }],
+      p_classes: [{ grade: "고1", name: "3반" }],
     });
   });
 
@@ -143,7 +143,7 @@ describe("POST /api/console/teachers/import", () => {
       ["전화번호 형식이 틀림", row({ phone: "02-123-4567" })],
       ["학년이 목록에 없음", row({ grade: "7학년" })],
       ["학년만 있고 반이 없음", row({ className: "" })],
-      ["반 이름이 숫자가 아님(학교)", row({ className: "가나다" })],
+      ["반이 '반' 한 글자뿐임", row({ className: "반" })],
     ])("%s 이면 형식 오류이고 등록하지 않는다", async (_label, bad) => {
       const r = await run([bad, row({ name: "박교사", phone: "01022223333" })]);
 
@@ -185,7 +185,7 @@ describe("POST /api/console/teachers/import", () => {
       });
       expect(body.rows[1]).toMatchObject({ verdict: "new", applied: true });
       expect(registerCalls[0]).toMatchObject({
-        p_classes: [{ grade: "고1", name: "3", group_id: "group-1" }],
+        p_classes: [{ grade: "고1", name: "3반", group_id: "group-1" }],
       });
     });
 
@@ -198,7 +198,7 @@ describe("POST /api/console/teachers/import", () => {
     test("파일 안에서 같은 학급이 두 번 나오면 두 번째 행만 학급 중복이고, 표기가 달라도(03, 3반) 같은 학급이다", async () => {
       const r = await run([
         row({ name: "가", phone: "01000000001", className: "3" }),
-        row({ name: "나", phone: "01000000002", className: "03" }),
+        row({ name: "나", phone: "01000000002", className: "03반" }),
         row({ name: "다", phone: "01000000003", className: "4" }),
       ]);
 

@@ -1,5 +1,5 @@
 // 3단계 학생 정보(사 #101, 결정 r7, 교 결정 r10).
-// 반은 학교와 학원 모두 숫자만이고, 학원은 그룹도 적는다. 기타 소속은 반과 번호를 받지 않는다(결정 77).
+// 학교는 반이 숫자, 학원은 글자도 받고 그룹을 적는다. 기타 소속은 반과 번호를 받지 않는다(결정 77).
 import { useEffect, useState } from "react";
 import {
   AuthTitle,
@@ -17,12 +17,7 @@ import { INFO_MESSAGES, type SubmitError } from "./copy";
 import EmailVerifyField from "./EmailVerifyField";
 import Notice from "./Notice";
 import PhoneVerifyField from "./PhoneVerifyField";
-import {
-  CLASS_NAME_INVALID_MESSAGE,
-  ENROLLMENT_GRADES,
-  isValidClassNumber,
-  normalizeClassName,
-} from "./rules";
+import { ENROLLMENT_GRADES, isValidClassNumber } from "./rules";
 import StepActions from "./StepActions";
 
 const GENDER_OPTIONS = ["남", "여"];
@@ -116,10 +111,6 @@ export default function StudentInfoStep({
     return isUnder14Blocked ? INFO_MESSAGES.under14Closed : "";
   })();
 
-  // 반은 학교와 학원 모두 숫자만이다. 비운 것은 아래 canProceed 가 따로 막는다.
-  const isClassOk =
-    formData.className.trim() === "" ||
-    normalizeClassName(formData.className) !== "";
   const isNumberOk =
     formData.classNumber === "" || isValidClassNumber(formData.classNumber);
   // 14세 미만은 본인 번호가 선택이다. 적었다면 인증까지 마쳐야 한다(결정 72).
@@ -138,8 +129,7 @@ export default function StudentInfoStep({
     isUnder14 !== null &&
     formData.gender !== "" &&
     formData.grade !== "" &&
-    (!showClass ||
-      (isClassOk && formData.className.trim() !== "" && isNumberOk));
+    (!showClass || (formData.className.trim() !== "" && isNumberOk));
 
   async function handleNext() {
     setChecking(true);
@@ -310,13 +300,14 @@ export default function StudentInfoStep({
               id="school-class-name"
               name="className"
               size="lg"
-              inputMode="numeric"
+              // 학교는 숫자만, 학원은 글자도 받는다.
+              inputMode={isSchool ? "numeric" : "text"}
               value={formData.className}
-              onChange={field("className")}
-              {...(!isClassOk && {
-                status: "error" as const,
-                helperText: CLASS_NAME_INVALID_MESSAGE,
-              })}
+              onChange={(value) =>
+                updateFormData({
+                  className: isSchool ? value.replace(/\D/g, "") : value,
+                })
+              }
             />
 
             <TextField
