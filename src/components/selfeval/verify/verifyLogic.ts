@@ -8,6 +8,7 @@ export function discriminationLabel(discrimination: number | null): string {
 
 export type VerificationSummary = {
   total: number;
+  promptMissing: boolean;
   submittable: boolean;
   totalChecks: number;
   passChecks: number;
@@ -26,6 +27,7 @@ export function summarizeVerification(
   const passChecks = checks.filter((c) => c.pass).length;
   return {
     total: sections.total,
+    promptMissing: sections.promptMissing === true,
     submittable: sections.submittable,
     totalChecks: checks.length,
     passChecks,
@@ -35,6 +37,37 @@ export function summarizeVerification(
     numberCount: sections.numberCount,
     sentenceCount: sections.sentenceCount,
   };
+}
+
+export type LinkWarningLine = { key: string; text: string };
+
+/**
+ * 연계 경고 문장 목록(명세 No.182, 190). 필수 수정과 따로 보여 주고 점수와 저장 판정에는 쓰지 않는다.
+ * null 은 판정을 못 낸 칸이라 경고하지 않는다.
+ */
+export function linkWarningLines(
+  sections: VerificationSections,
+): LinkWarningLine[] {
+  return (sections.linkChecks ?? []).flatMap((c) => {
+    const line = (key: string, text: string) => ({
+      key: `${c.recordId}:${key}`,
+      text: `${c.label}: ${text}`,
+    });
+    if (c.status === "unused") {
+      return [line("unused", "선택했지만 본문에 쓰이지 않았어요(미사용)")];
+    }
+    return [
+      ...(c.linkShown === false
+        ? [line("shown", "연계가 드러난 문장이 없어요")]
+        : []),
+      ...(c.concreteWordPresent === false
+        ? [line("word", "넘어온 구체물 낱말이 연계 문장에 없어요")]
+        : []),
+      ...(c.listingSuspect === true
+        ? [line("listing", "이 기록 문장을 빼도 글이 성립해요(나열 의심)")]
+        : []),
+    ];
+  });
 }
 
 export type SaveBadge = { tone: "ok" | "warning" | "error"; label: string };

@@ -12,6 +12,7 @@ import {
   countChars,
   countSentences,
   extractNumbers,
+  findPlanExpressions,
 } from "./text.js";
 import type {
   FormatCheck,
@@ -32,8 +33,21 @@ const MAX_IMPROVEMENTS = 3;
 
 export function scoreItems(
   checks: Record<ScoreItemKey, ScoreCheck[]>,
+  opts: { promptMissing?: boolean } = {},
 ): ScoreItem[] {
   return SCORE_RUBRIC.map((row) => {
+    // 학교 문항이 없으면 문항 대응은 채점하지 않는다(명세 No.22, 105).
+    if (row.key === "prompt" && opts.promptMissing) {
+      return {
+        key: row.key,
+        label: row.label,
+        max: row.max,
+        discrimination: row.discrimination,
+        checks: [],
+        score: 0,
+        applied: false,
+      };
+    }
     const list = checks[row.key] ?? [];
     const passed = list.filter((c) => c.pass).length;
     return {
@@ -48,14 +62,19 @@ export function scoreItems(
   });
 }
 
+/** 적용하지 않은 항목이 있으면 나머지 배점 합을 100점으로 환산한다. */
 export function totalScore(items: ScoreItem[]): number {
-  return items.reduce((sum, i) => sum + i.score, 0);
+  const applied = items.filter((i) => i.applied !== false);
+  const sum = applied.reduce((s, i) => s + i.score, 0);
+  const max = applied.reduce((s, i) => s + i.max, 0);
+  return applied.length === items.length ? sum : Math.round((sum * 100) / max);
 }
 
 export function mandatoryFixes(input: {
   items: ScoreItem[];
   format: FormatCheck[];
   clicheHits: string[];
+  planHits: string[];
 }): MandatoryFix[] {
   const failed = (key: FormatCheck["key"]) =>
     input.format.some((f) => f.key === key && !f.pass);
@@ -87,6 +106,14 @@ export function mandatoryFixes(input: {
       detail: `판단 ${judgment.score}점, ${JUDGMENT_MIN_SCORE}점 이상이어야 해요`,
     });
   }
+  if (failed("no_plan_expression")) {
+    fixes.push({
+      key: "plan_expression",
+      message:
+        "계획 표현이 남아 있어요. 실제로 한 일만 쓰고 계획 문장은 지워 주세요",
+      detail: input.planHits.length > 0 ? input.planHits.join(", ") : null,
+    });
+  }
   return fixes;
 }
 
@@ -97,7 +124,7 @@ export function isSubmittable(fixes: MandatoryFix[]): boolean {
 /** 만점이 아닌 항목을 점수 비율이 낮은 순, 동률은 배점이 큰 순으로 최대 3개. */
 export function improvements(items: ScoreItem[]): Improvement[] {
   return items
-    .filter((i) => i.max > 0 && i.score < i.max)
+    .filter((i) => i.applied !== false && i.max > 0 && i.score < i.max)
     .sort((a, b) => a.score / a.max - b.score / b.max || b.max - a.max)
     .slice(0, MAX_IMPROVEMENTS)
     .map((i) => ({
@@ -116,8 +143,11 @@ export function assembleVerification(input: {
   universities: string[];
   sentences: Sentence[];
   growthFit: GrowthFit | null;
+  /** 학교 문항이 없으면 true. 문항 대응을 채점에서 뺀다. */
+  promptMissing?: boolean;
 }): VerificationSections {
-  const items = scoreItems(input.checks);
+  const promptMissing = input.promptMissing === true;
+  const items = scoreItems(input.checks, { promptMissing });
   const format = runFormatChecks({
     text: input.text,
     targetChars: input.targetChars,
@@ -126,10 +156,16 @@ export function assembleVerification(input: {
     sentences: input.sentences,
   });
   const cliche = clicheDensity(input.text, input.mode);
-  const fixes = mandatoryFixes({ items, format, clicheHits: cliche.hits });
+  const fixes = mandatoryFixes({
+    items,
+    format,
+    clicheHits: cliche.hits,
+    planHits: findPlanExpressions(input.text),
+  });
   return {
     items,
     total: totalScore(items),
+    promptMissing,
     format,
     mandatoryFixes: fixes,
     submittable: isSubmittable(fixes),

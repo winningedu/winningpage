@@ -3,11 +3,37 @@
 
 import { extractKeywords } from "./text.js";
 import type {
+  ActivityRecordLike,
   GrowthFit,
   GrowthSnapshot,
   ScoreCheck,
   ScoreItemKey,
 } from "./types.js";
+
+const uniq = (xs: string[]): string[] => [...new Set(xs)];
+
+/**
+ * 판정 기준이 되는 개념과 자료 낱말을 선택 기록 전부의 7항목에서 모은다(명세 No.55).
+ * 핵심 분석에서만 뽑으면 다른 기록의 개념과 자료를 쓴 글이 억울하게 낮게 나온다.
+ */
+export function recordTerms(records: ActivityRecordLike[]): {
+  concepts: string[];
+  sources: string[];
+} {
+  return {
+    concepts: uniq(records.flatMap((r) => extractKeywords(r.concept ?? ""))),
+    sources: uniq(
+      records.flatMap((r) =>
+        Array.isArray(r.sources)
+          ? r.sources
+              .filter((x): x is string => typeof x === "string")
+              .map((x) => x.trim())
+              .filter((x) => x !== "")
+          : [],
+      ),
+    ),
+  };
+}
 
 /** 문항 대응(prompt) 항목에서 "핵심 낱말이 본문에 반영되는가" 가 두 번째 확인 문장이다. */
 const PROMPT_KEYWORD_CHECK_INDEX = 1;

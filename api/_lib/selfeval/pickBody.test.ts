@@ -281,3 +281,55 @@ describe("manualSelectionRow", () => {
     });
   });
 });
+
+describe("validatePickBody link actions", () => {
+  const base = { sessionId: "s1" };
+  it("accepts link, delete-link, confirm-link and add-link", () => {
+    expect(validatePickBody({ ...base, action: "link" })).toEqual({
+      ok: true,
+      body: { sessionId: "s1", action: "link" },
+    });
+    for (const action of ["delete-link", "confirm-link"]) {
+      expect(
+        validatePickBody({ ...base, action, fromId: "a", toId: "b" }),
+      ).toEqual({
+        ok: true,
+        body: { sessionId: "s1", action, fromId: "a", toId: "b" },
+      });
+    }
+    expect(
+      validatePickBody({
+        ...base,
+        action: "add-link",
+        fromId: "a",
+        toId: "b",
+        type: "deepen",
+        note: "이어서 했어요",
+      }),
+    ).toEqual({
+      ok: true,
+      body: {
+        sessionId: "s1",
+        action: "add-link",
+        fromId: "a",
+        toId: "b",
+        type: "deepen",
+        note: "이어서 했어요",
+      },
+    });
+  });
+  it("rejects missing or non-string ids, type and note", () => {
+    for (const bad of [
+      { action: "delete-link", fromId: "a" },
+      { action: "confirm-link", fromId: 1, toId: "b" },
+      { action: "add-link", fromId: "a", toId: "b", type: "deepen" },
+      { action: "add-link", fromId: "a", toId: "b", note: "x" },
+      { action: "add-link", fromId: "", toId: "b", type: "deepen", note: "x" },
+    ]) {
+      expect(validatePickBody({ ...base, ...bad })).toMatchObject({
+        ok: false,
+        code: "INVALID_BODY",
+      });
+    }
+  });
+});

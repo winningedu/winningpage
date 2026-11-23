@@ -97,6 +97,11 @@ const selfevalAppRoutes: RouteObject[] = [
                 path: "s/:sessionId/done",
                 ...page(() => import("@/pages/selfeval/DonePage")),
               },
+              // 6 리포트(표지 + 01~05장, PDF 저장)
+              {
+                path: "s/:sessionId/report",
+                ...page(() => import("@/pages/selfeval/ReportPage")),
+              },
             ],
           },
         ],

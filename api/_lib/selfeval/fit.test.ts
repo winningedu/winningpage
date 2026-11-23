@@ -150,6 +150,44 @@ describe("computeFit 기본 신호", () => {
       false,
     );
   });
+  it("같은 주제여도 새로 더하는 항목이 있으면 repeated_topic 이 아니다", () => {
+    const o = rec({ id: "a2", topic: "표본 조사 설계 심화" });
+    const adds = rec({ limitation: "표본이 작았다" });
+    expect(hit(computeFit(adds, ctx({ others: [o] })), "repeated_topic")).toBe(
+      false,
+    );
+  });
+  it("같은 질문 심화 연계가 인정된 기록은 반복 감점을 면제한다", () => {
+    const o = rec({ id: "a2", topic: "표본 조사 설계 심화" });
+    const waived = ctx({ others: [o], deepenIds: new Set(["a1"]) });
+    expect(hit(computeFit(rec(), waived), "repeated_topic")).toBe(false);
+    expect(computeFit(rec(), waived).score).toBeGreaterThan(
+      computeFit(rec(), ctx({ others: [o] })).score,
+    );
+  });
+  it("학년 표시가 없으면 제출일이 1년 넘게 벌어질 때 year_gap", () => {
+    const early = rec({
+      id: "e",
+      gradeLabel: null,
+      semester: null,
+      topic: "다른 주제 탐구",
+      submittedAt: "2025-01-01T00:00:00Z",
+    });
+    const me = (at: string) =>
+      rec({ gradeLabel: null, semester: null, submittedAt: at });
+    expect(
+      hit(
+        computeFit(me("2026-03-01T00:00:00Z"), ctx({ others: [early] })),
+        "year_gap",
+      ),
+    ).toBe(true);
+    expect(
+      hit(
+        computeFit(me("2025-09-01T00:00:00Z"), ctx({ others: [early] })),
+        "year_gap",
+      ),
+    ).toBe(false);
+  });
   it("가장 가까운 앞선 활동과 2학기를 넘게 벌어지면 year_gap", () => {
     const early = rec({
       id: "e",

@@ -6,6 +6,7 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   type ApiResult,
   fetchEntry,
+  fetchReport,
   fetchSessionDetail,
   pickList,
 } from "./api";
@@ -36,6 +37,8 @@ export const selfevalQueryKeys = {
     ["selfeval", "session", userId, sessionId] as const,
   pick: (userId: string | null, sessionId: string | null) =>
     ["selfeval", "pick", userId, sessionId] as const,
+  report: (userId: string | null, sessionId: string | null) =>
+    ["selfeval", "report", userId, sessionId] as const,
 };
 
 // 세션 생성, 선택 확정 직후 갱신이 잦아 짧게 둔다. 시작 화면과 사이드바가 같은 캐시를 읽는다.
@@ -71,6 +74,20 @@ export function selfevalPickQuery(
   return queryOptions({
     queryKey: selfevalQueryKeys.pick(userId, sessionId),
     queryFn: async () => unwrap(await pickList(sessionId as string)),
+    staleTime: SELFEVAL_STALE_MS,
+    enabled: !!userId && !!sessionId,
+    retry: 0,
+  });
+}
+
+// 저장된 리포트 조회. 없으면 404 REPORT_NOT_FOUND 가 SelfevalApiError 로 올라온다(자동 만들기 신호).
+export function selfevalReportQuery(
+  userId: string | null,
+  sessionId: string | null,
+) {
+  return queryOptions({
+    queryKey: selfevalQueryKeys.report(userId, sessionId),
+    queryFn: async () => unwrap(await fetchReport(sessionId as string)).report,
     staleTime: SELFEVAL_STALE_MS,
     enabled: !!userId && !!sessionId,
     retry: 0,

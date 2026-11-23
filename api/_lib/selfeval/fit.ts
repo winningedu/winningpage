@@ -4,6 +4,8 @@
 import { overlapRatio } from "./conflict.js";
 import { JUDGMENT_WORDS, SELF_MADE_WORDS } from "./dictionaries.js";
 import { normalizeSubject } from "./growth.js";
+import { submittedAtOf } from "./link.js";
+import { filledKeys, newKeys } from "./linkGraph.js";
 import { extractKeywords, extractNumbers } from "./text.js";
 import {
   type ActivityRecordLike,
@@ -35,6 +37,7 @@ const ALIGNED_CAP = 40;
 const REPEATED_TOPIC_OVERLAP = 0.6;
 const SHORT_LENGTH = 40;
 const YEAR_GAP_LIMIT = 2;
+const YEAR_GAP_MS = 365 * 24 * 60 * 60 * 1000;
 
 export type FitContext = {
   area: Area;
@@ -43,6 +46,8 @@ export type FitContext = {
   others: ActivityRecordLike[];
   growth: GrowthSnapshot | null;
   growthApplied: boolean;
+  /** 같은 질문 심화 연계가 인정된 기록 id. 반복 주제 감점을 면제한다(명세 No.30). */
+  deepenIds?: ReadonlySet<string>;
 };
 
 const BASE_KEYS: FitSignalKey[] = [
@@ -89,7 +94,7 @@ function sameSubject(a: ActivityRecordLike, ctx: FitContext): boolean {
 
 function yearGap(a: ActivityRecordLike, others: ActivityRecordLike[]): boolean {
   const mine = termOrder(a);
-  if (mine === null) return false;
+  if (mine === null) return submittedGap(a, others);
   let nearest: number | null = null;
   for (const o of others) {
     const t = termOrder(o);
@@ -99,6 +104,22 @@ function yearGap(a: ActivityRecordLike, others: ActivityRecordLike[]): boolean {
   return nearest !== null && mine - nearest > YEAR_GAP_LIMIT;
 }
 
+/** 학년과 학기를 모를 때는 가장 가까운 앞선 제출일과 1년을 넘게 벌어지는지 본다. */
+function submittedGap(
+  a: ActivityRecordLike,
+  others: ActivityRecordLike[],
+): boolean {
+  const mine = Date.parse(submittedAtOf(a));
+  let nearest: number | null = null;
+  for (const o of others) {
+    const t = Date.parse(submittedAtOf(o));
+    if (Number.isNaN(t) || t >= mine) continue;
+    if (nearest === null || t > nearest) nearest = t;
+  }
+  return nearest !== null && mine - nearest > YEAR_GAP_MS;
+}
+
+/** 같은 주제를 되풀이하면서 비교 기록에 없는 항목을 하나도 더하지 않는가(명세 No.30 신호 7). */
 function repeatedTopic(
   a: ActivityRecordLike,
   others: ActivityRecordLike[],
@@ -108,7 +129,8 @@ function repeatedTopic(
     (o) =>
       o.id !== a.id &&
       overlapRatio(mine, extractKeywords(text(o.topic))) >=
-        REPEATED_TOPIC_OVERLAP,
+        REPEATED_TOPIC_OVERLAP &&
+      newKeys(a, filledKeys(o)).size === 0,
   );
 }
 
@@ -129,7 +151,9 @@ export function computeFit(
       `${text(activity.method)} ${listText(activity.sources)}`.includes(w),
     ),
     too_short: text(activity.method).length + result.length < SHORT_LENGTH,
-    repeated_topic: repeatedTopic(activity, ctx.others),
+    repeated_topic:
+      ctx.deepenIds?.has(activity.id) !== true &&
+      repeatedTopic(activity, ctx.others),
     year_gap: yearGap(activity, ctx.others),
   };
 

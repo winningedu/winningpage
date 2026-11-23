@@ -4,7 +4,16 @@
 
 import { type Db, loadReports, loadSessionActivities } from "../db.js";
 import { plainText } from "../editLink.js";
+import { loadEvidenceRows } from "../evidenceDb.js";
+import { buildWriteEvidence } from "../evidenceSources.js";
 import { bannerSummary } from "../growth.js";
+import {
+  buildLinkChecks,
+  judgedTargets,
+  linkTargets,
+  type SupportLinkState,
+} from "../linkWrite.js";
+import { linkStatusOf } from "../pickList.js";
 import { promoteToRecord } from "../promote.js";
 import { extractPromptKeywords } from "../promptKeywords.js";
 import { buildVerifyPrompt, type VerifyPromptInput } from "../prompts.js";
@@ -29,6 +38,7 @@ import { validateVerifyResponse } from "../validation.js";
 import {
   applyDeterministicChecks,
   growthSignalChecks,
+  recordTerms,
 } from "../verifyChecks.js";
 import { detailBody } from "../view.js";
 import {
@@ -82,32 +92,53 @@ export function validateVerifyBody(
 const allSentences = (sections: GenerationSections): Sentence[] =>
   sections.paragraphs.flatMap((p) => p.sentences);
 
+const supportLabels = (
+  session: SessionRow,
+  supports: ActivityRecordLike[],
+): Map<string, string> =>
+  new Map(supports.map((s) => [s.id, activityNameOf(s, session)]));
+
 export function buildVerifyInput(
   session: SessionRow,
   current: GenerationSections,
   core: { record: ActivityRecordLike; analysis: Analysis },
   supports: ActivityRecordLike[],
+  linkStates: SupportLinkState[] = [],
 ): VerifyPromptInput {
-  if (session.school_prompt === null) {
-    throw new Error("학교 문항이 없는 세션은 검증할 수 없습니다.");
-  }
   const snapshot = activeGrowth(session);
   const { values } = core.analysis;
+  const all = recordTerms([core.record, ...supports]);
+  const unique = (xs: string[]) => [...new Set(xs)];
   return {
     text: plainText(current),
     sentences: allSentences(current).map((s) => ({ id: s.id, text: s.text })),
     schoolPrompt: session.school_prompt,
-    promptKeywords: extractPromptKeywords(session.school_prompt),
+    promptKeywords:
+      session.school_prompt === null
+        ? []
+        : extractPromptKeywords(session.school_prompt),
     teacherNote: session.teacher_note,
     coreTerms: {
-      concepts: extractKeywords(values.concept),
+      concepts: unique([...extractKeywords(values.concept), ...all.concepts]),
       roles: extractKeywords(values.role),
-      sources: promoteToRecord(
-        core.analysis,
-        activityNameOf(core.record, session),
-      ).sources,
+      sources: unique([
+        ...promoteToRecord(core.analysis, activityNameOf(core.record, session))
+          .sources,
+        ...all.sources,
+      ]),
     },
     supportNames: supports.map((s) => activityNameOf(s, session)),
+    linkTargets: judgedTargets(
+      linkTargets(
+        linkStates,
+        supportLabels(session, supports),
+        allSentences(current),
+      ),
+    ).map((t) => ({
+      recordId: t.recordId,
+      label: t.label,
+      sentenceIds: t.sentenceIds,
+    })),
     growth:
       snapshot === null
         ? null
@@ -123,16 +154,24 @@ export function buildVerifySpec(
   current: GenerationSections,
   core: { record: ActivityRecordLike; analysis: Analysis },
   supports: ActivityRecordLike[],
+  linkStates: SupportLinkState[] = [],
 ): StepSpec<ModelVerify> {
-  const input = buildVerifyInput(session, current, core, supports);
+  const input = buildVerifyInput(session, current, core, supports, linkStates);
   const snapshot = activeGrowth(session);
   const sentences = allSentences(current);
   const universities = careerOf(session).universities;
+  const targets = linkTargets(
+    linkStates,
+    supportLabels(session, supports),
+    sentences,
+  );
   return {
     build: (retryNotes) => buildVerifyPrompt(input, retryNotes),
     validate: (value) => {
       const v = validateVerifyResponse(value, {
         expectGrowth: snapshot !== null,
+        promptMissing: input.schoolPrompt === null,
+        linkRecordIds: input.linkTargets.map((t) => t.recordId),
       });
       if (!v.ok) return v;
       // 문자열 포함 여부처럼 코드가 더 정확한 판정은 모델 결과를 덮는다(명세 No.23).
@@ -140,13 +179,14 @@ export function buildVerifySpec(
         text: input.text,
         promptKeywords: input.promptKeywords,
       });
-      const sections = assembleVerification({
+      const scored = assembleVerification({
         checks,
         text: input.text,
         targetChars: session.target_chars,
         mode: session.target_chars_mode,
         universities,
         sentences,
+        promptMissing: input.schoolPrompt === null,
         growthFit:
           snapshot === null
             ? null
@@ -155,6 +195,11 @@ export function buildVerifySpec(
                 axisChecks: growthSignalChecks(input.text, snapshot),
               },
       });
+      // 연계 경고는 채점과 필수 수정을 계산한 뒤에 붙인다. 점수와 제출 가능 판정에는 들어가지 않는다.
+      const sections: VerificationSections = {
+        ...scored,
+        linkChecks: buildLinkChecks(targets, v.linkJudgments),
+      };
       return {
         ok: true,
         patch: {
@@ -193,14 +238,27 @@ export async function runVerify(
     return { kind: "order", currentStep: session.current_step };
   }
 
-  const { core, supports } = splitActivities(
-    await loadSessionActivities(db, userId, session.id),
+  const rows = await loadSessionActivities(db, userId, session.id);
+  const { core, supports } = splitActivities(rows);
+  const loaded = await loadEvidenceRows(
+    db,
+    userId,
+    session.id,
+    rows.map((r) => r.activity_record_id),
+  );
+  const { linkStates } = buildWriteEvidence(
+    rows,
+    loaded.extras,
+    loaded.links,
+    linkStatusOf(session.step_state) === "ok",
+    loaded.memos,
   );
   const spec = buildVerifySpec(
     session,
     current.sections as GenerationSections,
     { record: core.record, analysis: readAnalysis(core.analysis) },
     supports.map((s) => s.record),
+    linkStates,
   );
 
   const gate = await checkChargeGate(db, userId, session);

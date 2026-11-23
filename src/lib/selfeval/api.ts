@@ -15,6 +15,7 @@ import {
   normalizeApiResult,
 } from "../growth/apiResult";
 import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "../performance/apiClient";
+import type { ReportResponse } from "./reportTypes";
 import type {
   AnalysisField,
   AnalyzeEditResponse,
@@ -22,7 +23,9 @@ import type {
   ConflictChoice,
   EntryResponse,
   FinalizeResponse,
+  LinkType,
   ManualInput,
+  PickLinkResponse,
   PickListResponse,
   PickManualResponse,
   PickSelectResponse,
@@ -118,6 +121,24 @@ export function fetchSessionDetail(sessionId: string) {
   });
 }
 
+// ── 리포트(표지 + 01~05장, 명세 No.133) ───────────────────────────────
+/** 저장된 리포트. 없으면 404 REPORT_NOT_FOUND. */
+export function fetchReport(sessionId: string) {
+  const query = new URLSearchParams({ sessionId });
+  return request<ReportResponse>(`${BASE}/report?${query.toString()}`, {
+    method: "GET",
+  });
+}
+
+/** 만들기, 다시 만들기. 같은 리비전의 완성본은 서버가 다시 만들지 않는다. 모델 호출이라 긴 타임아웃. */
+export function buildReport(sessionId: string) {
+  return request<ReportResponse>(`${BASE}/report`, {
+    method: "POST",
+    body: { sessionId },
+    ai: true,
+  });
+}
+
 // ── 세션 ──────────────────────────────────────────────────────────────
 export function createSession(input: SessionInput) {
   return request<SessionResponse>(`${BASE}/session`, {
@@ -159,10 +180,124 @@ export function pickSelect(
   });
 }
 
+/** 연계 판정(모델 1회). 이미 판정을 마쳤으면 저장된 연계를 돌려준다. 호출 실패여도 200 으로 linkUnchecked 를 준다. */
+export function pickLink(sessionId: string) {
+  return request<PickLinkResponse>(`${BASE}/pick-records`, {
+    method: "POST",
+    body: { sessionId, action: "link" },
+    ai: true,
+  });
+}
+
+export function pickDeleteLink(
+  sessionId: string,
+  fromId: string,
+  toId: string,
+) {
+  return request<PickLinkResponse>(`${BASE}/pick-records`, {
+    method: "POST",
+    body: { sessionId, action: "delete-link", fromId, toId },
+  });
+}
+
+/** 암묵 연계를 "실제로 이어서 했어요" 로 확인한다. */
+export function pickConfirmLink(
+  sessionId: string,
+  fromId: string,
+  toId: string,
+) {
+  return request<PickLinkResponse>(`${BASE}/pick-records`, {
+    method: "POST",
+    body: { sessionId, action: "confirm-link", fromId, toId },
+  });
+}
+
+/** 학생이 선을 긋는다. 한 줄 설명(note)이 필수다. */
+export function pickAddLink(
+  sessionId: string,
+  link: { fromId: string; toId: string; type: LinkType; note: string },
+) {
+  return request<PickLinkResponse>(`${BASE}/pick-records`, {
+    method: "POST",
+    body: { sessionId, action: "add-link", ...link },
+  });
+}
+
 export function pickManual(sessionId: string, input: ManualInput) {
   return request<PickManualResponse>(`${BASE}/pick-records`, {
     method: "POST",
     body: { sessionId, action: "manual", input },
+  });
+}
+
+// ── 수기 수행보고 메모(명세 No.158~161) ───────────────────────────────
+export type ManualMemo = {
+  id: string;
+  writtenAt: string | null;
+  text: string;
+  ocr: boolean;
+  confirmed: boolean;
+  included: boolean;
+  /** 사람 이름이나 학교 이름이 보여 지우거나 바꾸라고 안내해야 하는 메모. */
+  nameNotice: boolean;
+};
+
+export type ManualLogsListResponse = { ok: true; memos: ManualMemo[] };
+export type ManualLogsUploadResponse = {
+  ok: true;
+  memos: ManualMemo[];
+  personNameDetected: boolean;
+};
+export type ManualLogsMemoResponse = { ok: true; memo: ManualMemo };
+
+export type ManualUploadInput =
+  | { text: string }
+  | { file: { mimeType: string; data: string } };
+
+const MANUAL_LOGS = `${BASE}/manual-logs`;
+
+export function manualLogsList(sessionId: string) {
+  return request<ManualLogsListResponse>(MANUAL_LOGS, {
+    method: "POST",
+    body: { sessionId, action: "list" },
+  });
+}
+
+/** 글자를 읽는 모델을 한 번 부른다. 이용 횟수는 쓰지 않는다. */
+export function manualLogsUpload(sessionId: string, input: ManualUploadInput) {
+  return request<ManualLogsUploadResponse>(MANUAL_LOGS, {
+    method: "POST",
+    body: { sessionId, action: "upload", ...input },
+    ai: true,
+  });
+}
+
+export function manualLogsUpdate(
+  sessionId: string,
+  memoId: string,
+  patch: { writtenAt?: string; text?: string; confirmed?: boolean },
+) {
+  return request<ManualLogsMemoResponse>(MANUAL_LOGS, {
+    method: "POST",
+    body: { sessionId, action: "update", memoId, ...patch },
+  });
+}
+
+export function manualLogsSetIncluded(
+  sessionId: string,
+  memoId: string,
+  included: boolean,
+) {
+  return request<ManualLogsMemoResponse>(MANUAL_LOGS, {
+    method: "POST",
+    body: { sessionId, action: "set-included", memoId, included },
+  });
+}
+
+export function manualLogsDelete(sessionId: string, memoId: string) {
+  return request<{ ok: true }>(MANUAL_LOGS, {
+    method: "POST",
+    body: { sessionId, action: "delete", memoId },
   });
 }
 
@@ -217,6 +352,18 @@ export function writeConfirmFeeling(sessionId: string, sentenceId: string) {
   return request<WriteEditResponse>(`${BASE}/write`, {
     method: "POST",
     body: { sessionId, action: "confirm-feeling", sentenceId },
+  });
+}
+
+/** 한 문장의 근거를 선택 기록과 수기 메모에서 다시 고른다(명세 No.147). */
+export function writeRepickEvidence(
+  sessionId: string,
+  sentenceId: string,
+  picks: { refId: string; item: string }[],
+) {
+  return request<WriteEditResponse>(`${BASE}/write`, {
+    method: "POST",
+    body: { sessionId, action: "repick-evidence", sentenceId, picks },
   });
 }
 

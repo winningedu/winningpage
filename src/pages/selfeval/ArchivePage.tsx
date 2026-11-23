@@ -260,6 +260,17 @@ export default function ArchivePage() {
                       ))}
                     </ul>
                   </div>
+                  {action === "view" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      className="h-10 shrink-0 px-5 text-app-label font-semibold"
+                      onClick={() => navigate(SELFEVAL_PATHS.report(item.id))}
+                    >
+                      리포트 보기
+                    </Button>
+                  )}
                   {action && (
                     <Button
                       type="button"

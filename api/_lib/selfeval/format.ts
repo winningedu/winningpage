@@ -1,4 +1,4 @@
-// 형식 6항목(명세 No.56). 전부 서버 결정론이라 모델 판정과 섞이지 않는다.
+// 형식 7항목(명세 No.56). 전부 서버 결정론이라 모델 판정과 섞이지 않는다.
 // detail 은 시안 하단 형식 카드처럼 실제 수치를 넣은 한 문장으로 쓴다.
 
 import {
@@ -6,6 +6,7 @@ import {
   containsUniversity,
   countByMode,
   countSentences,
+  findPlanExpressions,
 } from "./text.js";
 import {
   CLICHE_DENSITY_MAX,
@@ -109,6 +110,19 @@ export function runFormatChecks(input: FormatInput): FormatCheck[] {
       pending === 0
         ? "확인이 필요한 문장이 남아 있지 않아요"
         : `확인이 필요한 문장이 ${pending}개 남아 있어요. 노란 표시는 학생이 확인해야 해요`,
+    skipped: false,
+  });
+
+  // 7. 계획 표현. 실제로 한 일만 쓰므로 계획 문장이 남아 있으면 실패한다(명세 No.56).
+  const plans = findPlanExpressions(text);
+  checks.push({
+    key: "no_plan_expression",
+    label: "계획 표현 미포함",
+    pass: plans.length === 0,
+    detail:
+      plans.length === 0
+        ? "계획 표현이 들어가지 않았어요"
+        : `계획 표현이 남아 있어요: ${plans.join(", ")}`,
     skipped: false,
   });
 

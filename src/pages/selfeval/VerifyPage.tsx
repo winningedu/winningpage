@@ -27,6 +27,7 @@ import {
   FormatCard,
   GrowthFitCard,
   ImprovementsCard,
+  LinkWarningsCard,
   MandatoryFixesCard,
   ScoreItemCards,
 } from "@/components/selfeval/verify/VerificationCards";
@@ -231,6 +232,7 @@ function VerifyBody({
               pendingSentences={pendingSentences}
               onEdit={() => navigate(SELFEVAL_PATHS.result(sessionId))}
             />
+            <LinkWarningsCard sections={sections} />
             <ScoreItemCards sections={sections} />
             <FormatCard sections={sections} />
             <GrowthFitCard sections={sections} />

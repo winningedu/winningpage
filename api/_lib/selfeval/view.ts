@@ -3,6 +3,8 @@
 
 import type { QuotaSnapshot } from "../serviceAccess.js";
 import { tenantReasonExtra } from "../tenantUsage.js";
+import { normalizeSections, type SourceTypeOf } from "./evidence.js";
+import { sourceTypeOfRecord } from "./evidenceSources.js";
 import { bannerSummary } from "./growth.js";
 import type {
   ReportRow,
@@ -167,11 +169,12 @@ export type ReportView = {
   createdAt: string;
 };
 
-function reportView(row: ReportRow): ReportView {
+function reportView(row: ReportRow, typeOf?: SourceTypeOf): ReportView {
   return {
     id: row.id,
     revision: row.revision,
-    sections: row.sections,
+    // 옛 단일 근거 모양으로 저장된 본문도 배열 근거로 읽는다(명세 No.145).
+    sections: normalizeSections(row.sections, typeOf),
     charCount: (row.char_count as CharCount | null) ?? null,
     score: row.score,
     mandatoryFixes: row.mandatory_fixes,
@@ -206,13 +209,29 @@ export function detailBody(
   session: SessionRow,
   activities: SessionActivityWithRecord[],
   reports: ReportRow[],
+  memos: { id: string; writtenAt: string | null; text: string }[] = [],
 ) {
   const generation = latestOf(reports, "generation");
   const edited = latestOf(reports, "edited");
   const verification = latestOf(reports, "verification");
   const final = latestOf(reports, "final");
   const state = parseStepState(session.step_state);
-  const view = (r: ReportRow | null) => (r === null ? null : reportView(r));
+  // 선택 기록을 아는 호출만 옛 근거의 출처 유형을 정확히 찾는다. 기록 목록이 비어 있으면 찾지 않는다.
+  const typeOf: SourceTypeOf | undefined =
+    activities.length === 0
+      ? undefined
+      : (id) => {
+          const found = activities.find((a) => a.activity_record_id === id);
+          return found === undefined
+            ? null
+            : sourceTypeOfRecord({
+                sourceProgram: found.record.sourceProgram,
+                subjectGroup: found.record.subjectGroup,
+                entryKind: null,
+              });
+        };
+  const view = (r: ReportRow | null) =>
+    r === null ? null : reportView(r, typeOf);
   const current = currentOf(generation, edited);
   return {
     session: {
@@ -255,6 +274,7 @@ export function detailBody(
       verification: view(verification),
       final: view(final),
     },
+    memos,
     regenerationsLeft: MAX_REGENERATIONS - session.regenerate_count,
     current: view(current),
   };

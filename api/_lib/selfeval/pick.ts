@@ -2,59 +2,74 @@
 // 핵심 활동은 "이번에 쓰는 과목의 기록"이어야 한다는 규칙을 서버에서도 강제한다(No.7, No.33).
 
 import { computeFit, type FitContext } from "./fit.js";
+import { recordStatusOf, submittedAtOf } from "./link.js";
 import {
   type ActivityRecordLike,
   CANDIDATE_LIMIT,
   type CandidateRow,
+  FALLBACK_SELECT_COUNT,
   FIT_AUTO_SELECT_THRESHOLD,
-  MAX_SUPPORT_ACTIVITIES,
 } from "./types.js";
 
 export type PickContext = FitContext & { usedActivityIds: Set<string> };
 
 const PLANNED_REASON = "아직 수행하지 않은 계획이라 재료로 쓸 수 없어요";
+const IN_PROGRESS_REASON = "아직 진행 중인 기록이라 근거로 쓸 수 없어요";
 const USED_WARNING = "이전 자기평가서에서 쓴 활동이에요";
 const SWAPPED_WARNING =
   "작성 과목과 같은 활동이 있어 그 활동을 핵심으로 바꿨어요";
 
-const isSameSubject = (r: CandidateRow): boolean =>
+const CANDIDATE_SOURCES: readonly ActivityRecordLike["sourceProgram"][] = [
+  "performance",
+  "deep",
+  "manual",
+];
+
+export const isSameSubject = (r: CandidateRow): boolean =>
   r.fit?.signals.some((s) => s.key === "same_subject" && s.hit) === true;
 
 export function buildCandidates(
   records: ActivityRecordLike[],
   ctx: Omit<PickContext, "others">,
 ): CandidateRow[] {
-  // 자기평가서가 만든 기록(self)은 재료로 다시 쓰지 않는다. 고객사 의견.
-  // Array.prototype.sort 는 안정 정렬이라 같은 시각이면 입력 순서가 유지된다.
+  // 수행평가, 심화탐구, 직접 입력 기록만 후보다(명세 No.27). 자기평가서가 만든 기록(self)과
+  // 업로드는 재료로 쓰지 않는다. 제출일 최신순이고, 정렬은 안정이라 같은 시각이면 입력 순서가 유지된다.
   const latest = records
-    .filter((r) => r.sourceProgram !== "self")
-    .sort((a, b) =>
-      a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
-    )
+    .filter((r) => CANDIDATE_SOURCES.includes(r.sourceProgram))
+    .sort((a, b) => {
+      const x = submittedAtOf(a);
+      const y = submittedAtOf(b);
+      return x < y ? 1 : x > y ? -1 : 0;
+    })
     .slice(0, CANDIDATE_LIMIT);
-  // 계획 상태는 아직 한 일이 아니라서 반복 주제나 학기 간격 비교 대상에서도 뺀다.
-  const comparable = latest.filter((r) => r.status !== "planned");
+  // 완료가 아닌 기록은 아직 한 일이 아니라서 반복 주제나 학기 간격 비교 대상에서도 뺀다.
+  const comparable = latest.filter((r) => recordStatusOf(r) === "completed");
 
   return latest.map((activity) => {
     const alreadyUsed = ctx.usedActivityIds.has(activity.id);
-    if (activity.status === "planned") {
+    const recordStatus = recordStatusOf(activity);
+    const base = {
+      activity,
+      alreadyUsed,
+      role: null,
+      recordStatus,
+      submittedAt: submittedAtOf(activity),
+    };
+    if (recordStatus !== "completed") {
       return {
-        activity,
+        ...base,
         fit: null,
-        unavailableReason: PLANNED_REASON,
-        alreadyUsed,
-        role: null,
+        unavailableReason:
+          recordStatus === "plan" ? PLANNED_REASON : IN_PROGRESS_REASON,
       };
     }
     return {
-      activity,
+      ...base,
       fit: computeFit(activity, {
         ...ctx,
         others: comparable.filter((o) => o.id !== activity.id),
       }),
       unavailableReason: null,
-      alreadyUsed,
-      role: null,
     };
   });
 }
@@ -72,10 +87,12 @@ export function autoSelect(
   coreMismatch: boolean;
   noneAboveThreshold: boolean;
 } {
-  const eligible = rows
-    .filter((r) => r.fit !== null && r.fit.score >= FIT_AUTO_SELECT_THRESHOLD)
-    .sort(byScoreDesc);
-  const best = eligible.find(isSameSubject);
+  const available = rows.filter((r) => r.fit !== null).sort(byScoreDesc);
+  const eligible = available.filter(
+    (r) => (r.fit?.score ?? 0) >= FIT_AUTO_SELECT_THRESHOLD,
+  );
+  // 작성 과목이나 영역의 기록이 있으면 점수와 무관하게 그것이 핵심이다(명세 No.7, 31).
+  const best = available.find(isSameSubject);
   const core = best ?? eligible[0];
   if (!core) {
     return {
@@ -89,7 +106,7 @@ export function autoSelect(
     coreId: core.activity.id,
     supportIds: eligible
       .filter((r) => r !== core)
-      .slice(0, MAX_SUPPORT_ACTIVITIES)
+      .slice(0, FALLBACK_SELECT_COUNT - 1)
       .map((r) => r.activity.id),
     coreMismatch: best === undefined,
     noneAboveThreshold: false,
@@ -117,7 +134,9 @@ export type ApplySelectionResult =
 export function applySelection(
   rows: CandidateRow[],
   selection: { coreId: string; supportIds: string[] },
-  _ctx?: Omit<PickContext, "others">,
+  _ctx: Omit<PickContext, "others"> | undefined,
+  /** 핵심을 포함한 직접 선택 상한. 항상 maxSelectFor(목표 글자 수)다. */
+  maxSelect: number,
 ): ApplySelectionResult {
   if (selection.coreId === "") {
     return {
@@ -129,11 +148,11 @@ export function applySelection(
   const supportIds = [...new Set(selection.supportIds)].filter(
     (id) => id !== selection.coreId,
   );
-  if (supportIds.length > MAX_SUPPORT_ACTIVITIES) {
+  if (supportIds.length + 1 > maxSelect) {
     return {
       ok: false,
       code: "TOO_MANY_SUPPORT",
-      message: `보조 활동은 최대 ${MAX_SUPPORT_ACTIVITIES}개까지 고를 수 있어요.`,
+      message: `활동은 최대 ${maxSelect}건까지 고를 수 있어요.`,
     };
   }
   const byId = new Map(rows.map((r) => [r.activity.id, r]));

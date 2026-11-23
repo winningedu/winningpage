@@ -85,6 +85,7 @@ export function makeDetail(
   over: {
     session?: Record<string, unknown>;
     activities?: SessionActivityView[];
+    memos?: SessionDetailResponse["memos"];
     reports?: Partial<SessionDetailResponse["reports"]>;
     regenerationsLeft?: number;
     current?: SessionDetailResponse["current"];
@@ -96,6 +97,7 @@ export function makeDetail(
       ok: true,
       session: { ...SESSION_BASE, ...over.session },
       activities: over.activities ?? [makeActivity("core")],
+      memos: over.memos ?? [],
       reports: {
         generation: null,
         edited: null,
@@ -134,7 +136,14 @@ export function makeSections(): GenerationSections {
           {
             id: "p1s1",
             text: "배차표 자료를 비교했어요.",
-            evidence: { activityId: "act-core", field: "method" },
+            evidence: [
+              {
+                sourceType: "P",
+                refId: "act-core",
+                item: "method",
+                weight: "main",
+              },
+            ],
             feeling: false,
             confirmed: false,
           },
@@ -146,7 +155,7 @@ export function makeSections(): GenerationSections {
           {
             id: "p2s1",
             text: "뿌듯했어요.",
-            evidence: null,
+            evidence: [],
             feeling: true,
             confirmed: false,
           },

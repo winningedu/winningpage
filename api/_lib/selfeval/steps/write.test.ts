@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   reverseCredit: vi.fn(),
   consumeCredit: vi.fn(),
   loadSessionActivities: vi.fn(),
+  loadEvidenceRows: vi.fn(),
   loadReports: vi.fn(),
   insertReport: vi.fn(),
   updateSession: vi.fn(),
@@ -24,11 +25,16 @@ vi.mock("../db.js", () => ({
   insertReport: mocks.insertReport,
   updateSession: mocks.updateSession,
 }));
+vi.mock("../evidenceDb.js", () => ({
+  loadEvidenceRows: mocks.loadEvidenceRows,
+}));
 vi.mock("../access.js", () => ({
   hasSelfevalAccess: mocks.hasSelfevalAccess,
   readSelfevalQuota: mocks.readSelfevalQuota,
 }));
 
+import { buildWriteEvidence } from "../evidenceSources.js";
+import type { LinkInfo } from "../linkWrite.js";
 import type { ReportRow, SessionRow } from "../rows.js";
 import {
   type ActivityRecordLike,
@@ -41,6 +47,7 @@ import {
   buildWriteInput,
   buildWriteSpec,
   confirmFeelingSentence,
+  repickSentenceEvidence,
   runWrite,
   saveEdit,
   validateWriteBody,
@@ -110,23 +117,55 @@ const core = (a: Analysis = analysis()) => ({
   analysis: a,
 });
 
+// 핵심 활동 c1 과 다른 선택 기록으로 근거 원천과 프롬프트 입력을 만든다.
+const evidenceOf = (
+  supports: ActivityRecordLike[] = [],
+  a: Analysis = analysis(),
+  links: LinkInfo[] = [],
+) =>
+  buildWriteEvidence(
+    [
+      {
+        activity_record_id: "c1",
+        role: "core",
+        fit_score: null,
+        fit_reasons: null,
+        analysis: a,
+        analysis_source: "model",
+        record: record("c1"),
+      },
+      ...supports.map((s) => ({
+        activity_record_id: s.id,
+        role: "support" as const,
+        fit_score: null,
+        fit_reasons: null,
+        analysis: null,
+        analysis_source: null,
+        record: s,
+      })),
+    ],
+    new Map(),
+    links,
+    false,
+    [],
+  );
+
 const sentence = (text: string) => ({
   text,
-  evidence: { activityId: "c1", field: "result" },
-  feeling: false,
+  evidence: [{ refId: "c1", item: "result", weight: "main" }],
 });
 const modelJson = () =>
   JSON.stringify({
     paragraphs: [
       {
         role: "process",
-        sentences: [sentence("센서로 미세먼지를 측정하였다.")],
+        sentences: [sentence("센서로 미세먼지를 측정함.")],
       },
       {
         role: "judgment",
-        sentences: [sentence("평균 35 마이크로그램이었다.")],
+        sentences: [sentence("평균 35 마이크로그램임.")],
       },
-      { role: "wrap", sentences: [sentence("표본을 늘려 보겠다.")] },
+      { role: "wrap", sentences: [sentence("표본을 늘림.")] },
     ],
   });
 
@@ -161,6 +200,11 @@ beforeEach(() => {
   mocks.claimStep.mockResolvedValue({ kind: "claimed", attempts: 1 });
   mocks.finishStep.mockResolvedValue(true);
   mocks.loadSessionActivities.mockResolvedValue(activities());
+  mocks.loadEvidenceRows.mockResolvedValue({
+    extras: new Map(),
+    links: [],
+    memos: [],
+  });
   mocks.hasSelfevalAccess.mockResolvedValue(true);
   mocks.readSelfevalQuota.mockResolvedValue({ quotaRemaining: null });
   mocks.consumeCredit.mockResolvedValue({ status: "charged", charged: true });
@@ -179,7 +223,7 @@ describe("buildWriteInput", () => {
         },
       ],
     });
-    expect(buildWriteInput(session(), core(a), [])).toEqual({
+    expect(buildWriteInput(session(), core(a), [], evidenceOf([], a))).toEqual({
       ok: false,
       code: "CONFLICTS_UNRESOLVED",
     });
@@ -196,17 +240,32 @@ describe("buildWriteInput", () => {
         },
       ],
     });
-    expect(buildWriteInput(session(), core(a), []).ok).toBe(true);
+    expect(buildWriteInput(session(), core(a), [], evidenceOf([], a)).ok).toBe(
+      true,
+    );
+  });
+
+  it("학교 문항이 없어도 던지지 않고 문항 입력을 비운다", () => {
+    const r = buildWriteInput(
+      session({ school_prompt: null }),
+      core(),
+      [],
+      evidenceOf(),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.input.schoolPrompt).toBeNull();
+      expect(r.input.promptKeywords).toEqual([]);
+    }
   });
 
   it("세션과 활동을 프롬프트 입력으로 옮긴다", () => {
-    const r = buildWriteInput(session(), core(), [
-      record("s2", {
-        topic: "황사 비교",
-        method: "기상청 자료 분석",
-        result: "황사철 증가",
-      }),
-    ]);
+    const s2 = record("s2", {
+      topic: "황사 비교",
+      method: "기상청 자료 분석",
+      result: "황사철 증가",
+    });
+    const r = buildWriteInput(session(), core(), [s2], evidenceOf([s2]));
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.input.core).toMatchObject({
@@ -217,9 +276,16 @@ describe("buildWriteInput", () => {
       {
         activityId: "s2",
         activityName: "황사 비교",
+        sourceType: "P",
         summary: expect.stringContaining("방법: 기상청 자료 분석"),
+        link: null,
+        linkMode: "contribute",
+        carried: [],
+        items: ["concept", "method", "result", "limitation"],
       },
     ]);
+    expect(r.input.core.sourceType).toBe("P");
+    expect(r.input.memos).toEqual([]);
     expect(r.input.promptKeywords.length).toBeGreaterThan(0);
     expect(r.input.career).toEqual({ career: "의사", department: "의학과" });
     expect(r.input.growth).toBeNull();
@@ -244,6 +310,7 @@ describe("buildWriteInput", () => {
       session({ growth_applied: true, growth_snapshot: snapshot }),
       core(),
       [],
+      evidenceOf(),
     );
     expect(r.ok && r.input.growth).toEqual({
       theme: "환경 데이터 탐구자",
@@ -255,7 +322,7 @@ describe("buildWriteInput", () => {
 
 describe("buildWriteSpec", () => {
   it("검증을 통과하면 4단계로 올리고 생성 리포트를 patch 에 싣는다", () => {
-    const built = buildWriteSpec(session(), core(), [], false);
+    const built = buildWriteSpec(session(), core(), [], evidenceOf(), false);
     expect(built.ok).toBe(true);
     if (!built.ok) return;
     const v = built.spec.validate(JSON.parse(modelJson()));
@@ -275,18 +342,57 @@ describe("buildWriteSpec", () => {
   });
 
   it("재생성이면 patch 에 regenerate_increment 를 싣는다", () => {
-    const built = buildWriteSpec(session(), core(), [], true);
+    const built = buildWriteSpec(session(), core(), [], evidenceOf(), true);
     expect(built.ok && built.spec.patchOnSuccess).toEqual({
       regenerate_increment: true,
     });
   });
 
-  it("보조 활동이 있으면 4문단을 기대한다", () => {
-    const built = buildWriteSpec(session(), core(), [record("s2")], false);
+  it("확인하지 않은 암묵 연계 기록을 인과로 쓴 문장은 재요청 사유이고 확인 필요로 남긴다(명세 No.193)", () => {
+    const s2 = record("s2");
+    const evidence = evidenceOf([s2], analysis(), [
+      {
+        fromRecordId: "c1",
+        toRecordId: "s2",
+        linkType: "inherit",
+        strength: "implicit",
+        source: "model",
+        confirmed: false,
+        deleted: false,
+        note: null,
+        quoteFrom: null,
+        quoteTo: null,
+      },
+    ]);
+    const built = buildWriteSpec(session(), core(), [s2], evidence, false);
     expect(built.ok).toBe(true);
     if (!built.ok) return;
-    // 3문단 응답은 4문단 기대에 실패한다
-    expect(built.spec.validate(JSON.parse(modelJson())).ok).toBe(false);
+    const body = JSON.parse(modelJson());
+    body.paragraphs[0].sentences[0] = {
+      text: "환경부 자료를 바탕으로 측정함.",
+      evidence: [{ refId: "s2", item: "method", weight: "sub" }],
+    };
+    const v = built.spec.validate(body);
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.softIssues?.map((i) => i.code)).toEqual([
+      "causal_unconfirmed_link",
+    ]);
+    expect(v.result.sections.paragraphs[0]?.sentences[0]?.feeling).toBe(true);
+  });
+
+  it("보조 활동이 있어도 문단 수를 고정하지 않는다", () => {
+    const s2 = record("s2");
+    const built = buildWriteSpec(
+      session(),
+      core(),
+      [s2],
+      evidenceOf([s2]),
+      false,
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.validate(JSON.parse(modelJson())).ok).toBe(true);
   });
 });
 
@@ -324,6 +430,78 @@ describe("runWrite", () => {
       code: "CONFLICTS_UNRESOLVED",
     });
     expect(mocks.claimStep).not.toHaveBeenCalled();
+  });
+
+  it("진행 중 기록 근거는 버리고 확인한 수기 메모 근거는 H 로 저장한다", async () => {
+    const s2 = record("s2");
+    mocks.loadSessionActivities.mockResolvedValue([
+      ...activities(),
+      {
+        activity_record_id: "s2",
+        role: "support",
+        fit_score: null,
+        fit_reasons: null,
+        analysis: null,
+        analysis_source: null,
+        record: s2,
+      },
+    ]);
+    mocks.loadEvidenceRows.mockResolvedValue({
+      extras: new Map([
+        [
+          "s2",
+          {
+            recordStatus: "in_progress",
+            entryKind: null,
+            summary: null,
+            reflection: null,
+          },
+        ],
+      ]),
+      links: [],
+      memos: [
+        {
+          id: "m1",
+          writtenAt: "2026-05-03",
+          text: "센서를 직접 설치함",
+          confirmed: true,
+          included: true,
+          belongsTo: "c1",
+        },
+      ],
+    });
+    callStructured.mockResolvedValue({
+      text: JSON.stringify({
+        paragraphs: [
+          {
+            sentences: [
+              {
+                text: "다른 활동의 방법을 이음.",
+                evidence: [{ refId: "s2", item: "method", weight: "main" }],
+              },
+              {
+                text: "센서를 직접 설치함.",
+                evidence: [{ refId: "m1", item: "action", weight: "main" }],
+              },
+            ],
+          },
+        ],
+      }),
+      finishReason: "STOP",
+    });
+    mocks.loadReports.mockResolvedValue([reportRow({})]);
+    await runWrite(db, "u1", session(), [], deps());
+    const sections = mocks.finishStep.mock.calls[0]?.[4].patch.report.sections;
+    const [wip, memo] = sections.paragraphs[0].sentences;
+    expect(wip.evidence).toEqual([]);
+    expect(wip.feeling).toBe(true);
+    expect(memo.evidence).toEqual([
+      { sourceType: "H", refId: "m1", item: "action", weight: "main" },
+    ]);
+    expect(memo.feeling).toBe(false);
+    expect(JSON.stringify(callStructured.mock.calls[0])).toContain(
+      "센서를 직접 설치함",
+    );
   });
 
   it("재생성 상한이면 선점 없이 regenerate_exhausted 다", async () => {
@@ -441,7 +619,9 @@ const base: GenerationSections = {
         {
           id: "p1-s1",
           text: "첫 문장이다.",
-          evidence: { activityId: "c1", field: "result" },
+          evidence: [
+            { sourceType: "P", refId: "c1", item: "result", weight: "main" },
+          ],
           feeling: true,
           confirmed: false,
         },
@@ -458,12 +638,27 @@ describe("saveEdit", () => {
     expect(out.kind).toBe("order");
   });
 
-  it("문단 수가 다르면 400 PARAGRAPH_COUNT 다", async () => {
-    const out = await saveEdit(db, "u1", session({ current_step: 4 }), base, [
-      "a",
-      "b",
-    ]);
-    expect(out).toMatchObject({
+  it("문단 수가 달라도 저장하고, 문단이 하나도 없으면 400 PARAGRAPH_COUNT 다", async () => {
+    mocks.insertReport.mockResolvedValue(
+      reportRow({ id: "e2", report_type: "edited", revision: 2 }),
+    );
+    const changed = await saveEdit(
+      db,
+      "u1",
+      session({ current_step: 4 }),
+      base,
+      ["a", "b"],
+    );
+    expect(changed.kind).toBe("done");
+    mocks.insertReport.mockClear();
+    const none = await saveEdit(
+      db,
+      "u1",
+      session({ current_step: 4 }),
+      base,
+      [],
+    );
+    expect(none).toMatchObject({
       kind: "rejected",
       status: 400,
       code: "PARAGRAPH_COUNT",
@@ -540,6 +735,85 @@ describe("confirmFeelingSentence", () => {
       "p1-s1",
     );
     expect(out.kind).toBe("order");
+  });
+});
+
+describe("repickSentenceEvidence", () => {
+  it("고른 근거로 문장 근거를 바꾼 본문을 edited 로 쌓는다", async () => {
+    mocks.loadSessionActivities.mockResolvedValue(activities());
+    mocks.insertReport.mockResolvedValue(
+      reportRow({ id: "e3", report_type: "edited", revision: 2 }),
+    );
+    const out = await repickSentenceEvidence(
+      db,
+      "u1",
+      session({ current_step: 4 }),
+      base,
+      "p1-s1",
+      [{ refId: "c1", item: "result" }],
+    );
+    expect(out.kind).toBe("done");
+    const row = mocks.insertReport.mock.calls[0]?.[3];
+    expect(row.report_type).toBe("edited");
+    expect(row.sections.paragraphs[0].sentences[0].evidence).toEqual([
+      { sourceType: "P", refId: "c1", item: "result", weight: "main" },
+    ]);
+  });
+
+  it("없는 문장 id 는 404 SENTENCE_NOT_FOUND 이고 생성 전이면 order 다", async () => {
+    mocks.loadSessionActivities.mockResolvedValue(activities());
+    const missing = await repickSentenceEvidence(
+      db,
+      "u1",
+      session({ current_step: 4 }),
+      base,
+      "nope",
+      [],
+    );
+    expect(missing).toMatchObject({
+      kind: "rejected",
+      status: 404,
+      code: "SENTENCE_NOT_FOUND",
+    });
+    const early = await repickSentenceEvidence(
+      db,
+      "u1",
+      session(),
+      base,
+      "p1-s1",
+      [],
+    );
+    expect(early.kind).toBe("order");
+  });
+});
+
+describe("validateWriteBody repick-evidence", () => {
+  const sidR = "3f2b8c1e-9d4a-4b6e-8a1c-0e5d7f9a2b3c";
+  it("repick-evidence 는 sentenceId 와 refId, item 문자열 목록이 필요하다", () => {
+    const ok = validateWriteBody({
+      sessionId: sidR,
+      action: "repick-evidence",
+      sentenceId: "p1-s1",
+      picks: [{ refId: "c1", item: "method" }],
+    });
+    expect(ok.ok).toBe(true);
+    for (const bad of [
+      { sentenceId: "p1-s1" },
+      { sentenceId: "", picks: [] },
+      { sentenceId: "p1-s1", picks: [{ refId: 1, item: "method" }] },
+      {
+        sentenceId: "p1-s1",
+        picks: new Array(31).fill({ refId: "c1", item: "method" }),
+      },
+    ]) {
+      expect(
+        validateWriteBody({
+          sessionId: sidR,
+          action: "repick-evidence",
+          ...bad,
+        }).ok,
+      ).toBe(false);
+    }
   });
 });
 

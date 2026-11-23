@@ -6,8 +6,9 @@ import {
   countChars,
   extractKeywords,
   extractNumbers,
-  fixNominalEndings,
+  findPlanExpressions,
   hasMarkdown,
+  normalizeNominalEndings,
   normalizeUniversity,
   splitSentences,
 } from "./text.js";
@@ -147,34 +148,42 @@ describe("hasMarkdown", () => {
   });
 });
 
-describe("fixNominalEndings", () => {
-  it("못함, 함, 음 을 한 점 꼴로 바꾼다", () => {
-    expect(fixNominalEndings("변수를 통제하지 못함")).toBe(
-      "변수를 통제하지 못한 점",
-    );
-    expect(fixNominalEndings("표본을 비교함.")).toBe("표본을 비교한 점.");
-    expect(fixNominalEndings("값이 일정하지 않음")).toBe(
-      "값이 일정하지 않은 점",
-    );
+describe("findPlanExpressions", () => {
+  it("사전에 있는 계획 표현을 사전 순서로 중복 없이 돌려준다", () => {
+    expect(
+      findPlanExpressions("계획을 세움. 값을 비교할 것임. 계획을 세움."),
+    ).toEqual(["계획을 세움", "할 것임"]);
   });
 
-  it("마음, 처음, 걸음 같은 일반 명사는 바꾸지 않는다", () => {
-    expect(fixNominalEndings("마음이 처음 걸음을 뗐다")).toBe(
-      "마음이 처음 걸음을 뗐다",
+  it("공백이 달라도 찾고, 없으면 빈 배열이다", () => {
+    expect(findPlanExpressions("발표할예정")).toEqual(["할 예정"]);
+    expect(findPlanExpressions("값을 비교함.")).toEqual([]);
+  });
+});
+
+describe("normalizeNominalEndings", () => {
+  it("하였음과 했음 종결을 함으로 맞춘다(명세 No.52)", () => {
+    expect(normalizeNominalEndings("변수를 통제하지 못하였음")).toBe(
+      "변수를 통제하지 못함",
     );
+    expect(normalizeNominalEndings("두 표본을 비교하였음.")).toBe(
+      "두 표본을 비교함.",
+    );
+    expect(normalizeNominalEndings("값을 확인했음")).toBe("값을 확인함");
   });
 
-  it("없음 은 없는 점 으로, 있음 은 그대로 둔다", () => {
-    expect(fixNominalEndings("오차가 없음")).toBe("오차가 없는 점");
-    expect(fixNominalEndings("한계가 있음")).toBe("한계가 있음");
-  });
-
-  it("명사 포함 은 바꾸지 않는다", () => {
-    expect(fixNominalEndings("범위에 포함")).toBe("범위에 포함");
+  it("이미 함, 세움, 깨달음 으로 끝난 문장은 바꾸지 않는다", () => {
+    for (const s of ["표본을 비교함.", "기준을 세움", "한계를 깨달음."]) {
+      expect(normalizeNominalEndings(s)).toBe(s);
+    }
   });
 
   it("어절 끝에서만 바꾼다", () => {
-    expect(fixNominalEndings("함수를 그렸다")).toBe("함수를 그렸다");
-    expect(fixNominalEndings("분석함, 정리함")).toBe("분석한 점, 정리한 점");
+    expect(normalizeNominalEndings("비교하였음에도 같았음")).toBe(
+      "비교하였음에도 같았음",
+    );
+    expect(normalizeNominalEndings("분석하였음, 정리했음")).toBe(
+      "분석함, 정리함",
+    );
   });
 });

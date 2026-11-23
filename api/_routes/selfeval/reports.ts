@@ -43,6 +43,7 @@ import {
   loadSessionsWithReplyPending,
   loadStudentProfile,
 } from "../../_lib/selfeval/db.js";
+import { loadIncludedMemos } from "../../_lib/selfeval/evidenceDb.js";
 import { resendPendingReplies } from "../../_lib/selfeval/reply.js";
 import {
   detailBody,
@@ -122,13 +123,14 @@ async function handleDetail(
     fail(res, 404, "SESSION_NOT_FOUND", "자기평가서 세션을 찾을 수 없어요.");
     return;
   }
-  const [activities, reports] = await Promise.all([
+  const [activities, reports, memos] = await Promise.all([
     loadSessionActivities(db, userId, sessionId),
     loadReports(db, userId, sessionId),
+    loadIncludedMemos(db, sessionId),
   ]);
   res
     .status(200)
-    .json({ ok: true, ...detailBody(session, activities, reports) });
+    .json({ ok: true, ...detailBody(session, activities, reports, memos) });
 }
 
 export default defineHandler({

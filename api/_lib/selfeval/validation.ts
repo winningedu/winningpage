@@ -3,19 +3,21 @@
 // soft 는 재요청 사유로만 쓰고 두 번째에도 벗어나면 통과시킨다(분량 오차는 학생이 고칠 수 있다).
 
 import {
-  FEELING_PATTERNS,
   FORBIDDEN_PHRASES,
   SCHOOL_NAME_PATTERN,
   SCORE_RUBRIC,
   SENTENCE_STYLE,
 } from "./dictionaries.js";
+import { type EvidenceSources, resolveSentenceEvidence } from "./evidence.js";
+import type { LinkJudgment, SupportLinkState } from "./linkWrite.js";
 import {
   containsUniversity,
   countByMode,
   countChars,
   extractKeywords,
-  fixNominalEndings,
+  findCausalLinkPhrases,
   hasMarkdown,
+  normalizeNominalEndings,
 } from "./text.js";
 import {
   type ActivityRecordLike,
@@ -24,7 +26,6 @@ import {
   type CharCount,
   type GenerationSections,
   type Paragraph,
-  type ParagraphRole,
   type ScoreCheck,
   type ScoreItemKey,
   type Sentence,
@@ -81,7 +82,11 @@ export function parseModelJson(
 }
 
 /** 재요청 뒤에도 두 번째 벗어남을 통과시키는 soft 사유 코드. */
-const SOFT_CODES: ReadonlySet<string> = new Set(["length_off_target"]);
+const SOFT_CODES: ReadonlySet<string> = new Set([
+  "length_off_target",
+  "causal_unconfirmed_link",
+  "link_word_missing",
+]);
 
 /** 사유가 하나라도 있으면 같은 단계를 한 번 더 요청할 수 있다. 횟수 상한은 호출자가 본다. */
 export function canRetry(issues: ValidationIssue[]): boolean {
@@ -196,15 +201,13 @@ export function validateAnalyzeResponse(
 // ---------------------------------------------------------------------------
 
 export type WriteValidationContext = {
-  coreActivityId: string;
-  supportActivityIds: string[];
-  /** 핵심 활동 분석에서 비어 있지 않은 항목만. 비운 항목을 evidence 로 쓰면 막는다. */
-  allowedFields: AnalysisField[];
+  /** 이번 세션의 선택 기록과 포함된 수기 메모. 근거는 이 안에서만 인정한다. */
+  sources: EvidenceSources;
   targetChars: number | null;
   mode: TargetCharsMode;
   universities: string[];
-  shortMode: boolean;
-  expectedParagraphs: 3 | 4;
+  /** 핵심 밖 선택 기록마다 연계 문장 규칙. 없으면 연계 문장 검사를 하지 않는다(명세 No.189, 193). */
+  linkStates?: SupportLinkState[];
 };
 
 export type WriteValidation =
@@ -216,69 +219,69 @@ export type WriteValidation =
     }
   | { ok: false; issues: ValidationIssue[] };
 
-const ROLES_3: readonly ParagraphRole[] = ["process", "judgment", "wrap"];
-const ROLES_4: readonly ParagraphRole[] = ["link", ...ROLES_3];
-
 /**
- * 학생 제출형 평서문 "했다" 체가 아닌 종결(합니다체, 해요체, 죠). 끝의 문장 부호와 따옴표는
- * 떼고 본다. 이 검사는 SENTENCE_STYLE 이 "했다" 일 때만 켠다. 상수가 "함" 같은 다른 문체로
- * 바뀌면 그때 규칙을 다시 정해야 하므로, 조용히 틀린 검사를 돌리지 않고 끈다.
+ * 본문 문장은 "~함" 명사형으로 끝나야 한다(명세 No.11). 끝의 문장 부호와 따옴표는 떼고,
+ * 마지막 글자가 받침 ㅁ 인 음절(함, 음, 됨, 임, 세움, 깨달음)이면 통과다.
+ * 했다, 한다, 합니다, 해요 같은 종결은 받침 ㅁ 이 아니라서 걸린다.
  */
-const NON_PLAIN_ENDING = /(습니다|니다|해요|어요|아요|예요|에요|죠)$/;
 const TRAILING_MARKS = /[\s.!?"'\u201d\u2019)\]」』]+$/;
+const JONG_MIEUM = 16;
 
-function isPlainStyle(text: string): boolean {
-  if (SENTENCE_STYLE !== "했다") return true;
-  return !NON_PLAIN_ENDING.test(text.replace(TRAILING_MARKS, ""));
+function isNominalStyle(text: string): boolean {
+  const last = text.replace(TRAILING_MARKS, "").slice(-1);
+  if (last === "") return false;
+  const code = last.charCodeAt(0) - 0xac00;
+  return code >= 0 && code <= 11171 && code % 28 === JONG_MIEUM;
 }
 
-/** 문단당 이 수 이상이면 짧은 글(300자 이하) 모드 위반. 명세 §2 14 의 2문장 이하. */
-const SHORT_MODE_MAX_SENTENCES = 2;
-
-function readEvidence(
-  raw: unknown,
-  ctx: WriteValidationContext,
-  path: string,
-  issues: ValidationIssue[],
-): Sentence["evidence"] {
-  if (raw === null || raw === undefined) return null;
-  const known = [ctx.coreActivityId, ...ctx.supportActivityIds];
-  if (
-    !isRecord(raw) ||
-    typeof raw.activityId !== "string" ||
-    !known.includes(raw.activityId)
-  ) {
-    issues.push({
-      code: "unknown_evidence",
-      message: `문장 ${path} 의 evidence.activityId 가 입력에 없는 활동입니다.`,
-      path,
-    });
-    return null;
+/**
+ * 연계 문장 검사(명세 No.189, 193). 둘 다 soft 라서 첫 시도에만 재요청하고, 그래도 남으면 글을 그대로 둔다.
+ * 확인하지 않은 암묵 연계 기록을 인용한 문장에 인과 표현이 있으면 그 문장을 확인 필요로 올려 남긴다.
+ * 연계 문장을 쓸 기록은 처음 인용한 문장에 앞 기록의 구체물 낱말이 하나라도 있어야 한다.
+ */
+function checkLinkSentences(
+  paragraphs: Paragraph[],
+  states: SupportLinkState[],
+): ValidationIssue[] {
+  const all = paragraphs.flatMap((p) => p.sentences);
+  const issues: ValidationIssue[] = [];
+  for (const st of states) {
+    const citing = all.filter((s) => s.evidence.some((e) => e.refId === st.id));
+    if (st.reason === "implicit_unconfirmed") {
+      const causal = citing.filter(
+        (s) => findCausalLinkPhrases(s.text).length > 0,
+      );
+      for (const s of causal) s.feeling = true;
+      if (causal.length > 0) {
+        issues.push({
+          code: "causal_unconfirmed_link",
+          message: `기록 ${st.id} 는 학생이 확인하지 않은 연계라서 기여 항목으로만 씁니다. 문장 ${causal.map((s) => s.id).join(", ")} 의 '~을 바탕으로', '~에서 이어' 같은 인과 표현을 쓰지 않고 다시 작성합니다.`,
+        });
+      }
+    }
+    const first = citing[0];
+    if (
+      st.mode === "link" &&
+      st.carried.length > 0 &&
+      first !== undefined &&
+      !st.carried.some((w) => first.text.includes(w))
+    ) {
+      issues.push({
+        code: "link_word_missing",
+        message: `기록 ${st.id} 를 처음 인용한 문장 ${first.id} 에 넘어온 구체물 낱말(${st.carried.join(", ")}) 중 하나가 없습니다. 연계 문장에 그 낱말을 적어 다시 작성합니다.`,
+      });
+    }
   }
-  const field = raw.field;
-  // 비운 항목 제한은 핵심 활동에만 건다. 보조 활동은 요약 문장만 받으므로
-  // 핵심에서 비운 항목이 보조 근거까지 막으면 정당한 연계 근거를 못 쓴다.
-  const allowed =
-    raw.activityId === ctx.coreActivityId
-      ? (ctx.allowedFields as string[])
-      : (ANALYSIS_FIELDS as readonly string[]);
-  if (typeof field !== "string" || !allowed.includes(field)) {
-    issues.push({
-      code: "empty_field_used",
-      message: `문장 ${path} 이(가) 비어 있거나 없는 항목 "${String(field)}" 을(를) 근거로 썼습니다. 값이 있는 항목만 근거로 씁니다.`,
-      path,
-    });
-    return null;
-  }
-  return { activityId: raw.activityId, field: field as AnalysisField };
+  return issues;
 }
 
 /**
  * 본문 생성 응답을 검증하고 저장 모양으로 정규화한다.
  * hard 사유(구조, 근거, 금지어)는 재요청 뒤에도 남으면 실패이고, soft 사유(분량)는
  * softIssues 로 돌려 호출자가 첫 시도에만 재요청하게 한다.
- * feeling 은 모델 신고를 믿지 않고 서버가 판정한다(명세 No.48): 근거가 없거나
- * 느낌 표현 패턴이 걸리면 true. 학생이 확인하기 전까지 제출을 막는 표시라서 보수적으로 올린다.
+ * feeling 은 모델 신고를 보지 않고 서버가 판정한다(명세 No.48, 199): 근거가 하나도 없거나
+ * 완료되지 않은 기록을 가리켰거나 근거로 설명되지 않는 수치가 있으면 true. 근거가 있는 문장은
+ * 느낌 표현 패턴이 걸려도 표시하지 않는다(명세 No.49 결정). 규칙은 evidence.ts 에 있다.
  */
 export function validateWriteResponse(
   value: unknown,
@@ -301,11 +304,10 @@ export function validateWriteResponse(
     };
   }
   const issues: ValidationIssue[] = [];
-  const roles = ctx.expectedParagraphs === 4 ? ROLES_4 : ROLES_3;
-  if (rawParagraphs.length !== ctx.expectedParagraphs) {
+  if (rawParagraphs.length < 1) {
     issues.push({
       code: "paragraph_count",
-      message: `문단은 ${ctx.expectedParagraphs}개여야 합니다(순서: ${roles.join(", ")}). 지금은 ${rawParagraphs.length}개입니다.`,
+      message: "문단은 1개 이상이어야 합니다.",
       path: "paragraphs",
     });
   }
@@ -314,25 +316,7 @@ export function validateWriteResponse(
   rawParagraphs.forEach((rawP, pi) => {
     const pn = pi + 1;
     const p = isRecord(rawP) ? rawP : {};
-    const expectedRole = roles[pi];
-    if (
-      rawParagraphs.length === ctx.expectedParagraphs &&
-      p.role !== expectedRole
-    ) {
-      issues.push({
-        code: "paragraph_role",
-        message: `문단 ${pn} 의 role 은 ${expectedRole} 여야 합니다.`,
-        path: `p${pn}`,
-      });
-    }
     const rawSentences = Array.isArray(p.sentences) ? p.sentences : [];
-    if (ctx.shortMode && rawSentences.length > SHORT_MODE_MAX_SENTENCES) {
-      issues.push({
-        code: "short_mode_overflow",
-        message: `분량이 짧아 문단 ${pn} 은 문장 ${SHORT_MODE_MAX_SENTENCES}개 이하여야 합니다.`,
-        path: `p${pn}`,
-      });
-    }
     const sentences: Sentence[] = [];
     rawSentences.forEach((rawS, si) => {
       const id = `p${pn}-s${si + 1}`;
@@ -346,27 +330,39 @@ export function validateWriteResponse(
         });
         return;
       }
-      const text = fixNominalEndings(rawText);
-      if (!isPlainStyle(text)) {
+      const text = normalizeNominalEndings(rawText);
+      if (!isNominalStyle(text)) {
         issues.push({
           code: "sentence_style",
-          message: `문장 ${id} 이(가) '${SENTENCE_STYLE}' 체가 아닙니다. 모든 문장을 '${SENTENCE_STYLE}' 체로 바꿔 다시 작성합니다.`,
+          message: `문장 ${id} 이(가) '~${SENTENCE_STYLE}' 체가 아닙니다. 모든 문장을 '~${SENTENCE_STYLE}' 처럼 명사형으로 끝내 다시 작성합니다.`,
           path: id,
         });
       }
-      const evidence = readEvidence(s.evidence, ctx, id, issues);
-      const feeling =
-        s.feeling === true ||
-        evidence === null ||
-        FEELING_PATTERNS.some((re) => re.test(text));
-      sentences.push({ id, text, evidence, feeling, confirmed: false });
+      if (
+        s.evidence !== undefined &&
+        s.evidence !== null &&
+        !Array.isArray(s.evidence)
+      ) {
+        issues.push({
+          code: "invalid_evidence",
+          message: `문장 ${id} 의 evidence 는 배열이어야 합니다.`,
+          path: id,
+        });
+      }
+      const { evidence, needsConfirmation } = resolveSentenceEvidence(
+        s.evidence,
+        text,
+        ctx.sources,
+      );
+      sentences.push({
+        id,
+        text,
+        evidence,
+        feeling: needsConfirmation,
+        confirmed: false,
+      });
     });
-    paragraphs.push({
-      role: (typeof p.role === "string"
-        ? p.role
-        : expectedRole) as ParagraphRole,
-      sentences,
-    });
+    paragraphs.push({ sentences });
   });
 
   const fullText = paragraphs
@@ -414,6 +410,8 @@ export function validateWriteResponse(
     }
   }
 
+  softIssues.push(...checkLinkSentences(paragraphs, ctx.linkStates ?? []));
+
   if (issues.length > 0)
     return { ok: false, issues: [...issues, ...softIssues] };
   return { ok: true, sections: { paragraphs }, charCount, softIssues };
@@ -433,6 +431,7 @@ export type VerifyValidation =
       ok: true;
       checks: Record<ScoreItemKey, ScoreCheck[]>;
       stageChecks: ScoreCheck[];
+      linkJudgments: LinkJudgment[];
     }
   | { ok: false; issues: ValidationIssue[] };
 
@@ -442,7 +441,12 @@ export type VerifyValidation =
  */
 export function validateVerifyResponse(
   value: unknown,
-  ctx: { expectGrowth: boolean },
+  ctx: {
+    expectGrowth: boolean;
+    promptMissing?: boolean;
+    /** 연계 판정을 받아야 하는 기록 id(명세 No.182, 190). */
+    linkRecordIds?: string[];
+  },
 ): VerifyValidation {
   const rawItems =
     isRecord(value) && Array.isArray(value.items) ? value.items : null;
@@ -461,6 +465,11 @@ export function validateVerifyResponse(
   const issues: ValidationIssue[] = [];
   const checks = {} as Record<ScoreItemKey, ScoreCheck[]>;
   for (const row of SCORE_RUBRIC) {
+    // 학교 문항이 없으면 문항 대응은 묻지 않고, 응답에 있어도 버린다.
+    if (row.key === "prompt" && ctx.promptMissing) {
+      checks.prompt = [];
+      continue;
+    }
     const raw = rawItems.find((i) => isRecord(i) && i.key === row.key);
     const list = isRecord(raw) && Array.isArray(raw.checks) ? raw.checks : null;
     if (!list) {
@@ -515,7 +524,31 @@ export function validateVerifyResponse(
       }));
     }
   }
+
+  const rawLinks =
+    isRecord(value) && Array.isArray(value.linkChecks) ? value.linkChecks : [];
+  const linkJudgments: LinkJudgment[] = [];
+  for (const recordId of ctx.linkRecordIds ?? []) {
+    const raw = rawLinks.find((c) => isRecord(c) && c.recordId === recordId);
+    if (
+      !isRecord(raw) ||
+      typeof raw.linkShown !== "boolean" ||
+      typeof raw.standsWithout !== "boolean"
+    ) {
+      issues.push({
+        code: "link_check_missing",
+        message: `linkChecks 에 기록 ${recordId} 의 linkShown 과 standsWithout 이 true 또는 false 로 있어야 합니다.`,
+        path: "linkChecks",
+      });
+      continue;
+    }
+    linkJudgments.push({
+      recordId,
+      linkShown: raw.linkShown,
+      standsWithout: raw.standsWithout,
+    });
+  }
   return issues.length > 0
     ? { ok: false, issues }
-    : { ok: true, checks, stageChecks };
+    : { ok: true, checks, stageChecks, linkJudgments };
 }

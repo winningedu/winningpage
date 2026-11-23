@@ -4,6 +4,7 @@
 // 여기 프롬프트와 validation.ts 검증기 양쪽에서 강제한다. 프롬프트만 믿으면 새어 나온다.
 
 import {
+  CAUSAL_LINK_PHRASES,
   FORBIDDEN_PHRASES,
   SCORE_RUBRIC,
   SENTENCE_STYLE,
@@ -13,11 +14,14 @@ import {
   ANALYSIS_FIELD_LABELS,
   ANALYSIS_FIELDS,
   type Analysis,
+  type AnalysisField,
   AREA_LABELS,
   type Area,
+  BODY_EVIDENCE_FIELDS,
   DEFAULT_TARGET_CHARS,
   type ModelStepKey,
   PARAGRAPH_ROLE_LABELS,
+  type ParagraphRole,
   SHORT_TARGET_MAX,
   TARGET_TOLERANCE,
   type TargetCharsMode,
@@ -32,7 +36,10 @@ export type PromptBundle = {
 };
 
 /** 단계별 응답 최대 출력 토큰. 잘리면 truncated 로 재요청하므로 넉넉히 두되 분량 규칙으로 누른다. */
-export const MAX_OUTPUT_TOKENS: Record<ModelStepKey, number> = {
+export const MAX_OUTPUT_TOKENS: Record<
+  Exclude<ModelStepKey, "link">,
+  number
+> = {
   analyze: 2048,
   write: 3072,
   verify: 3072,
@@ -156,12 +163,34 @@ export function buildAnalyzePrompt(
 // ---------------------------------------------------------------------------
 
 export type WritePromptInput = {
-  core: { activityName: string; analysis: Analysis; activityId: string };
-  supports: { activityId: string; activityName: string; summary: string }[];
+  core: {
+    activityName: string;
+    analysis: Analysis;
+    activityId: string;
+    sourceType: "P" | "D" | "A";
+  };
+  /** 핵심 활동 밖의 선택 기록(완료된 것만). 7항목, 요약, 성찰을 summary 에 담는다(명세 No.144). */
+  supports: {
+    activityId: string;
+    activityName: string;
+    sourceType: "P" | "D" | "A";
+    summary: string;
+    /** 연계 문장을 쓸 기록이면 연계 유형, 단계, 강도, 인용. 기여 항목으로만 쓰면 null. */
+    link: string | null;
+    /** link 는 연계 문장을 쓰고, contribute 는 기여 항목으로만 쓴다(명세 No.181, 193~195). */
+    linkMode: "link" | "contribute";
+    /** 연계 문장에 적을 앞 기록의 구체물 낱말(명세 No.189). */
+    carried: string[];
+    /** 근거로 쓸 수 있는(값이 있는) 항목. */
+    items: AnalysisField[];
+  }[];
+  /** 학생이 확인했고 포함으로 둔 수기 메모(명세 No.161). */
+  memos: { id: string; writtenAt: string | null; text: string }[];
   area: Area;
   subject: string | null;
   activityName: string | null;
-  schoolPrompt: string;
+  /** 학교 문항이 없으면 null. 문항 블록과 문항 규칙을 빼고 만든다. */
+  schoolPrompt: string | null;
   promptKeywords: string[];
   teacherNote: string | null;
   targetChars: number | null;
@@ -187,10 +216,6 @@ const writeSchema = {
       items: {
         type: "object",
         properties: {
-          role: {
-            type: "string",
-            enum: ["link", "process", "judgment", "wrap"],
-          },
           sentences: {
             type: "array",
             items: {
@@ -198,25 +223,38 @@ const writeSchema = {
               properties: {
                 text: { type: "string" },
                 evidence: {
-                  type: "object",
-                  nullable: true,
-                  properties: {
-                    activityId: { type: "string" },
-                    field: { type: "string", enum: [...ANALYSIS_FIELDS] },
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      refId: { type: "string" },
+                      item: {
+                        type: "string",
+                        enum: [...BODY_EVIDENCE_FIELDS],
+                      },
+                      weight: { type: "string", enum: ["main", "sub"] },
+                    },
+                    required: ["refId", "item", "weight"],
                   },
-                  required: ["activityId", "field"],
                 },
-                feeling: { type: "boolean" },
               },
-              required: ["text", "evidence", "feeling"],
+              required: ["text", "evidence"],
             },
           },
         },
-        required: ["role", "sentences"],
+        required: ["sentences"],
       },
     },
   },
   required: ["paragraphs"],
+};
+
+/** 본문 흐름 단계별 안내(명세 No.44). 문단 수와 무관하게 이 순서로 쓴다. */
+const FLOW_GUIDES: Record<ParagraphRole, string> = {
+  link: "앞 활동의 이름과 그 활동이 남긴 것",
+  process: "측정 기준이나 방법을 스스로 정하고 바꾼 대목",
+  judgment: "확인한 값과 그 값으로 무엇을 판단했고 무엇을 포기했는지",
+  wrap: "개념으로 정리하고 처음 질문으로 돌아오기",
 };
 
 function lengthRules(
@@ -240,37 +278,62 @@ function lengthRules(
   rules.push("- 문장 하나는 40자에서 90자 사이로 쓴다.");
   if (targetChars !== null && targetChars <= SHORT_TARGET_MAX) {
     rules.push(
-      `- 분량이 짧으므로 꼭 필요한 절만 쓴다. 문단당 문장 2개 이하로 쓰고${hasLink ? ", 연계 문단은 한 문장으로 쓴다" : ""}.`,
+      `- 분량이 짧으므로 선택 절은 빼고 흐름 단계마다 꼭 필요한 절만 쓴다. 단계마다 문장 2개 이하로 쓰고${hasLink ? ", 연계 발전 지점은 한 문장으로 쓴다" : ""}.`,
     );
   } else {
-    rules.push("- 문단당 문장은 2개에서 4개로 쓴다.");
+    rules.push(
+      "- 흐름 단계마다 반드시 들어갈 필수 절을 먼저 채운 뒤 목표 분량에 닿을 때까지 선택 절을 더한다. 단계마다 문장은 2개에서 4개로 쓴다.",
+    );
   }
   return rules;
 }
 
 function writeSystem(input: WritePromptInput): string {
-  const hasLink = input.supports.length > 0;
-  const roles = hasLink
+  const hasLink = input.supports.some((s) => s.linkMode === "link");
+  const hasContribute = input.supports.some((s) => s.linkMode === "contribute");
+  const steps = hasLink
     ? (["link", "process", "judgment", "wrap"] as const)
     : (["process", "judgment", "wrap"] as const);
   const structure = [
-    `이번 작업: 자기평가서 본문 작성. 본문은 ${roles.length}문단이다.`,
-    ...roles.map(
-      (r, i) => `- ${i + 1}문단 role=${r}: ${PARAGRAPH_ROLE_LABELS[r]}`,
-    ),
-    `- 모든 문장은 '~${SENTENCE_STYLE}', '~이었다', '~였다' 처럼 평서문 '${SENTENCE_STYLE}' 체로 끝낸다. '~${SENTENCE_STYLE.replace(/다$/, "습니다")}', '~합니다', '~해요', '~${SENTENCE_STYLE.replace(/다$/, "어요")}' 는 쓰지 않는다.`,
-    `- 예: '상관계수를 계산${SENTENCE_STYLE}(맞음)', '상관계수를 계산${SENTENCE_STYLE.replace(/다$/, "습니다")}(틀림)'`,
+    "이번 작업: 자기평가서 본문 작성. 문단 수는 정하지 않는다. 아래 흐름 순서로 쓰고 문단 나눔은 분량에 따른다.",
+    ...steps.map((r) => `- ${PARAGRAPH_ROLE_LABELS[r]}: ${FLOW_GUIDES[r]}`),
+    ...(hasLink
+      ? []
+      : [
+          "- 연계된 보조 활동이 없으므로 연계 발전 지점은 쓰지 않는다. 없는 앞 활동을 지어내지 않는다.",
+        ]),
+    ...(hasLink
+      ? [
+          "- 연계 기록은 그 기록이 처음 나오는 문장에서 연계가 드러나게 쓴다. 무엇을 이어받았는지, 빌렸는지, 보완했는지를 밝히고, 기록 이름만 늘어놓는 문장은 쓰지 않는다.",
+          "- 그 연계 문장에는 입력에 적힌 구체물 낱말(개념명, 자료명, 방법명, 수치) 중 하나를 반드시 적는다.",
+          "- 연계 유형과 인용은 입력에 적힌 것만 쓴다. 입력에 없는 연계를 지어내지 않는다.",
+        ]
+      : [
+          "- 연계 문장은 쓰지 않는다. 핵심 기록만으로 쓰고, 연계 없는 기록으로 분량을 채우지 않는다.",
+        ]),
+    ...(hasContribute
+      ? [
+          `- [기여 항목으로만 쓸 기록]은 근거로 쓸 수 있는 항목만 문장에 더하고 연계 문장은 만들지 않는다. ${CAUSAL_LINK_PHRASES.map((p) => `'~${p}'`).join(", ")} 처럼 인과나 출처를 말하는 표현으로 그 기록을 잇지 않는다. 학생이 지운 연계를 되살려 쓰지 않는다.`,
+        ]
+      : []),
+    "- 하지 않은 계획이나 예정 문장은 쓰지 않는다(계획을 세움, ~할 예정, ~할 것임, ~하고 싶음). 다음 단계는 기록 근거가 있는 실제 후속 행동만 쓴다.",
+    `- 모든 문장은 '~${SENTENCE_STYLE}' 처럼 명사형으로 끝낸다(예: 확인함, 세움, 깨달음, 있음, 없음). '~했다', '~한다', '~합니다', '~해요' 는 쓰지 않는다.`,
+    "- 한 문장 안에서 어미를 섞어 쓰지 않는다. 앞 절은 연결형으로 이어 쓰고 문장 끝만 명사형으로 맺는다(예: '표를 만들고 값을 비교함').",
+    `- 예: '상관계수를 계산${SENTENCE_STYLE}(맞음)', '상관계수를 계산했다(틀림)'`,
   ];
   const evidence = [
     "근거 표시",
-    "- 모든 문장에 evidence 를 붙인다. evidence 는 핵심 활동 id 와 값이 있는 항목 이름, 또는 연계에 쓴 보조 활동 id 와 항목 이름이다.",
-    "- 기록으로 확인되지 않는 느낌이나 판단을 쓴 문장은 evidence 를 null 로 두고 feeling 을 true 로 한다.",
+    "- 모든 문장에 evidence 를 붙인다. evidence 는 배열이고 항목마다 refId, item, weight 를 쓴다. refId 는 입력에 나온 기록 id 또는 수기 메모 id, item 은 그 기록에서 값이 있는 항목 이름이다. 핵심 문장에 쓴 근거는 main, 곁들인 근거는 sub 로 한다.",
+    "- 한 문장에 근거가 여럿이면 모두 쓴다. 근거가 없는 문장은 evidence 를 빈 배열로 둔다. 가장 비슷한 기록을 근거로 붙이지 않는다.",
     "- 값이 비어 있는 항목은 쓰지 않고 evidence 로도 가리키지 않는다.",
+    "- 수기 메모는 motive, action, method, limitation 항목의 근거로만 쓴다. 수기 메모만으로 결과 수치를 만들지 않는다.",
     "- 출처가 student 인 항목은 학생이 직접 적은 내용이므로 그대로 쓰되 evidence 를 붙인다.",
   ];
   const guide = [
     "내용 원칙",
-    "- 학교 문항의 핵심 낱말에 직접 답하는 문장을 넣는다.",
+    ...(input.schoolPrompt !== null
+      ? ["- 학교 문항의 핵심 낱말에 직접 답하는 문장을 넣는다."]
+      : []),
     "- 선생님 요구사항이 있으면 반드시 지킨다.",
     "- 성장설계 정보가 주어지면 어디에 힘을 줄지 고르는 강조점으로만 쓴다. 방향 문구를 문장에 그대로 옮기지 않는다.",
   ];
@@ -291,7 +354,7 @@ function writeSystem(input: WritePromptInput): string {
 
 function writeUser(input: WritePromptInput): string {
   const { core } = input;
-  const filled = ANALYSIS_FIELDS.filter(
+  const filled = BODY_EVIDENCE_FIELDS.filter(
     (f) =>
       core.analysis.sources[f] !== "empty" && core.analysis.values[f] !== "",
   );
@@ -307,18 +370,36 @@ function writeUser(input: WritePromptInput): string {
     ]
       .filter((x): x is string => x !== null)
       .join("\n"),
-    `[핵심 활동] id=${core.activityId} 이름=${core.activityName}\n근거로 쓸 수 있는 항목(field): ${filled.join(", ")}\n${fieldLines.join("\n")}`,
+    `[핵심 활동] id=${core.activityId} 유형=${core.sourceType} 이름=${core.activityName}\n근거로 쓸 수 있는 항목(field): ${filled.join(", ")}\n${fieldLines.join("\n")}`,
   ];
-  if (input.supports.length > 0) {
+  const supportLine = (s: WritePromptInput["supports"][number]) =>
+    `- id=${s.activityId} 유형=${s.sourceType} 이름=${s.activityName}: ${s.summary}\n  근거로 쓸 수 있는 항목(field): ${s.items.join(", ")}${s.link === null ? "" : `\n  ${s.link}`}${s.carried.length === 0 ? "" : `\n  구체물 낱말: ${s.carried.join(", ")}`}`;
+  const linked = input.supports.filter((s) => s.linkMode === "link");
+  const contributeOnly = input.supports.filter(
+    (s) => s.linkMode === "contribute",
+  );
+  if (linked.length > 0) {
     parts.push(
-      `[보조 활동] 연계 문단에서만 쓴다.\n${input.supports
-        .map((s) => `- id=${s.activityId} 이름=${s.activityName}: ${s.summary}`)
+      `[연계 기록] 흐름 단계 어디서든 근거가 있는 만큼 쓰되, 처음 나오는 문장에서 연계를 드러낸다.\n${linked.map(supportLine).join("\n")}`,
+    );
+  }
+  if (contributeOnly.length > 0) {
+    parts.push(
+      `[기여 항목으로만 쓸 기록] 연계 문장 없이 근거로 쓸 수 있는 항목만 쓴다.\n${contributeOnly.map(supportLine).join("\n")}`,
+    );
+  }
+  if (input.memos.length > 0) {
+    parts.push(
+      `[확인된 수기 메모] 근거 항목은 motive, action, method, limitation 만 쓴다.\n${input.memos
+        .map((m) => `- id=${m.id} 날짜=${m.writtenAt ?? "없음"}: ${m.text}`)
         .join("\n")}`,
     );
   }
-  parts.push(`[학교 문항]\n${input.schoolPrompt}`);
-  if (input.promptKeywords.length > 0) {
-    parts.push(`[문항의 핵심 낱말]\n${input.promptKeywords.join(", ")}`);
+  if (input.schoolPrompt !== null) {
+    parts.push(`[학교 문항]\n${input.schoolPrompt}`);
+    if (input.promptKeywords.length > 0) {
+      parts.push(`[문항의 핵심 낱말]\n${input.promptKeywords.join(", ")}`);
+    }
   }
   if (input.teacherNote) {
     parts.push(`[선생님 요구사항]\n${input.teacherNote}`);
@@ -365,11 +446,14 @@ export function buildWritePrompt(
 export type VerifyPromptInput = {
   text: string;
   sentences: { id: string; text: string }[];
-  schoolPrompt: string;
+  /** 학교 문항이 없으면 null. 문항 대응 확인 문장을 요구하지 않는다. */
+  schoolPrompt: string | null;
   promptKeywords: string[];
   teacherNote: string | null;
   coreTerms: { concepts: string[]; roles: string[]; sources: string[] };
   supportNames: string[];
+  /** 연계 문장을 써야 하고 본문이 인용한 기록. 모델이 연계 판정을 낸다(명세 No.182, 190). */
+  linkTargets: { recordId: string; label: string; sentenceIds: string[] }[];
   growth: { stageLabel: string | null; currentSubtheme: string | null } | null;
 };
 
@@ -380,7 +464,9 @@ const VERIFY_RULES = [
   "- 글의 구조를 보고 판정한다. 특정 활동의 표현이 있어야만 통과로 보는 식으로 조건을 만들지 않는다.",
   "- 개념, 역할, 자료 이름은 입력의 핵심 낱말 목록에 있는 낱말과 대조해 판정한다.",
   "- 협업을 서술했는지는 채점하지 않는다.",
+  '- "계획을 세움", "~할 예정" 같은 미래 계획 문장은 인정하지 않는다. 후속 항목은 실제로 한 후속 행동만 통과로 본다.',
   "- 확인 문장의 text 는 바꾸지 않고 순서도 그대로 둔다.",
+  "- 연계 점검 대상이 있으면 linkChecks 에 대상마다 recordId, linkShown, standsWithout 을 낸다. 이 판정은 점수와 무관하다. linkShown 은 그 기록이 처음 나오는 문장에서 무엇을 이어받았는지, 빌렸는지, 보완했는지가 드러나면 true 다. standsWithout 은 그 기록을 인용한 문장을 모두 빼도 나머지 문장이 그대로 성립하면 true 다.",
 ].join("\n");
 
 const checkSchema = {
@@ -404,25 +490,43 @@ const verifySchema = {
       },
     },
     stageChecks: { type: "array", items: checkSchema },
+    linkChecks: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          recordId: { type: "string" },
+          linkShown: { type: "boolean" },
+          standsWithout: { type: "boolean" },
+        },
+        required: ["recordId", "linkShown", "standsWithout"],
+      },
+    },
   },
-  required: ["items", "stageChecks"],
+  required: ["items", "stageChecks", "linkChecks"],
 };
 
 export function buildVerifyPrompt(
   input: VerifyPromptInput,
   retryNotes: string[] = [],
 ): PromptBundle {
-  const rubric = SCORE_RUBRIC.map(
-    (r) =>
-      `${r.key}(${r.label})\n${r.checks.map((c) => `  - ${c}`).join("\n")}`,
-  ).join("\n");
+  const rubric = SCORE_RUBRIC.filter(
+    (r) => r.key !== "prompt" || input.schoolPrompt !== null,
+  )
+    .map(
+      (r) =>
+        `${r.key}(${r.label})\n${r.checks.map((c) => `  - ${c}`).join("\n")}`,
+    )
+    .join("\n");
   const parts: string[] = [
     `[채점 항목과 확인 문장]\n${rubric}`,
     `[본문]\n${input.text}`,
     `[문장 목록]\n${input.sentences.map((s) => `${s.id}: ${s.text}`).join("\n")}`,
-    `[학교 문항]\n${input.schoolPrompt}`,
   ];
-  if (input.promptKeywords.length > 0) {
+  if (input.schoolPrompt !== null) {
+    parts.push(`[학교 문항]\n${input.schoolPrompt}`);
+  }
+  if (input.schoolPrompt !== null && input.promptKeywords.length > 0) {
     parts.push(`[문항의 핵심 낱말]\n${input.promptKeywords.join(", ")}`);
   }
   if (input.teacherNote) {
@@ -434,6 +538,16 @@ export function buildVerifyPrompt(
   if (input.supportNames.length > 0) {
     parts.push(`[앞선 활동 이름]\n${input.supportNames.join(", ")}`);
   }
+  parts.push(
+    input.linkTargets.length > 0
+      ? `[연계 점검 대상]\n${input.linkTargets
+          .map(
+            (t) =>
+              `- recordId=${t.recordId} 이름=${t.label} 인용한 문장: ${t.sentenceIds.join(", ")}`,
+          )
+          .join("\n")}`
+      : "linkChecks 는 빈 배열로 낸다.",
+  );
   if (input.growth) {
     parts.push(
       [

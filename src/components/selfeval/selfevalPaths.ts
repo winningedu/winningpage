@@ -14,6 +14,7 @@ export const SELFEVAL_PATHS = {
   result: (sessionId: string) => session(sessionId, "result"),
   verify: (sessionId: string) => session(sessionId, "verify"),
   done: (sessionId: string) => session(sessionId, "done"),
+  report: (sessionId: string) => session(sessionId, "report"),
 } as const;
 
 export type SelfevalStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;

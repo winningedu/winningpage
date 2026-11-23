@@ -10,6 +10,7 @@ import {
   archiveName,
   archiveTitle,
 } from "@/components/selfeval/archive/archiveLogic";
+import { useSelfevalReport } from "@/components/selfeval/report/useSelfevalReport";
 import { paragraphTexts } from "@/components/selfeval/result/resultLogic";
 import {
   useSelfevalScreenStep,
@@ -71,6 +72,54 @@ function replyMessage(
     return { tone: "ok", text: "과제는 완료로 보내지 않았어요" };
   }
   return null;
+}
+
+// 최종 저장 직후 리포트를 자동으로 한 번 만들고 진행과 실패를 알린다(명세 No.133, 201).
+// 리포트가 실패해도 위 최종 저장과 본문은 그대로다.
+function ReportStatusCard({ sessionId }: { sessionId: string }) {
+  const navigate = useNavigate();
+  const report = useSelfevalReport(sessionId);
+  return (
+    <section className={CARD} aria-label="자기평가 리포트">
+      <p className={CARD_TITLE}>자기평가 리포트</p>
+      {(report.phase === "loading" || report.phase === "building") && (
+        <p className="mt-1 text-app-label text-ink-sub" role="status">
+          리포트를 만드는 중이에요
+        </p>
+      )}
+      {report.phase === "ready" && (
+        <>
+          <p className="mt-1 text-app-label text-ink-sub">
+            표지와 01장부터 05장까지의 리포트가 준비됐어요
+          </p>
+          <Button
+            type="button"
+            size="lg"
+            className="mt-4 h-10 px-5 text-app-label font-semibold"
+            onClick={() => navigate(SELFEVAL_PATHS.report(sessionId))}
+          >
+            리포트 보기
+          </Button>
+        </>
+      )}
+      {report.phase === "failed" && (
+        <>
+          <p className="mt-1 text-app-label text-ink-sub" role="alert">
+            리포트를 만들지 못했어요. 최종 저장은 그대로예요.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="mt-4 h-10 px-5 text-app-label"
+            onClick={() => void report.rebuild()}
+          >
+            다시 만들기
+          </Button>
+        </>
+      )}
+    </section>
+  );
 }
 
 function DoneBody({
@@ -150,6 +199,7 @@ function DoneBody({
                 </p>
               )}
             </section>
+            <ReportStatusCard sessionId={sessionId} />
             <div ref={pdf.contentRef}>
               <ReportCoverPage
                 kind="selfeval"
@@ -216,6 +266,7 @@ function DoneBody({
               {final.score !== null && (
                 <li className="text-app-stat font-bold">{final.score} / 100</li>
               )}
+              {session.schoolPrompt === null && <li>문항 미입력</li>}
               <li>
                 <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-app-caption font-semibold text-emerald-800">
                   제출 가능

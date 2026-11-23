@@ -30,9 +30,10 @@ export const AREA_LABELS: Record<Area, string> = {
 
 export type TargetCharsMode = "with_space" | "without_space";
 
-export type ModelStepKey = "analyze" | "write" | "verify";
+export type ModelStepKey = "link" | "analyze" | "write" | "verify";
 
 export const MODEL_STEP_KEYS: readonly ModelStepKey[] = [
+  "link",
   "analyze",
   "write",
   "verify",
@@ -143,7 +144,18 @@ export type ActivityRecordLike = {
   numbers: unknown;
   sources: unknown;
   createdAt: string;
+  /** 제출일(No.141). 없으면 createdAt 으로 읽는다. */
+  submittedAt?: string | null;
+  /** 기록 상태(No.141). 없으면 status 에서 파생한다(planned 면 plan, 그 밖은 completed). */
+  recordStatus?: RecordStatus | null;
+  summary?: string | null;
+  reflection?: string | null;
+  parentRecordId?: string | null;
+  courseName?: string | null;
+  entryKind?: "performance" | "deep" | "activity" | null;
 };
+
+export type RecordStatus = "completed" | "in_progress" | "plan";
 
 export type FitSignalKey =
   | "same_subject"
@@ -173,6 +185,56 @@ export type FitResult = {
   reasons: string[];
 };
 
+// ---------------------------------------------------------------------------
+// 활동 기록 연계(명세 No.174~196)
+// ---------------------------------------------------------------------------
+
+export const LINK_TYPES = [
+  "inherit",
+  "deepen",
+  "borrow_method",
+  "complement",
+  "background",
+  "area_extend",
+  "grade_continue",
+] as const;
+
+export type LinkType = (typeof LINK_TYPES)[number];
+
+export const LINK_TYPE_LABELS: Record<LinkType, string> = {
+  inherit: "이어받음",
+  deepen: "같은 질문 심화",
+  borrow_method: "방법 빌림",
+  complement: "관점 보완",
+  background: "배경 개념",
+  area_extend: "영역 확장",
+  grade_continue: "학년 이어짐",
+};
+
+/** 창체 영역 자기평가에서 교과 기록이 쓸 수 있는 유형(명세 No.187). */
+export const CREATIVE_SUBJECT_LINK_TYPES: readonly LinkType[] = [
+  "borrow_method",
+  "background",
+  "area_extend",
+];
+
+export type LinkStrength = "explicit" | "implicit";
+export type LinkSource = "model" | "student";
+
+/** selfeval_record_links 한 줄의 앱 모양. */
+export type RecordLink = {
+  fromId: string;
+  toId: string;
+  type: LinkType;
+  strength: LinkStrength;
+  source: LinkSource;
+  confirmed: boolean;
+  deleted: boolean;
+  note: string | null;
+  quoteFrom: string | null;
+  quoteTo: string | null;
+};
+
 /** 후보 목록 한 줄(pick-records list 응답). */
 export type CandidateRow = {
   activity: ActivityRecordLike;
@@ -180,6 +242,26 @@ export type CandidateRow = {
   unavailableReason: string | null;
   alreadyUsed: boolean;
   role: ActivityRole | null;
+  /** 기록 상태. 없으면 completed 로 읽는다(명세 No.34). */
+  recordStatus?: RecordStatus;
+  /** 제출일. createdAt 으로 대신한 값이 들어간다. */
+  submittedAt?: string;
+  /** 핵심과의 연계 상태. 연계 확인 전이거나 실패했으면 null(명세 No.177, 196). */
+  linkState?: CandidateLinkState | null;
+  /** 연계 가점. 선택 순서에만 쓰고 적합도 점수에는 넣지 않는다. */
+  bonus?: number;
+  /** 이미 고른 기록에 없는 11항목 칸 수. 0 이면 중복이다(명세 No.178). */
+  contribution?: number;
+  /** 학생이 읽는 선정 이유. 쓸 수 있는 기록은 항상 한 줄 이상이다(명세 No.32). */
+  selectionReasons?: string[];
+};
+
+export type CandidateLinkState = {
+  linked: boolean;
+  hop: number | null;
+  type: LinkType | null;
+  strength: LinkStrength | null;
+  confirmed: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -201,6 +283,13 @@ export const ANALYSIS_FIELDS = [
 ] as const;
 
 export type AnalysisField = (typeof ANALYSIS_FIELDS)[number];
+
+/**
+ * 본문 생성 입력과 문장 근거로 쓸 수 있는 항목. 다음 단계(next)는 분석에 저장해 두었다가
+ * 리포트의 다음 단계 제안에만 쓰므로 본문에는 쓰지 않는다(명세 No.37).
+ */
+export const BODY_EVIDENCE_FIELDS: readonly AnalysisField[] =
+  ANALYSIS_FIELDS.filter((f) => f !== "next");
 
 export const ANALYSIS_FIELD_LABELS: Record<AnalysisField, string> = {
   motive: "계기",
@@ -239,15 +328,27 @@ export type AnalysisSource = "model" | "student";
 // 생성 본문(명세 No.44~52, No.85)
 // ---------------------------------------------------------------------------
 
-export type SentenceEvidence =
-  | { activityId: string; field: AnalysisField }
-  | { student: true };
+/** 근거 출처 유형(명세 No.145): P 수행평가, D 심화탐구, A 창체 활동, H 수기 메모, S 학생 입력. */
+export type EvidenceSourceType = "P" | "D" | "A" | "H" | "S";
+
+export type EvidenceItem = AnalysisField | "student_input";
+
+export type EvidenceWeight = "main" | "sub";
+
+/** 문장 하나가 기댄 근거 하나. 한 문장에 여러 개를 붙일 수 있다(명세 No.145, No.85). */
+export type SentenceEvidence = {
+  sourceType: EvidenceSourceType;
+  /** P, D, A 는 activity_records.id, H 는 selfeval_manual_logs.id, S 는 null. */
+  refId: string | null;
+  item: EvidenceItem;
+  weight: EvidenceWeight;
+};
 
 export type Sentence = {
   id: string;
   text: string;
-  evidence: SentenceEvidence | null;
-  /** 자료로 확인되지 않는 느낌이나 판단 문장(노란 표시). */
+  evidence: SentenceEvidence[];
+  /** 확인이 필요한 문장(노란 표시). 근거가 없거나 근거로 설명되지 않는 수치가 있으면 서버가 올린다. */
   feeling: boolean;
   /** 학생이 느낌 문장을 확인했는지(명세 No.49, No.57). */
   confirmed: boolean;
@@ -257,13 +358,14 @@ export type ParagraphRole = "link" | "process" | "judgment" | "wrap";
 
 export const PARAGRAPH_ROLE_LABELS: Record<ParagraphRole, string> = {
   link: "연계 발전 지점",
-  process: "과정과 역할",
-  judgment: "결과와 판단",
-  wrap: "정리와 다음 단계",
+  process: "과정",
+  judgment: "판단",
+  wrap: "정리",
 };
 
 export type Paragraph = {
-  role: ParagraphRole;
+  /** 문단 수를 고정하지 않으므로 새 본문에는 없다. 옛 리포트를 읽을 때만 있다. */
+  role?: ParagraphRole;
   sentences: Sentence[];
 };
 
@@ -305,6 +407,8 @@ export type ScoreItem = {
   discrimination: number | null;
   checks: ScoreCheck[];
   score: number;
+  /** false 면 채점에서 뺀 항목이다(학교 문항이 없는 문항 대응). 없으면 적용으로 본다. */
+  applied?: boolean;
 };
 
 export type FormatCheckKey =
@@ -313,7 +417,8 @@ export type FormatCheckKey =
   | "min_length"
   | "min_sentences"
   | "no_university"
-  | "no_pending_feelings";
+  | "no_pending_feelings"
+  | "no_plan_expression";
 
 export type FormatCheck = {
   key: FormatCheckKey;
@@ -324,7 +429,11 @@ export type FormatCheck = {
   skipped: boolean;
 };
 
-export type MandatoryFixKey = "pending_feelings" | "cliche" | "judgment_low";
+export type MandatoryFixKey =
+  | "pending_feelings"
+  | "cliche"
+  | "judgment_low"
+  | "plan_expression";
 
 export type MandatoryFix = {
   key: MandatoryFixKey;
@@ -351,9 +460,28 @@ export type GrowthFit = {
   }[];
 };
 
+/**
+ * 연계 점검 한 건(명세 No.182, 190). 점수, 필수 수정, 제출 가능 판정에는 넣지 않는 경고다.
+ * unused 는 선택했지만 본문이 인용하지 않은 기록이고, 나머지 칸은 비어 있다.
+ * 판정을 못 낸 칸(구체물 낱말이 없음, 모델 판정 없음)은 null 이다.
+ */
+export type LinkCheck = {
+  recordId: string;
+  label: string;
+  status: "checked" | "unused";
+  /** 연계가 드러난 문장이 있는가(모델). */
+  linkShown: boolean | null;
+  /** 넘어온 구체물 낱말이 연계 문장에 있는가(코드). */
+  concreteWordPresent: boolean | null;
+  /** 그 기록 문장을 빼도 글이 성립하는가(모델). true 면 나열 의심. */
+  listingSuspect: boolean | null;
+};
+
 export type VerificationSections = {
   items: ScoreItem[];
   total: number;
+  /** 학교 문항이 없어 문항 대응을 뺀 채점이면 true. 이전 리포트에는 없다. */
+  promptMissing?: boolean;
   format: FormatCheck[];
   mandatoryFixes: MandatoryFix[];
   submittable: boolean;
@@ -365,6 +493,8 @@ export type VerificationSections = {
   clicheDensity: number;
   clicheHits: string[];
   numberCount: number;
+  /** 연계 경고. 이전 리포트에는 없다. */
+  linkChecks?: LinkCheck[];
 };
 
 // ---------------------------------------------------------------------------
@@ -389,7 +519,12 @@ export const SESSION_EXPIRY_DAYS = 90;
 export const GROWTH_STALE_DAYS = 180;
 export const FIT_AUTO_SELECT_THRESHOLD = 40;
 export const CANDIDATE_LIMIT = 20;
-export const MAX_SUPPORT_ACTIVITIES = 2;
+export const MAX_SELECTED_ACTIVITIES = 8;
+export const MIN_SELECTED_ACTIVITIES = 3;
+export const CHARS_PER_ACTIVITY = 70;
+/** 연계 판정 2차에 넣는 기록 수의 상한. 8건이면 쌍이 28개다(명세 No.184). */
+export const MAX_PAIR_RECORDS = 8;
+export const FALLBACK_SELECT_COUNT = 3;
 export const MAX_REGENERATIONS = 3;
 export const MAX_MODEL_ATTEMPTS_PER_STEP = 10;
 export const CLAIM_STALE_SECONDS = 120;

@@ -19,6 +19,29 @@ export const CLICHES: readonly string[] = [
   "노력하는 모습",
 ];
 
+/**
+ * 계획 표현(명세 No.56). 본문에는 실제로 한 일만 쓰므로 미래 계획 문장을 막는다.
+ * 상투어 사전과 같은 곳에 둔다. "~할 것임", "~하고 싶음" 은 어미 부분만 사전에 둔다.
+ * "~고자 함" 은 제품 확인 전이라 넣지 않는다.
+ */
+export const PLAN_EXPRESSIONS: readonly string[] = [
+  "계획을 세움",
+  "계획임",
+  "할 예정",
+  "할 것임",
+  "하고 싶음",
+];
+
+/**
+ * 확인하지 않은 암묵 연계를 인과나 출처로 단정하는 표현(명세 No.193). 본문에서 그 기록을 인용한
+ * 문장에 있으면 확인 필요로 본다. 공백을 지우고 비교한다.
+ */
+export const CAUSAL_LINK_PHRASES: readonly string[] = [
+  "을 바탕으로",
+  "를 바탕으로",
+  "에서 이어",
+];
+
 /** 합격을 암시하는 표현. 위닝 점수는 학교 채점 예측이 아니라서 본문과 안내에 쓰지 않는다. */
 export const FORBIDDEN_PHRASES: readonly string[] = [
   "합격 가능성",
@@ -54,17 +77,6 @@ export const SELF_MADE_WORDS: readonly string[] = [
   "설계",
   "구성",
   "작성",
-];
-
-/** 자료로 확인되지 않는 느낌 표현(§6 14). */
-export const FEELING_PATTERNS: readonly RegExp[] = [
-  /느꼈다/,
-  /깨달았다/,
-  /같았다/,
-  /인상 깊/,
-  /뿌듯/,
-  /보람/,
-  /흥미로웠다/,
 ];
 
 /** 자료명으로 보는 명사 끝(§2 21). */
@@ -154,8 +166,8 @@ export const SCORE_RUBRIC: readonly ScoreRubricRow[] = [
     max: 5,
     discrimination: 27,
     checks: [
-      "다음 질문이나 다음 단계를 지목했는가",
-      "그 질문이 이번 활동의 한계나 결과와 이어지는가",
+      "결과나 한계에서 이어진 실제 후속 행동(기록 근거 있음)이 있는가",
+      "남은 질문을 한계와 이어 한 구절로 지목했는가",
     ],
   },
   {
@@ -195,7 +207,7 @@ export const IMPROVEMENT_HINTS: Record<ScoreItemKey, string> = {
     "결과에 쓴 수치나 식을 두 개 이상 넣고, 그 수치가 무엇을 보여 주는지 함께 적어 보세요",
   start:
     "수업의 어느 단원이나 대목에서 출발했는지와 계기가 된 질문을 한 문장으로 넣어 보세요",
-  next: "다음에 확인하고 싶은 질문을 쓰고, 이번 활동의 한계나 결과와 어떻게 이어지는지 적어 보세요",
+  next: "결과나 한계에서 이어서 실제로 한 후속 행동을 기록 근거와 함께 쓰고, 남은 질문을 그 한계와 이어 한 구절로 적어 보세요. 앞으로 할 계획은 쓰지 않아요",
   prompt:
     "학교가 낸 문항이 묻는 것에 바로 답하는 문장을 넣고, 문항의 핵심 낱말을 본문에 써 보세요",
 };
@@ -208,5 +220,5 @@ export const NOTICE_LINES: readonly string[] = [
   "생성에 실패하면 차감된 이용 횟수는 자동으로 복구돼요",
 ];
 
-/** 문장 어미 규칙(명세 No.11). 고객사 의견으로 바뀔 수 있어 상수로 둔다. */
-export const SENTENCE_STYLE = "했다";
+/** 문장 어미 규칙(명세 No.11, No.52). 본문은 "~함" 명사형 종결 한 가지다. */
+export const SENTENCE_STYLE = "함";

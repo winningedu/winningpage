@@ -2,9 +2,11 @@
 import {
   ANALYSIS_FIELD_LABELS,
   type AnalysisField,
+  BODY_EVIDENCE_FIELDS,
   type CharCount,
+  type EvidenceMemoView,
+  type EvidenceSourceType,
   type GenerationSections,
-  PARAGRAPH_ROLE_LABELS,
   type Sentence,
   type SessionActivityView,
   TARGET_TOLERANCE,
@@ -52,7 +54,7 @@ export function pendingFeelings(sections: GenerationSections): Sentence[] {
     .filter((x) => x.feeling && !x.confirmed);
 }
 
-/** 한 문장을 뺀 문단 텍스트. 문단 수는 유지한다(서버가 문단 수를 검사한다). */
+/** 한 문장을 뺀 문단 텍스트. 문단 수는 그대로 둔다. */
 export function textsWithoutSentence(
   sections: GenerationSections,
   sentenceId: string,
@@ -68,10 +70,17 @@ export function textsWithoutSentence(
 export type EvidenceView =
   | {
       kind: "activity";
+      sourceType: EvidenceSourceType;
       activityName: string;
       fieldLabel: string;
       /** 기록 원문. 기록에도 분석에도 값이 없으면 null(그 줄을 그리지 않는다). */
       source: string | null;
+    }
+  | {
+      kind: "memo";
+      writtenAt: string | null;
+      fieldLabel: string;
+      text: string;
     }
   | { kind: "student" };
 
@@ -92,28 +101,75 @@ function sourceText(
   return fromRecord ?? nonEmpty(activity.analysis?.values?.[field]);
 }
 
+/** 문장 하나의 근거를 화면용으로 풀어 준다. 선택 기록과 메모에서 찾지 못한 근거는 뺀다. */
 export function evidenceOf(
   sentence: Sentence,
   activities: SessionActivityView[],
-): EvidenceView | null {
-  const evidence = sentence.evidence;
-  if (!evidence) return null;
-  if ("student" in evidence) return { kind: "student" };
-  const activity = activities.find(
-    (a) => a.activityRecordId === evidence.activityId,
-  );
-  if (!activity) return null;
-  return {
-    kind: "activity",
-    activityName: nonEmpty(activity.record.topic) ?? "자료 없음",
-    fieldLabel: ANALYSIS_FIELD_LABELS[evidence.field],
-    source: sourceText(activity, evidence.field),
-  };
+  memos: EvidenceMemoView[],
+): EvidenceView[] {
+  return sentence.evidence.flatMap((e): EvidenceView[] => {
+    if (e.item === "student_input") return [{ kind: "student" }];
+    if (e.sourceType === "H") {
+      const memo = memos.find((m) => m.id === e.refId);
+      return memo === undefined
+        ? []
+        : [
+            {
+              kind: "memo",
+              writtenAt: memo.writtenAt,
+              fieldLabel: ANALYSIS_FIELD_LABELS[e.item],
+              text: memo.text,
+            },
+          ];
+    }
+    const activity = activities.find((a) => a.activityRecordId === e.refId);
+    if (!activity) return [];
+    return [
+      {
+        kind: "activity",
+        sourceType: e.sourceType,
+        activityName: nonEmpty(activity.record.topic) ?? "자료 없음",
+        fieldLabel: ANALYSIS_FIELD_LABELS[e.item],
+        source: sourceText(activity, e.item),
+      },
+    ];
+  });
+}
+
+/** 근거 다시 고르기에서 고를 수 있는 묶음. 기록은 값이 있는 항목만, 수기 메모는 네 항목이다. */
+export type RepickGroup = {
+  refId: string;
+  title: string;
+  items: AnalysisField[];
+};
+
+const MEMO_ITEMS: AnalysisField[] = [
+  "motive",
+  "action",
+  "method",
+  "limitation",
+];
+
+export function repickGroups(
+  activities: SessionActivityView[],
+  memos: EvidenceMemoView[],
+): RepickGroup[] {
+  return [
+    ...activities.map((a) => ({
+      refId: a.activityRecordId,
+      title: nonEmpty(a.record.topic) ?? "자료 없음",
+      items: BODY_EVIDENCE_FIELDS.filter((f) => sourceText(a, f) !== null),
+    })),
+    ...memos.map((m) => ({
+      refId: m.id,
+      title: `수기 메모: ${m.text}`,
+      items: MEMO_ITEMS,
+    })),
+  ];
 }
 
 export type ParagraphSummary = {
   number: number;
-  roleLabel: string;
   activityNames: string[];
 };
 
@@ -125,14 +181,14 @@ export function paragraphSummaries(
   return sections.paragraphs.map((p, i) => {
     const names: string[] = [];
     for (const sentence of p.sentences) {
-      const view = evidenceOf(sentence, activities);
-      if (view?.kind === "activity" && !names.includes(view.activityName)) {
-        names.push(view.activityName);
+      for (const view of evidenceOf(sentence, activities, [])) {
+        if (view.kind === "activity" && !names.includes(view.activityName)) {
+          names.push(view.activityName);
+        }
       }
     }
     return {
       number: i + 1,
-      roleLabel: PARAGRAPH_ROLE_LABELS[p.role],
       activityNames: names,
     };
   });

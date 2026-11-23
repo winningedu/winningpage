@@ -35,6 +35,7 @@ import {
   writeConfirmFeeling,
   writeEdit,
   writeGenerate,
+  writeRepickEvidence,
 } from "@/lib/selfeval/api";
 import { selfevalQueryKeys } from "@/lib/selfeval/queries";
 import type {
@@ -187,6 +188,25 @@ function ResultBody({
     refreshSession();
   }
 
+  async function repickEvidence(
+    sentenceId: string,
+    picks: { refId: string; item: string }[],
+  ) {
+    if (busy) return;
+    setBusy(true);
+    const result = await writeRepickEvidence(sessionId, sentenceId, picks);
+    setBusy(false);
+    if (result.kind !== "ok") {
+      toast.error(failure(result));
+      return;
+    }
+    setOverride({
+      sections: result.data.report.sections,
+      charCount: result.data.report.charCount,
+    });
+    refreshSession();
+  }
+
   // 생성 중이거나 아직 본문이 없으면 본문 자리에 진행 카드(또는 실패 카드)만 그린다.
   if (flowActive && (generating || !shown)) {
     return (
@@ -216,8 +236,8 @@ function ResultBody({
         .flatMap((p) => p.sentences)
         .find((s) => s.id === selectedId)
     : undefined;
-  const selectedView = selectedSentence
-    ? evidenceOf(selectedSentence, activities)
+  const selectedViews = selectedSentence
+    ? evidenceOf(selectedSentence, activities, detail.memos)
     : null;
 
   return (
@@ -360,9 +380,12 @@ function ResultBody({
             <EvidencePanel
               sections={shown.sections}
               activities={activities}
+              memos={detail.memos}
+              busy={busy}
+              onRepick={(id, picks) => void repickEvidence(id, picks)}
               selected={
-                selectedSentence && selectedView
-                  ? { sentence: selectedSentence, view: selectedView }
+                selectedSentence && selectedViews
+                  ? { sentence: selectedSentence, views: selectedViews }
                   : null
               }
             />

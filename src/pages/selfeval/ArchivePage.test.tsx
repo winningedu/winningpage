@@ -114,6 +114,22 @@ describe("ArchivePage", () => {
     expect(navigateMock).toHaveBeenCalledWith("/app/selfeval/s/s1/done");
   });
 
+  test("완료는 리포트 보기로 리포트 화면을 연다", () => {
+    setShell([item({ status: "completed" })]);
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "리포트 보기" }));
+    expect(navigateMock).toHaveBeenCalledWith("/app/selfeval/s/s1/report");
+  });
+
+  test("작성 중과 만료 세션에는 리포트 보기가 없다", () => {
+    setShell([
+      item({ id: "a" }),
+      item({ id: "b", status: "archived", expired: true }),
+    ]);
+    renderPage();
+    expect(screen.queryByRole("button", { name: "리포트 보기" })).toBeNull();
+  });
+
   test("파기된 세션은 목록에 나오지 않고 상태 필터에도 파기가 없다", () => {
     setShell([
       item({ id: "d", status: "archived", discarded: true, subject: "국어" }),

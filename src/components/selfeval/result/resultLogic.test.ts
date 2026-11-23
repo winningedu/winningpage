@@ -10,6 +10,7 @@ import {
   paragraphSummaries,
   paragraphTexts,
   pendingFeelings,
+  repickGroups,
   textsWithoutSentence,
 } from "./resultLogic";
 
@@ -20,11 +21,24 @@ const s = (
 ): Sentence => ({
   id,
   text,
-  evidence: null,
+  evidence: [],
   feeling: false,
   confirmed: false,
   ...over,
 });
+
+const P_METHOD: Sentence["evidence"][number] = {
+  sourceType: "P",
+  refId: "act1",
+  item: "method",
+  weight: "main",
+};
+const S_INPUT: Sentence["evidence"][number] = {
+  sourceType: "S",
+  refId: null,
+  item: "student_input",
+  weight: "main",
+};
 
 const SECTIONS: GenerationSections = {
   paragraphs: [
@@ -32,9 +46,9 @@ const SECTIONS: GenerationSections = {
       role: "link",
       sentences: [
         s("a1", "첫 문장이에요.", {
-          evidence: { activityId: "act1", field: "method" },
+          evidence: [P_METHOD],
         }),
-        s("a2", "학생이 고친 문장이에요.", { evidence: { student: true } }),
+        s("a2", "학생이 고친 문장이에요.", { evidence: [S_INPUT] }),
       ],
     },
     {
@@ -113,21 +127,26 @@ describe("문단과 문장", () => {
 });
 
 describe("evidenceOf", () => {
-  test("활동 근거는 활동명, 항목 라벨, 기록 원문을 돌려준다", () => {
-    const view = evidenceOf(SECTIONS.paragraphs[0]?.sentences[0] as Sentence, [
-      activity(),
+  test("활동 근거는 유형, 활동명, 항목 라벨, 기록 원문을 돌려준다", () => {
+    const views = evidenceOf(
+      SECTIONS.paragraphs[0]?.sentences[0] as Sentence,
+      [activity()],
+      [],
+    );
+    expect(views).toEqual([
+      {
+        kind: "activity",
+        sourceType: "P",
+        activityName: "설문 분석",
+        fieldLabel: "방법",
+        source: "표본 40명에게 설문을 받았다",
+      },
     ]);
-    expect(view).toEqual({
-      kind: "activity",
-      activityName: "설문 분석",
-      fieldLabel: "방법",
-      source: "표본 40명에게 설문을 받았다",
-    });
   });
 
   test("기록에 그 항목이 없으면 분석 값을 쓰고 둘 다 없으면 원문 줄이 없다", () => {
     const sentence = s("x", "문장", {
-      evidence: { activityId: "act1", field: "motive" },
+      evidence: [{ ...P_METHOD, item: "motive" }],
     });
     const withAnalysis = activity({
       analysis: {
@@ -136,33 +155,98 @@ describe("evidenceOf", () => {
         conflicts: [],
       },
     });
-    expect(evidenceOf(sentence, [withAnalysis])).toMatchObject({
+    expect(evidenceOf(sentence, [withAnalysis], [])[0]).toMatchObject({
       source: "계기 값",
     });
-    expect(evidenceOf(sentence, [activity()])).toMatchObject({ source: null });
+    expect(evidenceOf(sentence, [activity()], [])[0]).toMatchObject({
+      source: null,
+    });
   });
 
-  test("학생 수정은 student, 근거 없음과 모르는 활동은 null 이다", () => {
-    expect(
-      evidenceOf(SECTIONS.paragraphs[0]?.sentences[1] as Sentence, []),
-    ).toEqual({
-      kind: "student",
+  test("수기 메모 근거는 메모 날짜와 글을 돌려준다", () => {
+    const sentence = s("h", "문장", {
+      evidence: [
+        { sourceType: "H", refId: "m1", item: "action", weight: "sub" },
+      ],
     });
-    expect(evidenceOf(s("n", "문장"), [])).toBeNull();
     expect(
       evidenceOf(
-        s("m", "문장", { evidence: { activityId: "none", field: "method" } }),
-        [activity()],
+        sentence,
+        [],
+        [{ id: "m1", writtenAt: "2026-05-03", text: "메모 글" }],
       ),
-    ).toBeNull();
+    ).toEqual([
+      {
+        kind: "memo",
+        writtenAt: "2026-05-03",
+        fieldLabel: "한 일",
+        text: "메모 글",
+      },
+    ]);
+  });
+
+  test("학생 입력은 student, 모르는 활동은 빠지고 근거가 없으면 빈 배열이다", () => {
+    expect(
+      evidenceOf(SECTIONS.paragraphs[0]?.sentences[1] as Sentence, [], []),
+    ).toEqual([{ kind: "student" }]);
+    expect(evidenceOf(s("n", "문장"), [], [])).toEqual([]);
+    expect(
+      evidenceOf(
+        s("m", "문장", { evidence: [{ ...P_METHOD, refId: "none" }] }),
+        [activity()],
+        [],
+      ),
+    ).toEqual([]);
+  });
+
+  test("한 문장의 여러 근거를 모두 돌려준다", () => {
+    const views = evidenceOf(
+      s("two", "문장", {
+        evidence: [P_METHOD, { ...P_METHOD, item: "result", weight: "sub" }],
+      }),
+      [activity({ record: { ...activity().record, result: "결과 글" } })],
+      [],
+    );
+    expect(views.map((v) => v.kind === "activity" && v.fieldLabel)).toEqual([
+      "방법",
+      "결과와 근거",
+    ]);
+  });
+});
+
+describe("repickGroups", () => {
+  test("선택 기록은 값이 있는 항목만, 수기 메모는 네 항목으로 묶어 돌려준다", () => {
+    const groups = repickGroups(
+      [activity()],
+      [{ id: "m1", writtenAt: null, text: "메모 글" }],
+    );
+    expect(groups).toEqual([
+      { refId: "act1", title: "설문 분석", items: ["method"] },
+      {
+        refId: "m1",
+        title: "수기 메모: 메모 글",
+        items: ["motive", "action", "method", "limitation"],
+      },
+    ]);
+  });
+});
+
+describe("복사용 본문", () => {
+  test("번호와 근거 칩 없이 문장만 잇는다", () => {
+    const text = paragraphTexts(SECTIONS).join("\n\n");
+    expect(text).not.toMatch(/[\u2460-\u2473]/);
+    expect(text).not.toMatch(/\bP |\bS /);
+    expect(text).toBe(
+      "첫 문장이에요. 학생이 고친 문장이에요.\n\n뿌듯했다. 다 확인한 느낌이다.",
+    );
   });
 });
 
 describe("paragraphSummaries", () => {
-  test("문단마다 역할 라벨과 근거 활동명을 중복 없이 모은다", () => {
+  test("문단 번호와 근거 활동명을 중복 없이 모으고 옛 role 은 쓰지 않는다", () => {
     expect(paragraphSummaries(SECTIONS, [activity()])).toEqual([
-      { number: 1, roleLabel: "연계 발전 지점", activityNames: ["설문 분석"] },
-      { number: 2, roleLabel: "결과와 판단", activityNames: [] },
+      { number: 1, activityNames: ["설문 분석"] },
+      { number: 2, activityNames: [] },
     ]);
   });
 });
