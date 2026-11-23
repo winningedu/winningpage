@@ -8,10 +8,15 @@
 // 확장자 .js 명시 — verify 스크립트가 이 모듈(진행 판정 술어)을 plain node ESM 으로 직접 import 한다.
 // node 는 Vite 와 달리 확장자 생략을 해석하지 못해 ERR_MODULE_NOT_FOUND 로 죽는다.
 
-import { SURVEY_V3_QUESTIONS } from "@/data/diagnosisSurveyV3";
+import {
+  SURVEY_V3_PAGES,
+  SURVEY_V3_QUESTIONS,
+  statementsFor,
+} from "@/data/diagnosisSurveyV3";
 import { renewalSurveyQuestions } from "@/data/renewalSurveyQuestions.js";
 import type { QuestionId, TrackCode } from "@/lib/diagnosis-v3/codes";
 import { OPTIONS, trackOf } from "@/lib/diagnosis-v3/options";
+import type { AdmissionTarget } from "@/lib/diagnosis-v3/types";
 import { isHidden, Q3_TARGET_ORDINALS } from "@/lib/diagnosis-v3/validate";
 
 // renewalSurveyQuestions.js는 타입 선언 없는 순수 JS 데이터 배열이라 문항 형태를 여기서
@@ -203,11 +208,114 @@ export function visibleQuestionIds(
 ): QuestionId[] {
   const track = draftTrack(draft);
   // 13 H28-H30: q16..q18 open only when q15 is entered.
-  const view = {
+  const view: Record<string, unknown> = {
     ...draft,
     q15: isCascadeComplete(draft.q15) ? draft.q15 : undefined,
   };
-  return SURVEY_V3_QUESTIONS.filter(
-    (question) => question.page === page && !isHidden(question.id, view, track),
-  ).map((question) => question.id);
+  const visible: QuestionId[] = [];
+  // Screen order puts a parent before its children, so a hidden parent's
+  // value is cleared before its children are judged (q8s hides q8d).
+  for (const question of SURVEY_V3_QUESTIONS) {
+    if (isHidden(question.id, view, track)) {
+      view[question.id] = undefined;
+    } else if (question.page === page) {
+      visible.push(question.id);
+    }
+  }
+  return visible;
+}
+
+type Fields = Readonly<Record<string, unknown>>;
+
+const isFields = (value: unknown): value is Fields =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const toNumber = (raw: unknown) =>
+  typeof raw === "string" && raw.trim() !== "" ? Number(raw) : undefined;
+
+/** Filled cells of a grade grid as numbers; undefined when none is filled. */
+const filledGrades = (value: unknown) => {
+  if (!isFields(value)) return undefined;
+  const entries = Object.entries(value).flatMap(([key, raw]) => {
+    const grade = toNumber(raw);
+    return grade === undefined ? [] : [[key, grade] as const];
+  });
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+};
+
+const filledText = (value: unknown) => {
+  if (!isFields(value)) return undefined;
+  const entries = Object.entries(value).filter(
+    ([, text]) => typeof text === "string" && text.trim() !== "",
+  );
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+};
+
+const scheduleOf = (value: unknown) => {
+  if (!Array.isArray(value)) return value;
+  if (value.length === 0) return undefined;
+  return value.map((row: Fields) => ({
+    kind: row.kind,
+    date: row.date,
+    ...(typeof row.subject === "string" && row.subject.trim() !== ""
+      ? { subject: row.subject.trim() }
+      : {}),
+  }));
+};
+
+const answerOf = (
+  id: QuestionId,
+  value: unknown,
+  track: TrackCode | null,
+  target: AdmissionTarget | null,
+): unknown => {
+  const question = SURVEY_V3_QUESTIONS.find((q) => q.id === id);
+  switch (question?.kind) {
+    case "multi":
+      return Array.isArray(value) && value.length > 0 ? value : undefined;
+    case "likert": {
+      if (!isFields(value) || track === null) return undefined;
+      const items = statementsFor(id as "q9" | "q11" | "q20" | "q23", track)
+        .filter((statement) => statement.key !== "V")
+        .map((statement) => value[statement.key]);
+      return { items, verify: value.V };
+    }
+    case "number":
+      return toNumber(value);
+    case "grades":
+      return filledGrades(value);
+    case "mock": {
+      const grades = isFields(value) ? filledGrades(value.grades) : undefined;
+      return grades && isFields(value)
+        ? { month: value.month, grades }
+        : undefined;
+    }
+    case "schedule":
+      return scheduleOf(value);
+    case "cascade":
+      return isCascadeComplete(value) && target ? target : undefined;
+    default:
+      return value;
+  }
+};
+
+/**
+ * Answers to send: visible questions only (hidden ones must be absent), in
+ * the v3 contract shape. validateAnswers decides whether they are complete.
+ */
+export function toSubmitAnswers(
+  draft: SurveyDraft,
+  target: AdmissionTarget | null,
+): Record<string, unknown> {
+  const track = draftTrack(draft);
+  const answers: Record<string, unknown> = {};
+  for (let page = 1; page <= SURVEY_V3_PAGES; page++) {
+    for (const id of visibleQuestionIds(page, draft)) {
+      const value = answerOf(id, draft[id], track, target);
+      if (value !== undefined) answers[id] = value;
+    }
+  }
+  const goal = showsQ3Target(draft) ? filledText(draft.q3Target) : undefined;
+  if (goal) answers.q3Target = goal;
+  return answers;
 }
