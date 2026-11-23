@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SignupProvider, useSignup } from "@/context/SignupContext";
+import { trackEvent } from "@/lib/analytics";
 import StudentForm from "./StudentForm";
 
 const mocks = vi.hoisted(() => ({
@@ -11,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   rpc: vi.fn(),
 }));
+
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 
 vi.mock("@/lib/pwnedPassword", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/pwnedPassword")>()),
@@ -117,6 +120,30 @@ describe("StudentForm 유출 비밀번호", () => {
     expect(await screen.findByText(PWNED_MESSAGE)).toBeTruthy();
     expect(mocks.applySignupPassword).not.toHaveBeenCalled();
     expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("가입이 저장되면 signup_complete 이벤트를 student로 보낸다", async () => {
+    const input = renderForm();
+
+    fireEvent.change(input, { target: { value: PASSWORD } });
+    fireEvent.click(screen.getByRole("button", { name: "가입 완료하기" }));
+
+    await waitFor(() =>
+      expect(trackEvent).toHaveBeenCalledWith("signup_complete", {
+        member_type: "student",
+      }),
+    );
+  });
+
+  it("저장이 실패하면 signup_complete 이벤트를 보내지 않는다", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: new Error("fail") });
+    const input = renderForm();
+
+    fireEvent.change(input, { target: { value: PASSWORD } });
+    fireEvent.click(screen.getByRole("button", { name: "가입 완료하기" }));
+
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalled());
+    expect(trackEvent).not.toHaveBeenCalled();
   });
 
   it("유출 조회가 실패해도 가입은 진행된다", async () => {
