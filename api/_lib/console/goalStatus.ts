@@ -2,6 +2,7 @@
 // (오늘을 뺀 최근 7일, 결정 59).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addDaysYmd, ymdIn } from "../../../src/lib/time/day.js";
 import { readAll } from "./directory.js";
 import {
   buildGoalDays,
@@ -10,7 +11,7 @@ import {
   summarizeGoalWeek,
   weekWindows,
 } from "./goalRate.js";
-import { kstDateOffset } from "./kstDate.js";
+import { loadStudentZones } from "./studentZone.js";
 
 const ID_CHUNK = 100;
 // 연속 기록을 세려고 거슬러 읽는 일수.
@@ -75,10 +76,11 @@ export function target(
   };
 }
 
-function streakOf(dates: Set<string>, now: Date): number {
-  let offset = dates.has(kstDateOffset(now, 0)) ? 0 : 1;
+/** today(학생 시간대의 오늘)부터, 오늘 기록이 없으면 어제부터 거슬러 기록이 이어진 일수. */
+function streakOf(dates: Set<string>, today: string): number {
+  let offset = dates.has(today) ? 0 : 1;
   let streak = 0;
-  while (dates.has(kstDateOffset(now, offset))) {
+  while (dates.has(addDaysYmd(today, -offset))) {
     streak += 1;
     offset += 1;
   }
@@ -92,13 +94,19 @@ export async function loadGoalStatus(
   now: Date = new Date(),
   options: { streak?: boolean } = {},
 ): Promise<Map<string, GoalStatus>> {
-  const thisWeek = weekWindows(kstDateOffset(now, 0)).thisWeek;
-  const windowStart = thisWeek[0] ?? kstDateOffset(now, 7);
-  const readFrom = options.streak
-    ? kstDateOffset(now, STREAK_LOOKBACK_DAYS)
-    : windowStart;
   const result = new Map<string, GoalStatus>();
   for (const chunk of chunked(studentIds)) {
+    // 하루 기준은 학생마다 다르다. 묶음 안에서 가장 이른 날부터 읽고, 학생별 창은 아래에서 자른다.
+    const zones = await loadStudentZones(admin, chunk);
+    const todayOf = (id: string) => ymdIn(now, zones.get(id) ?? "UTC");
+    const thisWeekOf = (id: string) => weekWindows(todayOf(id)).thisWeek;
+    const readFrom = [...zones.keys()]
+      .map((id) =>
+        options.streak
+          ? addDaysYmd(todayOf(id), -STREAK_LOOKBACK_DAYS)
+          : (thisWeekOf(id)[0] ?? addDaysYmd(todayOf(id), -7)),
+      )
+      .reduce((a, b) => (a < b ? a : b), "9999-12-31");
     const [students, records, states] = await Promise.all([
       readAll<StudentRow>(
         admin,
@@ -136,7 +144,7 @@ export async function loadGoalStatus(
     for (const s of students) {
       const mine = recordsOf.get(s.profile_id) ?? [];
       const week = summarizeGoalWeek(
-        buildGoalDays(thisWeek, mine, s.study_schedule),
+        buildGoalDays(thisWeekOf(s.profile_id), mine, s.study_schedule),
       );
       result.set(s.profile_id, {
         weeklyRate:
@@ -144,7 +152,10 @@ export async function loadGoalStatus(
         minMetDays: week.metDays,
         minSetDays: week.setDays,
         streakDays: options.streak
-          ? streakOf(new Set(mine.map((r) => r.record_date)), now)
+          ? streakOf(
+              new Set(mine.map((r) => r.record_date)),
+              todayOf(s.profile_id),
+            )
           : 0,
         ideal: target(
           s.ideal_university,
