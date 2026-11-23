@@ -1,11 +1,23 @@
 // 홈 배너(banners, home_side_banners) 노출 판정. 두 테이블이 같은 규칙을 쓴다(각각 따로 판정).
 
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
+
 interface BannerPeriod {
   start_date?: string | null;
   end_date?: string | null;
 }
 
-// 노출 기간 판정. today 는 KST 기준 YYYY-MM-DD. 시작일과 종료일 당일은 포함하고,
+// 배너 노출 기간 판정에 쓰는 오늘. 시작일과 종료일은 운영자가 입력한 날짜(date)라
+// 보는 사람의 브라우저 시간대 달력으로 판정한다.
+export function bannerTodayYmd(
+  now: Date = new Date(),
+  timeZone: string = browserTimeZone(),
+): string {
+  return ymdIn(now, timeZone);
+}
+
+// 노출 기간 판정. today 는 보는 사람 시간대 기준 YYYY-MM-DD. 시작일과 종료일 당일은 포함하고,
 // 둘 다 비면 항상 노출한다(home_side_banners 조회의 start_date/end_date or 필터와 같은 규칙).
 export function isBannerInPeriod(banner: BannerPeriod, today: string): boolean {
   if (banner.start_date && banner.start_date > today) return false;

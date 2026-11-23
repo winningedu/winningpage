@@ -349,16 +349,15 @@ function formatGradeTrend(code) {
   );
 }
 
-/** 제출 시각 → 'YYYY.MM.DD'(§7.2). 파싱 실패는 null 로 떨어뜨려 호출부가 '미입력'을 쓰게 한다. */
+/**
+ * 진단일 → 'YYYY.MM.DD'(§7.2). 진단일은 서버가 회원 시간대의 하루로 정한 YYYY-MM-DD 이므로 앞부분을
+ * 그대로 옮긴다. 시간대 변환도, 실행 환경 시간대를 타는 Date getter 도 쓰지 않는다.
+ * 읽을 수 없는 값은 null 로 떨어뜨려 호출부가 '미입력'을 쓰게 한다.
+ */
 function formatDiagnosedAt(value) {
   if (typeof value !== "string" || value === "") return null;
   const matched = value.match(/^(\d{4})[-./](\d{2})[-./](\d{2})/);
-  if (matched) return `${matched[1]}.${matched[2]}.${matched[3]}`;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  const month = String(parsed.getMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getDate()).padStart(2, "0");
-  return `${parsed.getFullYear()}.${month}.${day}`;
+  return matched ? `${matched[1]}.${matched[2]}.${matched[3]}` : null;
 }
 
 /* ================================================================== *
@@ -908,7 +907,7 @@ function buildStrategyGroups(areaScores: AreaScores) {
  *   이 함수는 임계값을 알지 않고 flagged 불리언 하나만 본다 — 오탐이 보고되면 되돌릴 곳이
  *   엔진 상수 한 곳이어야 한다.
  * F-06 확정(2026-08-11) — 서비스 제한 안내는 학년 리터럴이 아니라 엔진의 filterReason 으로
- *   분기한다. 판정 규칙(고3 6월 경계·KST)이 두 벌이 되지 않게 하려는 것이다.
+ *   분기한다. 판정 규칙(고3 6월 경계)이 두 벌이 되지 않게 하려는 것이다.
  */
 function buildNotices(
   input: DiagnosisInputLike,

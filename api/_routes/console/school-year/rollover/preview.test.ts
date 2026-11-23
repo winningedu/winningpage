@@ -41,7 +41,11 @@ beforeEach(() => {
   rolloverDay();
   kit.state = createKitState();
   kit.state.actor = schoolAdminActor();
-  kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학원" });
+  kit.state.rows.tenants = () => ({
+    school_year: 2026,
+    time_zone: "Asia/Seoul",
+    org_type: "학원",
+  });
   kit.state.rows.student_enrollments = (f) =>
     matchRows(
       [
@@ -387,7 +391,11 @@ describe("POST /api/console/school-year/rollover/preview", () => {
     });
 
     test("a school tenant never sees mixed classes: the same text is a format error", async () => {
-      kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학교" });
+      kit.state.rows.tenants = () => ({
+        school_year: 2026,
+        time_zone: "Asia/Seoul",
+        org_type: "학교",
+      });
 
       const r = await post({ toYear: 2027, text: MIXED_TEXT });
 

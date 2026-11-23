@@ -13,6 +13,8 @@ const state = vi.hoisted(() => ({
   row: null as unknown,
   claimOk: true,
   loadedForUser: [] as string[],
+  zones: [] as string[],
+  memberZone: "Asia/Seoul" as string | null,
   model: null as unknown,
 }));
 
@@ -32,9 +34,21 @@ vi.mock("../../_lib/selfeval/db.js", async (importOriginal) => ({
     const s = state.session as { id: string; profile_id: string } | null;
     return s !== null && s.id === id && s.profile_id === userId ? s : null;
   },
+  loadMemberTimeZone: async () => {
+    if (state.memberZone === null) throw new Error("profiles 조회 실패");
+    return state.memberZone;
+  },
 }));
 vi.mock("../../_lib/selfeval/report/load.js", () => ({
-  loadReportInput: async () => state.loaded,
+  loadReportInput: async (
+    _db: unknown,
+    _userId: string,
+    _session: unknown,
+    tz: string,
+  ) => {
+    state.zones.push(tz);
+    return state.loaded;
+  },
 }));
 vi.mock("../../_lib/selfeval/report/store.js", () => ({
   createReportStore: () => ({
@@ -112,6 +126,8 @@ beforeEach(() => {
   state.row = null;
   state.claimOk = true;
   state.loadedForUser = [];
+  state.zones = [];
+  state.memberZone = "Asia/Seoul";
   state.model = modelEcho();
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -155,6 +171,19 @@ describe("POST /api/selfeval/report", () => {
     expect(open.body).toMatchObject({
       error: { code: "SESSION_NOT_COMPLETED" },
     });
+  });
+
+  test("passes the session owner's time zone to the input loader, whatever the viewer header says", async () => {
+    state.memberZone = "America/Chicago";
+    await call("POST", { body: { sessionId: SESSION } });
+    expect(state.zones).toEqual(["America/Chicago"]);
+  });
+
+  test("fails without a profile time zone instead of guessing one", async () => {
+    state.memberZone = null;
+    const res = await call("POST", { body: { sessionId: SESSION } });
+    expect(res.status).toBe(500);
+    expect(state.zones).toEqual([]);
   });
 
   test("answers 409 FINAL_REPORT_MISSING without a final body and 409 REPORT_BUSY when another request holds it", async () => {

@@ -1,25 +1,24 @@
-// 리포트 날짜 표기. 모든 날짜는 한국 시간(KST) 기준이다.
+// 리포트 날짜 표기. 모든 날짜는 회원 시간대(profiles.time_zone 또는 보는 사람의 X-Time-Zone) 기준이다.
 
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+import { dayStartUtc, ymdIn } from "../../../../src/lib/time/day.js";
 
-function kstParts(iso: string): { y: string; m: string; d: string } {
-  const shifted = new Date(Date.parse(iso) + KST_OFFSET_MS).toISOString();
-  return {
-    y: shifted.slice(0, 4),
-    m: shifted.slice(5, 7),
-    d: shifted.slice(8, 10),
-  };
+function localParts(
+  iso: string,
+  tz: string,
+): { y: string; m: string; d: string } {
+  const [y = "", m = "", d = ""] = ymdIn(iso, tz).split("-");
+  return { y, m, d };
 }
 
 /** yyyy.mm.dd (02장, 03장, 04장 날짜). */
-export function dotDate(iso: string): string {
-  const { y, m, d } = kstParts(iso);
+export function dotDate(iso: string, tz: string): string {
+  const { y, m, d } = localParts(iso, tz);
   return `${y}.${m}.${d}`;
 }
 
 /** yyyy. mm. dd (표지 저장일). */
-export function coverDate(iso: string): string {
-  const { y, m, d } = kstParts(iso);
+export function coverDate(iso: string, tz: string): string {
+  const { y, m, d } = localParts(iso, tz);
   return `${y}. ${m}. ${d}`;
 }
 
@@ -28,10 +27,13 @@ export function dashToDot(date: string): string {
   return date.slice(0, 10).replace(/-/g, ".");
 }
 
-/** 학년도 기간(No.140). 해당 3월 1일 0시(KST)부터 다음 해 2월 말까지. 끝은 배타다. */
-export function academicYearWindow(year: number): { from: string; to: string } {
+/** 학년도 기간(No.140). 회원 시간대 3월 1일 0시부터 다음 해 3월 1일 0시 전까지. 끝은 배타다. */
+export function academicYearWindow(
+  year: number,
+  tz: string,
+): { from: string; to: string } {
   return {
-    from: new Date(Date.UTC(year, 2, 1) - KST_OFFSET_MS).toISOString(),
-    to: new Date(Date.UTC(year + 1, 2, 1) - KST_OFFSET_MS).toISOString(),
+    from: dayStartUtc(`${year}-03-01`, tz),
+    to: dayStartUtc(`${year + 1}-03-01`, tz),
   };
 }

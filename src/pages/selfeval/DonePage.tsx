@@ -32,6 +32,7 @@ import type {
   SessionDetailResponse,
   VerificationSections,
 } from "@/lib/selfeval/types";
+import { browserTimeZone } from "@/lib/time/zone";
 
 // 저장 완료 화면(시안 53~55, 명세 No.63, 64, 75, 131). 경로: /app/selfeval/s/:sessionId/done
 // 보관함의 "다시 보기" 도 같은 화면을 연다. 완료 세션은 전부 여기서 읽기 전용으로 본다.
@@ -148,7 +149,7 @@ function DoneBody({
   const navigate = useNavigate();
   const toast = useToast();
   const location = useLocation();
-  const { studentName } = useSelfevalShell();
+  const { studentName, timeZone } = useSelfevalShell();
   const { session, activities } = detail;
   const final = detail.reports.final;
   const pdf = useReportPdfSave(
@@ -194,7 +195,10 @@ function DoneBody({
   const message = replyMessage(reply, planTitle);
   const title = archiveTitle(session);
   const submitBadge = submitBadgeOf(detail.reports.verification);
-  const saved = session.completedAt ? formatDotDate(session.completedAt) : null;
+  const saved =
+    session.completedAt && timeZone
+      ? formatDotDate(session.completedAt, timeZone)
+      : null;
 
   return (
     <>
@@ -232,7 +236,11 @@ function DoneBody({
                   },
                   {
                     label: "저장일",
-                    value: formatCoverDate(session.completedAt),
+                    value: formatCoverDate(
+                      session.completedAt,
+                      // 자기평가서 응답에 회원 시간대가 실리면(U-selfeval 소관 타입) 그 값으로 바꾼다.
+                      browserTimeZone(),
+                    ),
                   },
                 ]}
               />

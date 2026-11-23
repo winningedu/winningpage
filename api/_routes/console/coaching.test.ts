@@ -18,10 +18,13 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
 }));
 
 import { v3Payload } from "../../_lib/console/diagnosisV3TestKit.js";
+import { withTimeZone } from "../../_lib/console/zoneTestKit.js";
 import handler from "./coaching.js";
 
-const get = (query: Record<string, string> = { studentId: "s1" }) =>
-  callHandler(handler, undefined, "GET", query);
+const get = (
+  query: Record<string, string> = { studentId: "s1" },
+  zone: string | null = "Asia/Seoul",
+) => callHandler(withTimeZone(handler, zone), undefined, "GET", query);
 
 const enrollment = (over: Record<string, unknown>) => ({
   tenant_id: "tenant-1",
@@ -122,9 +125,9 @@ beforeEach(() => {
   kit.state.rows.profiles = (f) =>
     matchRows(
       [
-        { id: "s1", name: "김서연" },
-        { id: "s2", name: "윤하린" },
-        { id: "s3", name: "이서준" },
+        { id: "s1", name: "김서연", time_zone: "Asia/Seoul" },
+        { id: "s2", name: "윤하린", time_zone: "Asia/Seoul" },
+        { id: "s3", name: "이서준", time_zone: "Asia/Seoul" },
       ],
       f,
     );
@@ -218,6 +221,15 @@ type Body = {
 };
 
 describe("GET /api/console/coaching", () => {
+  test("without X-Time-Zone the answer is 400 TIME_ZONE_REQUIRED", async () => {
+    const r = await get({ studentId: "s1" }, null);
+
+    expect(r.status).toBe(400);
+    expect((r.body as { error: { code: string } }).error.code).toBe(
+      "TIME_ZONE_REQUIRED",
+    );
+  });
+
   test("a missing studentId is a 400", async () => {
     expect((await get({})).status).toBe(400);
   });
@@ -366,9 +378,14 @@ describe("GET /api/console/coaching", () => {
       kit.state.rows.profiles = (f) =>
         matchRows(
           [
-            { id: "s1", name: "김서연", last_seen_at: lastSeen },
-            { id: "s2", name: "윤하린" },
-            { id: "s3", name: "이서준" },
+            {
+              id: "s1",
+              name: "김서연",
+              time_zone: "Asia/Seoul",
+              last_seen_at: lastSeen,
+            },
+            { id: "s2", name: "윤하린", time_zone: "Asia/Seoul" },
+            { id: "s3", name: "이서준", time_zone: "Asia/Seoul" },
           ],
           f,
         );
@@ -416,7 +433,14 @@ describe("GET /api/console/coaching", () => {
       seenAt("2026-10-01T00:00:00+09:00");
       kit.state.rows.profiles = (f) =>
         matchRows(
-          [{ id: "s3", name: "이서준", last_seen_at: "2026-10-01T00:00:00Z" }],
+          [
+            {
+              id: "s3",
+              name: "이서준",
+              time_zone: "Asia/Seoul",
+              last_seen_at: "2026-10-01T00:00:00Z",
+            },
+          ],
           f,
         );
       const body = (await get({ studentId: "s3" })).body as Body;

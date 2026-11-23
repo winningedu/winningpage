@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { formatDate } from "@/lib/time/format";
 import type { HqTenantRow, HqUsageRow } from "./api";
 import {
   applyTenantTable,
@@ -23,7 +24,7 @@ function row(overrides: Partial<HqTenantRow> = {}): HqTenantRow {
     studentCount: 10,
     studentWithoutEnrollmentCount: 0,
     teacherCount: 2,
-    lastActivityOn: "2026-11-20",
+    lastActivityAt: "2026-11-20T01:30:00.000Z",
     goalRateAverage: 50,
     goalUserCount: 4,
     ...overrides,
@@ -192,7 +193,7 @@ test("엑셀 행은 화면 표와 같은 열 이름과 한국어 상태를 쓴�
       row({
         contractStatus: "ending_soon",
         studentWithoutEnrollmentCount: 3,
-        lastActivityOn: null,
+        lastActivityAt: null,
         goalRateAverage: null,
       }),
     ),
@@ -274,4 +275,11 @@ describe("usageExportColumns", () => {
       ],
     ).toBe("무제한");
   });
+});
+
+test("엑셀 마지막활동일은 순간을 보는 사람 시간대의 날짜로 적는다", () => {
+  const at = "2026-11-20T01:30:00.000Z";
+  expect(tenantExportRow(row({ lastActivityAt: at })).마지막활동일).toBe(
+    formatDate(at),
+  );
 });

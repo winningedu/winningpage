@@ -6,6 +6,7 @@ import {
   listDiagnosisReports,
 } from "@/lib/diagnosisReportQueries";
 import { supabase } from "@/lib/supabase";
+import { formatDate } from "@/lib/time/format";
 
 // 학부모가 자녀의 학습진단 리포트 "회차 목록"을 여는 뷰어.
 // 진입: 마이페이지 > 자녀 등록 및 수정 > 자녀 카드 > "학습진단 리포트 보기"(다른 유닛이 건다).
@@ -26,15 +27,11 @@ type ParentChildRow = {
   link_status: string;
 };
 
-// "YYYY. MM. DD"(Asia/Seoul) — MyServicesTab.formatDateSpaced와 같은 표기, 같은
-// 타임존 근거(reportFileName.ts toKstYmd)를 재사용한다. diagnosed_at은 timestamptz라
-// 로컬 브라우저 타임존이 아니라 KST로 고정해야 자정 전후 날짜가 안 밀린다.
-function formatDiagnosedAtKst(iso: string) {
+// "YYYY. MM. DD" 를 보는 사람의 브라우저 시간대로 표기한다(MyServicesTab.formatDateSpaced와 같은 표기).
+function formatDiagnosedAt(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" })
-    .format(date)
-    .replaceAll("-", ". ");
+  return formatDate(date).replaceAll("-", ". ");
 }
 
 // 신규 카피 — 승인 대기(0건 빈 상태, QA 시트 행 210).
@@ -164,7 +161,7 @@ export default function ChildDiagnosisReports() {
                   <span className="text-[0.9375rem] font-medium text-ink">
                     {/* 최신순 목록이라 마지막(가장 오래된) 행이 1회차다. */}
                     {reports.length - index}회차 학습진단 ·{" "}
-                    {formatDiagnosedAtKst(report.diagnosed_at)}
+                    {formatDiagnosedAt(report.diagnosed_at)}
                   </span>
                   <span className="text-[0.875rem] font-medium text-accent">
                     리포트 보기 →

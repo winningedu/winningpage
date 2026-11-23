@@ -229,6 +229,8 @@ select pg_temp.mk_legacy_goal('spec-gc2', o_parent, o_student, 'goal-1m', '2026-
 
 -- 마이그레이션 적용(재실행 포함 멱등). 이 시점부터 새 구성/새 함수가 보인다.
 \ir ../supabase/migrations/20261021014317_busan_oct_extension_goal_gift.sql
+-- UTC 전환 U4b: 위 파일이 두 함수를 KST 정의로 되돌리므로 구매자 시간대 정의를 다시 덮는다.
+\ir ../supabase/migrations/20261123134358_utc_entitlement_time_zone.sql
 
 create function pg_temp.same_quote(t text, p_a text, p_b text, p_at timestamptz, p_parent_a uuid, p_parent_b uuid)
 returns void
@@ -581,6 +583,8 @@ create temp table spec_snap as
     from public.program_access_grants where order_id like 'spec-%';
 
 \ir ../supabase/migrations/20261021014317_busan_oct_extension_goal_gift.sql
+-- UTC 전환 U4b: 위 파일이 두 함수를 KST 정의로 되돌리므로 구매자 시간대 정의를 다시 덮는다.
+\ir ../supabase/migrations/20261123134358_utc_entitlement_time_zone.sql
 \ir busan-oct-goal-gift-data.sql
 
 do $$

@@ -8,7 +8,7 @@
 //                                즉석 생성해 캐시한다(QA 행70 항시 표시, 조언 기능 이전 온보딩 학생 백필).
 //                                한 번 생성되면 캐시라 이후 GET은 Gemini를 부르지 않는다.
 //
-// 캐시(goal_advice_cache, profile_id×source×generated_for(KST 날짜) UNIQUE)가 곧
+// 캐시(goal_advice_cache, profile_id×source×generated_for(학생 현지 날짜) UNIQUE)가 곧
 // 레이트리밋이다 — 같은 날 재요청은 Gemini를 다시 부르지 않고 저장된 payload를
 // 그대로 돌려준다. Gemini 실패/GEMINI_API_KEY 미설정이면 규칙 기반 폴백(origin:'rule')을
 // 같은 shape으로 만들어 캐시에 저장한다(문자열 상수 폴백 금지, [[no-fallback-constants]]).
@@ -21,7 +21,6 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import {
   addDaysYMD,
   getDayIndexFromYMDServer,
-  kstYMD,
   VIRTUAL_DAY_NAMES,
 } from "../../../src/lib/goal/calc/index.js";
 import {
@@ -31,6 +30,7 @@ import {
 } from "../../../src/lib/goal/report/aggregate.js";
 import { buildDirectionSummary } from "../../../src/lib/goal/report/insights.js";
 import { WEEKDAY_LABELS } from "../../../src/lib/goalPlanUtils.js";
+import { ymdIn } from "../../../src/lib/time/day.js";
 import { callText } from "../../_lib/ai/gemini.js";
 import { type AiTrace, createAiTrace } from "../../_lib/ai/telemetry/trace.js";
 import {
@@ -53,6 +53,7 @@ import {
   fetchStudentStateRow,
   fetchSubjectTargets,
   fetchTodayRecord,
+  getStudentTimeZone,
   narrowGoalSession,
   num,
   openGoalSession,
@@ -246,8 +247,9 @@ async function buildPromptInput(
   studentRow: any,
   submitCount: number,
   now: Date,
+  timeZone: string,
 ): Promise<AdvicePromptInput> {
-  const todayYmd = kstYMD(now);
+  const todayYmd = ymdIn(now, timeZone);
   const jungsiAvailable =
     toNum(studentRow.ideal_jungsi_cut, null) !== null &&
     toNum(studentRow.min_jungsi_cut, null) !== null;
@@ -273,7 +275,7 @@ async function buildPromptInput(
     studentType: buildStudentTypeContext(studentRow),
   };
 
-  // 내일(KST) 요일·목표 시간·과목 배분.
+  // 내일(학생 현지) 요일·목표 시간·과목 배분.
   const tomorrowYmd = addDaysYMD(todayYmd, 1, now);
   const tomorrowDayIndex = getDayIndexFromYMDServer(tomorrowYmd, now);
   // biome-ignore lint/style/noNonNullAssertion: getDayIndexFromYMDServer는 항상 0-6을 돌려줌(7개 배열).
@@ -416,8 +418,9 @@ async function generateAndCacheAdvice(
   // biome-ignore lint/suspicious/noExplicitAny: buildPromptInput의 studentRow와 동일 근거.
   studentRow: any,
   now: Date,
+  timeZone: string,
 ) {
-  const todayYmd = kstYMD(now);
+  const todayYmd = ymdIn(now, timeZone);
   const stateRow = await fetchStudentStateRow(supabaseAdmin, profileId);
   const submitCount = num(stateRow?.record_count) ?? 0;
 
@@ -428,6 +431,7 @@ async function generateAndCacheAdvice(
     studentRow,
     submitCount,
     now,
+    timeZone,
   );
 
   const trace = createAiTrace({
@@ -487,7 +491,8 @@ async function handleGet(
     return res.status(gate.error.status).json(gate.error.body);
   }
 
-  const todayYmd = kstYMD(new Date());
+  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+  const todayYmd = ymdIn(new Date(), timeZone);
   const [intakeRow, dailyRow] = await Promise.all([
     fetchLatestAdviceCache(supabaseAdmin, profileId, "intake", todayYmd),
     fetchLatestAdviceCache(supabaseAdmin, profileId, "daily", todayYmd),
@@ -502,12 +507,13 @@ async function handleGet(
       "intake",
       gate.row,
       now,
+      timeZone,
     );
     return res.status(200).json({
       ok: true,
       intake: payload,
       daily: null,
-      intakeFor: kstYMD(now),
+      intakeFor: ymdIn(now, timeZone),
       dailyFor: null,
     });
   }
@@ -555,7 +561,8 @@ async function handlePost(
   const source = rawSource;
 
   const now = new Date();
-  const todayYmd = kstYMD(now);
+  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+  const todayYmd = ymdIn(now, timeZone);
 
   // 캐시 히트 — 오늘 이미 생성됐으면 Gemini를 다시 부르지 않는다.
   const cached = await fetchAdviceCache(
@@ -574,6 +581,7 @@ async function handlePost(
     source,
     gate.row,
     now,
+    timeZone,
   );
 
   return res.status(200).json({ ok: true, ...payload });

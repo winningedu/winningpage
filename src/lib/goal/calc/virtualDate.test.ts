@@ -1253,3 +1253,20 @@ test("toYMD — 문자열은 앞 10자, falsy 는 빈 문자열", () => {
   expect(toYMD(undefined)).toBe("");
   expect(toYMD(0)).toBe("");
 });
+
+test("getRecordDateFromActualStart: 실행 환경의 DST 시간대와 무관하게 달력 날짜를 더한다", () => {
+  const original = process.env.TZ;
+  process.env.TZ = "America/New_York";
+  try {
+    expect(
+      getRecordDateFromActualStart(
+        "2026-01-15",
+        100,
+        new Date("2026-01-15T00:00:00Z"),
+      ),
+    ).toBe("2026-04-25");
+  } finally {
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
+  }
+});

@@ -1,5 +1,7 @@
 // 개인정보 접근 로그 화면의 데이터 호출. teachers 가 클라이언트에 막혀 있어 /api/admin/access-logs 로만 읽는다.
 
+import { addDaysYmd, dayStartUtc } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 
 export type AccessLogKind = "view" | "edit" | "export" | "proxy";
@@ -44,8 +46,10 @@ export async function fetchAccessLogs(
 ): Promise<ApiResult<AccessLogPage>> {
   const params = new URLSearchParams({ page: String(filter.page) });
   if (filter.tenantCode) params.set("tenantCode", filter.tenantCode);
-  if (filter.from) params.set("from", filter.from);
-  if (filter.to) params.set("to", filter.to);
+  // 화면의 날짜는 브라우저 시간대의 하루다. 서버에는 from 포함, to 미포함인 ISO Z 시각으로 보낸다.
+  const tz = browserTimeZone();
+  if (filter.from) params.set("from", dayStartUtc(filter.from, tz));
+  if (filter.to) params.set("to", dayStartUtc(addDaysYmd(filter.to, 1), tz));
   if (filter.kind) params.set("kind", filter.kind);
 
   const accessToken = await getFreshSupabaseAccessTokenOrSignOut();

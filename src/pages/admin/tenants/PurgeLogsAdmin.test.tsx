@@ -7,6 +7,9 @@ vi.mock("./api", () => ({
   fetchPurgeLogs: vi.fn(),
 }));
 
+const zone = vi.hoisted(() => ({ tz: "Asia/Seoul" }));
+vi.mock("@/lib/time/zone", () => ({ browserTimeZone: () => zone.tz }));
+
 const csv = vi.hoisted(() => ({ downloadCsv: vi.fn() }));
 vi.mock("@/pages/admin/shared/csvExport", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/pages/admin/shared/csvExport")>()),

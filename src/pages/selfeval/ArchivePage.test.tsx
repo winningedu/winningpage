@@ -56,6 +56,7 @@ function setShell(sessions: unknown[] | null, openSession: unknown = null) {
     openSession,
     isEntryLoading: sessions === null,
     entryError: null,
+    timeZone: "Asia/Seoul",
     refetchEntry,
   });
 }

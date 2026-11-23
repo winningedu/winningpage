@@ -1,5 +1,6 @@
 // 본사 대시보드 서버 호출(api/admin/hq-dashboard/*). Bearer 토큰으로 부르고 실패는 던져 useQuery 가 오류로 받는다.
 
+import { apiFetch } from "@/lib/apiFetch";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 
 export type ContractStatus =
@@ -44,7 +45,7 @@ export interface HqTenantRow {
   /** 학적이 없는 학생 수. 화면은 "학년, 반 미상"으로 보인다. */
   studentWithoutEnrollmentCount: number;
   teacherCount: number;
-  lastActivityOn: string | null;
+  lastActivityAt: string | null;
   goalRateAverage: number | null;
   goalUserCount: number;
 }
@@ -78,7 +79,7 @@ export interface HqUsage {
 
 async function getJson<T>(path: string, includeInternal: boolean): Promise<T> {
   const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-  const response = await fetch(
+  const response = await apiFetch(
     `${path}?includeInternal=${includeInternal ? "1" : "0"}`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
@@ -120,7 +121,8 @@ export interface LoginStatsResponse {
   grain: "day" | "week" | "month";
   mauMode: "calendar" | "rolling30";
   includeInternal: boolean;
-  firstMeasuredOn: string | null;
+  /** 가장 이른 로그인 기록 순간(ISO Z). 화면이 브라우저 시간대의 날짜로 바꿔 보인다. */
+  firstMeasuredAt: string | null;
   series: LoginBucket[];
   dau: { from: string; to: string; average: number; source: LoginSource };
   mau: {
@@ -135,7 +137,9 @@ export interface LoginStatsResponse {
 
 export interface LoginLogItem {
   profileId: string;
-  kstDate: string;
+  /** 보는 사람 시간대의 날(YYYY-MM-DD). */
+  loginDate: string;
+  /** 그날 처음 기록된 순간(ISO Z). */
   firstSeenAt: string;
   name: string | null;
   memberType: string | null;
@@ -156,7 +160,7 @@ export interface LoginLogResponse {
 
 async function getWithSearch<T>(path: string, search: string): Promise<T> {
   const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-  const response = await fetch(`${path}?${search}`, {
+  const response = await apiFetch(`${path}?${search}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   const result = await response.json().catch(() => null);

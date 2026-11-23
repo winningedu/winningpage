@@ -17,11 +17,15 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+import { ymdIn } from "../../../src/lib/time/day.js";
 import { weekWindows } from "../../_lib/console/goalRate.js";
+import { withTimeZone } from "../../_lib/console/zoneTestKit.js";
 import handler from "./students.js";
 
-const get = (query: Record<string, string> = {}) =>
-  callHandler(handler, undefined, "GET", query);
+const get = (
+  query: Record<string, string> = {},
+  zone: string | null = "Asia/Seoul",
+) => callHandler(withTimeZone(handler, zone), undefined, "GET", query);
 
 const row = (over: Record<string, unknown>) => ({
   tenant_id: "tenant-1",
@@ -101,10 +105,30 @@ beforeEach(() => {
   kit.state.rows.profiles = (f) =>
     matchRows(
       [
-        { id: "s1", name: "김하늘", created_at: "2026-03-02T01:00:00Z" },
-        { id: "s2", name: "윤하린", created_at: "2026-03-04T01:00:00Z" },
-        { id: "s3", name: "박서준", created_at: "2026-03-04T01:00:00Z" },
-        { id: "s4", name: "이도윤", created_at: "2026-03-05T16:00:00Z" },
+        {
+          id: "s1",
+          name: "김하늘",
+          time_zone: "Asia/Seoul",
+          created_at: "2026-03-02T01:00:00Z",
+        },
+        {
+          id: "s2",
+          name: "윤하린",
+          time_zone: "Asia/Seoul",
+          created_at: "2026-03-04T01:00:00Z",
+        },
+        {
+          id: "s3",
+          name: "박서준",
+          time_zone: "Asia/Seoul",
+          created_at: "2026-03-04T01:00:00Z",
+        },
+        {
+          id: "s4",
+          name: "이도윤",
+          time_zone: "Asia/Seoul",
+          created_at: "2026-03-05T16:00:00Z",
+        },
       ],
       f,
     );
@@ -161,7 +185,7 @@ describe("GET /api/console/students", () => {
     expect(s1).toEqual({
       studentId: "s1",
       displayName: "김*늘",
-      joinedAt: "2026-03-02",
+      joinedAt: "2026-03-02T01:00:00.000Z",
       grade: "고2",
       groupId: null,
       groupName: null,
@@ -189,9 +213,9 @@ describe("GET /api/console/students", () => {
       groupName: "A레벨",
       serviceCount: 0,
     });
-    // 협정 세계시 16시는 한국 시각으로 다음 날이다.
+    // 가입 시각은 UTC 시각 그대로 내린다. 날짜로 바꾸는 일은 화면이 한다.
     expect(items(r).find((i) => i.studentId === "s4")).toMatchObject({
-      joinedAt: "2026-03-06",
+      joinedAt: "2026-03-05T16:00:00.000Z",
     });
   });
 
@@ -406,10 +430,30 @@ describe("GET /api/console/students", () => {
     kit.state.rows.profiles = (f) =>
       matchRows(
         [
-          { id: "s1", name: "김하늘", created_at: null },
-          { id: "s2", name: "김하늘", created_at: null },
-          { id: "s3", name: "박서준", created_at: null },
-          { id: "s4", name: "김하늘", created_at: null },
+          {
+            id: "s1",
+            name: "김하늘",
+            time_zone: "Asia/Seoul",
+            created_at: null,
+          },
+          {
+            id: "s2",
+            name: "김하늘",
+            time_zone: "Asia/Seoul",
+            created_at: null,
+          },
+          {
+            id: "s3",
+            name: "박서준",
+            time_zone: "Asia/Seoul",
+            created_at: null,
+          },
+          {
+            id: "s4",
+            name: "김하늘",
+            time_zone: "Asia/Seoul",
+            created_at: null,
+          },
         ],
         f,
       );
@@ -434,7 +478,7 @@ describe("GET /api/console/students", () => {
   });
 
   test("weeklyGoalRate is the rounded rate over the 7 days before today for goal users, null for the others and for goal users with no target", async () => {
-    const day = weekWindows().thisWeek.find(
+    const day = weekWindows(ymdIn(new Date(), "Asia/Seoul")).thisWeek.find(
       (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
     );
     kit.state.rows.goal_daily_records = (f) =>
@@ -540,12 +584,42 @@ describe("GET /api/console/students mixed-grade class", () => {
     kit.state.rows.profiles = (f) =>
       matchRows(
         [
-          { id: "s1", name: "김하늘", created_at: "2026-03-02T01:00:00Z" },
-          { id: "s2", name: "윤하린", created_at: "2026-03-04T01:00:00Z" },
-          { id: "s3", name: "박서준", created_at: "2026-03-04T01:00:00Z" },
-          { id: "s4", name: "이도윤", created_at: "2026-03-05T16:00:00Z" },
-          { id: "s7", name: "최민준", created_at: "2026-03-06T01:00:00Z" },
-          { id: "s8", name: "정서아", created_at: "2026-03-06T01:00:00Z" },
+          {
+            id: "s1",
+            name: "김하늘",
+            time_zone: "Asia/Seoul",
+            created_at: "2026-03-02T01:00:00Z",
+          },
+          {
+            id: "s2",
+            name: "윤하린",
+            time_zone: "Asia/Seoul",
+            created_at: "2026-03-04T01:00:00Z",
+          },
+          {
+            id: "s3",
+            name: "박서준",
+            time_zone: "Asia/Seoul",
+            created_at: "2026-03-04T01:00:00Z",
+          },
+          {
+            id: "s4",
+            name: "이도윤",
+            time_zone: "Asia/Seoul",
+            created_at: "2026-03-05T16:00:00Z",
+          },
+          {
+            id: "s7",
+            name: "최민준",
+            time_zone: "Asia/Seoul",
+            created_at: "2026-03-06T01:00:00Z",
+          },
+          {
+            id: "s8",
+            name: "정서아",
+            time_zone: "Asia/Seoul",
+            created_at: "2026-03-06T01:00:00Z",
+          },
         ],
         f,
       );
@@ -668,7 +742,7 @@ describe("GET /api/console/students special students", () => {
   });
 
   test("a raw weekly rate of 39.6 rounds to 40 and does not fire the low rate reason", async () => {
-    const day = weekWindows().thisWeek.find(
+    const day = weekWindows(ymdIn(new Date(), "Asia/Seoul")).thisWeek.find(
       (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
     );
     kit.state.rows.goal_daily_records = (f) =>
@@ -725,19 +799,21 @@ describe("GET /api/console/students special students", () => {
             ...["s1", "s2", "s3", "s7"].map((id) => ({
               id,
               name: `학생${id}`,
+              time_zone: "Asia/Seoul",
               created_at: "2026-03-02T01:00:00Z",
               last_seen_at: null,
             })),
             {
               id: "s4",
               name: "학생s4",
+              time_zone: "Asia/Seoul",
               created_at: "2026-03-02T01:00:00Z",
               last_seen_at: "2026-10-01T00:00:00Z",
             },
           ],
           f,
         );
-      const day = weekWindows().thisWeek.find(
+      const day = weekWindows(ymdIn(new Date(), "UTC")).thisWeek.find(
         (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
       );
       kit.state.rows.goal_daily_records = (f) =>
@@ -801,7 +877,7 @@ describe("GET /api/console/students special students", () => {
   });
 
   test("the low rate reason uses the default 40 percent when the tenant sets none, the tenant value when set, and the response carries all three thresholds", async () => {
-    const day = weekWindows().thisWeek.find(
+    const day = weekWindows(ymdIn(new Date(), "Asia/Seoul")).thisWeek.find(
       (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
     );
     kit.state.rows.goal_daily_records = (f) =>
@@ -861,6 +937,7 @@ describe("GET /api/console/students special students", () => {
           ["s1", "s2", "s3", "s4"].map((id) => ({
             id,
             name: `학생${id}`,
+            time_zone: "Asia/Seoul",
             created_at: null,
             last_seen_at: lastSeen[id] ?? null,
           })),
@@ -889,6 +966,23 @@ describe("GET /api/console/students special students", () => {
       const only = await get({ special: "1" });
       expect(special(only).map((i) => i.studentId)).toEqual(["s1"]);
       expect(only.body).toMatchObject({ total: 1 });
+    });
+
+    test("days since the last access are calendar days in the viewer zone, so the day edge differs by zone", async () => {
+      seen({ s1: "2026-11-02T14:59:59Z" });
+
+      // 서울 보는 사람은 11-09 에 11-02 를 보니 7일, 로스앤젤레스 보는 사람은 11-08 에 11-02 를 보니 6일이다.
+      expect(reasonsById(await get({}, "Asia/Seoul")).s1).toEqual(["inactive"]);
+      expect(reasonsById(await get({}, "America/Los_Angeles")).s1).toEqual([]);
+    });
+
+    test("without X-Time-Zone the answer is 400 TIME_ZONE_REQUIRED", async () => {
+      const r = await get({}, null);
+
+      expect(r.status).toBe(400);
+      expect((r.body as { error: { code: string } }).error.code).toBe(
+        "TIME_ZONE_REQUIRED",
+      );
     });
 
     test("the tenant's inactive days replace the default 7", async () => {

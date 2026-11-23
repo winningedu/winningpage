@@ -87,7 +87,7 @@ const DIAGNOSIS = page([
       executionAvg: 62,
       readinessAvg: 71,
       weakest: { name: "계획 설계", score: 60, status: "보통" },
-      diagnosedAt: "2026-03-10",
+      diagnosedAt: "2026-03-10T12:00:00Z",
     },
   },
   {
@@ -97,7 +97,7 @@ const DIAGNOSIS = page([
       executionAvg: 78,
       readinessAvg: 80,
       weakest: { name: "시간 관리", score: 72, status: "보통" },
-      diagnosedAt: "2026-03-11",
+      diagnosedAt: "2026-03-11T12:00:00Z",
     },
   },
 ]);
@@ -256,7 +256,7 @@ describe("W8 서비스별 현황표", () => {
               stage: "설계 리포트",
               submissionCount: 2,
               feedback: "done",
-              lastSubmittedAt: "2026-10-20",
+              lastSubmittedAt: "2026-10-20T12:00:00Z",
             },
           },
           {
@@ -379,7 +379,7 @@ describe("W8 서비스별 현황표", () => {
                 executionAvg: 50,
                 readinessAvg: 55,
                 weakest: { name: "시간 관리", score: 52, status: "낮음" },
-                diagnosedAt: "2026-03-10",
+                diagnosedAt: "2026-03-10T12:00:00Z",
               },
             },
           ]),

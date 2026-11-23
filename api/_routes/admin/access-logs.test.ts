@@ -166,12 +166,15 @@ describe("GET /api/admin/access-logs", () => {
     expect(logFilters).toHaveLength(0);
   });
 
-  test("기간은 한국 날짜 기준으로 시작일 0시 이상, 종료일 다음 날 0시 미만이다", async () => {
-    await get({ from: "2026-11-01", to: "2026-11-05" });
+  test("기간은 from 이상, to 미만인 ISO Z 시각으로 그대로 거른다", async () => {
+    await get({
+      from: "2026-10-31T15:00:00.000Z",
+      to: "2026-11-05T15:00:00.000Z",
+    });
 
     expect(logFilters[0]).toMatchObject({
-      "created_at>=": "2026-11-01T00:00:00+09:00",
-      "created_at<": "2026-11-06T00:00:00+09:00",
+      "created_at>=": "2026-10-31T15:00:00.000Z",
+      "created_at<": "2026-11-05T15:00:00.000Z",
     });
   });
 
@@ -207,8 +210,10 @@ describe("GET /api/admin/access-logs", () => {
   test.each([
     [{ kind: "nope" }],
     [{ from: "2026/11/01" }],
+    [{ from: "2026-11-01" }],
+    [{ from: "2026-11-01T00:00:00+09:00" }],
     [{ to: "내일" }],
-    [{ to: "2026-02-31" }],
+    [{ to: "2026-02-31T00:00:00Z" }],
     [{ page: "0" }],
     [{ page: "abc" }],
   ])("잘못된 조건 %j 은 400 이고 읽지 않는다", async (query) => {

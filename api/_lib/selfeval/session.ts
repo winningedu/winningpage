@@ -2,6 +2,7 @@
 // 정본 전이는 DB RPC 가 하고, 핸들러 응답 조립과 RPC 결과 해석에 같은 규칙을 쓴다.
 // 성장설계 api/_lib/growth/report/stepState.ts 와 같은 방식이다.
 
+import { schoolYearOf, ymdIn } from "../../../src/lib/time/day.js";
 import {
   GROWTH_STALE_DAYS,
   MAX_MODEL_ATTEMPTS_PER_STEP,
@@ -15,36 +16,35 @@ import {
   type StepStatus,
 } from "./types.js";
 
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function kstDate(d: Date): Date {
-  return new Date(d.getTime() + KST_OFFSET_MS);
+/** 회원 시간대의 달력 날짜로 센 일 수. 시각이 아니라 날짜 차이다. */
+function daysSince(iso: string, now: Date, tz: string): number {
+  const toDay = (ymd: string) => Date.parse(`${ymd}T00:00:00Z`);
+  return Math.round(
+    (toDay(ymdIn(now, tz)) - toDay(ymdIn(iso, tz))) / 86_400_000,
+  );
 }
 
-/** 한국 날짜 기준 일 번호. 시각이 아니라 달력 날짜로 센다. */
-function kstDayNumber(d: Date): number {
-  return Math.floor(kstDate(d).getTime() / DAY_MS);
+/** 학년도는 회원 시간대 3월 1일에 바뀐다(명세 No.20). 2월까지는 전년도. */
+export function currentAcademicYear(now: Date, tz: string): number {
+  return schoolYearOf(now, tz);
 }
 
-/** 학년도는 한국 시간 3월 1일에 바뀐다(명세 No.20). 2월까지는 전년도. */
-export function currentAcademicYear(now: Date): number {
-  const k = kstDate(now);
-  return k.getUTCMonth() >= 2 ? k.getUTCFullYear() : k.getUTCFullYear() - 1;
-}
-
-function daysSince(iso: string, now: Date): number {
-  return kstDayNumber(now) - kstDayNumber(new Date(iso));
-}
-
-/** 마지막 활동 후 90일째 당일부터 만료(명세 No.18). 시각이 아니라 날짜로 센다. */
-export function isSessionExpired(lastActivityAt: string, now: Date): boolean {
-  return daysSince(lastActivityAt, now) >= SESSION_EXPIRY_DAYS;
+/** 마지막 활동 후 90일째 당일부터 만료(명세 No.18). 회원 시간대의 달력 날짜로 센다. */
+export function isSessionExpired(
+  lastActivityAt: string,
+  now: Date,
+  tz: string,
+): boolean {
+  return daysSince(lastActivityAt, now, tz) >= SESSION_EXPIRY_DAYS;
 }
 
 /** 성장설계 발급 후 180일째 당일부터 오래된 것으로 본다(명세 No.65). */
-export function isGrowthStale(issuedAt: string, now: Date): boolean {
-  return daysSince(issuedAt, now) >= GROWTH_STALE_DAYS;
+export function isGrowthStale(
+  issuedAt: string,
+  now: Date,
+  tz: string,
+): boolean {
+  return daysSince(issuedAt, now, tz) >= GROWTH_STALE_DAYS;
 }
 
 export type StepAction = "pick" | "analyze" | "write" | "verify" | "finalize";

@@ -11,7 +11,6 @@ import {
   ADMISSION_FETCH_ERROR,
   AREA_BAND_THRESHOLDS,
   SERVICE_H3_LATE_MONTH,
-  SERVICE_H3_LATE_TIMEZONE,
   SINCERITY_MAX_OFFMODE,
   SINCERITY_MIN_ANSWERED,
   SINCERITY_OFFMODE_MIN_DISTANCE,
@@ -188,14 +187,12 @@ test("classifyStudentType 의 45 는 영역 취약 임계와 같은 값이다", 
 });
 
 const scoringSource = sourceOf("lib/diagnosisScoring.ts");
-test("타임존 문자열도 상수를 거친다", () => {
-  expect(!scoringSource.includes(`'${SERVICE_H3_LATE_TIMEZONE}'`)).toBe(true);
+test("채점 엔진은 시간대를 직접 다루지 않는다(diagnosedAt 은 서버가 정한 날짜 문자열이다)", () => {
+  expect(!scoringSource.includes("timeZone")).toBe(true);
+  expect(!scoringSource.includes("Intl.DateTimeFormat")).toBe(true);
 });
 test("월 추출에 getMonth() 를 쓰지 않는다(실행 환경 타임존을 타면 경계일이 하루 밀린다)", () => {
   expect(!scoringSource.includes("getMonth()")).toBe(true);
-});
-test("월 추출은 Intl 로 한다", () => {
-  expect(scoringSource.includes("Intl.DateTimeFormat")).toBe(true);
 });
 test("엔진은 문구 모듈을 import 하지 않는다(§6.2 계층 계약)", () => {
   expect(

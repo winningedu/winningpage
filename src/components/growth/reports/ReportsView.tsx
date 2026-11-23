@@ -14,9 +14,15 @@ import {
 
 const CARD = "rounded-xl border border-border bg-white p-6";
 
-function OpenCard({ open }: { open: NonNullable<ReportsList["open"]> }) {
+function OpenCard({
+  open,
+  timeZone,
+}: {
+  open: NonNullable<ReportsList["open"]>;
+  timeZone: string;
+}) {
   const { statusLabel, progressLabel } = deriveOpenCard(open);
-  const last = formatKoreanDate(open.lastActivityAt);
+  const last = formatKoreanDate(open.lastActivityAt, timeZone);
   return (
     <section
       aria-label="미완 회차"
@@ -45,7 +51,15 @@ function OpenCard({ open }: { open: NonNullable<ReportsList["open"]> }) {
   );
 }
 
-function TerminalCard({ reason, at }: { reason: string; at: string }) {
+function TerminalCard({
+  reason,
+  at,
+  timeZone,
+}: {
+  reason: string;
+  at: string;
+  timeZone: string;
+}) {
   return (
     <section
       aria-label="종결 안내"
@@ -56,7 +70,7 @@ function TerminalCard({ reason, at }: { reason: string; at: string }) {
           지난 회차는 생성에 실패해 이용권이 복구됐어요
         </h2>
         <p className="mt-1 text-app-label text-ink-sub">
-          {reason}, {formatKoreanDate(at)}
+          {reason}, {formatKoreanDate(at, timeZone)}
         </p>
       </div>
       <Link
@@ -72,9 +86,17 @@ function TerminalCard({ reason, at }: { reason: string; at: string }) {
   );
 }
 
-function ReportCard({ item, index }: { item: ReportListItem; index: number }) {
+function ReportCard({
+  item,
+  index,
+  timeZone,
+}: {
+  item: ReportListItem;
+  index: number;
+  timeZone: string;
+}) {
   const plan = planAvailability(index);
-  const issued = formatKoreanDate(item.issuedAt);
+  const issued = formatKoreanDate(item.issuedAt, timeZone);
   return (
     <li
       className={cn(
@@ -141,8 +163,16 @@ export default function ReportsView({ data }: { data: ReportsList }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {data.open ? <OpenCard open={data.open} /> : null}
-      {notice ? <TerminalCard reason={notice.reason} at={notice.at} /> : null}
+      {data.open ? (
+        <OpenCard open={data.open} timeZone={data.timeZone} />
+      ) : null}
+      {notice ? (
+        <TerminalCard
+          reason={notice.reason}
+          at={notice.at}
+          timeZone={data.timeZone}
+        />
+      ) : null}
 
       {items.length === 0 ? (
         <section className={cn(CARD, "flex flex-col items-center gap-4 py-12")}>
@@ -159,7 +189,12 @@ export default function ReportsView({ data }: { data: ReportsList }) {
       ) : (
         <ul className="flex flex-col gap-4">
           {items.map((item, index) => (
-            <ReportCard key={item.id} item={item} index={index} />
+            <ReportCard
+              key={item.id}
+              item={item}
+              index={index}
+              timeZone={data.timeZone}
+            />
           ))}
         </ul>
       )}

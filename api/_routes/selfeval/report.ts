@@ -25,7 +25,7 @@ import { callStructured } from "../../_lib/ai/gemini.js";
 import { createAiTrace } from "../../_lib/ai/telemetry/trace.js";
 import { defineHandler, requireUserId } from "../../_lib/handler.js";
 import { fail } from "../../_lib/selfeval/access.js";
-import { loadSession } from "../../_lib/selfeval/db.js";
+import { loadMemberTimeZone, loadSession } from "../../_lib/selfeval/db.js";
 import { loadReportInput } from "../../_lib/selfeval/report/load.js";
 import {
   runReport,
@@ -124,7 +124,13 @@ export default defineHandler({
     try {
       outcome = await runReport({
         sessionId,
-        load: () => loadReportInput(db, userId, gate.session),
+        load: async () =>
+          loadReportInput(
+            db,
+            userId,
+            gate.session,
+            await loadMemberTimeZone(db, userId),
+          ),
         store: createReportStore(db, sessionId),
         callStructured,
         now: () => new Date().toISOString(),

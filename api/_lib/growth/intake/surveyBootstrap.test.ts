@@ -74,6 +74,7 @@ function bootstrapInput(
     thresholds: { enough: 5 },
     previousSurveyAnswers: null,
     nowIso: NOW_ISO,
+    timeZone: "Asia/Seoul",
     ...over,
   };
 }
@@ -336,6 +337,25 @@ describe("buildSurveyBootstrap 시작 화면 카드 값", () => {
     expect(body.entitlement.quotaRemaining).toBe(1);
     expect(body.reports).toHaveLength(1);
     expect(body.promotion).toMatchObject({ propose: true });
+  });
+
+  test("승급 제안은 회원 시간대의 3월 1일 기준이다", () => {
+    const over = {
+      nowIso: "2026-02-28T16:00:00.000Z",
+      profile: {
+        grade: "고1",
+        semester: 2,
+        updated_at: "2026-01-10T00:00:00.000Z",
+      },
+    };
+    const seoul = buildSurveyBootstrap(
+      bootstrapInput({ ...over, timeZone: "Asia/Seoul" }),
+    );
+    const la = buildSurveyBootstrap(
+      bootstrapInput({ ...over, timeZone: "America/Los_Angeles" }),
+    );
+    expect(seoul.body.promotion).toMatchObject({ propose: true });
+    expect(la.body.promotion).toMatchObject({ propose: false });
   });
 });
 

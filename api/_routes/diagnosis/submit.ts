@@ -18,7 +18,8 @@ import {
   scoreDiagnosisV3,
   validateAnswers,
 } from "../../../src/lib/diagnosis-v3/index.js";
-import { kstYMD } from "../../../src/lib/goal/calc/virtualDate.js";
+import { ymdIn } from "../../../src/lib/time/day.js";
+import { isValidTimeZone } from "../../../src/lib/time/zone.js";
 import { fetchAdmissionInputs } from "../../_lib/diagnosis/admissionInputs.js";
 import { defineHandler, requireUserId } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
@@ -126,8 +127,23 @@ export default defineHandler({
       return;
     }
 
-    // Diagnosis date = today in KST, set by the server (judge-report 3-2).
-    const diagnosedAt = kstYMD(new Date());
+    // Student name, join date and diagnosis zone: profiles.name, created_at and
+    // time_zone. The diagnosis day is the member's local day in profiles.time_zone,
+    // set by the server (judge-report 3-2); a missing or invalid zone reads as UTC.
+    const { data: profile, error: profileError } = await ctx.supabaseAdmin
+      .from("profiles")
+      .select("name, created_at, time_zone")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profileError) {
+      console.error("diagnosis/submit profile 조회 실패:", profileError);
+      fail(res, 500, "INTERNAL", "학습진단 채점에 실패했습니다.");
+      return;
+    }
+    const memberTz = isValidTimeZone(profile?.time_zone)
+      ? profile.time_zone
+      : "UTC";
+    const diagnosedAt = ymdIn(new Date(), memberTz);
     const validated = validateAnswers(answers, diagnosedAt);
     if (!validated.ok) {
       fail(res, 400, "INVALID_ANSWERS", "답안이 올바르지 않습니다.", {
@@ -136,23 +152,12 @@ export default defineHandler({
       return;
     }
 
-    // Student name and join date: profiles.name, profiles.created_at as a KST date
     // (07 B24: a missing join date falls back to the diagnosis date in the engine).
-    const { data: profile, error: profileError } = await ctx.supabaseAdmin
-      .from("profiles")
-      .select("name, created_at")
-      .eq("id", userId)
-      .maybeSingle();
-    if (profileError) {
-      console.error("diagnosis/submit profile 조회 실패:", profileError);
-      fail(res, 500, "INTERNAL", "학습진단 채점에 실패했습니다.");
-      return;
-    }
     const name = typeof profile?.name === "string" ? profile.name.trim() : "";
     const context: DiagnosisV3Context = {
       diagnosedAt,
       joinedAt: profile?.created_at
-        ? kstYMD(new Date(profile.created_at))
+        ? ymdIn(profile.created_at, memberTz)
         : null,
       admission: validated.answers.q15
         ? await fetchAdmissionInputs(ctx.supabaseAdmin, validated.answers.q15)

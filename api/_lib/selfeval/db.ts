@@ -500,6 +500,22 @@ export async function loadGrowthSnapshot(
     : extractGrowthSnapshot(latest.report, latest.planItems);
 }
 
+/** 회원(세션 주인)의 시간대. 만료, 학년도, 리포트 날짜의 하루 경계 기준이다. 행이 없으면 던진다. */
+export async function loadMemberTimeZone(
+  db: Db,
+  userId: string,
+): Promise<string> {
+  const row = must(
+    await db
+      .from("profiles")
+      .select("time_zone")
+      .eq("id", userId)
+      .maybeSingle(),
+    "profiles 시간대 조회 실패",
+  ) as { time_zone: string } | null;
+  return mustHave(row, "profiles 시간대 조회 실패").time_zone;
+}
+
 export async function loadStudentProfile(
   db: Db,
   userId: string,

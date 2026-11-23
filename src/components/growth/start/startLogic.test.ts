@@ -288,6 +288,12 @@ describe("날짜 표기와 진행률", () => {
     expect(formatSavedAt(iso)).toBe("2026.11.02 21:40");
   });
 
+  test("마지막 저장 시각은 넘긴 시간대로 그린다", () => {
+    const iso = "2026-11-02T12:40:00Z";
+    expect(formatSavedAt(iso, "Asia/Seoul")).toBe("2026.11.02 21:40");
+    expect(formatSavedAt(iso, "America/Los_Angeles")).toBe("2026.11.02 04:40");
+  });
+
   test("해석할 수 없는 날짜는 null", () => {
     expect(formatStartedDate("")).toBeNull();
     expect(formatSavedAt("x")).toBeNull();

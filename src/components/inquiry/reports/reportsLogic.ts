@@ -1,6 +1,7 @@
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
 import { LINK_KIND_LABELS, submitTargetLabel } from "@/lib/inquiry/labels";
 import type { ReportsList, ScreenStep } from "@/lib/inquiry/types";
+import { ymdIn } from "@/lib/time/day";
 
 // 보관함 목록 행 조립과 필터(순수). 키워드 검색은 없다(No.118).
 
@@ -49,20 +50,15 @@ export function resumePath(step: ScreenStep): string {
   return STEP_PATHS[step];
 }
 
-/** 서울 날짜 기준 YYYY.MM.DD. 해석할 수 없으면 "-". */
-export function formatReportDate(iso: string | null | undefined): string {
+/** 회원 시간대 날짜 기준 YYYY.MM.DD. 해석할 수 없으면 "-". */
+export function formatReportDate(
+  iso: string | null | undefined,
+  timeZone: string,
+): string {
   if (!iso) return EMPTY;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return EMPTY;
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const pick = (type: string) =>
-    parts.find((p) => p.type === type)?.value ?? "";
-  return `${pick("year")}.${pick("month")}.${pick("day")}`;
+  return ymdIn(date, timeZone).replaceAll("-", ".");
 }
 
 /** 열린 세션 행, 확정 행(최신순), 보관 행 순서. */
@@ -73,7 +69,7 @@ export function buildReportRows(list: ReportsList): ReportRow[] {
     const o = list.open;
     rows.push({
       sessionId: o.sessionId,
-      date: formatReportDate(o.lastActivityAt),
+      date: formatReportDate(o.lastActivityAt, list.timeZone),
       subject: submitTargetLabel(o),
       topic: o.topicTitle ?? EMPTY,
       linkKind: EMPTY,
@@ -89,7 +85,7 @@ export function buildReportRows(list: ReportsList): ReportRow[] {
   for (const item of list.items) {
     rows.push({
       sessionId: item.sessionId,
-      date: formatReportDate(item.completedAt),
+      date: formatReportDate(item.completedAt, list.timeZone),
       subject: submitTargetLabel(item),
       topic: item.topicTitle,
       linkKind: LINK_KIND_LABELS[item.linkKind],
@@ -106,7 +102,7 @@ export function buildReportRows(list: ReportsList): ReportRow[] {
     const terminal = a.terminal !== null;
     rows.push({
       sessionId: a.sessionId,
-      date: formatReportDate(a.lastActivityAt),
+      date: formatReportDate(a.lastActivityAt, list.timeZone),
       subject: submitTargetLabel(a),
       topic: a.topicTitle ?? EMPTY,
       linkKind: EMPTY,

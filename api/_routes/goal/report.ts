@@ -27,11 +27,10 @@
 // 되돌리는 배선만 한다.
 //
 // 기간 경계는 순수 달력이다 — 주간 period='그 주 월요일 YMD',
-// 월간 period='YYYY-MM'. 생략하면 오늘(KST) 기준 이번 주/이번 달로 기본값 처리한다.
+// 월간 period='YYYY-MM'. 생략하면 오늘(학생 현지) 기준 이번 주/이번 달로 기본값 처리한다.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GRADE_PERCENTILE } from "../../../src/lib/goal/calc/jeongsi.js";
-import { kstYMD } from "../../../src/lib/goal/calc/virtualDate.js";
 import {
   bucketTimeSlots,
   buildMonthlyWeeks,
@@ -65,6 +64,7 @@ import {
   buildSubjectShareTip,
   buildTimeSlotTip,
 } from "../../../src/lib/goal/report/insights.js";
+import { addDaysYmd, dayStartUtc, ymdIn } from "../../../src/lib/time/day.js";
 import { buildGoalDirectionReport } from "../../_lib/goal/directionReport.js";
 import {
   checkLinkedPair,
@@ -77,6 +77,7 @@ import {
   fetchRecordsInRange,
   fetchStudentRow,
   fetchTimerSessionsInRange,
+  getStudentTimeZone,
   hasGoalAccessFor,
   listGoalDirectionReports,
   narrowGoalSession,
@@ -117,6 +118,17 @@ function formatHoursMinutesLabel(hoursFloat) {
 // 성장 리포트(주간/월간)
 // ---------------------------------------------------------------------------
 
+/** 기간(현지 YMD, 양끝 포함)을 확률 스냅샷 조회용 UTC 경계 [현지 시작, 다음 현지 시작)로 바꾼다. */
+export function snapshotBounds(
+  period: { start: string; end: string },
+  timeZone: string,
+): { startIso: string; endExclusiveIso: string } {
+  return {
+    startIso: dayStartUtc(period.start, timeZone),
+    endExclusiveIso: dayStartUtc(addDaysYmd(period.end, 1), timeZone),
+  };
+}
+
 async function buildGrowthReport({
   supabaseAdmin,
   profileId,
@@ -124,6 +136,7 @@ async function buildGrowthReport({
   type,
   periodParam,
   nowYmd,
+  timeZone,
 }) {
   const period =
     type === "monthly"
@@ -202,13 +215,17 @@ async function buildGrowthReport({
 
   const conditionBreakdown = computeConditionBreakdown(records);
   const subjectShare = computeSubjectShare(sessions);
-  const timeSlotBuckets = bucketTimeSlots(sessions);
+  const timeSlotBuckets = bucketTimeSlots(sessions, timeZone);
   const distraction = computeDistraction(records);
   const coreItems = computeCoreItems(records);
 
   // 합격 가능성 변화 — 기간 시작 이전 최신 스냅샷과 기간 끝까지 최신 스냅샷의 차.
-  const startBoundaryIso = `${period.start}T00:00:00+09:00`;
-  const endBoundaryIso = `${period.end}T23:59:59+09:00`;
+  // 스냅샷 조회는 lte 라서 끝 경계는 다음 현지 시작 1ms 전으로 둔다(반열린 구간).
+  const bounds = snapshotBounds(period, timeZone);
+  const startBoundaryIso = bounds.startIso;
+  const endBoundaryIso = new Date(
+    new Date(bounds.endExclusiveIso).getTime() - 1,
+  ).toISOString();
   let startLog = await fetchProbabilityLogAtOrBefore(
     supabaseAdmin,
     profileId,
@@ -388,7 +405,8 @@ async function buildGrowthReport({
     mentorComment: mentorComment
       ? {
           title: "멘토 코멘트",
-          dateLabel: `${kstYMD(new Date(mentorComment.written_at))} 작성`,
+          // 표시 문자열은 클라이언트가 브라우저 시간대로 만든다.
+          writtenAt: new Date(mentorComment.written_at).toISOString(),
           body: mentorComment.body,
         }
       : null,
@@ -495,6 +513,7 @@ async function buildDirectionReport({
   student,
   track,
   reportIdParam,
+  timeZone,
 }) {
   const kind = trackToKind(track);
   const reports = await ensureDirectionReports(
@@ -507,7 +526,7 @@ async function buildDirectionReport({
   const chosen =
     reports.find((r) => String(r.id) === String(reportIdParam)) || reports[0];
   const payload = chosen.payload;
-  const nowYmd = kstYMD(new Date());
+  const nowYmd = ymdIn(new Date(), timeZone);
 
   const subjects = payload.subjectReports.map((s) => ({
     key: s.key,
@@ -625,7 +644,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(409).json({ reason: "awaiting_cuts" });
     }
 
-    const nowYmd = kstYMD(new Date());
+    const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+    const nowYmd = ymdIn(new Date(), timeZone);
 
     if (type === "direction") {
       const track = req.query?.track === "jeongsi" ? "jeongsi" : "naesin";
@@ -635,6 +655,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         student,
         track,
         reportIdParam: req.query?.reportId,
+        timeZone,
       });
       return res.status(200).json({ ok: true, report });
     }
@@ -646,6 +667,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       type,
       periodParam: req.query?.period,
       nowYmd,
+      timeZone,
     });
     return res.status(200).json({ ok: true, report });
   } catch (error) {

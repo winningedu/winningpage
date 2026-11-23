@@ -37,6 +37,7 @@ import {
   listSessions,
   loadGrowthSnapshot,
   loadLatestReportsByType,
+  loadMemberTimeZone,
   loadReports,
   loadSession,
   loadSessionActivities,
@@ -75,7 +76,7 @@ async function resendReplies(
 async function handleList(res: VercelResponse, db: Db, userId: string) {
   const now = new Date();
   const replyResent = await resendReplies(db, userId, now);
-  const [quota, access, activityCount, sessions, growth, profile] =
+  const [quota, access, activityCount, sessions, growth, profile, timeZone] =
     await Promise.all([
       readSelfevalQuota(db, userId),
       readSelfevalAccess(db, userId),
@@ -83,6 +84,7 @@ async function handleList(res: VercelResponse, db: Db, userId: string) {
       listSessions(db, userId),
       loadGrowthSnapshot(db, userId),
       loadStudentProfile(db, userId),
+      loadMemberTimeZone(db, userId),
     ]);
   const scores = latestScores(
     await loadLatestReportsByType(
@@ -107,6 +109,7 @@ async function handleList(res: VercelResponse, db: Db, userId: string) {
       now,
       profile,
       replyResent,
+      timeZone,
     }),
     sessions: sessions.map((s) => listItem(s, scores.get(s.id) ?? null)),
   });

@@ -24,9 +24,9 @@ export interface SpecialInput {
   /** 이번 주 달성율(%). 목표를 쓰지 않으면 null. */
   weeklyRate: number | null;
   urgency: string | null;
-  /** 마지막 접속일과 오늘의 KST 달력 날짜 차이. 기록이 없으면 null(미접속으로 잡지 않는다). */
+  /** 마지막 접속일과 오늘의 달력 날짜 차이(보는 사람 시간대). 기록이 없으면 null(미접속으로 잡지 않는다). */
   lastSeenDays: number | null;
-  /** 가장 최근 제출이 평가를 기다리는 날수(KST 달력). 기다리는 제출이 없으면 null. */
+  /** 가장 최근 제출이 평가를 기다리는 날수(보는 사람 시간대 달력). 기다리는 제출이 없으면 null. */
   feedbackWaitingDays: number | null;
   flagged: boolean;
 }

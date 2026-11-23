@@ -1,3 +1,5 @@
+import { ymdIn } from "@/lib/time/day";
+
 // 기관 목록의 계약 표시(결정 102.1, 102.13). 삭제 가능일은 유예 종료 다음 날이다(fn_anonymize_expired_b2b_members 와 같은 규칙).
 
 const MOU_LABELS: Record<string, string> = {
@@ -17,14 +19,12 @@ function dayNumber(ymd: string): number {
 }
 
 function addDays(ymd: string, days: number): string {
-  return new Date((dayNumber(ymd) + days) * DAY_MS).toISOString().slice(0, 10);
+  return new Date((dayNumber(ymd) + days) * DAY_MS).toISOString().slice(0, 10); // tz-literal-ok: Date.UTC 기준 달력 계산이라 시간대와 무관하다
 }
 
-/** 지금 KST 날짜(YYYY-MM-DD). */
-export function todayKst(now: Date = new Date()): string {
-  return new Date(now.getTime() + 9 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+/** 기관 시간대(tenants.time_zone)의 오늘 날짜(YYYY-MM-DD). */
+export function tenantToday(tenantTz: string, now: Date = new Date()): string {
+  return ymdIn(now, tenantTz);
 }
 
 interface DdayInput {

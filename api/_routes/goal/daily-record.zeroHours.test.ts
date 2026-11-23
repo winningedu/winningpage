@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 const repo = vi.hoisted(() => ({
   openGoalSession: vi.fn(),
   narrowGoalSession: vi.fn((s: unknown) => s),
+  getStudentTimeZone: vi.fn(),
   fetchStudentRow: vi.fn(),
   fetchTodayRecord: vi.fn(),
   fetchTimerDaySummary: vi.fn(),
@@ -69,6 +70,7 @@ beforeEach(() => {
     rate_min_susi: 10,
     rate_min_jungsi: 10,
   });
+  repo.getStudentTimeZone.mockResolvedValue("Asia/Seoul");
   repo.fetchTodayRecord.mockResolvedValue(null);
   repo.fetchLatestDailyRecord.mockResolvedValue(null);
   repo.fetchTimerDaySummary.mockResolvedValue({ totalSeconds: 0 });

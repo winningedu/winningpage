@@ -10,6 +10,11 @@ import DiagnosisReportView, {
   type DiagnosisReportData,
 } from "./DiagnosisReportView";
 
+vi.mock("@/lib/time/zone", async (orig) => ({
+  ...(await orig<typeof import("@/lib/time/zone")>()),
+  browserTimeZone: () => "Asia/Seoul",
+}));
+
 describe("DiagnosisReportView — 표지", () => {
   afterEach(() => {
     vi.unstubAllGlobals();

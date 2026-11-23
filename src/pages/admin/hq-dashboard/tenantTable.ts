@@ -1,6 +1,7 @@
 // 기관 현황 표의 검색, 필터, 정렬, 쪽 나누기(계획 4번 A8)와 엑셀 행(A9). 상태는 모두 URL 검색 파라미터에 둔다.
 // 대시보드의 다른 표와 겹치지 않게 키에 tenant 를 붙인다.
 
+import { formatDate } from "@/lib/time/format";
 import type { ContractStatus, HqTenantRow, HqUsageRow } from "./api";
 
 export const TENANT_PAGE_SIZE = 20;
@@ -20,7 +21,7 @@ export const SORT_KEYS = [
   "contractEndDate",
   "studentCount",
   "teacherCount",
-  "lastActivityOn",
+  "lastActivityAt",
   "goalRateAverage",
 ] as const;
 
@@ -133,7 +134,7 @@ export function tenantExportRow(
     학생수: row.studentCount,
     "학년, 반 미상": row.studentWithoutEnrollmentCount,
     선생님수: row.teacherCount,
-    마지막활동일: row.lastActivityOn ?? "-",
+    마지막활동일: row.lastActivityAt ? formatDate(row.lastActivityAt) : "-",
     "목표 실행률 평균(%)": row.goalRateAverage ?? "-",
     목표관리학생수: row.goalUserCount,
   };

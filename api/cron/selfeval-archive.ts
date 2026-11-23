@@ -1,15 +1,16 @@
-// GET /api/cron/selfeval-archive, 미완 자기평가서 세션 보관과 차감 되돌림 (매일 04:10 KST)
+// GET /api/cron/selfeval-archive, 미완 자기평가서 세션 보관과 차감 되돌림 (매일 19:10 UTC)
 //
-// 1) 마지막 활동 후 SESSION_EXPIRY_DAYS(90일)가 지난 draft, in_progress 세션을 archived 로 닫고
+// 1) 마지막 활동 후 SESSION_EXPIRY_DAYS(90일, 세션 주인의 시간대 달력 날짜)가 지난 draft, in_progress 세션을 archived 로 닫고
 //    step_state.terminal 에 { reason: "expired", at, step: null } 을 남긴다(명세 No.18).
 //    종결은 fn_selfeval_terminate_session 이 세션 행 잠금 아래에서 한다(steps 보존).
 // 2) 종결 사유가 있고 차감 원장이 있으나 아직 되돌리지 않은 archived 세션 20건에
 //    reverse_selfeval_credit 를 건다. 파기(discarded)는 학생의 선택이라 되돌리지 않는다(계획서 §2 8).
 //
-// 시각: 04:10 KST = 19:10 UTC (vercel.json crons "10 19 * * *").
+// 시각: 19:10 UTC (vercel.json crons "10 19 * * *").
 
 import { defineHandler } from "../_lib/handler.js";
 import { reverseCredit, terminateSession } from "../_lib/selfeval/db.js";
+import { isSessionExpired } from "../_lib/selfeval/session.js";
 import { SESSION_EXPIRY_DAYS } from "../_lib/selfeval/types.js";
 
 export const config = { runtime: "nodejs" };
@@ -26,19 +27,43 @@ export default defineHandler({
   logLabel: "cron/selfeval-archive",
   handler: async (_req, res, ctx) => {
     const db = ctx.supabaseAdmin;
+    // 90일은 세션 주인의 시간대 달력 날짜로 센다. 날짜 차이가 90 이상이면 시각 차이는
+    // 89일을 넘으므로, 89일 전 시각으로 후보를 넓게 읽고 주인 시간대로 다시 거른다.
+    const now = new Date();
     const cutoff = new Date(
-      Date.now() - SESSION_EXPIRY_DAYS * 86_400_000,
+      now.getTime() - (SESSION_EXPIRY_DAYS - 1) * 86_400_000,
     ).toISOString();
 
-    const { data: stale, error } = await db
+    const { data: candidates, error } = await db
       .from("selfeval_sessions")
-      .select("id, profile_id")
+      .select("id, profile_id, last_activity_at")
       .in("status", ["draft", "in_progress"])
       .lt("last_activity_at", cutoff);
     if (error) throw error;
 
+    const rows = (candidates ?? []) as {
+      id: string;
+      profile_id: string;
+      last_activity_at: string;
+    }[];
+    const zoneOf = new Map<string, string>();
+    if (rows.length > 0) {
+      const { data: zones, error: zoneError } = await db
+        .from("profiles")
+        .select("id, time_zone")
+        .in("id", [...new Set(rows.map((r) => r.profile_id))]);
+      if (zoneError) throw zoneError;
+      for (const z of (zones ?? []) as { id: string; time_zone: string }[]) {
+        zoneOf.set(z.id, z.time_zone);
+      }
+    }
+    const stale = rows.filter((r) => {
+      const tz = zoneOf.get(r.profile_id);
+      return tz !== undefined && isSessionExpired(r.last_activity_at, now, tz);
+    });
+
     let archived = 0;
-    for (const row of (stale ?? []) as { id: string; profile_id: string }[]) {
+    for (const row of stale) {
       try {
         const result = await terminateSession(
           db,

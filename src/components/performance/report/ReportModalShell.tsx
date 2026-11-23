@@ -22,6 +22,7 @@ import {
 } from "@/lib/report/downloadReportPdf";
 import { REPORT_PRINT_PAGE_BASE_STYLE } from "@/lib/report/printPageStyle";
 import { shouldUseServerPdf } from "@/lib/report/shouldUseServerPdf";
+import { browserTimeZone } from "@/lib/time/zone";
 
 // 대형 리포트 모달의 **껍데기** — docs/수행평가-상세-명세.md §5.13(`3754:4722` 설계 리포트) /
 // §5.16(`3754:4512` 평가 리포트) 공통.
@@ -100,6 +101,8 @@ type ReportModalShellProps = {
   studentGrade?: string | null;
   /** 리포트 저장 시각 ISO(표지 저장일 칸). 없거나 날짜가 아니면 그 칸이 빠진다. */
   savedAt?: string | null;
+  /** 저장일을 세는 회원 시간대. 리포트 응답이 시간대를 싣기 전까지는 생략하면 브라우저 시간대. */
+  timeZone?: string;
   /** 본문(폭 70.5rem 래퍼 안에 들어간다). */
   children: ReactNode;
   /** 푸터 우측 정렬 버튼 그룹. 함수형이면 `ctx.print`를 받는다. */
@@ -119,6 +122,7 @@ export default function ReportModalShell({
   studentName,
   studentGrade,
   savedAt,
+  timeZone,
   children,
   footer,
   onClose,
@@ -209,7 +213,13 @@ export default function ReportModalShell({
               infoItems={[
                 { label: "학생명", value: studentName },
                 { label: "학년", value: formatGradeLabel(studentGrade) },
-                { label: "저장일", value: formatCoverDate(savedAt) },
+                {
+                  label: "저장일",
+                  value: formatCoverDate(
+                    savedAt,
+                    timeZone ?? browserTimeZone(),
+                  ),
+                },
               ]}
             />
           </div>

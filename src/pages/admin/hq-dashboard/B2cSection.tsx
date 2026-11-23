@@ -7,7 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useId } from "react";
 import { useSearchParams } from "react-router";
 import { site } from "@/config/site";
-import { kstYMD } from "@/lib/goal/calc";
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 import { fetchHqB2c, fetchLoginStats } from "./api";
 import ErrorBox from "./ErrorBox";
 import { b2cSearch, readLoginFilters, statsSearch } from "./filters";
@@ -19,7 +20,7 @@ const won = (value: number) => `${value.toLocaleString("ko-KR")}원`;
 function B2cBody() {
   const id = useId();
   const [params] = useSearchParams();
-  const today = kstYMD(new Date());
+  const today = ymdIn(new Date(), browserTimeZone());
   const filters = readLoginFilters(params, today);
   const stats = statsSearch(filters, "b2c");
   const summary = b2cSearch(filters);

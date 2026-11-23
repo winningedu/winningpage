@@ -19,7 +19,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest } from "@vercel/node";
-import { kstYMD } from "../../../src/lib/goal/calc/virtualDate.js";
+import { addDaysYmd, dayStartUtc, ymdIn } from "../../../src/lib/time/day.js";
 import { resolveUser } from "../httpAuth.js";
 import {
   clean,
@@ -558,7 +558,7 @@ export async function fetchPlanTasksInRange(
 /**
  * 확률 스냅샷 1건 — created_at 이 atOrBeforeIso 이하인 것 중 가장 최신.
  * 리포트 "합격 가능성 변화" 델타(D-합격가능성)의 시작/끝 스냅샷 조회에 공용으로 쓴다
- * (시작 스냅샷은 기간 시작 00:00 KST 이하, 끝 스냅샷은 기간 끝 23:59:59 KST 이하로
+ * (시작 스냅샷은 기간 시작 현지 00:00 이하, 끝 스냅샷은 기간 끝 다음날 현지 00:00 직전 이하로
  *  호출부가 경계를 달리 넘긴다). 없으면 null.
  */
 export async function fetchProbabilityLogAtOrBefore(
@@ -1518,10 +1518,29 @@ function computeTimerDurationSeconds(
   return Math.max(0, Math.min(43200, seconds));
 }
 
-/** 주어진 KST 날짜(session_date, 'YYYY-MM-DD')의 다음날 00:00(+09:00)을 Date로. */
-function nextKstMidnight(sessionDateYmd: string): Date {
-  const base = new Date(`${sessionDateYmd}T00:00:00+09:00`);
-  return new Date(base.getTime() + 24 * 60 * 60 * 1000);
+/**
+ * 학생의 IANA 시간대(profiles.time_zone). 학생의 하루는 이 시간대의 현지 하루다.
+ * 행이 없으면 던진다(대체 상수 없음).
+ */
+export async function getStudentTimeZone(
+  supabaseAdmin: SupabaseClient,
+  profileId: string,
+): Promise<string> {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("time_zone")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (error) throw error;
+  const timeZone = (data as { time_zone?: string } | null)?.time_zone;
+  if (!timeZone) throw new Error(`profiles.time_zone 없음: ${profileId}`);
+  return timeZone;
+}
+
+/** 주어진 현지 날짜(session_date, 'YYYY-MM-DD')의 다음날 현지 00:00을 Date로. */
+function nextLocalMidnight(sessionDateYmd: string, timeZone: string): Date {
+  return new Date(dayStartUtc(addDaysYmd(sessionDateYmd, 1), timeZone));
 }
 
 /** 학생의 열린(ended_at is null) 세션 1건. 없으면 null. */
@@ -1565,19 +1584,20 @@ async function closeTimerSessionRow(
   return data;
 }
 
-/** 새 세션을 연다. session_date 는 startedAtDate 의 KST 날짜로 서버가 채운다. */
+/** 새 세션을 연다. session_date 는 startedAtDate 의 학생 현지 날짜로 서버가 채운다. */
 async function insertTimerSession(
   supabaseAdmin: SupabaseClient,
   profileId: string,
   subject: string,
   startedAtDate: Date,
+  timeZone: string,
 ): Promise<Row> {
   const { data, error } = await supabaseAdmin
     .from(TABLE_TIMER_SESSIONS)
     .insert({
       profile_id: profileId,
       subject,
-      session_date: kstYMD(startedAtDate),
+      session_date: ymdIn(startedAtDate, timeZone),
       started_at: startedAtDate.toISOString(),
     })
     .select("*")
@@ -1591,8 +1611,8 @@ async function insertTimerSession(
  * 모든 타이머 진입점(start/stop/heartbeat/GET/setTarget)이 공통으로 먼저 거치는
  * 멱등 정리 2단계.
  *
- *  (a) 자정 분할 — 열린 세션의 session_date 가 오늘(KST)보다 과거면, 날짜
- *      경계마다 그 세션을 다음날 00:00(+09:00)에 'midnight' 마감하고 같은
+ *  (a) 자정 분할 — 열린 세션의 session_date 가 오늘(학생 현지)보다 과거면, 날짜
+ *      경계마다 그 세션을 다음날 현지 00:00에 'midnight' 마감하고 같은
  *      과목으로 그 시각에 새 세션을 이어 붙인다. 여러 날에 걸쳐 있으면
  *      today 에 닿을 때까지 반복한다.
  *  (b) 스테일 스윕 — (a) 이후 남은 열린 세션의 `now - coalesce(last_heartbeat_at,
@@ -1606,20 +1626,22 @@ export async function reconcileTimerState(
   profileId: string,
   now: Date = new Date(),
 ): Promise<Row | null> {
+  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
   let open = await fetchOpenTimerSession(supabaseAdmin, profileId);
-  const today = kstYMD(now);
+  const today = ymdIn(now, timeZone);
 
   // 자정을 여러 날 건너뛴 방치 세션도 유한 시간에 끝나도록 상한을 둔다
   // (시계 오류 등으로 session_date 가 미래로 새는 이상 상태에서도 무한루프 방지).
   let guard = 0;
   while (open && (open.session_date as string) < today && guard < 400) {
-    const midnight = nextKstMidnight(open.session_date as string);
+    const midnight = nextLocalMidnight(open.session_date as string, timeZone);
     await closeTimerSessionRow(supabaseAdmin, open, midnight, "midnight");
     open = await insertTimerSession(
       supabaseAdmin,
       profileId,
       open.subject as string,
       midnight,
+      timeZone,
     );
     guard += 1;
   }
@@ -1649,20 +1671,33 @@ export async function startTimerSession(
   subject: string,
   now: Date = new Date(),
 ): Promise<Row> {
+  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
   const open = await reconcileTimerState(supabaseAdmin, profileId, now);
   if (open) {
     await closeTimerSessionRow(supabaseAdmin, open, now, "switch");
   }
 
   try {
-    return await insertTimerSession(supabaseAdmin, profileId, subject, now);
+    return await insertTimerSession(
+      supabaseAdmin,
+      profileId,
+      subject,
+      now,
+      timeZone,
+    );
   } catch (error) {
     if ((error as { code?: string })?.code === "23505") {
       const stillOpen = await fetchOpenTimerSession(supabaseAdmin, profileId);
       if (stillOpen) {
         await closeTimerSessionRow(supabaseAdmin, stillOpen, now, "switch");
       }
-      return await insertTimerSession(supabaseAdmin, profileId, subject, now);
+      return await insertTimerSession(
+        supabaseAdmin,
+        profileId,
+        subject,
+        now,
+        timeZone,
+      );
     }
     throw error;
   }
@@ -1707,7 +1742,7 @@ export type TimerDaySummary = {
 };
 
 /**
- * GET 응답용 오늘(KST) 요약. reconcile 을 먼저 거친 뒤, 오늘 날짜로 마감된
+ * GET 응답용 오늘(학생 현지) 요약. reconcile 을 먼저 거친 뒤, 오늘 날짜로 마감된
  * 세션만 과목별로 합산한다 — 진행 중 세션의 경과분은 서버가 더하지 않는다
  * (프론트가 serverNow - startedAt 으로 표시용 라이브 값을 얹는다, 임무 지시
  * 프론트 절 참고).
@@ -1717,8 +1752,9 @@ export async function fetchTimerDaySummary(
   profileId: string,
   now: Date = new Date(),
 ): Promise<TimerDaySummary> {
+  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
   const open = await reconcileTimerState(supabaseAdmin, profileId, now);
-  const today = kstYMD(now);
+  const today = ymdIn(now, timeZone);
 
   const { data, error } = await supabaseAdmin
     .from(TABLE_TIMER_SESSIONS)

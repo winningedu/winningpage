@@ -24,6 +24,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ymdIn } from "@/lib/time/day";
+import { formatDate, formatDateTime } from "@/lib/time/format";
+import { browserTimeZone } from "@/lib/time/zone";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
@@ -61,7 +64,7 @@ const COLUMNS: { label: string; sort?: SortKey; className?: string }[] = [
   { label: "시범기간" },
   { label: "학생 수", sort: "studentCount", className: "text-right" },
   { label: "선생님 수", sort: "teacherCount", className: "text-right" },
-  { label: "마지막 활동일", sort: "lastActivityOn" },
+  { label: "마지막 활동일", sort: "lastActivityAt" },
   {
     label: "목표 실행률 평균",
     sort: "goalRateAverage",
@@ -215,7 +218,7 @@ export default function TenantOverview({
       return;
     }
     const exported = table.filtered;
-    const asOf = tenants.data?.asOf ?? "";
+    const today = ymdIn(new Date(), browserTimeZone());
     requestAccess({
       action: "download",
       resourceKey: RESOURCE_KEY,
@@ -234,7 +237,7 @@ export default function TenantOverview({
           ),
           "기관현황",
         );
-        triggerXlsxDownload(workbook, `기관현황_${asOf}.xlsx`);
+        triggerXlsxDownload(workbook, `기관현황_${today}.xlsx`);
       },
     });
   }
@@ -247,7 +250,7 @@ export default function TenantOverview({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="text-sm text-muted-foreground">
-          {s ? `${s.asOf} 기준` : ""}
+          {s ? `${formatDateTime(s.asOf)} 기준` : ""}
         </span>
         <label className="flex items-center gap-2 text-sm font-medium">
           <input
@@ -454,7 +457,9 @@ export default function TenantOverview({
                         {row.teacherCount.toLocaleString()}
                       </TableCell>
                       <TableCell className="px-4 py-3">
-                        {row.lastActivityOn ?? "-"}
+                        {row.lastActivityAt
+                          ? formatDate(row.lastActivityAt)
+                          : "-"}
                       </TableCell>
                       <TableCell className="px-4 py-3 text-right">
                         {row.goalRateAverage === null

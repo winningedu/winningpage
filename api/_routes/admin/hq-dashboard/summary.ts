@@ -4,7 +4,6 @@
 // 권한: 로그인 + HQ 권한 hqDashboard view 이상. 두 사이트 공통.
 // includeInternal=1 이면 QA, 본사 관리자 계정도 센다(기본 제외, 분석 grill Q3).
 
-import { kstYMD } from "../../../../src/lib/goal/calc/index.js";
 import { defineHandler } from "../../../_lib/handler.js";
 import {
   loadTenantOverview,
@@ -43,7 +42,7 @@ export default defineHandler({
     const rows = await loadTenantOverview(ctx.supabaseAdmin, includeInternal);
     res.status(200).json({
       ok: true,
-      asOf: kstYMD(),
+      asOf: new Date().toISOString(),
       ...summarizeTenants(rows),
     });
   },

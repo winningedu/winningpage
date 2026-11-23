@@ -1,4 +1,5 @@
 // 성장설계 세션 규칙 모듈(순수 함수). 리포트 회차, 만료, 진로 변경, 승급 제안.
+import { schoolYearOf } from "../../../src/lib/time/day.js";
 
 const DAY_MS = 86_400_000;
 
@@ -59,23 +60,16 @@ export function careerChanged(
   return normalizeCareer(previous) !== normalizeCareer(current);
 }
 
-const KST_OFFSET_MS = 9 * 3_600_000;
-
-/** 학년도(3월 1일 KST 전환). 1~2월은 전년도 소속. */
-function academicYear(iso: string): number {
-  const d = new Date(Date.parse(iso) + KST_OFFSET_MS);
-  return d.getUTCMonth() >= 2 ? d.getUTCFullYear() : d.getUTCFullYear() - 1;
-}
-
 /**
- * 학년도 승급 제안(No.21). 프로필이 이전 학년도에 갱신됐고 고1, 고2 면 다음 학년 1학기를 제안한다.
+ * 학년도 승급 제안(No.21). 학년도는 회원 시간대 기준 3월 1일에 바뀐다. 프로필이 이전 학년도에 갱신됐고 고1, 고2 면 다음 학년 1학기를 제안한다.
  * 고3 은 제안하지 않는다(졸업 후 처리는 결정 대기).
  */
 export function shouldProposePromotion(
   profile: { grade: 1 | 2 | 3; semester: 1 | 2; updatedAt: string },
   now: string,
+  tz: string,
 ): { propose: boolean; next: { grade: 2 | 3; semester: 1 } | null } {
-  const stale = academicYear(profile.updatedAt) < academicYear(now);
+  const stale = schoolYearOf(profile.updatedAt, tz) < schoolYearOf(now, tz);
   if (!stale || profile.grade === 3) return { propose: false, next: null };
   return {
     propose: true,

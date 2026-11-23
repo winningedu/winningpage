@@ -5,7 +5,7 @@
 // grade, groupId, classId 로 좁힌다. 담당 밖 classId 는 404 로 숨긴다. 학생 이름은 내보내지 않는다.
 // 주간 목표시간 달성율은 goalRate.ts 한 곳의 계산을 쓴다(교 #5, 결정 59).
 
-import { kstYMD } from "../../../src/lib/goal/calc/index.js";
+import { ymdIn } from "../../../src/lib/time/day.js";
 import { loadTenant, readAll } from "../../_lib/console/directory.js";
 import {
   gradeFilterMatches,
@@ -20,7 +20,7 @@ import {
   loadServiceUsage,
   SERVICE_KEYS,
 } from "../../_lib/console/serviceUsage.js";
-import { defineHandler } from "../../_lib/handler.js";
+import { defineHandler, requireTimeZone } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
@@ -38,6 +38,7 @@ export default defineHandler({
     const actor = ctx.console;
     if (!actor) throw new Error("console actor missing");
     const admin = ctx.supabaseAdmin;
+    const viewerZone = requireTimeZone(ctx);
 
     const grade = queryValue(req.query.grade);
     const groupId = queryValue(req.query.groupId);
@@ -101,7 +102,7 @@ export default defineHandler({
       for (const k of keys) counts.set(k, (counts.get(k) ?? 0) + 1);
     }
 
-    const today = kstYMD();
+    const today = ymdIn(new Date(), viewerZone);
     const goal = await loadGoalStatus(admin, goalStudents);
     // 목표 설정일이 없어 달성율이 없는 학생은 평균과 구간에서 뺀다(결정 62).
     const rates = goalStudents.flatMap((id) => {

@@ -56,20 +56,40 @@ describe("toReportRecord", () => {
 
 describe("keepRecord", () => {
   it("keeps performance, deep and manual records inside the academic year only", () => {
-    expect(keepRecord(row(), 2026)).toBe(true);
-    expect(keepRecord(row({ source_program: "self" }), 2026)).toBe(false);
-    expect(keepRecord(row({ source_program: "upload" }), 2026)).toBe(false);
+    expect(keepRecord(row(), 2026, "Asia/Seoul")).toBe(true);
     expect(
-      keepRecord(row({ created_at: "2026-02-28T14:59:00.000Z" }), 2026),
+      keepRecord(row({ source_program: "self" }), 2026, "Asia/Seoul"),
     ).toBe(false);
     expect(
-      keepRecord(row({ created_at: "2026-02-28T15:00:00.000Z" }), 2026),
+      keepRecord(row({ source_program: "upload" }), 2026, "Asia/Seoul"),
+    ).toBe(false);
+    expect(
+      keepRecord(
+        row({ created_at: "2026-02-28T14:59:00.000Z" }),
+        2026,
+        "Asia/Seoul",
+      ),
+    ).toBe(false);
+    expect(
+      keepRecord(
+        row({ created_at: "2026-02-28T15:00:00.000Z" }),
+        2026,
+        "Asia/Seoul",
+      ),
     ).toBe(true);
     expect(
-      keepRecord(row({ created_at: "2027-02-28T14:59:00.000Z" }), 2026),
+      keepRecord(
+        row({ created_at: "2027-02-28T14:59:00.000Z" }),
+        2026,
+        "Asia/Seoul",
+      ),
     ).toBe(true);
     expect(
-      keepRecord(row({ created_at: "2027-02-28T15:00:00.000Z" }), 2026),
+      keepRecord(
+        row({ created_at: "2027-02-28T15:00:00.000Z" }),
+        2026,
+        "Asia/Seoul",
+      ),
     ).toBe(false);
   });
 });

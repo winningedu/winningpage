@@ -1,12 +1,15 @@
-// GET /api/cron/daily-report — 일간 학습 보고서 알림톡 (매일 22:00 KST)
+// GET /api/cron/daily-report — 일간 학습 보고서 알림톡 (학생 현지 시각 22:00)
 //
 // 대상: 그날 goal_daily_records 에 기록을 남긴 학생의 **연결된 학부모**.
 //   기록이 없는 날은 보내지 않는다(사용자 확정 2026-08-22) — 「실제 학습 시간
 //   0분, 달성률 0%」가 매일 가면 잔소리로 느껴져 수신거부를 부르고, 발송량도
 //   불필요하게 늘어난다.
 //
-// 시각: 22:00 KST = 13:00 UTC (vercel.json crons "0 13 * * *").
+// 시각: 매시 정각에 돌고(vercel.json crons "0 * * * *"), 현지 시각이 22시인
+//   학생(profiles.time_zone)에게만 보낸다. 서울 학생은 13:00 UTC 실행이다.
 //   학생이 저녁에 기록을 쓰므로 이 시각이면 그날 데이터가 차 있다.
+//   같은 시간 안에 두 번 돌아도 dedupeKey(dailyReport:학부모:학생:날짜)가
+//   같아 발송기(sendAndLog)가 한 번만 보낸다.
 //
 // 실패는 건별로 삼킨다 — 한 명이 실패했다고 나머지가 멈추면 안 된다.
 // 집계 결과를 응답으로 돌려주고, 상세는 alimtalk_send_logs 에 남는다.
@@ -17,8 +20,9 @@
 // 재사용한다. 조회는 학생 수와 무관하게 고정 횟수(배치)로 돈다 — 학생마다
 // 다시 조회하지 않는다.
 
-import { kstNow, toYmd } from "../_lib/goal/reportNotify.js";
+import { findDueStudents } from "../_lib/goal/reportNotify.js";
 import {
+  type DailyReportInput,
   loadDailyReportInputs,
   sendDailyReport,
 } from "../_lib/goal/reportSend.js";
@@ -41,20 +45,48 @@ export default defineHandler({
 
     // 쿼리로 날짜를 강제할 수 있게 둔다 — 발송이 하루 밀렸을 때 손으로 메우거나
     // 로컬에서 특정 날짜를 재현할 때 필요하다(크론 인증은 그대로 요구한다).
-    const today = String(req.query.date || toYmd(kstNow()));
+    // 강제하면 시각·시간대와 무관하게 그 날짜에 기록이 있는 학생 전원이 대상이다.
+    const forcedDate =
+      typeof req.query.date === "string" && req.query.date
+        ? req.query.date
+        : null;
 
-    // studentIds=null → 오늘 기록이 있는 학생을 loadDailyReportInputs가 직접
-    // 찾는다(기록·계획·수신자 조회가 학생 수와 무관하게 고정 횟수로 돈다).
-    const inputs = await loadDailyReportInputs(supabaseAdmin, null, today);
+    const inputs = new Map<string, DailyReportInput>();
+    const dates: string[] = [];
+    if (forcedDate) {
+      dates.push(forcedDate);
+      for (const [id, input] of await loadDailyReportInputs(
+        supabaseAdmin,
+        null,
+        forcedDate,
+      )) {
+        inputs.set(id, input);
+      }
+    } else {
+      // 지금이 현지 22시인 학생을 날짜별로 묶어, 그 날짜에 기록이 있는 학생만 모은다.
+      const due = await findDueStudents(supabaseAdmin, "daily", new Date());
+      for (const [date, ids] of due) {
+        dates.push(date);
+        for (const [id, input] of await loadDailyReportInputs(
+          supabaseAdmin,
+          ids,
+          date,
+          { requireRecords: true },
+        )) {
+          inputs.set(`${date}:${id}`, input);
+        }
+      }
+    }
 
     if (inputs.size === 0) {
-      res.status(200).json({ ok: true, date: today, records: 0 });
+      res.status(200).json({ ok: true, dates, records: 0 });
       return;
     }
 
     const summary = { sent: 0, failed: 0, skipped: 0, noParent: 0 };
 
-    for (const [studentId, input] of inputs) {
+    for (const input of inputs.values()) {
+      const studentId = input.studentProfileId;
       const result = await sendDailyReport(supabaseAdmin, input);
 
       if (result.noParent) {
@@ -74,11 +106,9 @@ export default defineHandler({
     }
 
     console.log(
-      `cron/daily-report ${today} — 기록 ${inputs.size}건, ${JSON.stringify(summary)}`,
+      `cron/daily-report ${dates.join(",")} — 기록 ${inputs.size}건, ${JSON.stringify(summary)}`,
     );
 
-    res
-      .status(200)
-      .json({ ok: true, date: today, records: inputs.size, ...summary });
+    res.status(200).json({ ok: true, dates, records: inputs.size, ...summary });
   },
 });

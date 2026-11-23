@@ -586,6 +586,8 @@ export type EntryResponse = {
     profile: EntryProfile | null;
     replyResent: number;
     academicYearDefault: number;
+    /** 회원 시간대(profiles.time_zone). 화면의 날짜 표기와 학년도 계산이 쓴다. */
+    timeZone: string;
   };
   sessions: SessionListItem[];
 };

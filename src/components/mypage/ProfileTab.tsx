@@ -13,6 +13,7 @@ import type { MyEnrollmentState } from "@/components/enrollment/useMyEnrollment"
 import { site } from "@/config/site";
 import { linkCodeLabel, type SignupProfileRpcResult } from "@/lib/parentLink";
 import { supabase } from "@/lib/supabase";
+import { isValidTimeZone } from "@/lib/time/zone";
 import type { Tables } from "@/types/database.types";
 import ChangeEmailModal from "./ChangeEmailModal";
 import ChangePasswordModal from "./ChangePasswordModal";
@@ -53,6 +54,14 @@ const PARENT_GUIDE_LINKS = [
 
 const ROW_BOX_CLASS =
   "flex h-13 items-center rounded-xl border border-line px-5 text-base text-ink";
+
+// 시간대 선택지: 브라우저가 아는 IANA 이름. UTC 와 현재 값이 목록에 없으면 더한다.
+function timeZoneOptions(current: string): string[] {
+  const names = new Set(Intl.supportedValuesOf("timeZone"));
+  names.add("UTC");
+  if (current) names.add(current);
+  return [...names].sort();
+}
 
 function cleanText(value) {
   return String(value || "").trim();
@@ -160,6 +169,10 @@ export default function ProfileTab({
     birth_date: profile?.birth_date || "",
     gender: profile?.gender || "",
   });
+  // 회원 시간대(D5): 저장된 값과 고르는 중인 값. 가입 때 브라우저 값이 들어가고, 여기서만 바꾼다.
+  const [timeZone, setTimeZone] = useState("");
+  const [timeZoneDraft, setTimeZoneDraft] = useState("");
+  const [savingTimeZone, setSavingTimeZone] = useState(false);
   const [toggles, setToggles] = useState({
     marketing_agreed: false,
     ads_agreed: false,
@@ -213,7 +226,7 @@ export default function ProfileTab({
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "name, email, phone, guardian_phone, school_type, school_name, birth_date, gender, marketing_agreed, ads_agreed",
+          "name, email, phone, guardian_phone, school_type, school_name, birth_date, gender, time_zone, marketing_agreed, ads_agreed",
         )
         .eq("id", profileId)
         .maybeSingle();
@@ -231,6 +244,8 @@ export default function ProfileTab({
         birth_date: data.birth_date ?? prev.birth_date,
         gender: data.gender ?? prev.gender,
       }));
+      setTimeZone(data.time_zone);
+      setTimeZoneDraft(data.time_zone);
       setToggles({
         marketing_agreed: Boolean(data.marketing_agreed),
         ads_agreed: Boolean(data.ads_agreed),
@@ -376,6 +391,17 @@ export default function ProfileTab({
     }
   }
 
+  async function saveTimeZone() {
+    if (!isValidTimeZone(timeZoneDraft)) {
+      setErrorMsg("시간대를 다시 선택해 주세요.");
+      return;
+    }
+    setSavingTimeZone(true);
+    const ok = await persistProfile({ time_zone: timeZoneDraft });
+    setSavingTimeZone(false);
+    if (ok) setTimeZone(timeZoneDraft);
+  }
+
   // 수신 동의 토글 — profiles.marketing_agreed/ads_agreed는 이미 존재하는 컬럼이라
   // (sql/00_base_schema.sql) 스키마 변경 없이 바로 저장한다. 낙관적 업데이트 후 실패 시 롤백.
   async function persistToggle(key: keyof typeof toggles, value: boolean) {
@@ -476,6 +502,37 @@ export default function ProfileTab({
           readOnly
           className="mb-5"
         />
+      )}
+
+      {/* 시간대 — 날짜 경계(오늘, 만료일)를 이 시간대로 센다. 가입 때 브라우저 값이 저장되며 자동으로는 바뀌지 않는다. */}
+      {timeZone && (
+        <ProfileField
+          label="시간대"
+          className="mb-5"
+          actions={
+            <button
+              type="button"
+              onClick={saveTimeZone}
+              disabled={savingTimeZone || timeZoneDraft === timeZone}
+              className="h-13 shrink-0 whitespace-nowrap rounded-xl border border-line px-4 text-sm text-ink transition hover:bg-surface-card disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              시간대 저장
+            </button>
+          }
+        >
+          <select
+            aria-label="시간대"
+            value={timeZoneDraft}
+            onChange={(e) => setTimeZoneDraft(e.target.value)}
+            className="h-13 w-full rounded-xl border border-line px-4 text-base text-ink outline-hidden focus:border-primary"
+          >
+            {timeZoneOptions(timeZone).map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </ProfileField>
       )}
 
       {/* 학교 · 학년 — 학생 전용(학부모 시안 3379:12569 에는 이 행이 없다). */}

@@ -12,6 +12,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("./api", () => ({ fetchWebAnalytics: vi.fn() }));
 
+const zone = vi.hoisted(() => ({ value: "Asia/Seoul" }));
+vi.mock("@/lib/time/zone", () => ({ browserTimeZone: () => zone.value }));
+
 import * as api from "./api";
 import WebAnalyticsAdmin from "./WebAnalyticsAdmin";
 
@@ -75,6 +78,7 @@ function renderPage(search = "") {
 }
 
 beforeEach(() => {
+  zone.value = "Asia/Seoul";
   vi.resetAllMocks();
   vi.mocked(api.fetchWebAnalytics).mockResolvedValue({
     ok: true,
@@ -141,6 +145,22 @@ describe("WebAnalyticsAdmin", () => {
       }),
     );
     expect(screen.getByText(/2026-11-17 ~ 2026-11-23/)).toBeInTheDocument();
+  });
+
+  test("브라우저가 로스앤젤레스면 같은 순간의 최근 7일을 그 시간대 날짜로 계산한다", async () => {
+    zone.value = "America/Los_Angeles";
+    vi.useFakeTimers({ toFake: ["Date"] });
+    // 2026-11-22 07:30 PST = 2026-11-22 15:30 UTC
+    vi.setSystemTime(new Date("2026-11-22T15:30:00Z"));
+
+    renderPage();
+
+    await waitFor(() =>
+      expect(api.fetchWebAnalytics).toHaveBeenCalledWith({
+        from: "2026-11-16",
+        to: "2026-11-22",
+      }),
+    );
   });
 
   test("조회를 누르면 기간이 URL 검색 파라미터에 들어가고 다시 불러온다", async () => {

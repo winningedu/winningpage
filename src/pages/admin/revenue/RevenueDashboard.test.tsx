@@ -12,7 +12,7 @@ function renderDashboard() {
     <RevenueDashboard
       rows={[]}
       pending={{ approvalWaiting: 2, processWaiting: 0 }}
-      toKstYmd={(date) => date.toISOString().slice(0, 10)}
+      timeZone="UTC"
       periodLabel="2026-11-01 ~ 2026-11-20"
     />,
   );

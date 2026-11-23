@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { deletionDdayText, mouLabel, todayKst } from "./contract";
+import { deletionDdayText, mouLabel, tenantToday } from "./contract";
 
 describe("mouLabel", () => {
   test("pending, signed, ended 를 협약 전, 협약 중, 협약 종료로 보인다", () => {
@@ -59,12 +59,22 @@ describe("deletionDdayText", () => {
   });
 });
 
-describe("todayKst", () => {
-  test("UTC 15:00 이후는 KST 로 다음 날이다", () => {
-    expect(todayKst(new Date("2026-11-06T15:30:00Z"))).toBe("2026-11-07");
+describe("tenantToday", () => {
+  test("기관 시간대의 자정에 날짜가 바뀐다(서울)", () => {
+    expect(tenantToday("Asia/Seoul", new Date("2026-11-06T15:30:00Z"))).toBe(
+      "2026-11-07",
+    );
+    expect(tenantToday("Asia/Seoul", new Date("2026-11-06T14:59:00Z"))).toBe(
+      "2026-11-06",
+    );
   });
 
-  test("UTC 14:59 는 KST 로 같은 날이다", () => {
-    expect(todayKst(new Date("2026-11-06T14:59:00Z"))).toBe("2026-11-06");
+  test("뉴욕 기관은 UTC 05:00 에 날짜가 바뀐다(브라우저 시간대와 무관)", () => {
+    expect(
+      tenantToday("America/New_York", new Date("2026-12-01T04:59:00Z")),
+    ).toBe("2026-11-30");
+    expect(
+      tenantToday("America/New_York", new Date("2026-12-01T05:00:00Z")),
+    ).toBe("2026-12-01");
   });
 });

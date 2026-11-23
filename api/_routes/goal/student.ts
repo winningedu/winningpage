@@ -25,8 +25,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getSchoolCutType } from "../../../src/lib/goal/calc/index.js";
-import { addDaysYMD, kstYMD } from "../../../src/lib/goal/calc/virtualDate.js";
+import { addDaysYMD } from "../../../src/lib/goal/calc/virtualDate.js";
 import { computeAvgStudyHours } from "../../../src/lib/goal/report/aggregate.js";
+import { ymdIn } from "../../../src/lib/time/day.js";
 
 import {
   computeJungsiRecalc,
@@ -42,6 +43,7 @@ import {
   fetchStudentRow,
   fetchStudentStateRow,
   fetchUniversityCut,
+  getStudentTimeZone,
   narrowGoalSession,
   num,
   openGoalSession,
@@ -104,7 +106,7 @@ async function maybeRecalcJungsi(
   });
 }
 
-// "최근 7일" 창 — 오늘(KST) 포함 6일 전부터. gapToTarget.ts의 학습 시간 격차 전용
+// "최근 7일" 창 — 오늘(학생 현지) 포함 6일 전부터. gapToTarget.ts의 학습 시간 격차 전용
 // (recentAvgStudyHours). 리포트 주간 경계(월~일)와는 무관한 단순 롤링 윈도우다.
 const RECENT_STUDY_HOURS_WINDOW_DAYS = 7;
 
@@ -159,7 +161,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 뷰가 갱신된 base_ideal_jungsi/rate_ideal_jungsi 를 곧바로 반영한다.
     row = await maybeRecalcJungsi(supabaseAdmin, profileId, row, now);
 
-    const todayYmd = kstYMD(now);
+    const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+    const todayYmd = ymdIn(now, timeZone);
     const recentFromYmd = addDaysYMD(
       todayYmd,
       -(RECENT_STUDY_HOURS_WINDOW_DAYS - 1),
@@ -175,18 +178,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ]);
 
     // schoolCutType 은 DB 에 저장하지 않고 school_type 에서 매번 파생한다(§7-2).
-    return res
-      .status(200)
-      .json(
-        buildStudentPayload(
-          row,
-          stateRow,
-          getSchoolCutType(row.school_type),
-          historyRows,
-          profileName,
-          computeAvgStudyHours(recentRecords),
-        ),
-      );
+    return res.status(200).json({
+      ...buildStudentPayload(
+        row,
+        stateRow,
+        getSchoolCutType(row.school_type),
+        historyRows,
+        profileName,
+        computeAvgStudyHours(recentRecords),
+      ),
+      timeZone,
+    });
   } catch (error) {
     console.error("goal/student error:", error);
     return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");

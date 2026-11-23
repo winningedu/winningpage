@@ -37,6 +37,7 @@ const ROWS = [
     protected: false,
     contract_end: "2026-09-01",
     grace_end: "2026-10-01",
+    local_today: "2026-11-07",
   },
   {
     profile_id: "s-2",
@@ -47,6 +48,7 @@ const ROWS = [
     protected: true,
     contract_end: "2026-09-01",
     grace_end: "2026-10-01",
+    local_today: "2026-11-07",
   },
 ];
 
@@ -120,7 +122,7 @@ describe("GET /api/admin/tenants/member-purge-preview", () => {
     expect(JSON.stringify(r.body)).not.toMatch(/김하늘|이도윤/);
   });
 
-  test("삭제 가능일은 유예 종료 다음 날이고 D-day 는 KST 날짜로 센다", async () => {
+  test("삭제 가능일은 유예 종료 다음 날이고 D-day 는 DB 가 준 기관 시간대의 오늘로 센다", async () => {
     kit.state.rpc.fn_member_purge_preview = () => ({
       data: [{ ...ROWS[0], grace_end: "2026-11-09" }],
       error: null,
@@ -134,6 +136,19 @@ describe("GET /api/admin/tenants/member-purge-preview", () => {
       deletableFrom: "2026-11-10",
       dDay: 3,
     });
+  });
+
+  test("D-day 의 오늘은 서버 시계가 아니라 기관 시간대의 오늘(local_today)이다", async () => {
+    kit.state.rpc.fn_member_purge_preview = () => ({
+      data: [
+        { ...ROWS[0], grace_end: "2026-11-09", local_today: "2026-11-06" },
+      ],
+      error: null,
+    });
+
+    const r = await get();
+
+    expect(r.body).toMatchObject({ deletableFrom: "2026-11-10", dDay: 4 });
   });
 
   test("삭제 가능일이 지나면 D-day 는 0 이하다", async () => {
@@ -154,6 +169,7 @@ describe("GET /api/admin/tenants/member-purge-preview", () => {
           protected: null,
           contract_end: "2026-09-01",
           grace_end: "2026-10-01",
+          local_today: "2026-11-07",
         },
       ],
       error: null,

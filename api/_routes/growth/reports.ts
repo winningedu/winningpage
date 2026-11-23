@@ -5,7 +5,7 @@
 // (performance/reports.ts 와 같은 관례). 쿼리 파라미터로 모드를 가른다.
 //
 //   ① 목록 `GET /api/growth/reports`
-//      200 { ok, items[{ id, status, track, issuedAt, theme, lastActivityAt,
+//      200 { ok, timeZone(회원 IANA 시간대), items[{ id, status, track, issuedAt, theme, lastActivityAt,
 //            plan:{ total, done }|null }], open|null, archivedCount }
 //      items 는 완료(completed) 회차만, last_activity_at 내림차순이다.
 //      open 은 미완(draft, in_progress) 회차 요약 1건이다(생성 화면 재진입용).
@@ -15,7 +15,7 @@
 //      { reportId, reason, at, step } 또는 null 이다(90일 만료 archived 와 구분).
 //      목록은 큰 jsonb(sections, signals 등)를 읽지 않는다.
 //   ② 상세 `GET /api/growth/reports?reportId=<uuid>[&view=parent]`
-//      200 { ok, report:{ id, status, track, issuedAt, currentStep, progress[],
+//      200 { ok, timeZone, report:{ id, status, track, issuedAt, currentStep, progress[],
 //            range:{ semesters, description }|null, omitted:{ ids, reasons }|null,
 //            narrative|null, overview[], consistency, axes, sections[],
 //            excludedSectionIds[], planItems[], lastActivityAt } }
@@ -43,6 +43,7 @@
 
 import type { VercelResponse } from "@vercel/node";
 import { type Db, must } from "../../_lib/growth/intake/collectDb.js";
+import { loadMemberTimeZone } from "../../_lib/growth/memberZone.js";
 import {
   assertParentOfChild,
   NotLinkedError,
@@ -132,6 +133,7 @@ async function handleList(
 
   res.status(200).json({
     ok: true,
+    timeZone: await loadMemberTimeZone(db, userId),
     ...(child !== undefined && { child: await childSummary(db, child.id) }),
     items: completed.map((r) => {
       const plans = countsByReport.get(r.id);
@@ -211,9 +213,11 @@ async function handleDetail(
     }[]
   ).map((a) => ({ gradeLabel: a.grade_label, semester: a.semester }));
 
-  res
-    .status(200)
-    .json({ ok: true, report: detailBody(row, plans, activities, { parent }) });
+  res.status(200).json({
+    ok: true,
+    timeZone: await loadMemberTimeZone(db, userId),
+    report: detailBody(row, plans, activities, { parent }),
+  });
 }
 
 export default defineHandler({

@@ -10,6 +10,10 @@
 -- =====================================================================
 begin;
 
+-- 로컬 DB 에 남은 데이터(기본 유예 일수, 기타 소속 기관)가 판정을 바꾸지 않도록 이 트랜잭션 안에서만 치운다.
+delete from public.app_settings where key = 'contract_grace_days';
+update public.tenants set is_catch_all = false where is_catch_all;
+
 create function pg_temp.expect_ok(t text, p_sql text) returns void
 language plpgsql as $$
 begin
@@ -189,6 +193,55 @@ select pg_temp.expect_int('diagnosis: month_cap 은 시도 행을 남기지 않�
   (select count(*) from public.diagnosis_attempts where id = (select id from att3)), 0);
 select pg_temp.expect_text('diagnosis: 기타 소속은 catch_all',
   public.fn_consume_tenant_diagnosis(gen_random_uuid(), pg_temp.fx('etc')), 'catch_all');
+
+-- ---------------------------------------------------------------------
+-- 기관 시간대(tenants.time_zone): 계약 기간과 월 한도 초기화는 기관 시간대의 날짜로 판정한다
+-- 서울과 오늘 날짜가 다른 시간대를 고른다(Kiritimati 와 Pago_Pago 는 25시간 차이라 둘 중 하나는 반드시 다르다).
+-- ---------------------------------------------------------------------
+select case
+  when public.fn_local_date(now(), 'Pacific/Kiritimati') <> public.fn_local_date(now(), 'Asia/Seoul')
+    then 'Pacific/Kiritimati' else 'Pacific/Pago_Pago' end as zz \gset
+
+select pg_temp.mk_tenant('zend', 'TGZAAAAA');
+select pg_temp.setting('zend', 'selfeval', null, null);
+update public.tenants
+   set time_zone = :'zz',
+       contract_start_date = public.fn_local_date(now(), :'zz') - 10,
+       contract_end_date = public.fn_local_date(now(), :'zz')
+ where id = pg_temp.fx('t_zend');
+select pg_temp.expect_text('tz: 계약 종료일이 기관 시간대의 오늘이면 아직 허용',
+  (select s.allowed::text from public.fn_tenant_usage_state(pg_temp.fx('zend'), 'selfeval') s), 'true');
+
+select pg_temp.mk_tenant('zstart', 'TGZBBBBB');
+select pg_temp.setting('zstart', 'selfeval', null, null);
+update public.tenants
+   set time_zone = :'zz',
+       contract_start_date = public.fn_local_date(now(), :'zz'),
+       contract_end_date = public.fn_local_date(now(), :'zz') + 10
+ where id = pg_temp.fx('t_zstart');
+select pg_temp.expect_text('tz: 계약 시작일이 기관 시간대의 오늘이면 이미 허용',
+  (select s.allowed::text from public.fn_tenant_usage_state(pg_temp.fx('zstart'), 'selfeval') s), 'true');
+
+select pg_temp.mk_tenant('zover', 'TGZCCCCC');
+select pg_temp.setting('zover', 'selfeval', null, null);
+update public.tenants
+   set time_zone = :'zz', grace_ends_on = public.fn_local_date(now(), :'zz') - 1,
+       contract_start_date = public.fn_local_date(now(), :'zz') - 10,
+       contract_end_date = public.fn_local_date(now(), :'zz') - 1
+ where id = pg_temp.fx('t_zover');
+select pg_temp.expect_text('tz: 계약 종료일이 기관 시간대로 어제이고 유예도 끝났으면 outside_period',
+  (select s.deny_reason from public.fn_tenant_usage_state(pg_temp.fx('zover'), 'selfeval') s), 'outside_period');
+
+-- 월 한도 초기화일은 기관 시간대의 다음 달 1일이다
+select pg_temp.expect_text('tz: month_resets_on 은 기관 시간대의 다음 달 1일',
+  (select s.month_resets_on::text from public.fn_tenant_usage_state(pg_temp.fx('zend'), 'selfeval') s),
+  ((date_trunc('month', now() at time zone :'zz') + interval '1 month')::date)::text);
+
+-- 뉴욕 기관: 계약 종료일 2026-11-30 은 2026-12-01T05:00:00Z 직전까지 유효하다(함수가 쓰는 날짜 계산과 같은 식)
+select pg_temp.expect_text('tz: 뉴욕 2026-12-01T04:59:59Z 는 현지 11월 30일',
+  public.fn_local_date('2026-12-01T04:59:59Z', 'America/New_York')::text, '2026-11-30');
+select pg_temp.expect_text('tz: 뉴욕 2026-12-01T05:00:00Z 는 현지 12월 1일',
+  public.fn_local_date('2026-12-01T05:00:00Z', 'America/New_York')::text, '2026-12-01');
 
 -- ---------------------------------------------------------------------
 -- fn_catch_all_tenant_lookup: 기타 소속 학생의 소속코드 조회

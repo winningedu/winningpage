@@ -30,7 +30,7 @@ describe("summarizeReport with a v3 payload", () => {
       score: 40,
       status: "취약", // 06 r20-r23: PAGE1 WEAK label
     });
-    expect(status.diagnosedAt).toBe("2026-11-09");
+    expect(status.diagnosedAt).toBe("2026-11-09T01:00:00.000Z");
   });
 });
 

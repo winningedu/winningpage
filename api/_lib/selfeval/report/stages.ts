@@ -11,6 +11,7 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 /** 학습진단 최신 완료 결과의 학생용 첫 줄(payload.headlineLines)과 진단일. */
 export function diagnosisSource(
   row: { diagnosed_at: string; payload: unknown } | null,
+  tz: string,
 ): StageSource<{ sentence: string; date: string }> {
   if (row === null || !isRecord(row.payload)) return { state: "none" };
   const lines = row.payload.headlineLines;
@@ -20,7 +21,7 @@ export function diagnosisSource(
   if (first === undefined) return { state: "none" };
   return {
     state: "ok",
-    value: { sentence: first.trim(), date: dotDate(row.diagnosed_at) },
+    value: { sentence: first.trim(), date: dotDate(row.diagnosed_at, tz) },
   };
 }
 

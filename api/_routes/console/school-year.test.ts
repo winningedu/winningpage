@@ -12,7 +12,11 @@ import {
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
-  tenant: { school_year: 2025, org_type: "학원" } as Record<string, unknown>,
+  tenant: {
+    school_year: 2025,
+    time_zone: "Asia/Seoul",
+    org_type: "학원",
+  } as Record<string, unknown>,
 }));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
@@ -51,7 +55,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-03-05T00:00:00+09:00"));
   kit.state = createKitState();
   kit.state.actor = schoolAdminActor();
-  kit.tenant = { school_year: 2025, org_type: "학원" };
+  kit.tenant = { school_year: 2025, time_zone: "Asia/Seoul", org_type: "학원" };
   kit.state.rows.tenants = () => kit.tenant;
   kit.state.rows.student_enrollments = (f) =>
     matchRows(
@@ -105,7 +109,11 @@ describe("GET /api/console/school-year", () => {
   });
 
   test("after the rollover: rolledOver is true and the last run is reported with its time and counts", async () => {
-    kit.tenant = { school_year: 2026, org_type: "학원" };
+    kit.tenant = {
+      school_year: 2026,
+      time_zone: "Asia/Seoul",
+      org_type: "학원",
+    };
 
     const r = await get();
 
@@ -123,8 +131,36 @@ describe("GET /api/console/school-year", () => {
 
   test("reports which way a roster upload works: rollover while behind the calendar, midyear once at it", async () => {
     expect((await get()).body).toMatchObject({ mode: "rollover" });
-    kit.tenant = { school_year: 2026, org_type: "학원" };
+    kit.tenant = {
+      school_year: 2026,
+      time_zone: "Asia/Seoul",
+      org_type: "학원",
+    };
     expect((await get()).body).toMatchObject({ mode: "midyear" });
+  });
+
+  test("the calendar school year follows the tenant zone: at 2026-02-28T16:00Z Seoul is in 2026 and Los Angeles still in 2025", async () => {
+    vi.setSystemTime(new Date("2026-02-28T16:00:00Z"));
+    kit.tenant = {
+      school_year: 2025,
+      time_zone: "Asia/Seoul",
+      org_type: "학원",
+    };
+    expect((await get()).body).toMatchObject({
+      mode: "rollover",
+      toYear: 2026,
+      rolledOver: false,
+    });
+    kit.tenant = {
+      school_year: 2025,
+      time_zone: "America/Los_Angeles",
+      org_type: "학원",
+    };
+    expect((await get()).body).toMatchObject({
+      mode: "midyear",
+      toYear: 2025,
+      rolledOver: true,
+    });
   });
 
   test("before the rollover there is no last run", async () => {
@@ -132,7 +168,11 @@ describe("GET /api/console/school-year", () => {
   });
 
   test("a tenant two years behind rolls one year at a time", async () => {
-    kit.tenant = { school_year: 2024, org_type: "학원" };
+    kit.tenant = {
+      school_year: 2024,
+      time_zone: "Asia/Seoul",
+      org_type: "학원",
+    };
     expect((await get()).body).toMatchObject({
       schoolYear: 2024,
       toYear: 2025,
@@ -141,7 +181,11 @@ describe("GET /api/console/school-year", () => {
   });
 
   test("a school also graduates the third year of middle school", async () => {
-    kit.tenant = { school_year: 2025, org_type: "학교" };
+    kit.tenant = {
+      school_year: 2025,
+      time_zone: "Asia/Seoul",
+      org_type: "학교",
+    };
     expect((await get()).body).toMatchObject({
       graduatingGrades: ["중3", "고3"],
     });

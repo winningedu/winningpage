@@ -100,13 +100,19 @@ type TodayGoalData = {
 
 type TodayGoalCardProps = {
   data: TodayGoalData;
+  /** 학생 시간대(GET /api/goal/student timeZone). */
+  timeZone: string;
   /** 저장 성공 시 호출. Dashboard의 기존 데이터 훅을 다시 실행해 게이지(upperGoalRate/
    *  lowerGoalRate)·확률을 최신화하는 역할은 이 카드가 아니라 상위 리로드 콜백이 진다
    *  (단일 진실 공급원을 Dashboard 쪽에 유지). */
   onSaved?: () => void;
 };
 
-export default function TodayGoalCard({ data, onSaved }: TodayGoalCardProps) {
+export default function TodayGoalCard({
+  data,
+  timeZone,
+  onSaved,
+}: TodayGoalCardProps) {
   // 아직 저장하지 않은 입력값. 서버 확정값(data.studyHours)이 바뀌면(최초 로드·저장 성공 후
   // 리로드) 그 값으로 다시 맞춘다 — 사용자가 입력 중인데 리로드가 덮어쓰는 경우는 저장 자체가
   // 그 값으로 완료된 직후뿐이라 충돌하지 않는다.
@@ -154,7 +160,7 @@ export default function TodayGoalCard({ data, onSaved }: TodayGoalCardProps) {
       onSaved?.();
       setError(
         result.unlocksAt
-          ? `이미 오늘 기록을 제출했어요. 다시 기록 가능: ${formatCooldownUnlockLabel(result.unlocksAt)}`
+          ? `이미 오늘 기록을 제출했어요. 다시 기록 가능: ${formatCooldownUnlockLabel(result.unlocksAt, timeZone)}`
           : "이미 오늘 기록을 제출했어요.",
       );
       return;
@@ -200,6 +206,7 @@ export default function TodayGoalCard({ data, onSaved }: TodayGoalCardProps) {
         <RecordCooldownSummary
           cooldown={data.cooldown}
           summary={data.summary}
+          timeZone={timeZone}
           tomorrowTargets={data.tomorrowTargets}
         />
       ) : (

@@ -46,6 +46,7 @@ const TENANT = {
   code: "ABCD1234",
   name: "한빛고",
   contract_end_date: "2026-09-01",
+  time_zone: "Asia/Seoul",
 };
 
 const STUDENTS = [

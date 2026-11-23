@@ -97,10 +97,10 @@ beforeEach(() => {
   kit.state.rows.profiles = (f) =>
     matchRows(
       [
-        { id: "s1", name: "정민서" },
-        { id: "s2", name: "한예준" },
-        { id: "s3", name: "오세훈" },
-        { id: "s4", name: "서예린" },
+        { id: "s1", name: "정민서", time_zone: "Asia/Seoul" },
+        { id: "s2", name: "한예준", time_zone: "Asia/Seoul" },
+        { id: "s3", name: "오세훈", time_zone: "Asia/Seoul" },
+        { id: "s4", name: "서예린", time_zone: "Asia/Seoul" },
       ],
       f,
     );

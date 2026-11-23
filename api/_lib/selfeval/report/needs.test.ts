@@ -12,7 +12,7 @@ function needs(over: Parameters<typeof sampleInput>[0] = {}) {
   const body = readBody(input.bodySections, input);
   const none = () => null;
   const ch02 = buildCh02(input, body, none);
-  const ch03 = buildCh03(ch02, none);
+  const ch03 = buildCh03(ch02, none, "Asia/Seoul");
   const ch04 = buildCh04(input, body, ch02, none);
   const candidates = findNextStepCandidates(input, body, ch02);
   return buildNeeds(input, body, ch02, ch03, ch04, candidates);

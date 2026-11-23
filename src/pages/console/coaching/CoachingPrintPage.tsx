@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { consoleRequest } from "../api";
-import { kstDotDateTime } from "../date";
+import { dateTimeOf } from "../date";
 import EmptyMessage from "../EmptyMessage";
 import { useConsoleMe, useGradeLabel } from "../useConsoleMe";
 import {
@@ -38,7 +38,7 @@ export default function CoachingPrintPage() {
   const { data, isError } = useCoaching(params.get("studentId"));
   const printed = useRef(false);
   const { me } = useConsoleMe();
-  const [printedAt] = useState(() => kstDotDateTime(new Date()));
+  const [printedAt] = useState(() => dateTimeOf(new Date()));
 
   const [logFailed, setLogFailed] = useState(false);
 

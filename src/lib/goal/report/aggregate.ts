@@ -96,7 +96,7 @@ function isValidYmd(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value))
     return false;
   const d = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value; // tz-literal-ok: Date.UTC 로 만든 날짜를 되돌려 YYYY-MM-DD 실존 여부만 본다(시간대 무관)
 }
 
 function isValidYm(value: unknown): value is string {
@@ -127,7 +127,7 @@ export function lastDayOfMonthYmd(ym: string): string {
   const [y, m] = ym.split("-").map(Number) as [number, number];
   // UTC 기준 다음 달 0일 = 이번 달 마지막 날 (윤년 자동 처리, virtualDate.js addDaysYMD와 동일 기법).
   const d = new Date(Date.UTC(y, m, 0));
-  return d.toISOString().slice(0, 10);
+  return d.toISOString().slice(0, 10); // tz-literal-ok: Date.UTC 기준 달력 계산이라 시간대와 무관하다
 }
 
 /** 'YYYY-MM-DD' 두 날짜 사이(양끝 포함) 일수. 역순이면 0. */
@@ -514,11 +514,11 @@ const TIME_SLOT_BUCKETS = [
   { label: "오후 9~12", startHour: 21, endHour: 24 },
 ] as const;
 
-/** 세션 started_at(timestamptz ISO)의 KST 시(0~23). */
-function kstHour(isoString: string): number {
+/** 세션 started_at(timestamptz ISO)의 tz 기준 시(0~23). */
+function hourIn(isoString: string, tz: string): number {
   const d = new Date(isoString);
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Seoul",
+    timeZone: tz,
     hour: "2-digit",
     hourCycle: "h23",
   }).formatToParts(d);
@@ -526,11 +526,12 @@ function kstHour(isoString: string): number {
 }
 
 /**
- * D8 — 세션을 시작 시각(KST) 기준으로 7버킷에 귀속시킨다(경계 걸침 분할은 하지 않는다 —
+ * D8 — 세션을 시작 시각(tz 기준)으로 7버킷에 귀속시킨다(경계 걸침 분할은 하지 않는다 —
  * "시작 시각이 속한 버킷 전체"로 판단, 판단 지점).
  */
 export function bucketTimeSlots(
   sessions: GoalTimerSessionRow[],
+  tz: string,
 ): { label: string; value: number; unit: "h" }[] {
   const buckets = TIME_SLOT_BUCKETS.map((b) => ({
     label: b.label,
@@ -542,7 +543,7 @@ export function bucketTimeSlots(
   for (const session of sessions) {
     const seconds = toNum(session.duration_seconds, 0) ?? 0;
     if (seconds <= 0 || !session.started_at) continue;
-    const hour = kstHour(session.started_at);
+    const hour = hourIn(session.started_at, tz);
     const bucket = buckets.find((b) => hour >= b.startHour && hour < b.endHour);
     if (bucket) bucket.seconds += seconds;
   }

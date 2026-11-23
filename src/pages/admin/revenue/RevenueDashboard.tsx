@@ -53,15 +53,15 @@ export type RevenuePending = {
 type Props = {
   rows: RevenueRowLike[];
   pending: RevenuePending;
-  /** 결제일시를 KST 날짜로 자르는 함수. 화면과 같은 규칙을 써야 한다. */
-  toKstYmd: (date: Date) => string;
+  /** 일별 추이를 자를 시간대. 화면과 같은 값을 써야 한다. */
+  timeZone: string;
   periodLabel: string;
 };
 
 export default function RevenueDashboard({
   rows,
   pending,
-  toKstYmd,
+  timeZone,
   periodLabel,
 }: Props) {
   const refundedCount = useMemo(
@@ -74,8 +74,8 @@ export default function RevenueDashboard({
     [rows, refundedCount],
   );
   const trend = useMemo(
-    () => buildDailyTrend(rows, toKstYmd),
-    [rows, toKstYmd],
+    () => buildDailyTrend(rows, timeZone),
+    [rows, timeZone],
   );
   const share = useMemo(() => buildProgramShare(rows), [rows]);
   const summary = useMemo(() => buildSummaryRows(rows), [rows]);

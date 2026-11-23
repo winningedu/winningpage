@@ -47,8 +47,6 @@ interface UsageStateRow {
   term_remaining: number | null;
 }
 
-const KST_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" });
-
 export default defineHandler({
   methods: ["GET"],
   auth: "console",
@@ -138,7 +136,7 @@ export default defineHandler({
       studentId,
       name: profile?.name ?? "",
       joinedAt: profile?.created_at
-        ? KST_DATE.format(new Date(profile.created_at))
+        ? new Date(profile.created_at).toISOString()
         : null,
       lastSeenAt: profile?.last_seen_at ?? null,
       flagged: flags.length > 0,

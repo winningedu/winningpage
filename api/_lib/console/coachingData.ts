@@ -1,10 +1,12 @@
 // 코칭 판정 엔진에 넣을 자료를 서비스별 테이블에서 읽는다(W9). 서비스를 쓰지 않으면 그 자료는 null,
 // 자료 출처가 없는 지표(내신과 모의고사 변화 등)는 읽지 않고 비워 둔다(결정 4).
-// 최근 접속은 profiles.last_seen_at(session-check 가 적는다)에서 읽고, KST 날짜 차이로 센다(결정 105).
+// 최근 접속은 profiles.last_seen_at(session-check 가 적는다)에서 읽고, 보는 사람 시간대의 날짜 차이로 센다(결정 105).
+// 목표 기록의 주간 창은 학생의 시간대(profiles.time_zone) 하루로 묶는다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { diffDaysYMD, kstYMD } from "../../../src/lib/goal/calc/index.js";
+import { diffDaysYMD } from "../../../src/lib/goal/calc/index.js";
 import { deriveGradeSystem } from "../../../src/lib/goal/report/aggregate.js";
+import { ymdIn } from "../../../src/lib/time/day.js";
 import {
   type AreaScores,
   type CoachingMetrics,
@@ -297,6 +299,8 @@ export async function loadCoachingData(
   admin: SupabaseClient,
   studentId: string,
   used: ServiceKey[],
+  /** 보는 사람의 시간대. 마지막 접속 후 일수를 이 시간대의 달력 날짜로 센다. */
+  viewerZone: string,
   now = new Date(),
 ): Promise<CoachingData> {
   const uses = (key: ServiceKey) => used.includes(key);
@@ -395,11 +399,11 @@ export async function loadCoachingData(
           )
         : ([] as { created_at: string; score: number | null }[]),
     ]);
-  const seenRows = await readAll<{ last_seen_at: string | null }>(
-    admin,
-    "profiles",
-    "last_seen_at",
-    (q) => q.eq("id", studentId),
+  const seenRows = await readAll<{
+    last_seen_at: string | null;
+    time_zone: string | null;
+  }>(admin, "profiles", "last_seen_at, time_zone", (q) =>
+    q.eq("id", studentId),
   );
   const selfevalSessions = uses("selfeval")
     ? await readAll<{
@@ -426,11 +430,16 @@ export async function loadCoachingData(
   const selfevalSession = lastBy(selfevalSessions, (s) => s.updated_at);
 
   const goal = goalStudent[0];
-  const today = kstYMD(now);
+  // 학생의 하루(목표 기록 기준)와 보는 사람의 하루(접속 일수 기준)는 시간대가 다를 수 있다.
+  const studentZone = seenRows[0]?.time_zone;
+  // 목표를 쓰는데 시간대를 모르면 주간 창을 정할 수 없으니 오류로 드러낸다. 쓰지 않으면 이 값은 쓰이지 않는다.
+  if (uses("goal") && !studentZone)
+    throw new Error("student time zone missing");
+  const today = ymdIn(now, studentZone ?? viewerZone);
   const lastSeenAt = seenRows[0]?.last_seen_at ?? null;
-  // 접속한 날과 오늘의 KST 달력 날짜 차이. 기록이 없으면 null(미접속 규칙을 건너뛴다).
+  // 접속한 날과 오늘의 달력 날짜 차이(보는 사람 시간대). 기록이 없으면 null(미접속 규칙을 건너뛴다).
   const daysSinceLastSeen = lastSeenAt
-    ? diffDaysYMD(kstYMD(new Date(lastSeenAt)), today)
+    ? diffDaysYMD(ymdIn(lastSeenAt, viewerZone), ymdIn(now, viewerZone))
     : null;
   const windows = weekWindows(today);
   const schedule = isRecord(goal?.study_schedule)

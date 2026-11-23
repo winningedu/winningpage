@@ -1,7 +1,10 @@
 // cycle.ts(지식 DB 자료 관리 주기)의 순수 함수 테스트.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { formatLastReviewed, isStaleReview } from "./cycle";
+
+const zone = vi.hoisted(() => ({ tz: "Asia/Seoul" }));
+vi.mock("@/lib/time/zone", () => ({ browserTimeZone: () => zone.tz }));
 
 const NOW = new Date("2026-10-07T12:00:00+09:00");
 
@@ -31,6 +34,12 @@ describe("isStaleReview", () => {
 describe("formatLastReviewed", () => {
   it("기록이 없으면 안내 문구를, 있으면 날짜를 돌려준다", () => {
     expect(formatLastReviewed(null)).toBe("검토 기록 없음");
-    expect(formatLastReviewed("2026-09-30T03:00:00Z")).toBe("2026-09-30");
+    zone.tz = "Asia/Seoul";
+    expect(formatLastReviewed("2026-09-29T16:00:00Z")).toBe("2026-09-30");
+  });
+
+  it("날짜는 브라우저 시간대 기준이다", () => {
+    zone.tz = "America/Los_Angeles";
+    expect(formatLastReviewed("2026-09-30T03:00:00Z")).toBe("2026-09-29");
   });
 });

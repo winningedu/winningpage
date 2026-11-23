@@ -24,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatDate } from "@/lib/time/format";
 import type { LoginSource, LoginStatsResponse } from "./api";
 import { formatByMemberType, SOURCE_LABEL } from "./labels";
 
@@ -87,8 +88,8 @@ export default function LoginStats({ data }: { data: LoginStatsResponse }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        {data.firstMeasuredOn
-          ? `로그인 실측은 ${data.firstMeasuredOn}부터입니다. 그 전은 활동 기록으로 추정합니다.`
+        {data.firstMeasuredAt
+          ? `로그인 실측은 ${formatDate(data.firstMeasuredAt)}부터입니다. 그 전은 활동 기록으로 추정합니다.`
           : "로그인 실측 기록이 아직 없어 활동 기록으로 추정합니다."}
       </p>
       <div className="grid grid-cols-2 gap-3">

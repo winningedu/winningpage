@@ -1,4 +1,5 @@
 import type { EntryProfile, EntryResponse } from "@/lib/selfeval/types";
+import { ymdIn } from "@/lib/time/day";
 import { routeForStep } from "../selfevalPaths";
 
 // 시작 화면 순수 로직. 화면은 이 결과만 읽어 버튼과 안내를 고른다.
@@ -33,20 +34,23 @@ export function deriveStartMode(
   return { mode: "new" };
 }
 
-/** iso 시각부터 now 까지 지난 달 수(내림). 해석할 수 없으면 null. */
-export function monthsSince(iso: string, now: Date): number | null {
-  const from = new Date(iso);
-  if (Number.isNaN(from.getTime())) return null;
-  let months =
-    (now.getFullYear() - from.getFullYear()) * 12 +
-    (now.getMonth() - from.getMonth());
-  if (now.getDate() < from.getDate()) months -= 1;
+/** iso 시각부터 now 까지 지난 달 수(내림, tz 달력 날짜 기준). 해석할 수 없으면 null. */
+export function monthsSince(iso: string, now: Date, tz: string): number | null {
+  if (Number.isNaN(new Date(iso).getTime())) return null;
+  const [fy = 0, fm = 0, fd = 0] = ymdIn(iso, tz).split("-").map(Number);
+  const [ny = 0, nm = 0, nd = 0] = ymdIn(now, tz).split("-").map(Number);
+  let months = (ny - fy) * 12 + (nm - fm);
+  if (nd < fd) months -= 1;
   return Math.max(0, months);
 }
 
 /** 성장설계 발행이 오래됐을 때 배너에 붙이는 문장. 개월 수를 모르면 null. */
-export function staleLabel(issuedAt: string, now: Date): string | null {
-  const months = monthsSince(issuedAt, now);
+export function staleLabel(
+  issuedAt: string,
+  now: Date,
+  tz: string,
+): string | null {
+  const months = monthsSince(issuedAt, now, tz);
   return months === null ? null : `발행일이 ${months}개월 지났어요`;
 }
 

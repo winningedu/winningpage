@@ -223,7 +223,7 @@ const dayOf = (date: unknown, diagnosedAt: IsoDate): number | null => {
   const time = Date.parse(`${date}T00:00:00Z`);
   if (
     Number.isNaN(time) ||
-    new Date(time).toISOString().slice(0, 10) !== date
+    new Date(time).toISOString().slice(0, 10) !== date // tz-literal-ok: round-trips a UTC-anchored date to check it exists, zone-free
   ) {
     return null;
   }

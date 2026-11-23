@@ -13,6 +13,8 @@ type Props = {
   tone?: "light" | "dark";
   /** 발행이 오래됐을 때 경과 안내와 다시 받기 링크를 붙인다. */
   stale?: boolean;
+  /** 회원 시간대. 경과 개월 계산(stale)에 쓴다. */
+  timeZone?: string;
   now?: Date;
 };
 
@@ -20,11 +22,13 @@ export default function GrowthDirectionBanner({
   banner,
   tone = "light",
   stale = false,
+  timeZone,
   now = new Date(),
 }: Props) {
   const dark = tone === "dark";
   const issued = formatKoreanDate(banner.issuedAt);
-  const staleText = stale ? staleLabel(banner.issuedAt, now) : null;
+  const staleText =
+    stale && timeZone ? staleLabel(banner.issuedAt, now, timeZone) : null;
   const chips = [
     banner.stageLabel,
     banner.currentSubtheme,

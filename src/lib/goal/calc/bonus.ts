@@ -22,6 +22,9 @@
 // 특히 calculateDailyBonus 는 원본에서 "클라이언트가 계산해 서버로 전송"하는 구조라(확률 조작 가능)
 // 추후 서버로 그대로 옮길 수 있어야 한다. 브라우저 API를 절대 끌어들이지 말 것.
 
+import { ymdIn } from "../../time/day.js";
+import { browserTimeZone } from "../../time/zone.js";
+
 // 성취도(자기평가) 배수. 원본 App.tsx:22-24.
 export const ACHIEVEMENT_MULTIPLIER = {
   full: 1.0,
@@ -104,32 +107,30 @@ export function calcStudentBonusRates(
   minSusi: number,
   minJungsi: number,
   nowInput = new Date(),
+  tz = browserTimeZone(),
 ): StudentBonusRates {
-  // 원본은 new Date() 결과를 그대로 setHours 로 자정 정규화했다. 주입받은 Date 를 그 자리에서
-  // 변형하면 호출자 객체가 오염되므로 복제본에만 setHours 를 건다(반환값은 원본과 동일).
-  const now = new Date(nowInput.getTime());
-  now.setHours(0, 0, 0, 0);
-
-  // NOTE(target-parity): 기준일 계산이 전부 실행 환경의 로컬 타임존을 탄다. 서버 TZ가 KST가
-  // 아니면 D-day 가 하루 어긋날 수 있고, DST 가 있는 타임존에서는 ceil 때문에 하루 밀린다.
-  const y = now.getFullYear();
-  let susiBase = new Date(y, SUSI_BASE_MONTH, SUSI_BASE_DATE);
-  let jungsiBase = new Date(y, JUNGSI_BASE_MONTH, JUNGSI_BASE_DATE);
+  // 기준일 계산은 tz 의 달력 날짜끼리 뺀다. 실행 환경의 로컬 시간대와 DST 에 영향받지 않는다.
+  // tz 를 생략하면 실행 환경의 시간대를 쓴다(서버는 UTC).
+  const todayYmd = ymdIn(nowInput, tz);
+  const y = Number(todayYmd.slice(0, 4));
+  const baseYmd = (year: number, month: number, date: number) =>
+    `${year}-${String(month + 1).padStart(2, "0")}-${String(date).padStart(2, "0")}`;
+  const daysBetween = (fromYmd: string, toYmd: string) =>
+    Math.round(
+      (Date.parse(`${toYmd}T00:00:00Z`) - Date.parse(`${fromYmd}T00:00:00Z`)) /
+        MS_PER_DAY,
+    );
 
   // 기준일 당일이면 이미 지난 것으로 보고 내년으로 넘긴다(<= 이므로 당일 포함).
-  if (susiBase <= now)
-    susiBase = new Date(y + 1, SUSI_BASE_MONTH, SUSI_BASE_DATE);
-  if (jungsiBase <= now)
-    jungsiBase = new Date(y + 1, JUNGSI_BASE_MONTH, JUNGSI_BASE_DATE);
+  let susiBase = baseYmd(y, SUSI_BASE_MONTH, SUSI_BASE_DATE);
+  let jungsiBase = baseYmd(y, JUNGSI_BASE_MONTH, JUNGSI_BASE_DATE);
+  if (susiBase <= todayYmd)
+    susiBase = baseYmd(y + 1, SUSI_BASE_MONTH, SUSI_BASE_DATE);
+  if (jungsiBase <= todayYmd)
+    jungsiBase = baseYmd(y + 1, JUNGSI_BASE_MONTH, JUNGSI_BASE_DATE);
 
-  const daysToSusi = Math.max(
-    1,
-    Math.ceil((susiBase.getTime() - now.getTime()) / MS_PER_DAY),
-  );
-  const daysToJungsi = Math.max(
-    1,
-    Math.ceil((jungsiBase.getTime() - now.getTime()) / MS_PER_DAY),
-  );
+  const daysToSusi = Math.max(1, daysBetween(todayYmd, susiBase));
+  const daysToJungsi = Math.max(1, daysBetween(todayYmd, jungsiBase));
 
   // 학년 오프셋 12단. 고3=0 기준으로 한 학년 아래마다 365일씩 더한다.
   // NOTE(target-parity): 원본이 if-else 사슬이다. 객체 맵 + ?? 0 으로 바꾸면 grade 가

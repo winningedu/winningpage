@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
+import { addDaysYmd, dayRangeUtc, ymdIn } from "@/lib/time/day";
+import { formatDateTime } from "@/lib/time/format";
+import { browserTimeZone } from "@/lib/time/zone";
 import RevenueDashboard, {
   type RevenuePending,
 } from "@/pages/admin/revenue/RevenueDashboard";
@@ -88,47 +91,16 @@ const REVENUE_EXPORT_COLUMNS = [
   { key: "revenue_status", label: "상태" },
 ];
 
-/**
- * KST 기준 'YYYY-MM-DD'. 브라우저 시간대와 무관하게 같은 값을 낸다.
- *
- * 왜 필요한가 — "오늘 매출"은 한국 날짜여야 한다. 로컬 시간대를 그냥 쓰면 해외에서
- * 접속한 관리자에게 다른 날짜가 보이고, UTC 를 쓰면 매일 09:00 이전이 전날로 잡힌다.
- * 'sv-SE' 로케일이 ISO 와 같은 YYYY-MM-DD 형식을 주는 성질을 이용한다.
- */
-function toKstYmd(date: Date): string {
-  return date.toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
-}
-
-/** KST 날짜(YYYY-MM-DD)의 0시 → timestamptz 비교에 쓸 ISO 문자열. */
-function kstDayStart(ymd: string): string {
-  return `${ymd}T00:00:00+09:00`;
-}
-
-/** KST 날짜의 끝(다음 날 0시). 상한은 '미만'으로 비교한다 — 23:59:59 로 자르면 그 사이 1초가 샌다. */
-function kstDayEnd(ymd: string): string {
-  const next = new Date(`${ymd}T00:00:00+09:00`);
-  next.setUTCDate(next.getUTCDate() + 1);
-  return next.toISOString();
-}
-
-/** KST 기준 이번 주 월요일의 YYYY-MM-DD. 주 시작은 월요일로 본다. */
-function kstWeekStartYmd(todayYmd: string): string {
-  const date = new Date(`${todayYmd}T00:00:00+09:00`);
+/** 달력 날짜 기준 이번 주 월요일의 YYYY-MM-DD. 주 시작은 월요일로 본다. */
+function weekStartYmdOf(todayYmd: string): string {
+  const [y = 0, m = 0, d = 0] = todayYmd.split("-").map(Number);
   // getUTCDay 는 0=일요일. 월요일을 0 으로 옮긴다.
-  const offset = (date.getUTCDay() + 6) % 7;
-  date.setUTCDate(date.getUTCDate() - offset);
-  return toKstYmd(date);
+  const offset = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
+  return addDaysYmd(todayYmd, -offset);
 }
 
 function formatMoney(value: number): string {
   return `${Math.round(value).toLocaleString("ko-KR")}원`;
-}
-
-function formatDateTime(value: string | null): string {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
 }
 
 /**
@@ -162,8 +134,10 @@ function sumNet(rows: RevenueRow[]): number {
 }
 
 export default function RevenueAdmin() {
-  const todayYmd = useMemo(() => toKstYmd(new Date()), []);
-  const weekStartYmd = useMemo(() => kstWeekStartYmd(todayYmd), [todayYmd]);
+  // 화면의 "오늘"과 기간은 보는 사람의 브라우저 시간대 기준이다.
+  const timeZone = useMemo(() => browserTimeZone(), []);
+  const todayYmd = useMemo(() => ymdIn(new Date(), timeZone), [timeZone]);
+  const weekStartYmd = useMemo(() => weekStartYmdOf(todayYmd), [todayYmd]);
   const monthStartYmd = useMemo(() => `${todayYmd.slice(0, 7)}-01`, [todayYmd]);
 
   const [serviceTabs, setServiceTabs] = useState<ServiceTab[]>([]);
@@ -220,9 +194,12 @@ export default function RevenueAdmin() {
     setError("");
 
     try {
+      // 상한은 '미만'으로 비교한다 — 다음 날 0시 직전의 1초도 새지 않는다.
+      const monthRange = dayRangeUtc(monthStartYmd, todayYmd, timeZone);
+      const periodRange = dayRangeUtc(fromYmd, toYmd, timeZone);
       const [month, period] = await Promise.all([
-        fetchRange(kstDayStart(monthStartYmd), kstDayEnd(todayYmd)),
-        fetchRange(kstDayStart(fromYmd), kstDayEnd(toYmd)),
+        fetchRange(monthRange.from, monthRange.toExclusive),
+        fetchRange(periodRange.from, periodRange.toExclusive),
       ]);
       setMonthRows(month);
       setPeriodRows(period);
@@ -297,21 +274,20 @@ export default function RevenueAdmin() {
     () =>
       sumNet(
         filteredMonth.filter(
-          (row) => row.paid_at && toKstYmd(new Date(row.paid_at)) === todayYmd,
+          (row) => row.paid_at && ymdIn(row.paid_at, timeZone) === todayYmd,
         ),
       ),
-    [filteredMonth, todayYmd],
+    [filteredMonth, todayYmd, timeZone],
   );
 
   const weekTotal = useMemo(
     () =>
       sumNet(
         filteredMonth.filter(
-          (row) =>
-            row.paid_at && toKstYmd(new Date(row.paid_at)) >= weekStartYmd,
+          (row) => row.paid_at && ymdIn(row.paid_at, timeZone) >= weekStartYmd,
         ),
       ),
-    [filteredMonth, weekStartYmd],
+    [filteredMonth, weekStartYmd, timeZone],
   );
 
   const monthTotal = useMemo(() => sumNet(filteredMonth), [filteredMonth]);
@@ -439,7 +415,7 @@ export default function RevenueAdmin() {
         <RevenueDashboard
           rows={filteredPeriod}
           pending={pending}
-          toKstYmd={toKstYmd}
+          timeZone={timeZone}
           periodLabel={`${fromYmd} ~ ${toYmd}`}
         />
       )}
@@ -496,7 +472,9 @@ export default function RevenueAdmin() {
                 filteredPeriod.map((row) => (
                   <TableRow key={row.order_item_id}>
                     <TableCell className="px-4 py-3">
-                      {formatDateTime(row.paid_at)}
+                      {row.paid_at
+                        ? formatDateTime(row.paid_at, timeZone)
+                        : "-"}
                     </TableCell>
                     <TableCell className="whitespace-normal px-4 py-3 font-medium">
                       {row.payer_name || row.payer_email || "-"}

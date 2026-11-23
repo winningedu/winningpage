@@ -8,11 +8,8 @@
 // 환경변수 PUBLIC_SITE_URL 로 도메인을 받는다. 상수 폴백은 두지 않고, 값이 없으면
 // 잘못된 도메인 링크를 보내지 않도록 발송을 건너뛰고 console.warn 을 남긴다.
 
-import {
-  kstNow,
-  resolveParentRecipients,
-  toYmd,
-} from "../../goal/reportNotify.js";
+import { ymdIn } from "../../../../src/lib/time/day.js";
+import { resolveParentRecipients } from "../../goal/reportNotify.js";
 import { sendAndLog } from "../../messaging/alimtalkSend.js";
 import { getEnv } from "../../supabaseAdmin.js";
 import { type Db, must } from "../intake/collectDb.js";
@@ -22,9 +19,9 @@ export type GrowthNotifyOutcome =
   | { sent: false; reason: "no_parent" }
   | { sent: false; reason: "no_site_url" };
 
-/** ISO 시각을 KST 기준 'YYYY.MM.DD'. */
-export function formatIssuedDate(iso: string): string {
-  return toYmd(kstNow(new Date(iso))).replace(/-/g, ".");
+/** ISO 시각을 수신자 시간대 기준 'YYYY.MM.DD'. */
+export function formatIssuedDate(iso: string, timeZone: string): string {
+  return ymdIn(iso, timeZone).replace(/-/g, ".");
 }
 
 export function buildGrowthDoneVariables(input: {
@@ -33,10 +30,11 @@ export function buildGrowthDoneVariables(input: {
   studentId: string;
   reportId: string;
   siteUrl: string;
+  timeZone: string;
 }): Record<string, string> {
   return {
     학생이름: input.studentName,
-    발행일: formatIssuedDate(input.issuedAt),
+    발행일: formatIssuedDate(input.issuedAt, input.timeZone),
     링크: `${input.siteUrl}/mypage/children/${input.studentId}/growth/${input.reportId}`,
   };
 }
@@ -67,6 +65,17 @@ export async function notifyGrowthReportDone(
   ) as { issued_at: string | null } | null;
   if (!row?.issued_at) throw new Error("완료된 회차의 발행일을 찾지 못했어요.");
 
+  // 발행일 문구는 리포트 주인인 학생의 시간대 기준이다.
+  const student = must(
+    await db
+      .from("profiles")
+      .select("time_zone")
+      .eq("id", studentId)
+      .maybeSingle(),
+    "profiles 조회 실패",
+  ) as { time_zone: string } | null;
+  if (!student) throw new Error("학생 프로필을 찾지 못했어요.");
+
   for (const r of recipients) {
     await sendAndLog({
       supabaseAdmin: db,
@@ -79,6 +88,7 @@ export async function notifyGrowthReportDone(
         studentId,
         reportId,
         siteUrl,
+        timeZone: student.time_zone,
       }),
       // 학부모가 둘이면 같은 키로 둘째가 중복 처리돼 빠지므로 학부모별로 가른다.
       dedupeKey: `growth-report-done:${reportId}:${r.parentProfileId}`,

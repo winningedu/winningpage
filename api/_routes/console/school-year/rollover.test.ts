@@ -23,6 +23,7 @@ const state = vi.hoisted(() => ({
   } as { data: unknown; error: unknown },
   logError: null as unknown,
   orgType: "학원",
+  timeZone: "Asia/Seoul",
   rpcCalls: [] as { name: string; args: Record<string, unknown> }[],
   inserts: [] as { table: string; row: Row }[],
 }));
@@ -53,6 +54,7 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
               login_id: "SM123456",
               school_year: 2026,
               org_type: state.orgType,
+              time_zone: state.timeZone,
               is_catch_all: false,
             },
             error: null,
@@ -135,11 +137,24 @@ beforeEach(() => {
   };
   state.logError = null;
   state.orgType = "학원";
+  state.timeZone = "Asia/Seoul";
   state.rpcCalls = [];
   state.inserts = [];
 });
 
 describe("POST /api/console/school-year/rollover", () => {
+  test("the rollover mode follows the tenant zone: at 2027-02-28T16:00Z Seoul rolls over to 2027 while Los Angeles is still mid-year 2026", async () => {
+    vi.setSystemTime(new Date("2027-02-28T16:00:00Z"));
+    expect((await post({ toYear: 2027 })).status).toBe(200);
+
+    state.timeZone = "America/Los_Angeles";
+    state.rpcCalls = [];
+    expect((await post({ toYear: 2027 })).status).toBe(400);
+    expect(rolloverCall()).toBeUndefined();
+    expect((await post({ toYear: 2026 })).status).toBe(200);
+    expect(midyearCall()).toBeDefined();
+  });
+
   test("rolls over the actor's tenant with snake_case rows and logs the counts", async () => {
     const result = await post({
       toYear: 2027,

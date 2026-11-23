@@ -4,11 +4,11 @@
 // 규칙 기반 폴백 경로로 돌린다.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { kstYMD } from "../../../src/lib/goal/calc/index.js";
 
 const fetchLatestAdviceCacheMock = vi.fn();
 const upsertAdviceCacheMock = vi.fn().mockResolvedValue(undefined);
 const callTextMock = vi.fn();
+const getStudentTimeZoneMock = vi.fn();
 
 vi.mock("../../_lib/goal/repo.js", async (importOriginal) => {
   const actual =
@@ -21,6 +21,7 @@ vi.mock("../../_lib/goal/repo.js", async (importOriginal) => {
       profileId: "profile-1",
     }),
     narrowGoalSession: (session: unknown) => session,
+    getStudentTimeZone: (...args: unknown[]) => getStudentTimeZoneMock(...args),
     fetchStudentRow: async () => ({
       onboarded_at: "2026-08-01T00:00:00Z",
       status: "active",
@@ -67,27 +68,38 @@ describe("GET /api/goal/advice", () => {
     fetchLatestAdviceCacheMock.mockReset();
     upsertAdviceCacheMock.mockClear();
     callTextMock.mockReset().mockRejectedValue(new Error("gemini down"));
+    getStudentTimeZoneMock.mockReset().mockResolvedValue("Asia/Seoul");
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
-  it("캐시가 intake와 daily 모두 없으면 Gemini 실패 시 규칙 폴백으로 intake를 즉석 생성해 저장한다", async () => {
-    fetchLatestAdviceCacheMock.mockResolvedValue(null);
+  it.each([
+    ["Asia/Seoul", "2026-11-23"],
+    ["America/Los_Angeles", "2026-11-22"],
+  ])(
+    "캐시가 intake와 daily 모두 없으면 Gemini 실패 시 규칙 폴백으로 intake를 즉석 생성해 저장한다(%s)",
+    async (timeZone, localDay) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-22T15:30:00Z"));
+      getStudentTimeZoneMock.mockResolvedValue(timeZone);
+      fetchLatestAdviceCacheMock.mockResolvedValue(null);
 
-    const body = await callGet();
+      const body = await callGet();
+      vi.useRealTimers();
 
-    expect(upsertAdviceCacheMock).toHaveBeenCalledTimes(1);
-    expect(upsertAdviceCacheMock.mock.calls[0]?.[1]).toMatchObject({
-      profile_id: "profile-1",
-      source: "intake",
-      generated_for: kstYMD(new Date()),
-      origin: "rule",
-    });
-    expect(body.ok).toBe(true);
-    expect(body.intake).not.toBeNull();
-    expect(body.daily).toBeNull();
-    expect(body.intakeFor).toBe(kstYMD(new Date()));
-    expect(body.dailyFor).toBeNull();
-  });
+      expect(upsertAdviceCacheMock).toHaveBeenCalledTimes(1);
+      expect(upsertAdviceCacheMock.mock.calls[0]?.[1]).toMatchObject({
+        profile_id: "profile-1",
+        source: "intake",
+        generated_for: localDay,
+        origin: "rule",
+      });
+      expect(body.ok).toBe(true);
+      expect(body.intake).not.toBeNull();
+      expect(body.daily).toBeNull();
+      expect(body.intakeFor).toBe(localDay);
+      expect(body.dailyFor).toBeNull();
+    },
+  );
 
   it("intake 행만 있어도 생성과 저장 없이 그 행의 payload를 그대로 돌려준다", async () => {
     const payload = { todayAdvice: "저장된 조언" };

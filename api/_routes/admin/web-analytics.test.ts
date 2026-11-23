@@ -27,8 +27,19 @@ const ENV = {
   VERCEL_ANALYTICS_TEAM_ID: "team_site",
 };
 
-const get = (query: Record<string, string>) =>
-  callHandler(handler, undefined, "GET", query);
+const get = (
+  query: Record<string, string>,
+  zone: string | null = "Asia/Seoul",
+) =>
+  callHandler(
+    (req, res) => {
+      if (zone) req.headers["x-time-zone"] = zone;
+      return handler(req, res);
+    },
+    undefined,
+    "GET",
+    query,
+  );
 
 const RANGE = { from: "2026-11-01", to: "2026-11-07" };
 
@@ -59,8 +70,9 @@ function ok(data: unknown) {
 // 경로와 by 값으로 가짜 응답을 고른다.
 function vercelFake(url: URL): Response {
   const by = url.searchParams.getAll("by");
-  if (url.pathname.endsWith("/visits/count")) {
-    return ok({ pageviews: 1200, visitors: 340 });
+  // 실제 응답: visits/count 는 날짜 단위로 내림해 합계가 틀려 쓰지 않고, environment 로 나눈 집계를 합산한다.
+  if (url.pathname.endsWith("/visits/aggregate") && by[0] === "environment") {
+    return ok([{ environment: "production", visitors: 340, pageviews: 1200 }]);
   }
   if (url.pathname.endsWith("/visits/aggregate")) {
     return ok([
@@ -74,18 +86,34 @@ function vercelFake(url: URL): Response {
       { eventName: "signup_complete", count: 4, visitors: 4 },
     ]);
   }
+  if (by[1] === "eventData/location") {
+    return ok([
+      {
+        eventName: "kakao_inquiry_click",
+        "eventData/location": "footer",
+        visitors: 1,
+        count: 1,
+      },
+    ]);
+  }
   if (by[1] === "eventData/service") {
-    return ok([{ eventName: "report_export", eventData: "growth", count: 7 }]);
+    return ok([
+      { eventName: "report_export", "eventData/service": "growth", count: 7 },
+    ]);
   }
   if (by[1] === "eventData/method") {
     return ok([
-      { eventName: "report_export", eventData: "pdf", count: 6 },
-      { eventName: "report_export", eventData: "copy", count: 3 },
+      { eventName: "report_export", "eventData/method": "pdf", count: 6 },
+      { eventName: "report_export", "eventData/method": "copy", count: 3 },
     ]);
   }
   if (by[1] === "eventData/member_type") {
     return ok([
-      { eventName: "signup_complete", eventData: "student", count: 4 },
+      {
+        eventName: "signup_complete",
+        "eventData/member_type": "student",
+        count: 4,
+      },
     ]);
   }
   return ok([]);
@@ -221,6 +249,17 @@ describe("GET /api/admin/web-analytics", () => {
     expect(JSON.stringify(r.body)).not.toContain(TOKEN);
   });
 
+  test("속성 나눔 값은 실제 응답의 eventData/<속성> 키에서 읽는다", async () => {
+    const r = await get(RANGE);
+
+    const kakao = (r.body as Body).events.find(
+      (e) => e.name === "kakao_inquiry_click",
+    );
+    expect(kakao?.breakdowns).toEqual([
+      { property: "location", values: [{ value: "footer", count: 1 }] },
+    ]);
+  });
+
   test("Vercel 에는 Bearer 토큰, 프로젝트, 팀, 한국 날짜 경계를 보낸다", async () => {
     await get(RANGE);
 
@@ -253,6 +292,85 @@ describe("GET /api/admin/web-analytics", () => {
     expect(events?.searchParams.get("filter")).toBe(
       "eventName in ('signup_complete','service_start','diagnosis_complete','checkout_start','payment_complete','consult_apply','kakao_inquiry_click','report_export','paywall_cta_click','ai_regenerate')",
     );
+  });
+
+  test("서울 기간 2026-11-01..2026-11-30 은 since 2026-10-31T15:00:00Z until 2026-11-30T14:59:59.999Z 로 묻는다", async () => {
+    await get({ from: "2026-11-01", to: "2026-11-30" });
+
+    for (const call of fetchMock.mock.calls) {
+      const url = new URL(String(call[0]));
+      expect(url.searchParams.get("since")).toBe(
+        String(Date.parse("2026-10-31T15:00:00Z")),
+      );
+      expect(url.searchParams.get("until")).toBe(
+        String(Date.parse("2026-11-30T15:00:00Z") - 1),
+      );
+    }
+  });
+
+  test("로스앤젤레스 기간은 같은 날짜라도 그 시간대의 하루 경계로 묻는다", async () => {
+    await get({ from: "2026-11-01", to: "2026-11-30" }, "America/Los_Angeles");
+
+    for (const call of fetchMock.mock.calls) {
+      const url = new URL(String(call[0]));
+      // 11월 1일은 PDT(-07:00), 12월 1일은 PST(-08:00)
+      expect(url.searchParams.get("since")).toBe(
+        String(Date.parse("2026-11-01T07:00:00Z")),
+      );
+      expect(url.searchParams.get("until")).toBe(
+        String(Date.parse("2026-12-01T08:00:00Z") - 1),
+      );
+    }
+  });
+
+  test("X-Time-Zone 헤더가 없으면 400 TIME_ZONE_REQUIRED 이고 Vercel 을 부르지 않는다", async () => {
+    const r = await get(RANGE, null);
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "TIME_ZONE_REQUIRED" } });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("합계는 visits/count 대신 visits/aggregate by=environment 를 같은 기간으로 부른다", async () => {
+    await get(RANGE);
+
+    const urls = fetchMock.mock.calls.map((call) => new URL(String(call[0])));
+    expect(urls.some((u) => u.pathname.endsWith("/visits/count"))).toBe(false);
+    const totals = urls.find(
+      (u) =>
+        u.pathname.endsWith("/visits/aggregate") &&
+        u.searchParams.getAll("by").join() === "environment",
+    );
+    expect(totals?.searchParams.get("since")).toBe(
+      String(Date.parse("2026-11-01T00:00:00+09:00")),
+    );
+    expect(totals?.searchParams.get("until")).toBe(
+      String(Date.parse("2026-11-08T00:00:00+09:00") - 1),
+    );
+  });
+
+  test("합계 행이 없으면 0 이고 environment 행이 여럿이면 더한다", async () => {
+    vi.stubGlobal("fetch", async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.searchParams.get("by") === "environment") {
+        return ok(
+          url.searchParams.get("since") ===
+            String(Date.parse("2026-11-02T00:00:00+09:00"))
+            ? []
+            : [
+                { environment: "production", visitors: 1, pageviews: 2 },
+                { environment: "preview", visitors: 3, pageviews: 4 },
+              ],
+        );
+      }
+      return ok([]);
+    });
+
+    const sum = await get(RANGE);
+    const empty = await get({ from: "2026-11-02", to: "2026-11-07" });
+
+    expect((sum.body as Body).totals).toEqual({ pageviews: 6, visitors: 4 });
+    expect((empty.body as Body).totals).toEqual({ pageviews: 0, visitors: 0 });
   });
 
   test("같은 사이트와 기간은 짧게 캐시해 Vercel 을 다시 부르지 않는다", async () => {

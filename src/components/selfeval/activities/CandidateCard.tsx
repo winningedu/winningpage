@@ -31,6 +31,8 @@ type Props = {
   disabled: boolean;
   onToggle: () => void;
   linkStatus: LinkStatus;
+  /** 회원 시간대. 카드 날짜 표기 기준. */
+  timeZone: string;
   /** 고른 보조 기록이 핵심과 이어지지 않았다. children 으로 설명 입력을 받는다. */
   unlinked: boolean;
   children?: React.ReactNode;
@@ -46,13 +48,14 @@ export default function CandidateCard({
   onToggle,
   linkStatus,
   unlinked,
+  timeZone,
   children,
 }: Props) {
   const { activity, fit, unavailableReason, alreadyUsed } = row;
   const unavailable = unavailableReason !== null;
   const title = activity.topic;
   const summary = summarizeResult(activity.result, SUMMARY_MAX);
-  const date = formatDotDate(activity.createdAt);
+  const date = formatDotDate(activity.createdAt, timeZone);
   const meta = [sourceLabel(activity.sourceProgram), date]
     .filter((v): v is string => v !== null)
     .join(", ");

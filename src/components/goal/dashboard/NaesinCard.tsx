@@ -18,6 +18,8 @@ type NaesinCardData = {
 
 type NaesinCardProps = {
   data: NaesinCardData;
+  /** 학생 시간대(GET /api/goal/student timeZone). */
+  timeZone: string;
 };
 
 type SubmitOutcome = { ok: boolean; detail?: string };
@@ -30,7 +32,7 @@ type SubmitOutcome = { ok: boolean; detail?: string };
 // 전환하지 않는다) — 4022:5403 시안이 모의고사 카드만 변형하고 내신 카드는 그대로 두는
 // 비대칭 그대로다(작업 지시 "내신 카드는 조언 유지"). 따라서 이 카드는 회차 기록을 따로
 // 조회하지 않는다 — 저장 결과를 반영할 화면 요소가 없다(모달만 닫힌다).
-export default function NaesinCard({ data }: NaesinCardProps) {
+export default function NaesinCard({ data, timeZone }: NaesinCardProps) {
   const [modalOpen, setModalOpen] = useState(false);
 
   async function handleSubmit(entry: {
@@ -92,6 +94,7 @@ export default function NaesinCard({ data }: NaesinCardProps) {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
+        timeZone={timeZone}
       />
     </GoalCard>
   );

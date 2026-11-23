@@ -141,11 +141,11 @@ export default defineHandler({
       string,
       unknown
     >;
-    const { schoolYear, orgType } = await loadTenant(
+    const { schoolYear, timeZone, orgType } = await loadTenant(
       ctx.supabaseAdmin,
       actor.tenantId,
     );
-    const { mode, toYear: expectedYear } = rosterModeOf(schoolYear);
+    const { mode, toYear: expectedYear } = rosterModeOf(schoolYear, timeZone);
     const parsedRows = parseRows(rows, mode === "midyear");
     const pending = parsePending(pendingRows);
     // 다학년 학급은 학원만 쓴다(DB 도 학교의 학년 없는 학급을 막는다).

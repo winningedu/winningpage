@@ -16,6 +16,7 @@ import {
 import { getSubjectLabel } from "@/components/goal/subjectTokens";
 import { site } from "@/config/site";
 import { useAuth } from "@/context/AuthProvider";
+import { useStudentTimeZone } from "@/hooks/useStudentTimeZone";
 import type {
   GoalRecordCooldown,
   GoalRecordSummary,
@@ -53,7 +54,14 @@ type DailyRecordBanner = {
 
 const HIGHLIGHT_AUTO_DISMISS_MS = 2000;
 
+// 학생 시간대가 오기 전에는 오늘을 계산하지 않는다.
 export default function DailyRecord() {
+  const timeZone = useStudentTimeZone();
+  if (!timeZone) return null;
+  return <DailyRecordBody timeZone={timeZone} />;
+}
+
+function DailyRecordBody({ timeZone }: { timeZone: string }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { userId } = useAuth();
@@ -303,7 +311,7 @@ export default function DailyRecord() {
         setBanner({
           tone: "info",
           message: result.unlocksAt
-            ? `이미 오늘 기록을 제출했어요. 다시 기록 가능: ${formatCooldownUnlockLabel(result.unlocksAt)}`
+            ? `이미 오늘 기록을 제출했어요. 다시 기록 가능: ${formatCooldownUnlockLabel(result.unlocksAt, timeZone)}`
             : "이미 오늘 기록을 제출했어요. 잠시 후 다시 시도해 주세요.",
         });
         break;
@@ -319,7 +327,7 @@ export default function DailyRecord() {
     <>
       <GoalPageHeader
         title="오늘의 공부 기록"
-        meta={formatTodayDateMeta()}
+        meta={formatTodayDateMeta(new Date(), timeZone)}
         subcopy="하루를 마감하며 기록하면 달성률과 리포트에 반영됩니다."
       />
       <div className="max-w-goal-content flex flex-col gap-5 px-4 pb-24 md:px-12">
@@ -331,6 +339,7 @@ export default function DailyRecord() {
             cooldown={cooldown}
             summary={summary}
             tomorrowTargets={tomorrowTargets}
+            timeZone={timeZone}
           />
         ) : (
           <>

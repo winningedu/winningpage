@@ -5,7 +5,7 @@
 // QA로 확인한다(다른 goal 라우트도 같은 컨벤션 — 핸들러 단위 테스트 파일이 없다).
 
 import { describe, expect, test } from "vitest";
-import { parseStudentIdParam } from "./report.js";
+import { parseStudentIdParam, snapshotBounds } from "./report.js";
 
 describe("parseStudentIdParam — 학부모 자녀 리포트 열람용 studentId 쿼리 파싱", () => {
   test("문자열 값이면 그대로 돌려준다", () => {
@@ -23,5 +23,28 @@ describe("parseStudentIdParam — 학부모 자녀 리포트 열람용 studentId
 
   test("중복 쿼리 키로 배열이 오면 방어적으로 무시한다", () => {
     expect(parseStudentIdParam({ studentId: ["a", "b"] })).toBeUndefined();
+  });
+});
+
+describe("snapshotBounds, 리포트 확률 스냅샷 경계", () => {
+  test("서울 학생은 [현지 시작, 다음 현지 시작) 이다", () => {
+    expect(
+      snapshotBounds({ start: "2026-11-16", end: "2026-11-22" }, "Asia/Seoul"),
+    ).toEqual({
+      startIso: "2026-11-15T15:00:00.000Z",
+      endExclusiveIso: "2026-11-22T15:00:00.000Z",
+    });
+  });
+
+  test("LA 학생은 같은 기간이 8시간 대 뒤로 밀린다", () => {
+    expect(
+      snapshotBounds(
+        { start: "2026-11-16", end: "2026-11-22" },
+        "America/Los_Angeles",
+      ),
+    ).toEqual({
+      startIso: "2026-11-16T08:00:00.000Z",
+      endExclusiveIso: "2026-11-23T08:00:00.000Z",
+    });
   });
 });

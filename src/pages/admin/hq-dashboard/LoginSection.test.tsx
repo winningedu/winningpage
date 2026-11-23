@@ -10,6 +10,13 @@ import {
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+// 브라우저 시간대를 테스트마다 바꾼다.
+const zone = vi.hoisted(() => ({ current: "Asia/Seoul" }));
+vi.mock("@/lib/time/zone", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/time/zone")>()),
+  browserTimeZone: () => zone.current,
+}));
+
 vi.mock("./api", () => ({
   fetchLoginStats: vi.fn(),
   fetchLoginLog: vi.fn(),
@@ -27,7 +34,7 @@ function stats(over: Partial<LoginStatsResponse> = {}): LoginStatsResponse {
     grain: "day",
     mauMode: "calendar",
     includeInternal: false,
-    firstMeasuredOn: "2026-11-23",
+    firstMeasuredAt: "2026-11-22T15:15:00.000Z",
     series: [
       {
         start: "2026-11-21",
@@ -71,7 +78,7 @@ function stats(over: Partial<LoginStatsResponse> = {}): LoginStatsResponse {
 
 const ITEM: LoginLogResponse["items"][number] = {
   profileId: "p-1",
-  kstDate: "2026-11-23",
+  loginDate: "2026-11-23",
   firstSeenAt: "2026-11-23T00:10:00Z",
   name: "김학생",
   memberType: "student",
@@ -112,6 +119,7 @@ const lastSearch = (fn: unknown) => {
 };
 
 beforeEach(() => {
+  zone.current = "Asia/Seoul";
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-23T03:00:00Z"));
   vi.mocked(api.fetchLoginStats).mockResolvedValue(stats());
@@ -124,7 +132,7 @@ afterEach(() => {
 });
 
 describe("LoginSection", () => {
-  test("기본은 이번 달 1일부터 오늘(KST)을 일 단위, 달력 기준으로 부른다", async () => {
+  test("기본은 이번 달 1일부터 오늘(브라우저 시간대)을 일 단위, 달력 기준으로 부른다", async () => {
     renderPage();
 
     expect(
@@ -136,6 +144,19 @@ describe("LoginSection", () => {
     );
     expect(lastSearch(api.fetchLoginLog)).toBe(
       "view=log&from=2026-11-01&to=2026-11-23&page=1&includeInternal=0",
+    );
+  });
+
+  test("오늘은 브라우저 시간대로 정한다(로스앤젤레스는 아직 11-22)", async () => {
+    zone.current = "America/Los_Angeles";
+    renderPage();
+
+    await waitFor(() => expect(api.fetchLoginStats).toHaveBeenCalled());
+    expect(lastSearch(api.fetchLoginStats)).toContain(
+      "from=2026-11-01&to=2026-11-22",
+    );
+    expect(lastSearch(api.fetchLoginLog)).toContain(
+      "from=2026-11-01&to=2026-11-22",
     );
   });
 
@@ -187,9 +208,20 @@ describe("LoginSection", () => {
     ).toBeInTheDocument();
   });
 
+  test("실측 시작일은 브라우저 시간대의 날짜로 보인다(UTC 는 11-22)", async () => {
+    zone.current = "UTC";
+    renderPage();
+
+    expect(
+      await screen.findByText(
+        "로그인 실측은 2026-11-22부터입니다. 그 전은 활동 기록으로 추정합니다.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   test("실측 기록이 아직 없으면 전부 추정이라고 알려 준다", async () => {
     vi.mocked(api.fetchLoginStats).mockResolvedValue(
-      stats({ firstMeasuredOn: null }),
+      stats({ firstMeasuredAt: null }),
     );
     renderPage();
 
@@ -268,17 +300,26 @@ describe("LoginSection", () => {
     );
   });
 
-  test("로그인 기록 표는 날짜, 처음 접속 시각(KST), 이름, 유형, 기관과 전체 건수를 보여 준다", async () => {
+  test("로그인 기록 표는 날짜, 처음 접속 시각(브라우저 시간대), 이름, 유형, 기관과 전체 건수를 보여 준다", async () => {
     renderPage();
 
     const table = await screen.findByRole("table", { name: "로그인 기록" });
     const row = within(table).getAllByRole("row")[1] as HTMLElement;
     expect(within(row).getByText("2026-11-23")).toBeInTheDocument();
-    expect(within(row).getByText("09:10")).toBeInTheDocument();
+    expect(within(row).getByText("2026-11-23 09:10")).toBeInTheDocument();
     expect(within(row).getByText("김학생")).toBeInTheDocument();
     expect(within(row).getByText("학생")).toBeInTheDocument();
     expect(within(row).getByText("한빛고")).toBeInTheDocument();
     expect(screen.getByText("전체 120건")).toBeInTheDocument();
+  });
+
+  test("처음 접속은 순간을 브라우저 시간대로 보인다(UTC 는 00:10)", async () => {
+    zone.current = "UTC";
+    renderPage();
+
+    const table = await screen.findByRole("table", { name: "로그인 기록" });
+    const row = within(table).getAllByRole("row")[1] as HTMLElement;
+    expect(within(row).getByText("2026-11-23 00:10")).toBeInTheDocument();
   });
 
   test("이름 권한이 없으면 이름 칸을 가리고 안내한다", async () => {

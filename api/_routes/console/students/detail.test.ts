@@ -162,7 +162,7 @@ describe("GET /api/console/students/detail", () => {
     expect(r.body).toMatchObject({
       studentId: "s1",
       name: "김하늘",
-      joinedAt: "2026-03-02",
+      joinedAt: "2026-03-02T01:00:00.000Z",
       enrollment: {
         grade: "고2",
         groupName: null,

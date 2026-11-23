@@ -9,6 +9,10 @@ vi.mock("@/lib/supabase", () => ({
   supabase: { auth: { getSession: mocks.getSession } },
 }));
 vi.mock("../useIdleLogout", () => ({ useIdleLogout: vi.fn() }));
+vi.mock("@/lib/time/zone", async (orig) => ({
+  ...(await orig<typeof import("@/lib/time/zone")>()),
+  browserTimeZone: () => "Asia/Seoul",
+}));
 
 import ConsoleGate from "../ConsoleGate";
 import ConsoleLayout from "../ConsoleLayout";

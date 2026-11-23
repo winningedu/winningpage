@@ -1,5 +1,11 @@
 // 관리자 AI 텔레메트리 조회(GET /api/admin/ai-telemetry)의 쿼리 파싱 규칙.
-// 날짜는 KST(+09:00 고정) 달력 날짜로 받고, 조회 구간은 [from, to) 로 바꾼다.
+// 날짜는 조회자 시간대의 달력 날짜로 받고, 조회 구간은 [from, to) 로 바꾼다.
+
+import {
+  addDaysYmd,
+  dayRangeUtc,
+  ymdIn,
+} from "../../../../../src/lib/time/day.js";
 
 export const AI_SERVICES = [
   "performance",
@@ -14,7 +20,6 @@ export const AI_VIEWS = ["summary", "calls", "citations", "pricing"] as const;
 export type AiView = (typeof AI_VIEWS)[number];
 
 const DAY_MS = 86_400_000;
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DEFAULT_DAYS = 30;
 const MAX_DAYS = 366;
 const DEFAULT_PAGE_SIZE = 20;
@@ -28,46 +33,42 @@ function first(v: unknown): string | undefined {
   return typeof x === "string" ? x : undefined;
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
+// 'YYYY-MM-DD' 형식이고 달력에 있는 날짜인지. 시간대와 무관한 달력 검사.
+function isCalendarDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  return addDaysYmd(s, 0) === s;
 }
 
-function kstDateString(d: Date): string {
-  const k = new Date(d.getTime() + KST_OFFSET_MS);
-  return `${k.getUTCFullYear()}-${pad(k.getUTCMonth() + 1)}-${pad(k.getUTCDate())}`;
-}
-
-// 'YYYY-MM-DD' 를 그 날짜의 KST 0시(Date)로 바꾼다. 달력에 없는 날짜는 null.
-function kstMidnight(s: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  const d = new Date(`${s}T00:00:00+09:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  return kstDateString(d) === s ? d : null;
+function dayNumber(ymd: string): number {
+  return Math.round(Date.parse(`${ymd}T00:00:00Z`) / DAY_MS);
 }
 
 export function parseRange(
   query: RawQuery,
   now: Date,
+  tz: string,
 ): { ok: true; from: Date; to: Date } | { ok: false; reason: string } {
-  const today = kstMidnight(kstDateString(now));
-  if (!today) return { ok: false, reason: "현재 시각을 해석하지 못했습니다." };
-
   const toRaw = first(query.to);
   const fromRaw = first(query.from);
-  const toDay = toRaw ? kstMidnight(toRaw) : today;
-  if (!toDay) return { ok: false, reason: "to 가 올바르지 않습니다." };
-  const fromDay = fromRaw
-    ? kstMidnight(fromRaw)
-    : new Date(toDay.getTime() - (DEFAULT_DAYS - 1) * DAY_MS);
-  if (!fromDay) return { ok: false, reason: "from 이 올바르지 않습니다." };
+  const toDay = toRaw || ymdIn(now, tz);
+  if (!isCalendarDate(toDay))
+    return { ok: false, reason: "to 가 올바르지 않습니다." };
+  const fromDay = fromRaw || addDaysYmd(toDay, -(DEFAULT_DAYS - 1));
+  if (!isCalendarDate(fromDay))
+    return { ok: false, reason: "from 이 올바르지 않습니다." };
 
-  if (fromDay.getTime() > toDay.getTime())
+  if (fromDay > toDay)
     return { ok: false, reason: "from 은 to 보다 뒤일 수 없습니다." };
-  const days = Math.round((toDay.getTime() - fromDay.getTime()) / DAY_MS) + 1;
+  const days = dayNumber(toDay) - dayNumber(fromDay) + 1;
   if (days > MAX_DAYS)
     return { ok: false, reason: `조회 기간은 ${MAX_DAYS}일 이하여야 합니다.` };
 
-  return { ok: true, from: fromDay, to: new Date(toDay.getTime() + DAY_MS) };
+  const range = dayRangeUtc(fromDay, toDay, tz);
+  return {
+    ok: true,
+    from: new Date(range.from),
+    to: new Date(range.toExclusive),
+  };
 }
 
 export function parseServiceFilter(
@@ -123,8 +124,9 @@ function oneOf<T extends string>(
 export function parseCallsQuery(
   query: RawQuery,
   now: Date,
+  tz: string,
 ): { ok: true; query: CallsQuery } | { ok: false; reason: string } {
-  const range = parseRange(query, now);
+  const range = parseRange(query, now, tz);
   if (!range.ok) return range;
   const service = parseServiceFilter(query.service);
   if (!service.ok) return service;

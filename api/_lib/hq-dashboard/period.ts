@@ -1,7 +1,7 @@
-// 본사 대시보드 통계 라우트의 기간 쿼리. 날짜는 KST 달력 날짜(YYYY-MM-DD)이고 양 끝을 포함한다.
-// 기본 기간은 이번 달 1일부터 오늘(KST). 종료일은 오늘을 넘을 수 없고 기간은 최대 731일(로그인 기록 보관 2년).
+// 본사 대시보드 통계 라우트의 기간 쿼리. 날짜는 보는 사람 시간대의 달력 날짜(YYYY-MM-DD)이고 양 끝을 포함한다.
+// 기본 기간은 이번 달 1일부터 오늘(보는 사람 시간대). 종료일은 오늘을 넘을 수 없고 기간은 최대 731일(로그인 기록 보관 2년).
 
-import { kstYMD } from "../../../src/lib/goal/calc/index.js";
+import { ymdIn } from "../../../src/lib/time/day.js";
 
 const MAX_SPAN_DAYS = 731;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -16,7 +16,7 @@ function isDate(value: string): boolean {
   const parsed = new Date(`${value}T00:00:00Z`);
   return (
     !Number.isNaN(parsed.getTime()) &&
-    parsed.toISOString().slice(0, 10) === value
+    parsed.toISOString().slice(0, 10) === value // tz-literal-ok: Date.UTC 로 만든 날짜를 되돌려 YYYY-MM-DD 실존 여부만 본다(시간대 무관)
   );
 }
 
@@ -40,8 +40,10 @@ export function pick<T extends string>(
 // 올바르면 { from, to }, 아니면 화면에 보일 오류 문구.
 export function parsePeriod(
   query: Record<string, unknown>,
+  tz: string,
+  now: Date = new Date(),
 ): { from: string; to: string } | string {
-  const today = kstYMD(new Date());
+  const today = ymdIn(now, tz);
   const from =
     query.from === undefined ? `${today.slice(0, 8)}01` : String(query.from);
   const to = query.to === undefined ? today : String(query.to);

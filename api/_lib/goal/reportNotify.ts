@@ -1,8 +1,8 @@
 // 목표관리 리포트 알림톡 — 크론 3종(일간·주간·월간)이 공유하는 부분.
 //
-// 여기 모은 것: KST 날짜 계산 / 수신자 해석 / 시간·달성률 포맷.
+// 여기 모은 것: 수신자 시간대 기준 발송 시각 판정 / 수신자 해석 / 시간·달성률 포맷.
 // 크론마다 따로 두면 "누구에게 보내는가"와 "몇 시 기준인가"가 세 군데로 흩어져
-// 곧 어긋난다 — 특히 KST 보정은 한 곳에서 틀리면 하루 밀린 리포트가 나간다.
+// 곧 어긋난다 — 특히 시간대 보정은 한 곳에서 틀리면 하루 밀린 리포트가 나간다.
 //
 // 수신자 = 학부모 (사용자 확정 2026-08-22)
 //   승인 문안이 「OO 학생의 학습 현황을 알려드립니다」로 제3자 보고 톤이고,
@@ -11,18 +11,89 @@
 //   없는 학생은 건너뛴다(누락은 로그로 남는다).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addDaysYmd, ymdIn } from "../../../src/lib/time/day.js";
+import { localHourIn, type ReportKind } from "./reportResendPolicy.js";
 
-/** KST 는 UTC+9 고정이다(서머타임 없음). */
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+/** 알림톡 발송 현지 시각(시). 일간 22시, 주간·월간 08시. */
+const SEND_HOUR = { daily: 22, weekly: 8, monthly: 8 } as const;
 
-/** 지금 시각의 KST 달력 날짜. */
-export function kstNow(now: Date = new Date()): Date {
-  return new Date(now.getTime() + KST_OFFSET_MS);
+/** 'YYYY-MM-DD' 의 요일(0=일 … 6=토). 시간대와 무관한 달력 계산이다. */
+function weekdayOfYmd(ymd: string): number {
+  return new Date(`${ymd}T00:00:00Z`).getUTCDay();
 }
 
-/** Date → 'YYYY-MM-DD' (KST 로 이미 보정된 값을 넣을 것). */
-export function toYmd(d: Date): string {
-  return d.toISOString().slice(0, 10);
+/**
+ * 지금이 수신자(tz) 현지 발송 시각이면 그 실행이 보낼 기간 키를, 아니면 null.
+ *   daily   — 현지 22시: 오늘 날짜(YYYY-MM-DD)
+ *   weekly  — 현지 월요일 08시: 지난 주 월요일(YYYY-MM-DD)
+ *   monthly — 현지 1일 08시: 지난 달(YYYY-MM)
+ * 크론은 매시 정각에 돌고, 같은 시간 안의 재실행은 같은 기간 키를 만들어
+ * dedupeKey 로 한 번만 나간다.
+ */
+export function dueReportPeriod(
+  kind: ReportKind,
+  now: Date,
+  tz: string,
+): string | null {
+  if (localHourIn(now, tz) !== SEND_HOUR[kind]) return null;
+  const today = ymdIn(now, tz);
+  if (kind === "daily") return today;
+  if (kind === "weekly") {
+    if (weekdayOfYmd(today) !== 1) return null;
+    return addDaysYmd(today, -7);
+  }
+  if (today.slice(8, 10) !== "01") return null;
+  return addDaysYmd(today, -1).slice(0, 7);
+}
+
+/** 후보 학생을 모을 기록 날짜 창(UTC 오늘 기준 일수). 어떤 시간대든 대상 기간이 들어온다. */
+const CANDIDATE_WINDOW_DAYS: Record<ReportKind, [number, number]> = {
+  daily: [-1, 1],
+  weekly: [-9, 1],
+  monthly: [-33, 1],
+};
+
+/**
+ * 지금 발송 시각인 학생을 기간 키별로 묶어 돌려준다(키 → 학생 id 목록).
+ * 최근 기록이 있는 학생만 후보로 삼고, profiles.time_zone 으로 현지 시각을
+ * 판정한다. 기간 안에 실제 기록이 있는지는 로더(requireRecords)가 확인한다.
+ */
+export async function findDueStudents(
+  supabaseAdmin: SupabaseClient,
+  kind: ReportKind,
+  now: Date = new Date(),
+): Promise<Map<string, string[]>> {
+  const utcToday = ymdIn(now, "UTC");
+  const [fromDays, toDays] = CANDIDATE_WINDOW_DAYS[kind];
+  const { data: rows, error } = await supabaseAdmin
+    .from("goal_daily_records")
+    .select("profile_id")
+    .gte("record_date", addDaysYmd(utcToday, fromDays))
+    .lte("record_date", addDaysYmd(utcToday, toDays));
+  if (error) {
+    throw new Error(`goal_daily_records 조회 실패: ${error.message}`);
+  }
+  const candidateIds = Array.from(
+    new Set((rows || []).map((row) => String(row.profile_id))),
+  );
+  const due = new Map<string, string[]>();
+  if (candidateIds.length === 0) return due;
+
+  const { data: zones, error: zoneError } = await supabaseAdmin
+    .from("profiles")
+    .select("id, time_zone")
+    .in("id", candidateIds);
+  if (zoneError) {
+    throw new Error(`프로필 시간대 조회 실패: ${zoneError.message}`);
+  }
+  for (const zone of zones || []) {
+    const periodKey = dueReportPeriod(kind, now, String(zone.time_zone));
+    if (!periodKey) continue;
+    const list = due.get(periodKey) || [];
+    list.push(String(zone.id));
+    due.set(periodKey, list);
+  }
+  return due;
 }
 
 /** 그 날짜가 속한 주의 월요일. 리포트 주간 키다(api/goal/report 의 period). */

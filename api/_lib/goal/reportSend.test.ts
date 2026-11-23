@@ -481,3 +481,51 @@ describe("sendMonthlyReport — 발송(DB 조회 없이 입력만 사용)", () =
     expect(result.noParent).toBe(false);
   });
 });
+
+describe("requireRecords — 시간대별 대상 학생 중 기간 기록이 있는 학생만", () => {
+  const RECORDS = {
+    ...PARENT_1,
+    goal_daily_records: {
+      rows: [{ profile_id: "student-1", record_date: "2026-09-10" }],
+    },
+  };
+
+  test("daily — 기록 없는 학생은 입력에서 빠진다", async () => {
+    const inputs = await loadDailyReportInputs(
+      fakeSupabase(RECORDS),
+      ["student-1", "student-2"],
+      "2026-09-10",
+      { requireRecords: true },
+    );
+    expect([...inputs.keys()]).toEqual(["student-1"]);
+  });
+
+  test("weekly — 기록 없는 학생은 입력에서 빠진다", async () => {
+    const inputs = await loadWeeklyReportInputs(
+      fakeSupabase(RECORDS),
+      ["student-1", "student-2"],
+      "2026-09-07",
+      { requireRecords: true },
+    );
+    expect([...inputs.keys()]).toEqual(["student-1"]);
+  });
+
+  test("monthly — 기록 없는 학생은 입력에서 빠진다", async () => {
+    const inputs = await loadMonthlyReportInputs(
+      fakeSupabase(RECORDS),
+      ["student-1", "student-2"],
+      "2026-09",
+      { requireRecords: true },
+    );
+    expect([...inputs.keys()]).toEqual(["student-1"]);
+  });
+
+  test("옵션이 없으면 관리자 재발송처럼 기록 없는 학생도 남는다", async () => {
+    const inputs = await loadWeeklyReportInputs(
+      fakeSupabase(RECORDS),
+      ["student-1", "student-2"],
+      "2026-09-07",
+    );
+    expect([...inputs.keys()]).toEqual(["student-1", "student-2"]);
+  });
+});

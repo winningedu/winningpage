@@ -92,7 +92,7 @@ function validDate(value: unknown): string | null {
     return null;
   }
   const d = new Date(`${value}T00:00:00Z`);
-  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value // tz-literal-ok: Date.UTC 로 만든 날짜를 되돌려 YYYY-MM-DD 실존 여부만 본다(시간대 무관)
     ? null
     : value;
 }

@@ -148,6 +148,13 @@ insert into public.profile_login_days (profile_id, kst_date) values
   (pg_temp.fx('active'), (pg_temp.kst_today() - interval '2 years')::date),
   (pg_temp.fx('active'), pg_temp.kst_today());
 
+-- 로그인 기록(profile_login_slots): slot_start 가 지금보다 2년 넘게 앞선 행만 지운다. 순간 기준이라 시간대가 없다.
+insert into public.profile_login_slots (profile_id, slot_start) values
+  (pg_temp.fx('active'), now() - interval '3 years'),
+  (pg_temp.fx('active'), now() - interval '2 years 1 hour'),
+  (pg_temp.fx('active'), now() - interval '2 years' + interval '1 hour'),
+  (pg_temp.fx('active'), now());
+
 -- 기관마다 따로(결정 64): 한 기관의 졸업이 2년 지났어도 다른 기관의 학적, 이력, 특이학생, 상담 상태는 지우지 않는다.
 insert into public.tenants (code, name, region, org_type, tier)
   values ('RPBBBBBB', 't23-b', '서울', '학교', 'B');
@@ -234,6 +241,12 @@ select pg_temp.expect_int('2년보다 오래된 로그인 기록 삭제',
 select pg_temp.expect_int('딱 2년 전과 오늘 로그인 기록은 보존',
   (select count(*) from public.profile_login_days where profile_id = pg_temp.fx('active')), 2);
 
+select pg_temp.expect_int('2년보다 오래된 로그인 칸 삭제',
+  (select count(*) from public.profile_login_slots where profile_id = pg_temp.fx('active')
+     and slot_start < now() - interval '2 years'), 0);
+select pg_temp.expect_int('2년이 안 된 로그인 칸과 지금 칸은 보존',
+  (select count(*) from public.profile_login_slots where profile_id = pg_temp.fx('active')), 2);
+
 -- 반환 건수는 지운 행 수 이상이다(로컬 DB 에 다른 행이 있을 수 있다).
 select pg_temp.expect_bool('반환 건수',
   (select enrollments_deleted >= 3 and enrollment_changes_deleted >= 2 and access_logs_deleted >= 3
@@ -247,6 +260,9 @@ select pg_temp.expect_int('재실행은 아무것도 지우지 않는다',
 -- ---------------------------------------------------------------------
 -- fn_anonymize_expired_b2b_members: 계약 종료 + 유예 뒤 학생 개인정보 익명화 (사 #162, #176, 사 결정 r16)
 -- ---------------------------------------------------------------------
+-- 로컬 DB 에 공통 유예 일수가 이미 있어도 "유예 설정이 없는 기관" 사례가 서도록 먼저 지운다(끝의 ROLLBACK 이 되돌린다).
+delete from public.app_settings where key = 'contract_grace_days';
+
 create function pg_temp.today() returns date language sql as $$ select (now() at time zone 'Asia/Seoul')::date $$;
 
 create function pg_temp.mk_tenant(p_k text, p_code text, p_end date, p_grace date) returns void
@@ -524,6 +540,32 @@ select pg_temp.expect_bool('빈 p_targets 는 아무도 지우지 않고 후보 
   (select members_anonymized = 0 and members_skipped = 1
      from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_tz'), pg_temp.fx('m_t1'), 'hq@example.com', '{}'))
   and pg_temp.pname('z_a') = '홍길동z_a', true);
+
+-- 기관 시간대: 오늘은 기관의 time_zone 날짜다. 두 기관의 시간대가 24시간보다 더 벌어져(+14, -12) 어느 순간에도 날짜가 다르다.
+-- 유예 종료일을 서쪽 기관의 오늘로 두면 동쪽 기관은 지났고(지운다) 서쪽 기관은 아직이다(not_yet). 서울 날짜로만 세면 둘이 같은 결과가 난다.
+select pg_temp.mk_tenant('zeast', 'RPZEASTE', pg_temp.today() - 50, public.fn_local_date(now(), 'Etc/GMT+12'));
+select pg_temp.mk_tenant('zwest', 'RPZWESTW', pg_temp.today() - 50, public.fn_local_date(now(), 'Etc/GMT+12'));
+update public.tenants set time_zone = 'Pacific/Kiritimati' where id = pg_temp.fx('ten_zeast');
+update public.tenants set time_zone = 'Etc/GMT+12' where id = pg_temp.fx('ten_zwest');
+select pg_temp.mk_member('ze1', 'zeast', 'student', 31);
+select pg_temp.mk_member('zw1', 'zwest', 'student', 32);
+select pg_temp.expect_bool('동쪽 시간대 기관은 그 기관의 오늘이 유예 종료일을 넘어 익명화된다',
+  (select members_anonymized = 1 and not not_yet
+     from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_zeast'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_ze1')])), true);
+select pg_temp.expect_bool('서쪽 시간대 기관은 그 기관의 오늘이 유예 종료일이라 아직이다',
+  (select members_anonymized = 0 and not_yet
+     from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_zwest'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_zw1')]))
+  and pg_temp.pname('zw1') = '홍길동zw1', true);
+
+-- 미리보기의 local_today 는 기관 시간대의 오늘이다(실행 함수와 같다). 학생이 없는 한 줄에도 담긴다.
+select pg_temp.expect_bool('미리보기 local_today 는 기관 시간대 날짜다',
+  (select bool_and(local_today = public.fn_local_date(now(), 'Pacific/Kiritimati'))
+     from public.fn_member_purge_preview(pg_temp.fx('ten_zeast')))
+  and (select bool_and(local_today = public.fn_local_date(now(), 'Etc/GMT+12'))
+     from public.fn_member_purge_preview(pg_temp.fx('ten_zwest'))), true);
+select pg_temp.expect_bool('미리보기 local_today 는 학생이 없는 한 줄에도 담긴다',
+  (select count(*) = 1 and bool_and(profile_id is null and local_today = public.fn_local_date(now(), 'Asia/Seoul'))
+     from public.fn_member_purge_preview(pg_temp.fx('ten_tempty'))), true);
 
 -- 3개 인자 함수는 더 이상 없다(오버로드가 모호해지지 않는다).
 select pg_temp.expect_int('옛 3개 인자 시그니처는 없다',

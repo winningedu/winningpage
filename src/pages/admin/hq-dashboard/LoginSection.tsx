@@ -11,7 +11,8 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
-import { kstYMD } from "@/lib/goal/calc";
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 import { fetchLoginLog, fetchLoginStats } from "./api";
 import ErrorBox from "./ErrorBox";
 import {
@@ -39,7 +40,10 @@ function Loading() {
 export default function LoginSection() {
   const id = useId();
   const [params, setParams] = useSearchParams();
-  const filters = readLoginFilters(params, kstYMD(new Date()));
+  const filters = readLoginFilters(
+    params,
+    ymdIn(new Date(), browserTimeZone()),
+  );
   const stats = statsSearch(filters);
   const log = logSearch(filters);
 
