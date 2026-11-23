@@ -61,9 +61,12 @@ export default function Page06School({ page, tocTitle }: Page06SchoolProps) {
             </p>
           )}
         </ReportCard>
-        <ReportCard title={L.weaknesses}>
-          <TextBlockList blocks={page.weaknesses} />
-        </ReportCard>
+        {/* every area 60 or more leaves no weakness: no empty card */}
+        {page.weaknesses.length > 0 && (
+          <ReportCard title={L.weaknesses}>
+            <TextBlockList blocks={page.weaknesses} />
+          </ReportCard>
+        )}
       </div>
       {/* 22 r69 */}
       <PrescriptionTable rx={page.rx} />

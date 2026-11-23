@@ -47,7 +47,7 @@ export default function Page03Grades({ page, tocTitle }: Page03GradesProps) {
           <ReportCard title={L.schoolGrades}>
             <GradeList label={L.schoolGrades} grades={bars.school} />
           </ReportCard>
-          {bars.mock && (
+          {bars.mock && bars.mock.grades.length > 0 && (
             <ReportCard
               title={L.mockGrades}
               meta={`${bars.mock.month}${L.month}`}
