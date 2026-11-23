@@ -8,7 +8,6 @@ import {
   P1_CODES,
   P2_CODES,
   type P2Code,
-  type TrackCode,
 } from "./codes.js";
 import { type Likert, SCALE_ITEMS, scaleValue } from "./likert.js";
 import { OPTIONS, trackOf } from "./options.js";
