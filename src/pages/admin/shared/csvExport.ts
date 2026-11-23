@@ -1,3 +1,6 @@
+import { formatDate } from "@/lib/time/format";
+import { browserTimeZone } from "@/lib/time/zone";
+
 // CONFIGS 필드/컬럼이 공유하는 select 옵션 형태 — 문자열 그대로거나 {value,label}.
 export type FieldOption = string | { value: string; label: string };
 
@@ -34,17 +37,20 @@ export function formatValue(
   if (type === "money") return `${Number(value || 0).toLocaleString()}원`;
 
   if (type === "date") {
+    // 달력 날짜(YYYY-MM-DD)는 시간대와 무관하므로 그대로 둔다.
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
+      return value;
     const date = new Date(value as string | number | Date);
     if (Number.isNaN(date.getTime())) return String(value);
-    return date.toISOString().slice(0, 10);
+    return formatDate(date);
   }
 
   if (type === "datetime") {
     const date = new Date(value as string | number | Date);
     if (Number.isNaN(date.getTime())) return String(value);
-    // toISOString()은 UTC라 KST 00~09시 신청 건이 하루 전날로 잘린다 — Asia/Seoul 고정 표시.
+    // 보는 사람의 브라우저 시간대로 표시한다.
     return date.toLocaleString("ko-KR", {
-      timeZone: "Asia/Seoul",
+      timeZone: browserTimeZone(),
       year: "numeric",
       month: "2-digit",
       day: "2-digit",

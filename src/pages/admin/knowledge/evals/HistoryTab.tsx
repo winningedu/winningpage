@@ -6,6 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatDateTime } from "@/lib/time/format";
 import type { EvalRun } from "./api";
 import { diffMetrics } from "./form";
 import { formatMetric, formatParams, RECALL_KS } from "./format";
@@ -18,7 +19,7 @@ function formatDiff(value: number | null): string {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+  return formatDateTime(iso);
 }
 
 export default function HistoryTab({ runs }: { runs: EvalRun[] }) {

@@ -1,5 +1,8 @@
 // 이용권 부여 폼 검증과 요청 본문. 기간은 개월 또는 종료일 중 하나만 받는다.
 // 둘 다 비우면 서버에서 기간 무기한 부여가 되므로 실수로 무기한이 되지 않게 화면에서 막는다.
+import { addDaysYmd, dayStartUtc } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
+
 export type GrantFormValues = {
   profileId: string;
   sessionQuota: string;
@@ -36,10 +39,13 @@ export function buildGrantBody(values: GrantFormValues) {
     sessionQuota: Number(values.sessionQuota),
   };
   if (values.endsAt.trim() !== "") {
-    // 종료일은 그날 한국 시간 끝(23:59:59)까지 쓸 수 있게 잡는다.
+    // 종료일 하루 끝까지 쓸 수 있게 브라우저 시간대의 다음 날 0시(배타 상한)로 보낸다.
     return {
       ...base,
-      endsAt: new Date(`${values.endsAt.trim()}T23:59:59+09:00`).toISOString(),
+      endsAt: dayStartUtc(
+        addDaysYmd(values.endsAt.trim(), 1),
+        browserTimeZone(),
+      ),
     };
   }
   return { ...base, months: Number(values.months) };
