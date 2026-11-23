@@ -265,7 +265,11 @@ export const FRONT_PAGES: FrontPages = {
   p6: {
     title: "가장 낮은 영역은 탐구 심화입니다.",
     lead: "체감하는 어려움과 실제 약점이 같은지 봅니다.",
-    bars: { areas: SCHOOL_BARS, total: 68.4, gradeText: "점검 필요" },
+    bars: {
+      areas: SCHOOL_BARS,
+      total: 68.4,
+      gradeText: "영역별 편차가 있어 연결성을 점검할 시점입니다.",
+    },
     hardest: [{ option: "탐구 주제를 정하기 어려워요.", area: "탐구 심화" }],
     overlap: "고른 영역이 모두 하위 영역입니다.",
     strengths: [

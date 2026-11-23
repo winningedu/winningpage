@@ -98,6 +98,10 @@ export const REPORT_LABELS = {
   crossCheck: "교차 확인",
   crossOption: "고른 방해 요인",
   crossAnswers: "관련 응답",
+  /** PDF p6 cards */
+  hardest: "가장 어려운 부분",
+  strengths: "강점 영역",
+  weaknesses: "보완 영역",
   /** joins two short values on one line, as the PDF does */
   joiner: " \u00b7 ",
   studentOnly: "학생 전용",
