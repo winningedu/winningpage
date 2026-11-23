@@ -36,9 +36,6 @@ import {
   resolveAdmissionTarget,
   submitDiagnosisV3,
 } from "@/lib/diagnosisSubmitApi";
-// sql/72(2026-08-13 확정) — 문항 제목/안내문구/선택지 라벨/리커트 문장 어드민 오버라이드.
-// mount 1회 fetch, 실패·0행이면 빈 Map(= 정적 문구 그대로) — MentorFaq.jsx 의 키 단위 폴백과 같은 계약이다.
-import { fetchSurveyCopyOverrides } from "@/lib/diagnosisSurveyCopyOverrides";
 import { kstYMD } from "@/lib/goal/calc/virtualDate";
 // 이용개시 시작 로그(programEntry.ts) — 진입 게이트가 allowed를 확인한 직후 기록한다.
 import { markProgramEntry } from "@/lib/programEntry";
@@ -79,9 +76,6 @@ export default function SurveyStepShell() {
   // KST calendar date the survey runs on: q4 default and q13 date bounds.
   // Submit moves it to the submit day, the date the server scores with.
   const [diagnosedAt, setDiagnosedAt] = useState(() => kstYMD());
-  const [surveyCopyOverrides, setSurveyCopyOverrides] = useState<
-    Map<string, unknown>
-  >(() => new Map());
   // One attemptId per submit flow, reused on retry (the server answers a
   // repeated attemptId as already_recorded). rememberAttemptId keeps it
   // across a reload until submit succeeds.
@@ -95,16 +89,6 @@ export default function SurveyStepShell() {
   const [accessCheck, setAccessCheck] = useState(0);
   // 스쿨멘토에서 진입 판정 자체를 못 받은 상태. 거부가 아니라 다시 시도하게 한다.
   const [accessFailed, setAccessFailed] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    fetchSurveyCopyOverrides().then((map) => {
-      if (alive) setSurveyCopyOverrides(map);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   // 진입 게이트 — 무료 1회 미사용이거나 이용권이 있으면 통과. 서버 판정 불가는
   // fail-open(진입 허용, checkDiagnosisAccess 내부 주석 참고).
@@ -407,7 +391,6 @@ export default function SurveyStepShell() {
                 setAnswer,
                 submitDiagnosis,
                 cascadeLevels: admissionCascade.levels,
-                surveyCopyOverrides,
                 diagnosedAt,
                 seed,
               }}

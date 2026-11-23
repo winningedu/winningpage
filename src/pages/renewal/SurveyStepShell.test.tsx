@@ -24,6 +24,7 @@ const accessMock = vi.hoisted(() => vi.fn());
 const consumeMock = vi.hoisted(() => vi.fn());
 const submitMock = vi.hoisted(() => vi.fn());
 const resolveMock = vi.hoisted(() => vi.fn());
+const copyOverridesMock = vi.hoisted(() => vi.fn(async () => new Map()));
 
 vi.mock("@/config/site", async (orig) => {
   const actual = await orig<typeof import("@/config/site")>();
@@ -55,7 +56,7 @@ vi.mock("@/lib/diagnosisSubmitApi", () => ({
   resolveAdmissionTarget: resolveMock,
 }));
 vi.mock("@/lib/diagnosisSurveyCopyOverrides", () => ({
-  fetchSurveyCopyOverrides: async () => new Map(),
+  fetchSurveyCopyOverrides: copyOverridesMock,
 }));
 vi.mock("@/hooks/useAdmissionCascade", () => ({
   useAdmissionCascade: () => ({ levels: [], awaitCuts: async () => ({}) }),
@@ -546,6 +547,15 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
     await waitFor(() =>
       expect(screen.getByTestId("step")).toHaveTextContent("2"),
     );
+  });
+});
+
+describe("SurveyStepShell v3 문항 문구", () => {
+  it("v3 문항은 시트 문구만 쓰므로 관리자 문구 덮어쓰기를 불러오지 않는다", async () => {
+    accessMock.mockResolvedValue({ ...denied(null), allowed: true });
+    renderShell();
+    expect(await screen.findByText("설문 화면")).toBeInTheDocument();
+    expect(copyOverridesMock).not.toHaveBeenCalled();
   });
 });
 
