@@ -18,6 +18,7 @@
 // 포함한다" 문제는 자동 첨부 기능 자체를 없애 구조적으로 해소했다.
 
 import { supabase } from "./supabase";
+import { browserTimeZone } from "./time/zone";
 
 const DEFAULT_TIMEOUT_MS = 15000;
 
@@ -87,8 +88,13 @@ export async function apiFetch(
     else externalSignal.addEventListener("abort", onExternalAbort);
   }
 
+  // 화면을 보는 사람의 시간대를 서버에 알린다. 호출부가 직접 정했으면 그 값을 쓴다.
+  const headers = new Headers(init.headers);
+  if (!headers.has("X-Time-Zone"))
+    headers.set("X-Time-Zone", browserTimeZone());
+
   try {
-    return await fetch(input, { ...init, signal: controller.signal });
+    return await fetch(input, { ...init, headers, signal: controller.signal });
   } catch (error) {
     if (timedOut) {
       const timeoutError = new ApiFetchTimeoutError();
