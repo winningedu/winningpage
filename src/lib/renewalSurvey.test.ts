@@ -6,6 +6,7 @@ import {
 } from "@/lib/diagnosis-v3/testFixtures";
 import type { LikertBlock } from "@/lib/diagnosis-v3/types";
 import {
+  q23Order,
   scheduleDateBounds,
   screenProblems,
   showsQ3Target,
@@ -201,5 +202,24 @@ describe("v3 화면 필수 게이트", () => {
     expect(at("2026-11-09")).toEqual([]);
     expect(at("2026-12-20")).toEqual([]);
     expect(at("2026-12-21")).toEqual(["q13"]);
+  });
+});
+
+describe("v3 21번 기질 문항 순서", () => {
+  const sorted = Array.from({ length: 35 }, (_, i) => String(i + 1));
+
+  it("35문항을 섞고 V4는 항상 마지막에 둔다", () => {
+    const order = q23Order("attempt-a");
+    expect(order).toHaveLength(36);
+    expect(order.at(-1)).toBe("V");
+    expect(
+      [...order.slice(0, 35)].sort((a, b) => Number(a) - Number(b)),
+    ).toEqual(sorted);
+    expect(order.slice(0, 35)).not.toEqual(sorted);
+  });
+
+  it("같은 시드는 같은 순서, 다른 시드는 다른 순서다", () => {
+    expect(q23Order("attempt-a")).toEqual(q23Order("attempt-a"));
+    expect(q23Order("attempt-a")).not.toEqual(q23Order("attempt-b"));
   });
 });

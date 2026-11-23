@@ -15,6 +15,7 @@ import {
 } from "@/data/diagnosisSurveyV3";
 import { renewalSurveyQuestions } from "@/data/renewalSurveyQuestions.js";
 import type { QuestionId, TrackCode } from "@/lib/diagnosis-v3/codes";
+import { SCALE_ITEMS } from "@/lib/diagnosis-v3/likert";
 import { OPTIONS, trackOf } from "@/lib/diagnosis-v3/options";
 import type { AdmissionTarget, IsoDate } from "@/lib/diagnosis-v3/types";
 import {
@@ -357,4 +358,39 @@ const addDays = (date: IsoDate, days: number): IsoDate =>
 /** 16 r30, 06 C55: q13 dates from Day 1 (diagnosedAt) to Day 42. */
 export function scheduleDateBounds(diagnosedAt: IsoDate) {
   return { min: diagnosedAt, max: addDays(diagnosedAt, EVENT_WINDOW_DAYS - 1) };
+}
+
+/** 32-bit FNV-1a hash of the seed text. */
+const hashSeed = (seed: string) => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) {
+    hash = Math.imul(hash ^ seed.charCodeAt(i), 0x01000193);
+  }
+  return hash >>> 0;
+};
+
+/** mulberry32: a small deterministic generator of [0, 1). */
+const randomFrom = (seed: string) => {
+  let state = hashSeed(seed);
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+/**
+ * Display order of q23 statement keys: items 1..35 shuffled by the seed,
+ * the V4 check item always last (기능요구명세서 row 31, 17 B9).
+ */
+export function q23Order(seed: string): string[] {
+  const random = randomFrom(seed);
+  const keys = SCALE_ITEMS.q23.map((item) => String(item.no));
+  for (let i = keys.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [keys[i], keys[j]] = [keys[j] as string, keys[i] as string];
+  }
+  return [...keys, "V"];
 }
