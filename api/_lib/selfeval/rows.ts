@@ -4,6 +4,7 @@
 import type {
   CareerInfo,
   GrowthSnapshot,
+  RecordLink,
   ReplyPending,
   ReportType,
 } from "./types.js";
@@ -80,6 +81,27 @@ export type ActivityRecordRow = {
   numbers: unknown;
   sources: unknown;
   created_at: string;
+  submitted_at: string | null;
+  record_status: "completed" | "in_progress" | "plan" | null;
+  summary: string | null;
+  reflection: string | null;
+  parent_record_id: string | null;
+  course_name: string | null;
+  entry_kind: "performance" | "deep" | "activity" | null;
+};
+
+export type RecordLinkRow = {
+  session_id: string;
+  from_record_id: string;
+  to_record_id: string;
+  link_type: RecordLink["type"];
+  strength: RecordLink["strength"];
+  source: RecordLink["source"];
+  confirmed: boolean;
+  deleted: boolean;
+  note: string | null;
+  quote_from: string | null;
+  quote_to: string | null;
 };
 
 export type ReportRow = {

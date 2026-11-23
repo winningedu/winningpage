@@ -11,6 +11,7 @@ import {
 } from "./growth.js";
 import type {
   ActivityRecordRow,
+  RecordLinkRow,
   ReportRow,
   SessionActivityRow,
   SessionListRow,
@@ -23,6 +24,7 @@ import type {
   Area,
   GrowthSnapshot,
   ModelStepKey,
+  RecordLink,
   StepIssue,
 } from "./types.js";
 import type { SessionActivityWithRecord } from "./view.js";
@@ -38,7 +40,10 @@ const SESSION_ACTIVITY_COLUMNS =
   "activity_record_id, role, fit_score, fit_reasons, analysis, analysis_source";
 
 const RECORD_COLUMNS =
-  "id, source_program, status, grade_label, semester, subject_group, subject, topic, concept, method, result, limitation, numbers, sources, created_at";
+  "id, source_program, status, grade_label, semester, subject_group, subject, topic, concept, method, result, limitation, numbers, sources, created_at, submitted_at, record_status, summary, reflection, parent_record_id, course_name, entry_kind";
+
+const LINK_COLUMNS =
+  "session_id, from_record_id, to_record_id, link_type, strength, source, confirmed, deleted, note, quote_from, quote_to";
 
 const REPORT_COLUMNS =
   "id, session_id, report_type, revision, sections, char_count, score, mandatory_fixes, created_at";
@@ -64,6 +69,44 @@ export function toActivityLike(row: ActivityRecordRow): ActivityRecordLike {
     numbers: row.numbers,
     sources: row.sources,
     createdAt: row.created_at,
+    submittedAt: row.submitted_at,
+    recordStatus: row.record_status,
+    summary: row.summary,
+    reflection: row.reflection,
+    parentRecordId: row.parent_record_id,
+    courseName: row.course_name,
+    entryKind: row.entry_kind,
+  };
+}
+
+export function recordLinkFromRow(row: RecordLinkRow): RecordLink {
+  return {
+    fromId: row.from_record_id,
+    toId: row.to_record_id,
+    type: row.link_type,
+    strength: row.strength,
+    source: row.source,
+    confirmed: row.confirmed,
+    deleted: row.deleted,
+    note: row.note,
+    quoteFrom: row.quote_from,
+    quoteTo: row.quote_to,
+  };
+}
+
+export function recordLinkToRow(sessionId: string, l: RecordLink) {
+  return {
+    session_id: sessionId,
+    from_record_id: l.fromId,
+    to_record_id: l.toId,
+    link_type: l.type,
+    strength: l.strength,
+    source: l.source,
+    confirmed: l.confirmed,
+    deleted: l.deleted,
+    note: l.note,
+    quote_from: l.quoteFrom,
+    quote_to: l.quoteTo,
   };
 }
 
@@ -292,6 +335,59 @@ export async function loadActivityRecords(
     "activity_records 조회 실패",
   ) as ActivityRecordRow[];
   return rows.map(toActivityLike);
+}
+
+// ---------------------------------------------------------------------------
+// 활동 기록 연계(selfeval_record_links). 호출자가 세션 소유를 먼저 확인한다.
+// ---------------------------------------------------------------------------
+
+export async function loadRecordLinks(
+  db: Db,
+  sessionId: string,
+): Promise<RecordLink[]> {
+  const rows = must(
+    await db
+      .from("selfeval_record_links")
+      .select(LINK_COLUMNS)
+      .eq("session_id", sessionId),
+    "selfeval_record_links 조회 실패",
+  ) as RecordLinkRow[];
+  return rows.map(recordLinkFromRow);
+}
+
+/** 쌍마다 한 행이다. 이미 있는 쌍(지운 것 포함)은 건드리지 않아 지운 연계가 되살아나지 않는다. */
+export async function insertModelLinks(
+  db: Db,
+  sessionId: string,
+  links: RecordLink[],
+): Promise<void> {
+  if (links.length === 0) return;
+  must(
+    await db.from("selfeval_record_links").upsert(
+      links.map((l) => recordLinkToRow(sessionId, l)),
+      {
+        onConflict: "session_id,from_record_id,to_record_id",
+        ignoreDuplicates: true,
+      },
+    ),
+    "selfeval_record_links 저장 실패",
+  );
+}
+
+/** 학생이 바꾼 연계 한 행을 쓴다. 같은 쌍의 행이 있으면 덮어쓴다. */
+export async function saveRecordLink(
+  db: Db,
+  sessionId: string,
+  link: RecordLink,
+): Promise<void> {
+  must(
+    await db
+      .from("selfeval_record_links")
+      .upsert(recordLinkToRow(sessionId, link), {
+        onConflict: "session_id,from_record_id,to_record_id",
+      }),
+    "selfeval_record_links 저장 실패",
+  );
 }
 
 export async function countActivities(db: Db, userId: string): Promise<number> {

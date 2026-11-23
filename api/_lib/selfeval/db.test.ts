@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { consumeCredit, reverseCredit } from "./db.js";
+import {
+  consumeCredit,
+  recordLinkFromRow,
+  recordLinkToRow,
+  reverseCredit,
+  toActivityLike,
+} from "./db.js";
+import type { ActivityRecordRow } from "./rows.js";
 
 function rpcDb(result: unknown) {
   const rpc = vi.fn(async () => ({ data: result, error: null }));
@@ -81,5 +88,92 @@ describe("reverseCredit 사이트 분기", () => {
       reversed: false,
     });
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("toActivityLike v4.2 컬럼", () => {
+  const row = {
+    id: "r1",
+    source_program: "performance",
+    status: "confirmed",
+    grade_label: "고1",
+    semester: 1,
+    subject_group: "수학",
+    subject: "공통수학1",
+    topic: null,
+    concept: null,
+    method: null,
+    result: null,
+    limitation: null,
+    numbers: [],
+    sources: [],
+    created_at: "2026-01-01T00:00:00Z",
+    submitted_at: "2026-06-18T00:00:00Z",
+    record_status: "in_progress",
+    summary: "요약",
+    reflection: "소감",
+    parent_record_id: "p0",
+    course_name: "공통수학1",
+    entry_kind: "deep",
+  } as ActivityRecordRow;
+
+  it("제출일, 기록 상태, 요약, 소감, 상위 기록, 과목명, 유형을 옮긴다", () => {
+    expect(toActivityLike(row)).toMatchObject({
+      submittedAt: "2026-06-18T00:00:00Z",
+      recordStatus: "in_progress",
+      summary: "요약",
+      reflection: "소감",
+      parentRecordId: "p0",
+      courseName: "공통수학1",
+      entryKind: "deep",
+    });
+  });
+
+  it("새 컬럼이 비어 있으면 null 로 두어 앱이 createdAt 과 status 에서 파생하게 한다", () => {
+    const old = {
+      ...row,
+      submitted_at: null,
+      record_status: null,
+      summary: null,
+      reflection: null,
+      parent_record_id: null,
+      course_name: null,
+      entry_kind: null,
+    } as ActivityRecordRow;
+    const like = toActivityLike(old);
+    expect(like.submittedAt).toBeNull();
+    expect(like.recordStatus).toBeNull();
+  });
+});
+
+describe("연계 행 변환", () => {
+  it("DB 행과 앱 모양을 서로 옮긴다", () => {
+    const link = {
+      fromId: "a",
+      toId: "b",
+      type: "deepen" as const,
+      strength: "implicit" as const,
+      source: "student" as const,
+      confirmed: true,
+      deleted: false,
+      note: "이어서 했어요",
+      quoteFrom: null,
+      quoteTo: null,
+    };
+    const dbRow = recordLinkToRow("s1", link);
+    expect(dbRow).toEqual({
+      session_id: "s1",
+      from_record_id: "a",
+      to_record_id: "b",
+      link_type: "deepen",
+      strength: "implicit",
+      source: "student",
+      confirmed: true,
+      deleted: false,
+      note: "이어서 했어요",
+      quote_from: null,
+      quote_to: null,
+    });
+    expect(recordLinkFromRow(dbRow as never)).toEqual(link);
   });
 });
