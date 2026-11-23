@@ -2,6 +2,7 @@
 // RadarChart6; viewBox coordinates are SVG-internal, so px-free numbers here
 // scale with the rem-sized box.
 import { REPORT_LABELS } from "./labels";
+import { joinCopyLines } from "./lineBreak";
 
 const CX = 200;
 const CY = 190;
@@ -46,8 +47,8 @@ export default function RadarChart7({ axes, target }: RadarChart7Props) {
   const accessibleName = axes
     .map((axis) =>
       axis.broken
-        ? `${axis.label} ${axis.score} ${REPORT_LABELS.broken}`
-        : `${axis.label} ${axis.score}`,
+        ? `${joinCopyLines(axis.label)} ${axis.score} ${REPORT_LABELS.broken}`
+        : `${joinCopyLines(axis.label)} ${axis.score}`,
     )
     .join(", ");
 
@@ -111,7 +112,7 @@ export default function RadarChart7({ axes, target }: RadarChart7Props) {
             )}
             <text x={label.x} y={label.y} textAnchor="middle" fontSize="13">
               <tspan x={label.x} fill={axis.broken ? color : "#6b6b6b"}>
-                {axis.label}
+                {joinCopyLines(axis.label)}
               </tspan>
               <tspan x={label.x} dy="16" fontWeight="700" fill={color}>
                 {axis.score}

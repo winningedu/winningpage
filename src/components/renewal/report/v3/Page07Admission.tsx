@@ -8,6 +8,7 @@ import {
   Para,
   SectionTitle,
 } from "./LaterShared";
+import CopyText from "./parts/CopyText";
 import ReportSheet from "./parts/ReportSheet";
 
 export default function Page07Admission({ page }: { page: Page7 }) {
@@ -33,7 +34,9 @@ export default function Page07Admission({ page }: { page: Page7 }) {
                   key={row.label}
                   className="rounded-lg border border-[#e5e5e5] p-3"
                 >
-                  <dt className="text-sm text-[#808080]">{row.label}</dt>
+                  <dt className="text-sm text-[#808080]">
+                    <CopyText text={row.label} />
+                  </dt>
                   <dd className="text-xl font-bold text-ink">{row.value}</dd>
                 </div>
               ))}
@@ -61,8 +64,12 @@ export default function Page07Admission({ page }: { page: Page7 }) {
               key={card.question}
               className="rounded-lg border border-[#e5e5e5] p-3"
             >
-              <p className="text-sm font-bold text-ink">{card.question}</p>
-              <p className="text-sm text-ink">{card.answer}</p>
+              <p className="text-sm font-bold text-ink">
+                <CopyText text={card.question} />
+              </p>
+              <p className="text-sm text-ink">
+                <CopyText text={card.answer} />
+              </p>
               {card.text ? <Para>{card.text}</Para> : null}
             </article>
           ))}
@@ -75,9 +82,11 @@ export default function Page07Admission({ page }: { page: Page7 }) {
           {page.roadmap.steps.map((step) => (
             <li key={step.when} className="flex gap-3">
               <span className="w-24 shrink-0 text-sm font-bold text-ink">
-                {step.when}
+                <CopyText text={step.when} />
               </span>
-              <span className="text-base text-[#808080]">{step.text}</span>
+              <span className="text-base text-[#808080]">
+                <CopyText text={step.text} />
+              </span>
             </li>
           ))}
         </ol>

@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { p11 } from "./laterPagesFixture";
 import Page11Plan from "./Page11Plan";
+import { PLAN_LABELS, REPORT_LABELS } from "./parts/labels";
 
 vi.mock("@/config/site", () => ({ site: { brandName: "TEST" } }));
 
@@ -12,6 +13,7 @@ describe("Page11Plan (22 r101-r107)", () => {
     for (const t of [
       "P11 title",
       "PLAN lead",
+      "URG title",
       "URG label",
       "URG text",
       "EVT within1",
@@ -31,15 +33,39 @@ describe("Page11Plan (22 r101-r107)", () => {
       expect(screen.getByText(t)).toBeInTheDocument();
     }
     expect(screen.getAllByRole("row")).toHaveLength(5);
-    expect(screen.getByText("15")).toBeInTheDocument();
-    for (const rate of ["80", "70", "60"]) {
-      expect(screen.getByText(rate)).toBeInTheDocument();
+  });
+
+  it("labels every PDF p12 number: urgency points, week rows, the 3 numbers and checkpoints", () => {
+    render(<Page11Plan page={p11} />);
+    expect(screen.getByText("10점")).toBeInTheDocument();
+    expect(screen.getByText(PLAN_LABELS.week)).toBeInTheDocument();
+    expect(screen.getByText("1주")).toBeInTheDocument();
+    expect(screen.getByText("15분")).toBeInTheDocument();
+    expect(screen.getByText(PLAN_LABELS.logCaption)).toBeInTheDocument();
+    expect(screen.getByText(`80${PLAN_LABELS.arrow}60%`)).toBeInTheDocument();
+    expect(screen.getByText(PLAN_LABELS.rateCaption)).toBeInTheDocument();
+    for (const [date, label] of [
+      ["CHECK1", "1주 점검"],
+      ["CHECK4", "4주 점검"],
+      ["CHECK5", REPORT_LABELS.redx],
+      ["CHECK6", PLAN_LABELS.afterLabel],
+    ]) {
+      expect(screen.getByText(date as string).closest("li")).toHaveTextContent(
+        label as string,
+      );
     }
   });
 
-  it("marks only the reduced week and shows the reduce note (22 r104)", () => {
+  it("heads the in-4-weeks and after-4-weeks event lists (PDF p12)", () => {
     render(<Page11Plan page={p11} />);
-    expect(screen.getByText("REDUCE note")).toBeInTheDocument();
+    expect(screen.getByText(PLAN_LABELS.eventsWithin)).toBeInTheDocument();
+    expect(screen.getByText(PLAN_LABELS.eventsAfter)).toBeInTheDocument();
+  });
+
+  it("marks only the reduced week with a legend, without repeating the reduce note (22 r104)", () => {
+    render(<Page11Plan page={p11} />);
+    expect(screen.queryByText("REDUCE note")).toBeNull();
+    expect(screen.getByText(PLAN_LABELS.reducedWeek)).toBeInTheDocument();
     expect(screen.getAllByTestId("reduced-week")).toHaveLength(1);
     expect(screen.getByTestId("reduced-week").closest("tr")).toHaveTextContent(
       "W2a",
@@ -60,5 +86,13 @@ describe("Page11Plan (22 r101-r107)", () => {
     const { styleTips: _omitted, ...page } = p11;
     render(<Page11Plan page={page} />);
     expect(screen.queryByText("TIP1")).toBeNull();
+  });
+});
+
+describe("Page11Plan without reduced weeks", () => {
+  it("shows no reduced-week legend", () => {
+    const weeks = p11.table.weeks.map((w) => ({ ...w, reduced: false }));
+    render(<Page11Plan page={{ ...p11, table: { ...p11.table, weeks } }} />);
+    expect(screen.queryByText(PLAN_LABELS.reducedWeek)).toBeNull();
   });
 });

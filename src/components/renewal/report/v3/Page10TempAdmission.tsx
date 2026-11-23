@@ -8,6 +8,7 @@ import {
   Para,
   SectionTitle,
 } from "./LaterShared";
+import CopyText from "./parts/CopyText";
 import { REPORT_LABELS as L } from "./parts/labels";
 import ReportSheet from "./parts/ReportSheet";
 
@@ -32,7 +33,9 @@ export default function Page10TempAdmission({ page }: { page: Page10 }) {
                   {area.basis.map((value, i) => (
                     <span key={value.label}>
                       {i > 0 ? L.joiner : null}
-                      <span>{`${value.label} ${value.score}`}</span>
+                      <span>
+                        <CopyText text={`${value.label} ${value.score}`} />
+                      </span>
                     </span>
                   ))}
                 </Note>

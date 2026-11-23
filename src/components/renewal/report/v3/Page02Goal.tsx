@@ -27,10 +27,15 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
   const target = [specificity.university, specificity.major]
     .filter(Boolean)
     .join(" ");
-  const rungs = [
-    { label: L.ladderFar, filled: ladder.far },
-    { label: L.ladderMid, filled: ladder.mid },
-    { label: L.ladderNear, filled: ladder.near },
+  const rungs: readonly {
+    label: string;
+    filled: boolean;
+    /** absent in payloads stored before the rung content existed */
+    content: { source: string; text: string; answer?: string } | undefined;
+  }[] = [
+    { label: L.ladderFar, filled: ladder.far, content: ladder.rungs?.far },
+    { label: L.ladderMid, filled: ladder.mid, content: ladder.rungs?.mid },
+    { label: L.ladderNear, filled: ladder.near, content: ladder.rungs?.near },
   ];
 
   return (
@@ -58,12 +63,16 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
                     aria-hidden
                     className={`h-2 rounded-full ${isSelected ? "bg-navy-ink" : "bg-surface-muted"}`}
                   />
-                  {option}
+                  <CopyText text={option} />
                 </li>
               );
             })}
           </ol>
-          {target && <p className="font-semibold">{target}</p>}
+          {target && (
+            <p className="font-semibold">
+              <CopyText text={target} />
+            </p>
+          )}
         </ReportCard>
         {/* 22 r33, only when q3r was shown */}
         {reasons && (
@@ -74,7 +83,7 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
                   key={chip}
                   className="rounded-md bg-navy-ink px-3 py-1 text-white"
                 >
-                  {chip}
+                  <CopyText text={chip} />
                 </li>
               ))}
             </ul>
@@ -118,7 +127,9 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
         {/* 22 r34: NA highlights no cell; its name and desc stand below */}
         {matrix.note && (
           <p className="rounded-lg bg-surface-card p-3 text-sm">
-            <span className="font-semibold">{matrix.note.name}</span>
+            <span className="font-semibold">
+              <CopyText text={matrix.note.name} />
+            </span>
             {L.joiner}
             <span>
               <CopyText text={matrix.note.desc} />
@@ -135,17 +146,42 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
                 key={rung.label}
                 data-rung
                 data-filled={String(rung.filled)}
-                className={`flex items-center gap-2 border-b border-line pb-2 ${rung.filled ? "font-semibold" : "text-ink-sub"}`}
+                className={`flex items-start gap-2 border-b border-line pb-2 ${rung.filled ? "" : "text-ink-sub"}`}
               >
                 <span
                   aria-hidden
-                  className={`size-3 rounded-full ${rung.filled ? "bg-navy-ink" : "border border-line"}`}
+                  className={`mt-1 size-3 shrink-0 rounded-full ${rung.filled ? "bg-navy-ink" : "border border-line"}`}
                 />
-                {rung.label}
                 {rung.filled ? (
-                  <span className="sr-only">{L.ladderFilled}</span>
+                  <div className="flex flex-col gap-0.5">
+                    <p>
+                      <span className="font-semibold">{rung.label}</span>
+                      <span className="sr-only">{L.ladderFilled}</span>
+                      {rung.content && (
+                        <>
+                          {L.joiner}
+                          <CopyText text={rung.content.text} />
+                        </>
+                      )}
+                    </p>
+                    {/* PDF p3: the question behind the rung and its answer word */}
+                    {rung.content && (
+                      <p className="text-xs text-ink-sub">
+                        <CopyText text={rung.content.source} />
+                        {rung.content.answer && (
+                          <>
+                            {" ("}
+                            <CopyText text={rung.content.answer} />)
+                          </>
+                        )}
+                      </p>
+                    )}
+                  </div>
                 ) : (
-                  <span className="text-xs">{L.ladderEmpty}</span>
+                  <>
+                    {rung.label}
+                    <span className="text-xs">{L.ladderEmpty}</span>
+                  </>
                 )}
               </li>
             ))}
@@ -197,7 +233,9 @@ function MatrixRow({
             aria-current={isCurrent ? "true" : undefined}
             className={`rounded-lg p-3 ${isCurrent ? "border-2 border-navy-ink bg-white" : "bg-surface-card"}`}
           >
-            <p className="font-semibold">{cell.name}</p>
+            <p className="font-semibold">
+              <CopyText text={cell.name} />
+            </p>
             {isCurrent && (
               <p className="mt-1 text-xs text-ink">
                 <CopyText text={cell.desc} />

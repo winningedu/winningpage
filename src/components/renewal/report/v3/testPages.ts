@@ -221,6 +221,19 @@ export const FRONT_PAGES: FrontPages = {
       mid: true,
       near: false,
       text: "가까운 목표가 비어 있습니다.",
+      rungs: {
+        far: { source: "3번", text: "FAR 목표 고려대 경제학과" },
+        mid: {
+          source: "8-1",
+          text: "다음 시험에서 받고 싶은 과목별 목표 성적을 정해 두었다.",
+          answer: "대체로 그렇다",
+        },
+        near: {
+          source: "8-2",
+          text: "이번 주에 끝낼 공부 목표가 분명하다.",
+          answer: "보통이다",
+        },
+      },
     },
     tips: ["학기마다 한 번 목표를 확인하기", "이번 주 공부 목표 정하기"],
   },
@@ -249,6 +262,7 @@ export const FRONT_PAGES: FrontPages = {
       heading: "시험 운영 보완",
       body: "시험 보는 방식부터 정하면 가장 빨리 되찾을 수 있는 점수입니다.",
     },
+    examOpsVerdict: "보완",
     examOpsEvidence: {
       item: "8-15",
       answer: "별로 그렇지 않다",
