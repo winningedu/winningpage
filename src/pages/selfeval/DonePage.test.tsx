@@ -9,6 +9,7 @@ import {
 import { useRef } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { SAMPLE_PAYLOAD } from "@/components/selfeval/report/testFixtures";
 import {
   makeActivity,
   makeDetail,
@@ -24,6 +25,8 @@ const {
   toastMock,
   pdfSaveMock,
   pdfRoots,
+  fetchReportMock,
+  buildReportMock,
 } = vi.hoisted(() => ({
   stepMock: vi.fn(),
   shellMock: vi.fn(),
@@ -32,6 +35,8 @@ const {
   toastMock: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
   pdfSaveMock: vi.fn(),
   pdfRoots: [] as (HTMLElement | null)[],
+  fetchReportMock: vi.fn(),
+  buildReportMock: vi.fn(),
 }));
 
 vi.mock("@/components/selfeval/SelfevalShellContext", () => ({
@@ -41,6 +46,8 @@ vi.mock("@/components/selfeval/SelfevalShellContext", () => ({
 vi.mock("@/lib/selfeval/api", () => ({
   fetchSessionDetail: detailMock,
   fetchEntry: vi.fn(),
+  fetchReport: fetchReportMock,
+  buildReport: buildReportMock,
 }));
 vi.mock("@/context/SessionContext", () => ({
   useSession: () => ({ userId: "u1" }),
@@ -150,8 +157,30 @@ function completed(session: Record<string, unknown> = {}) {
   });
 }
 
+const readyReport = {
+  kind: "ok",
+  data: {
+    ok: true,
+    report: {
+      sessionId: "s1",
+      finalRevision: 1,
+      status: "ready",
+      attempts: 1,
+      builtAt: "2026-11-10T00:00:00Z",
+      payload: SAMPLE_PAYLOAD,
+    },
+  },
+};
+const reportNotFound = {
+  kind: "error",
+  status: 404,
+  code: "REPORT_NOT_FOUND",
+  message: "none",
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
+  fetchReportMock.mockResolvedValue(readyReport);
   pdfRoots.length = 0;
   shellMock.mockReturnValue({ refetchEntry: vi.fn(), studentName: "김하나" });
 });
@@ -333,5 +362,69 @@ describe("DonePage", () => {
     expect(root.textContent).toContain("네 번째 문장이에요.");
     expect(within(root).queryByText("검증 요약")).toBeNull();
     expect(root.textContent).not.toContain("제출 가능");
+  });
+
+  test("리포트가 준비돼 있으면 만들지 않고 리포트 보기로 리포트 화면을 연다", async () => {
+    detailMock.mockResolvedValue(completed());
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "리포트 보기" }));
+    expect(navigateMock).toHaveBeenCalledWith("/app/selfeval/s/s1/report");
+    expect(buildReportMock).not.toHaveBeenCalled();
+  });
+
+  test("리포트가 없으면 최종 저장 직후 자동으로 한 번 만들고 진행 중을 알린다", async () => {
+    fetchReportMock.mockResolvedValue(reportNotFound);
+    let release: (v: unknown) => void = () => {};
+    buildReportMock.mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    detailMock.mockResolvedValue(completed());
+    renderPage();
+    expect(await screen.findByText("리포트를 만드는 중이에요")).toBeTruthy();
+    await waitFor(() => expect(buildReportMock).toHaveBeenCalledTimes(1));
+    expect(buildReportMock).toHaveBeenCalledWith("s1");
+    release(readyReport);
+    expect(
+      await screen.findByRole("button", { name: "리포트 보기" }),
+    ).toBeTruthy();
+    expect(buildReportMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("리포트 만들기가 실패해도 최종 본문은 그대로 보이고 다시 만들기를 제공한다", async () => {
+    fetchReportMock.mockResolvedValue(reportNotFound);
+    buildReportMock.mockResolvedValueOnce({
+      kind: "error",
+      status: 500,
+      code: "REPORT_FAILED",
+      message: "fail",
+    });
+    detailMock.mockResolvedValue(completed());
+    renderPage();
+    expect(
+      await screen.findByText(
+        "리포트를 만들지 못했어요. 최종 저장은 그대로예요.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByLabelText("최종 본문").textContent).toContain(
+      "네 번째 문장이에요.",
+    );
+    buildReportMock.mockResolvedValueOnce(readyReport);
+    fireEvent.click(screen.getByRole("button", { name: "다시 만들기" }));
+    expect(
+      await screen.findByRole("button", { name: "리포트 보기" }),
+    ).toBeTruthy();
+    expect(buildReportMock).toHaveBeenCalledTimes(2);
+  });
+
+  test("최종 저장 전 세션에서는 리포트를 부르지 않는다", async () => {
+    detailMock.mockResolvedValue(
+      makeDetail({ session: { status: "in_progress" } }),
+    );
+    renderPage();
+    await screen.findByText("아직 최종본으로 저장하지 않았어요");
+    expect(fetchReportMock).not.toHaveBeenCalled();
+    expect(buildReportMock).not.toHaveBeenCalled();
   });
 });
