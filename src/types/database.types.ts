@@ -5714,33 +5714,6 @@ export type Database = {
           },
         ];
       };
-      profile_login_days: {
-        Row: {
-          first_seen_at: string;
-          kst_date: string;
-          profile_id: string;
-        };
-        ComputedFields: never;
-        Insert: {
-          first_seen_at?: string;
-          kst_date: string;
-          profile_id: string;
-        };
-        Update: {
-          first_seen_at?: string;
-          kst_date?: string;
-          profile_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "profile_login_days_profile_id_fkey";
-            columns: ["profile_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       profile_login_slots: {
         Row: {
           profile_id: string;
@@ -8640,10 +8613,6 @@ export type Database = {
         Args: { p_months: number; p_ts: string; p_tz: string };
         Returns: string;
       };
-      fn_add_months_kst: {
-        Args: { p_months: number; p_ts: string };
-        Returns: string;
-      };
       fn_admin_can: {
         Args: { p_need?: string; p_resource: string };
         Returns: boolean;
@@ -9370,7 +9339,6 @@ export type Database = {
           title: string;
         }[];
       };
-      fn_kst_day_start: { Args: { p_ts: string }; Returns: string };
       fn_local_date: { Args: { p_ts: string; p_tz: string }; Returns: string };
       fn_login_lock_begin: {
         Args: { p_account_hash: string; p_pair_hash: string };
@@ -9801,7 +9769,6 @@ export type Database = {
         }[];
       };
       fn_school_year: { Args: { p_ts: string; p_tz: string }; Returns: number };
-      fn_school_year_kst: { Args: { p_ts: string }; Returns: number };
       fn_school_year_rollover: {
         Args: {
           p_actor: string;

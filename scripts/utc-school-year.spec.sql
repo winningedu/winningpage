@@ -24,21 +24,19 @@ select pg_temp.expect_int('로스앤젤레스는 같은 순간에 2025학년도'
 select pg_temp.expect_int('로스앤젤레스는 현지 3/1 00:00 에 2026학년도',
   public.fn_school_year('2026-03-01 08:00:00+00', 'America/Los_Angeles'), 2026);
 
--- 서울 기준은 fn_school_year_kst 와 2월과 3월 경계 전후에서 같다.
-do $$
-declare
-  v_ts timestamptz;
-begin
-  for v_ts in
-    select g from generate_series(
-      '2025-02-27 00:00:00+00'::timestamptz, '2027-03-02 00:00:00+00'::timestamptz, interval '30 minutes') g
-  loop
-    if public.fn_school_year(v_ts, 'Asia/Seoul') is distinct from public.fn_school_year_kst(v_ts) then
-      raise exception '[FAIL] 서울 학년도가 kst 함수와 다르다: %', v_ts;
-    end if;
-  end loop;
-  raise notice '[PASS] 서울 fn_school_year = fn_school_year_kst';
-end $$;
+-- 서울 기준: 3월 1일 00:00 현지에 새 학년도가 시작한다(옛 fn_school_year_kst 와 같은 경계).
+select pg_temp.expect_int('2026-03-01 00:00 서울은 2026학년도',
+  public.fn_school_year('2026-03-01 00:00:00+09', 'Asia/Seoul'), 2026);
+select pg_temp.expect_int('2026-02-28 23:59 서울은 2025학년도',
+  public.fn_school_year('2026-02-28 23:59:59+09', 'Asia/Seoul'), 2025);
+select pg_temp.expect_int('2026-01-01 00:00 서울은 2025학년도',
+  public.fn_school_year('2026-01-01 00:00:00+09', 'Asia/Seoul'), 2025);
+select pg_temp.expect_int('2026-12-31 23:59 서울은 2026학년도',
+  public.fn_school_year('2026-12-31 23:59:59+09', 'Asia/Seoul'), 2026);
+
+-- 옛 KST 학년도 함수는 지워졌다.
+select pg_temp.expect_int('fn_school_year_kst 가 없다',
+  (to_regprocedure('public.fn_school_year_kst(timestamptz)') is not null)::int, 0);
 
 -- 새 기관의 학년도 기본값은 기본 시간대(Asia/Seoul) 기준이다.
 insert into public.tenants (code, name, region, org_type, tier)
