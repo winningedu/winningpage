@@ -6,10 +6,12 @@ import {
   MIND_CODES,
   type MindCode,
   P1_CODES,
-  type P1Code,
+  P2_CODES,
+  type P2Code,
+  type TrackCode,
 } from "./codes.js";
 import { type Likert, SCALE_ITEMS, scaleValue } from "./likert.js";
-import { OPTIONS } from "./options.js";
+import { OPTIONS, trackOf } from "./options.js";
 import { roundHalfUpInt } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
 import type { DiagnosisV3Answers } from "./types.js";
@@ -91,11 +93,17 @@ const checksOf = (
   ).length;
 
 // 05 D: Q03_goal, Q10, Q12 or 없음 (scale mean as is, spec No 32).
-const auxOf = (answers: DiagnosisV3Answers, code: AreaCode): number | null => {
+const auxOf = (
+  answers: DiagnosisV3Answers,
+  track: TrackCode,
+  code: AreaCode,
+): number | null => {
   const aux = AREAS[code].aux;
   if (aux === "Q03_goal") return goalPoints(answers.q3);
   if (aux === "Q10")
     return checkPoints(checksOf(OPTIONS.q10, answers.q10, code));
+  if (aux === "Q12")
+    return checkPoints(checksOf(OPTIONS.q12[track], answers.q12, code));
   if (aux === "없음") return null;
   throw new Error(`aux ${aux} not handled for ${code}`);
 };
@@ -105,18 +113,33 @@ const scoresOf = <C extends AreaCode>(
   items: readonly { no: number; area: C; reverse: boolean }[],
   block: readonly Likert[],
   answers: DiagnosisV3Answers,
+  track: TrackCode,
 ) =>
   Object.fromEntries(
     codes.map((code) => [
       code,
-      { score: combine(scaleOf(items, block, code), auxOf(answers, code)) },
+      {
+        score: combine(
+          scaleOf(items, block, code),
+          auxOf(answers, track, code),
+        ),
+      },
     ]),
   ) as Record<C, { score: number }>;
 
 export function scoreAreas(answers: DiagnosisV3Answers) {
+  const track = trackOf(answers.q1);
   return {
+    track,
+    grade: answers.q1,
     page1: {
-      areas: scoresOf(P1_CODES, SCALE_ITEMS.q9, answers.q9.items, answers),
+      areas: scoresOf(
+        P1_CODES,
+        SCALE_ITEMS.q9,
+        answers.q9.items,
+        answers,
+        track,
+      ),
     },
     mind: {
       areas: scoresOf<MindCode>(
@@ -124,6 +147,16 @@ export function scoreAreas(answers: DiagnosisV3Answers) {
         SCALE_ITEMS.q20,
         answers.q20.items,
         answers,
+        track,
+      ),
+    },
+    page2: {
+      areas: scoresOf<P2Code>(
+        P2_CODES[track],
+        SCALE_ITEMS.q11[track],
+        answers.q11.items,
+        answers,
+        track,
       ),
     },
   };

@@ -25,6 +25,23 @@ describe("area scores (계산 예시)", () => {
     });
   });
 
+  test("PAGE2 고1\u00b72 areas use q12 checks, 2 checks = 0 (A18-A23)", () => {
+    const scores = Object.fromEntries(
+      Object.entries(scoreAreas(CALC_EXAMPLE).page2.areas).map(([k, v]) => [
+        k,
+        v?.score,
+      ]),
+    );
+    expect(scores).toEqual({
+      H12_SUBJ: 74,
+      H12_PERF: 65,
+      H12_DEEP: 26,
+      H12_LINK: 65,
+      H12_REC: 74,
+      H12_STRA: 50,
+    });
+  });
+
   test("MIND: no aux for 자기효능감 and 성장 마인드셋, q10 for 불안\u00b7회복 (A15-A17)", () => {
     const { mind } = scoreAreas(CALC_EXAMPLE);
     expect(mind.areas.MIND_EFF.score).toBe(75);
