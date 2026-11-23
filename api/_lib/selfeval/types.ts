@@ -328,15 +328,27 @@ export type AnalysisSource = "model" | "student";
 // 생성 본문(명세 No.44~52, No.85)
 // ---------------------------------------------------------------------------
 
-export type SentenceEvidence =
-  | { activityId: string; field: AnalysisField }
-  | { student: true };
+/** 근거 출처 유형(명세 No.145): P 수행평가, D 심화탐구, A 창체 활동, H 수기 메모, S 학생 입력. */
+export type EvidenceSourceType = "P" | "D" | "A" | "H" | "S";
+
+export type EvidenceItem = AnalysisField | "student_input";
+
+export type EvidenceWeight = "main" | "sub";
+
+/** 문장 하나가 기댄 근거 하나. 한 문장에 여러 개를 붙일 수 있다(명세 No.145, No.85). */
+export type SentenceEvidence = {
+  sourceType: EvidenceSourceType;
+  /** P, D, A 는 activity_records.id, H 는 selfeval_manual_logs.id, S 는 null. */
+  refId: string | null;
+  item: EvidenceItem;
+  weight: EvidenceWeight;
+};
 
 export type Sentence = {
   id: string;
   text: string;
-  evidence: SentenceEvidence | null;
-  /** 자료로 확인되지 않는 느낌이나 판단 문장(노란 표시). */
+  evidence: SentenceEvidence[];
+  /** 확인이 필요한 문장(노란 표시). 근거가 없거나 근거로 설명되지 않는 수치가 있으면 서버가 올린다. */
   feeling: boolean;
   /** 학생이 느낌 문장을 확인했는지(명세 No.49, No.57). */
   confirmed: boolean;
