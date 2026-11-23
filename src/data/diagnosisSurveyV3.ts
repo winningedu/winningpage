@@ -1,7 +1,11 @@
 // v3 survey question definitions. Every title, helper and page comes from
 // 13_문항메타 (score source v3.0); this file only types and orders them.
 
-import { QUESTION_IDS, type QuestionId } from "@/lib/diagnosis-v3/codes";
+import {
+  QUESTION_IDS,
+  type QuestionId,
+  REQUIRED_QUESTIONS,
+} from "@/lib/diagnosis-v3/codes";
 import { numberCell, sheetRows, textCell } from "@/lib/diagnosis-v3/sheet";
 
 export type SurveyV3Question = {
@@ -16,6 +20,44 @@ export type SurveyV3Question = {
   readonly helper: string | undefined;
   /** screen number shown on the card, 기능요구명세서 B column */
   readonly label: string;
+  /** 13 G = 필수 */
+  readonly required: boolean;
+  /** input widget, read from the 13 F text */
+  readonly kind: SurveyV3Kind;
+  /** 13 F 단일선택(칩) */
+  readonly chip: boolean;
+  /** 13 F 최대 N */
+  readonly maxPicks: number | undefined;
+};
+
+export type SurveyV3Kind =
+  | "single"
+  | "multi"
+  | "likert"
+  | "number"
+  | "grades"
+  | "mock"
+  | "schedule"
+  | "pair"
+  | "cascade";
+
+/** 13 F input type text to widget, first match wins. */
+const KIND_BY_INPUT_TYPE: readonly [RegExp, SurveyV3Kind][] = [
+  [/^단일선택 × 2/, "pair"],
+  [/^단일선택/, "single"],
+  [/^복수선택/, "multi"],
+  [/^리커트/, "likert"],
+  [/^숫자 입력 1칸/, "number"],
+  [/^숫자 입력/, "grades"],
+  [/^월 선택/, "mock"],
+  [/^일정 입력/, "schedule"],
+  [/^연쇄선택/, "cascade"],
+];
+
+const kindOf = (inputType: string): SurveyV3Kind => {
+  const match = KIND_BY_INPUT_TYPE.find(([pattern]) => pattern.test(inputType));
+  if (!match) throw new Error(`unknown 13 F input type ${inputType}`);
+  return match[1];
 };
 
 // 기능요구명세서 B14-B34 screen numbers (judge-report numbering map).
@@ -57,6 +99,11 @@ const metaOf = (id: QuestionId) => {
   return row;
 };
 
+const maxPicksOf = (inputType: string) => {
+  const max = inputType.match(/최대 (\d+)/)?.[1];
+  return max === undefined ? undefined : Number(max);
+};
+
 export const SURVEY_V3_QUESTIONS: readonly SurveyV3Question[] =
   QUESTION_IDS.map((id) => {
     const row = metaOf(id);
@@ -69,6 +116,10 @@ export const SURVEY_V3_QUESTIONS: readonly SurveyV3Question[] =
       helper:
         helper === null || helper === undefined ? undefined : String(helper),
       label: SCREEN_LABELS[id],
+      required: REQUIRED_QUESTIONS.includes(id),
+      kind: kindOf(textCell(row, 5)),
+      chip: textCell(row, 5).includes("(칩)"),
+      maxPicks: maxPicksOf(textCell(row, 5)),
     };
   });
 

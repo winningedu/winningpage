@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { REQUIRED_QUESTIONS } from "@/lib/diagnosis-v3/codes";
 import { sheetRows } from "@/lib/diagnosis-v3/sheet";
 import { SURVEY_V3_PAGES, SURVEY_V3_QUESTIONS } from "./diagnosisSurveyV3";
 
@@ -60,6 +61,54 @@ describe("v3 문항 정의", () => {
       q22: "20",
       q23: "21",
     });
+  });
+
+  it("입력 방식, 필수 여부, 최대 선택 수는 13번 시트 F, G열을 따른다", () => {
+    const byId = Object.fromEntries(SURVEY_V3_QUESTIONS.map((q) => [q.id, q]));
+    expect(
+      SURVEY_V3_QUESTIONS.filter((q) => q.required).map((q) => q.id),
+    ).toEqual(REQUIRED_QUESTIONS);
+    const kinds = Object.fromEntries(
+      SURVEY_V3_QUESTIONS.map((q) => [q.id, q.kind]),
+    );
+    expect(kinds).toEqual({
+      q1: "single",
+      q2: "single",
+      q3: "single",
+      q3r: "multi",
+      q4: "single",
+      q5: "single",
+      q6: "number",
+      q6s: "grades",
+      q6r: "number",
+      q6m: "mock",
+      q8: "single",
+      q8s: "single",
+      q8d: "single",
+      q9: "likert",
+      q20: "likert",
+      q10: "multi",
+      q11: "likert",
+      q12: "multi",
+      q13: "schedule",
+      q21: "pair",
+      q14: "multi",
+      q15: "cascade",
+      q16: "single",
+      q17: "single",
+      q18: "single",
+      q22: "single",
+      q23: "likert",
+    });
+    expect(byId.q1?.chip).toBe(true);
+    expect(byId.q2?.chip).toBe(true);
+    expect(byId.q3?.chip).toBe(false);
+    expect(byId.q3r?.maxPicks).toBe(2);
+    expect(byId.q10?.maxPicks).toBe(3);
+    expect(byId.q12?.maxPicks).toBe(3);
+    expect(byId.q14?.maxPicks).toBe(2);
+    expect(byId.q13?.maxPicks).toBe(3);
+    expect(byId.q1?.maxPicks).toBeUndefined();
   });
 
   it("제목, 안내문구, 카테고리는 13번 시트 셀과 글자까지 같다", () => {
