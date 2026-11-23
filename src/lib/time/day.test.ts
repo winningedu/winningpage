@@ -91,7 +91,7 @@ describe("dayRangeUtc", () => {
 });
 
 describe("addMonthsIn", () => {
-  // DB fn_add_months_kst: 현지 하루 시작으로 자르고 달력 개월을 더한다(말일 보정).
+  // DB fn_add_months: 현지 하루 시작으로 자르고 달력 개월을 더한다(말일 보정).
   it("서울 1/31 에 1개월을 더하면 2/28 하루 시작이다", () => {
     expect(addMonthsIn("2026-01-31T03:00:00Z", 1, "Asia/Seoul")).toBe(
       "2026-02-27T15:00:00.000Z",
