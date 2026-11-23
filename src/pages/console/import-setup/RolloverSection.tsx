@@ -6,6 +6,10 @@ import { site } from "@/config/site";
 import { cn } from "@/lib/utils";
 import { consoleRequest, errorMessage } from "../api";
 import type { GradeLabeler } from "../classLabel";
+import FormatErrorDialog, {
+  dropSubject,
+  type FormatErrorItem,
+} from "../FormatErrorDialog";
 import Notice from "../Notice";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import { useToast } from "../Toast";
@@ -15,6 +19,7 @@ import RolloverConfirmDialog, {
 } from "./RolloverConfirmDialog";
 import RolloverPreviewTable, {
   FORMAT_REASON_LABEL,
+  type FormatReason,
   type PreviewRow,
   resultLegend,
 } from "./RolloverPreviewTable";
@@ -90,6 +95,27 @@ interface ApplyFailure {
   sentence: string;
 }
 
+const FORMAT_CELL_LABEL: Record<FormatReason, string> = {
+  grade: "학년",
+  class: "반",
+  group: "그룹",
+};
+
+/** 형식 오류 줄을 확인 창의 항목(틀린 칸마다 하나)으로 바꾼다. 이유 문장은 줄마다 보이는 것과 같은 말이다. */
+function formatErrorItems(rows: PreviewRow[]): FormatErrorItem[] {
+  return rows
+    .filter((r) => r.result === "format_error")
+    .flatMap((r) =>
+      (r.reasons ?? []).map((reason) => ({
+        row: r.line,
+        name: r.displayName,
+        cell: FORMAT_CELL_LABEL[reason],
+        value: r.values?.[reason] ?? "",
+        message: dropSubject(FORMAT_REASON_LABEL[reason]),
+      })),
+    );
+}
+
 /** 적용 응답의 미회원가입 저장 결과를 문장 뒤에 붙인다. 저장한 줄이 없으면 붙이지 않는다. */
 function pendingSentence(done: { pendingStored: number }): string {
   return done.pendingStored > 0
@@ -111,6 +137,7 @@ export default function RolloverSection({
   const [year, setYear] = useState<SchoolYear | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [failure, setFailure] = useState<ApplyFailure | null>(null);
+  const [errorItems, setErrorItems] = useState<FormatErrorItem[]>([]);
 
   // 응답이 올 때 지금 입력칸과 같은 명단인지 비교하려고 최신 text 를 들고 있는다.
   const textRef = useRef(text);
@@ -156,7 +183,9 @@ export default function RolloverSection({
         });
         return;
       }
-      setPreview(res.body as Preview);
+      const body = res.body as Preview;
+      setPreview(body);
+      setErrorItems(formatErrorItems(body.rows));
     } catch {
       toast.show({ tone: "Error", message: SAVE_FAILED_MESSAGE });
     } finally {
@@ -205,6 +234,20 @@ export default function RolloverSection({
           toast.show({ tone: "Success", message: sentence });
           return;
         }
+        setErrorItems([
+          ...formatErrorItems(formatErrors),
+          ...(done.pendingSkipped > 0
+            ? [
+                {
+                  row: 0,
+                  name: "",
+                  cell: "",
+                  value: "",
+                  message: `학년이나 반을 알 수 없는 ${done.pendingSkipped}명은 저장하지 못했어요`,
+                },
+              ]
+            : []),
+        ]);
         setFailure({
           failed,
           formatErrors,
@@ -325,6 +368,11 @@ export default function RolloverSection({
           </div>
         </>
       )}
+      <FormatErrorDialog
+        open={errorItems.length > 0}
+        onClose={() => setErrorItems([])}
+        items={errorItems}
+      />
       {preview && (
         <RolloverConfirmDialog
           open={confirming}

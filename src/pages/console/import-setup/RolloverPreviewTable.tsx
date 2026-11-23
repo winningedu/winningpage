@@ -52,6 +52,8 @@ export interface PreviewRow {
   noHomeroom?: boolean;
   /** 형식 오류 줄에서 틀린 칸. */
   reasons?: FormatReason[];
+  /** 형식 오류 줄에서 틀린 칸마다 사람이 적은 글 그대로. */
+  values?: Partial<Record<FormatReason, string>>;
 }
 
 const RESULTS: Record<PreviewResult, { label: string; tone: ChipTone }> = {
