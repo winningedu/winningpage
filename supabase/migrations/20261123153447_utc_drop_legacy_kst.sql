@@ -12,6 +12,11 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+-- pg_dump 가 기본 권한을 파일 끝에 두므로 public 의 함수, 테이블, 시퀀스 기본 권한을 먼저 닫는다.
+-- 재생되는 객체는 아래에 명시된 GRANT 만 갖고, 파일 끝의 기본 권한이 원래 상태로 되돌린다.
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" REVOKE ALL ON FUNCTIONS FROM "anon", "authenticated", "service_role";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" REVOKE ALL ON TABLES FROM "anon", "authenticated", "service_role";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" REVOKE ALL ON SEQUENCES FROM "anon", "authenticated", "service_role";
 
 CREATE EXTENSION IF NOT EXISTS "pgroonga" WITH SCHEMA "extensions";
 
@@ -26709,3 +26714,12 @@ CREATE POLICY "performance guides owner read" ON "storage"."objects" FOR SELECT 
 
 
 
+
+-- CLI 덤프가 extensions 타입(vector)을 받는 함수의 권한 문장을 빼므로 원래 권한을 적는다.
+GRANT ALL ON FUNCTION "public"."fn_knowledge_near_duplicates"("query_embedding" "extensions"."vector", "filter_knowledge_type" "text", "min_similarity" double precision, "match_count" integer) TO PUBLIC, "anon", "authenticated", "postgres", "service_role";
+REVOKE ALL ON FUNCTION "public"."match_student_performance_sessions"("query_embedding" "extensions"."vector", "filter_profile_id" "uuid", "match_count" integer, "match_threshold" double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."match_student_performance_sessions"("query_embedding" "extensions"."vector", "filter_profile_id" "uuid", "match_count" integer, "match_threshold" double precision) TO "postgres", "service_role";
+REVOKE ALL ON FUNCTION "public"."match_winning_suhaeng_all_subjects"("query_embedding" "extensions"."vector", "filter_knowledge_type" "text", "filter_grade" "text", "match_count" integer, "match_threshold" double precision, "filter_subject" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."match_winning_suhaeng_all_subjects"("query_embedding" "extensions"."vector", "filter_knowledge_type" "text", "filter_grade" "text", "match_count" integer, "match_threshold" double precision, "filter_subject" "text") TO "postgres", "service_role";
+REVOKE ALL ON FUNCTION "public"."match_winning_suhaeng_hybrid"("query_embedding" "extensions"."vector", "query_keywords" "text", "filter_knowledge_type" "text", "filter_grade" "text", "match_count" integer, "match_threshold" double precision, "filter_subject" "text", "full_text_weight" double precision, "semantic_weight" double precision, "rrf_k" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."match_winning_suhaeng_hybrid"("query_embedding" "extensions"."vector", "query_keywords" "text", "filter_knowledge_type" "text", "filter_grade" "text", "match_count" integer, "match_threshold" double precision, "filter_subject" "text", "full_text_weight" double precision, "semantic_weight" double precision, "rrf_k" integer) TO "postgres", "service_role";
