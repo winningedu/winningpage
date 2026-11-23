@@ -27,6 +27,41 @@ describe("v3 문항 정의", () => {
     expect(idsOf(6)).toEqual(["q22", "q23"]);
   });
 
+  it("화면 번호는 명세서 B열 번호(8번=q9, 9번=q20 ...)를 따른다", () => {
+    const labels = Object.fromEntries(
+      SURVEY_V3_QUESTIONS.map((q) => [q.id, q.label]),
+    );
+    expect(labels).toEqual({
+      q1: "1",
+      q2: "2",
+      q3: "3",
+      q3r: "3-1",
+      q4: "4",
+      q5: "5",
+      q6: "6",
+      q6s: "6-1",
+      q6r: "6-2",
+      q6m: "6-3",
+      q8: "7",
+      q8s: "7-1",
+      q8d: "7-2",
+      q9: "8",
+      q20: "9",
+      q10: "10",
+      q11: "11",
+      q12: "12",
+      q13: "13",
+      q21: "14",
+      q14: "15",
+      q15: "16",
+      q16: "17",
+      q17: "18",
+      q18: "19",
+      q22: "20",
+      q23: "21",
+    });
+  });
+
   it("제목, 안내문구, 카테고리는 13번 시트 셀과 글자까지 같다", () => {
     for (const row of metaRows) {
       const question = SURVEY_V3_QUESTIONS.find((q) => q.id === row.c[0]);

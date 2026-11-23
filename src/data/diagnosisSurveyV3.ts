@@ -14,6 +14,39 @@ export type SurveyV3Question = {
   readonly title: string;
   /** 13 E */
   readonly helper: string | undefined;
+  /** screen number shown on the card, 기능요구명세서 B column */
+  readonly label: string;
+};
+
+// 기능요구명세서 B14-B34 screen numbers (judge-report numbering map).
+const SCREEN_LABELS: Readonly<Record<QuestionId, string>> = {
+  q1: "1",
+  q2: "2",
+  q3: "3",
+  q3r: "3-1",
+  q4: "4",
+  q5: "5",
+  q6: "6",
+  q6s: "6-1",
+  q6r: "6-2",
+  q6m: "6-3",
+  q8: "7",
+  q8s: "7-1",
+  q8d: "7-2",
+  q9: "8",
+  q20: "9",
+  q10: "10",
+  q11: "11",
+  q12: "12",
+  q13: "13",
+  q21: "14",
+  q14: "15",
+  q15: "16",
+  q16: "17",
+  q17: "18",
+  q18: "19",
+  q22: "20",
+  q23: "21",
 };
 
 const metaRows = sheetRows("13_문항메타").filter((row) => row.r > 4);
@@ -35,6 +68,7 @@ export const SURVEY_V3_QUESTIONS: readonly SurveyV3Question[] =
       title: textCell(row, 3),
       helper:
         helper === null || helper === undefined ? undefined : String(helper),
+      label: SCREEN_LABELS[id],
     };
   });
 
