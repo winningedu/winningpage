@@ -31,7 +31,7 @@ import {
   type PurgeResult,
   runMemberPurge,
 } from "./api";
-import { deletionDdayText, todayKst } from "./tenantContract";
+import { deletionDdayText, todayKst } from "./contract";
 
 // ---------------------------------------------------------------------------
 // 계약 종료 회원 삭제(사 #162, #176, 결정 102.1, 102.3, 102.4). 기관을 고르면 미리보기(가린 이름, 학년, 반, 번호,

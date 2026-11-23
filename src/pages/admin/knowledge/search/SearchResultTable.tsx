@@ -1,4 +1,4 @@
-// 검색 테스트 결과 표. 열 구성은 searchColumns.ts 가 정하고, 이 파일은 칸 내용만 그린다.
+// 검색 테스트 결과 표. 열 구성은 columns.ts 가 정하고, 이 파일은 칸 내용만 그린다.
 // 벡터 결과만 유사도 내림차순이라 threshold 경계선이 한 줄로 그어진다.
 
 import { Fragment } from "react";
@@ -12,7 +12,7 @@ import {
 
 import type { SearchPreviewItem } from "../../../../../api/_lib/knowledge/preview.js";
 import type { SearchPreviewResult } from "../api";
-import { type SearchColumnKey, searchColumnsFor } from "./searchColumns";
+import { type SearchColumnKey, searchColumnsFor } from "./columns";
 
 function formatRank(rank: number | null | undefined): string {
   return typeof rank === "number" ? String(rank) : "없음";

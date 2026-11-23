@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("./inquirySessionsApi", () => ({
+vi.mock("./api", () => ({
   fetchInquirySessions: vi.fn(),
   postInquiryGrant: vi.fn(),
   postInquiryRecover: vi.fn(),
@@ -22,9 +22,9 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+import * as api from "./api";
 import InquirySessionsAdmin from "./InquirySessionsAdmin";
-import * as api from "./inquirySessionsApi";
-import type { InquirySessionItem } from "./inquirySessionsRow";
+import type { InquirySessionItem } from "./row";
 
 const ITEM: InquirySessionItem = {
   id: "s-1",

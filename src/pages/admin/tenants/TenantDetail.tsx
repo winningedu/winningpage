@@ -8,9 +8,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
-import SchoolAdminPanel from "./SchoolAdminPanel";
-import ServiceSettingsPanel from "./ServiceSettingsPanel";
-import { mouLabel } from "./tenantContract";
+import { mouLabel } from "./contract";
 import {
   CONTRACT_ORDER_MESSAGE,
   emptyTenantForm,
@@ -19,12 +17,10 @@ import {
   tenantFormFromRow,
   tenantPayload,
   validateTenantForm,
-} from "./tenantForm";
-import {
-  ORG_TYPE_OPTIONS,
-  REGION_OPTIONS,
-  TIER_OPTIONS,
-} from "./tenantOptions";
+} from "./form";
+import { ORG_TYPE_OPTIONS, REGION_OPTIONS, TIER_OPTIONS } from "./options";
+import SchoolAdminPanel from "./SchoolAdminPanel";
+import ServiceSettingsPanel from "./ServiceSettingsPanel";
 
 // ---------------------------------------------------------------------------
 // 본사 기관 상세(5번 본사 관리 화면, 사 #144, #159, 결정 r14, r15). 기관 정보 탭은 tenants 를 RLS 로

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("./selfevalSessionsApi", () => ({
+vi.mock("./api", () => ({
   fetchSelfevalSessions: vi.fn(),
   fetchSelfevalSessionDetail: vi.fn(),
   postSelfevalGrant: vi.fn(),
@@ -9,9 +9,9 @@ vi.mock("./selfevalSessionsApi", () => ({
 }));
 vi.mock("@/lib/supabase", () => ({ supabase: { from: vi.fn() } }));
 
+import * as api from "./api";
+import type { SelfevalSessionItem } from "./row";
 import SelfevalSessionsAdmin from "./SelfevalSessionsAdmin";
-import * as api from "./selfevalSessionsApi";
-import type { SelfevalSessionItem } from "./selfevalSessionsRow";
 
 const ITEM: SelfevalSessionItem = {
   id: "s-1",

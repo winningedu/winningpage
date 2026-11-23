@@ -23,21 +23,21 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import {
-  buildGrantBody,
-  type GrantFormValues,
-  validateGrantForm,
-} from "./growthGrantForm";
-import {
   fetchGrowthReports,
   type GrowthReportsPage,
   postGrowthGrant,
   postGrowthRecover,
-} from "./growthReportsApi";
+} from "./api";
+import {
+  buildGrantBody,
+  type GrantFormValues,
+  validateGrantForm,
+} from "./grantForm";
 import {
   buildGrowthReportsSearch,
   growthReportsQueryReducer,
   initialGrowthReportsQuery,
-} from "./growthReportsQuery";
+} from "./query";
 import {
   canRecover,
   GROWTH_STATUS_OPTIONS,
@@ -46,7 +46,7 @@ import {
   statusLabel,
   stepLabel,
   terminalLabel,
-} from "./growthReportsRow";
+} from "./row";
 
 const STUDENT_SEARCH_LIMIT = 20;
 

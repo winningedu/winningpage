@@ -5,7 +5,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("./selfevalSessionsApi", () => ({
+vi.mock("./api", () => ({
   fetchSelfevalSessions: vi.fn(),
   postSelfevalGrant: vi.fn(),
   postSelfevalRecover: vi.fn(),
@@ -27,8 +27,8 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+import * as api from "./api";
 import SelfevalSessionsAdmin from "./SelfevalSessionsAdmin";
-import * as api from "./selfevalSessionsApi";
 
 const ITEM = {
   id: "s-1",
