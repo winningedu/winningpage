@@ -4,9 +4,11 @@ import { sheetRows } from "./sheet.js";
 import {
   representativeTemperament,
   type TempDimScore,
+  temperamentCounsel,
   temperamentCrossChecks,
   temperamentDims,
   temperamentFactors,
+  temperamentMethods,
   temperamentRules,
 } from "./temperament.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
@@ -266,5 +268,41 @@ describe("temperament admission rules (18 r32-r48)", () => {
     expect(rulesFor("H3", [70, 0, 40, 0, 100, 0, 0]).AD_HOLISTIC).toEqual([
       "T_AD_3",
     ]);
+  });
+});
+
+describe("plan methods (18 r50-r52) and counsel flag (18 r27)", () => {
+  test("M_NS at NS 70, M_HA at HA 60, M_PS under PS 50, sheet order", () => {
+    expect(temperamentMethods({ NS: 70, HA: 60, PS: 49 })).toEqual([
+      "M_NS",
+      "M_HA",
+      "M_PS",
+    ]);
+    expect(temperamentMethods({ NS: 69, HA: 59, PS: 50 })).toEqual([]);
+    expect(temperamentMethods({ NS: 0, HA: 80, PS: 80 })).toEqual(["M_HA"]);
+  });
+
+  const reliable = { diagnosis: "GOOD", temperament: "NORMAL" } as const;
+  const counsel = (ha: number, sd: number, recv: number) =>
+    temperamentCounsel({ HA: ha, SD: sd, recv }, reliable);
+
+  test("HA 70 or more AND SD under 40 AND 불안 회복 under 40", () => {
+    expect(counsel(70, 39, 39)).toBe(true);
+    expect(counsel(69, 39, 39)).toBe(false);
+    expect(counsel(70, 40, 39)).toBe(false);
+    expect(counsel(70, 39, 40)).toBe(false);
+  });
+
+  test("a SIMPLE diagnosis or a CAUTION temperament never gets counsel", () => {
+    const low = { HA: 90, SD: 0, recv: 0 };
+    expect(
+      temperamentCounsel(low, { diagnosis: "SIMPLE", temperament: "NORMAL" }),
+    ).toBe(false);
+    expect(
+      temperamentCounsel(low, { diagnosis: "MID", temperament: "CAUTION" }),
+    ).toBe(false);
+    expect(
+      temperamentCounsel(low, { diagnosis: "MID", temperament: "NORMAL" }),
+    ).toBe(true);
   });
 });

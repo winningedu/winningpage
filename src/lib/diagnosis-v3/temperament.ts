@@ -314,3 +314,51 @@ export function temperamentRules(
   }
   return rules;
 }
+
+// 18 r50-r52: B = method id, C = condition, D = copy id (TEMP_METHOD_x).
+const METHOD_ROWS = tempSheet
+  .filter((row) => row.r >= 50 && row.r <= 52)
+  .map((row) => ({
+    id: textCell(row, 1) as "M_NS" | "M_HA" | "M_PS",
+    condition: textCell(row, 2),
+  }));
+
+/** Method sentences added under the plan table, in sheet order. */
+export function temperamentMethods(
+  vars: ConditionVars,
+): readonly ("M_NS" | "M_HA" | "M_PS")[] {
+  return METHOD_ROWS.filter((row) => holds(row.condition, vars)).map(
+    (row) => row.id,
+  );
+}
+
+// 18 r27 C: "[HA] >= 70 AND [SD] < 40 AND [불안\u00b7회복] < 40".
+const COUNSEL_CONDITION = textCell(tempRow(27), 2);
+
+export type CounselInput = {
+  readonly HA: number;
+  readonly SD: number;
+  /** MIND_RECV (불안 회복) area score */
+  readonly recv: number;
+};
+
+/** 18 r27 and spec row 91: not applied for SIMPLE or CAUTION (F4, F6) answers. */
+export function temperamentCounsel(
+  input: CounselInput,
+  reliability: {
+    readonly diagnosis: "SIMPLE" | "MID" | "GOOD";
+    readonly temperament: "CAUTION" | "NORMAL";
+  },
+): boolean {
+  if (
+    reliability.diagnosis === "SIMPLE" ||
+    reliability.temperament === "CAUTION"
+  ) {
+    return false;
+  }
+  return holds(COUNSEL_CONDITION, {
+    HA: input.HA,
+    SD: input.SD,
+    "불안\u00b7회복": input.recv,
+  });
+}
