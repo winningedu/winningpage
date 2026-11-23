@@ -9,7 +9,7 @@
 -- 4. fn_hq_trend_buckets: 묶음마다 새 가입 회원 수(profiles.created_at, 회원 유형별)와 결제 주문 수(A10).
 --    결제 주문은 admin_revenue_items 와 같이 status 가 paid 또는 refunded 이고 결제일(paid_at, KST)이 묶음 안인 주문이다.
 --    제외 판정은 이용 학생(student_profile_id) 기준이다.
--- 5. fn_hq_b2c_summary: B2C 회원 수(지금 기준, 유형별)와 기간 결제 요약(A11). 결제 금액은 admin_revenue_items 의
+-- 5. fn_hq_b2c_summary: B2C 회원 수(지금 기준, 유형별, 비활성과 이름 "삭제된 학생"은 뺌, Q9 와 같은 기준)와 기간 결제 요약(A11). 결제 금액은 admin_revenue_items 의
 --    paid_amount, refunded_amount, net_amount 를 더하기만 한다(매출 및 결제 화면과 같은 원천, 새 매출 식 없음).
 --    결제 회원은 B2C 이용 학생 기준 서로 다른 수다.
 -- 통계 함수는 security definer 이고 service_role 만 실행한다. 기본 제외는 fn_hq_stat_included.
@@ -341,6 +341,8 @@ begin
     select coalesce(p.member_type, 'none') as member_type, count(*) as n
       from public.profiles p
      where public.fn_hq_is_b2c_tenant(p.tenant_id)
+       and p.is_active is distinct from false
+       and p.name is distinct from '삭제된 학생'
        and public.fn_hq_stat_included(p.id, p_include_internal)
      group by coalesce(p.member_type, 'none')
   ),

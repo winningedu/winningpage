@@ -74,9 +74,14 @@ insert into fx values
   ('tn', pg_temp.mk_user('hqb-tn@t.local', 'user', 'student')),
   ('tp', pg_temp.mk_user('hqb-tp@t.local', 'user', 'parent')),
   ('qa', pg_temp.mk_user('hqb-qa@t.local', 'user', 'student')),
-  ('adm', pg_temp.mk_user('hqb-adm@t.local', 'admin', null));
+  ('adm', pg_temp.mk_user('hqb-adm@t.local', 'admin', null)),
+  ('off', pg_temp.mk_user('hqb-off@t.local', 'user', 'student')),
+  ('del', pg_temp.mk_user('hqb-del@t.local', 'user', 'student'));
 create function pg_temp.fx(p_k text) returns uuid language sql as $$ select v from fx where k = p_k $$;
 insert into public.qa_accounts (profile_id) values (pg_temp.fx('qa'));
+-- B2C 회원 수에서 빼는 계정(Q9 와 같은 기준): 비활성, 이름 "삭제된 학생".
+update public.profiles set is_active = false where id = pg_temp.fx('off');
+update public.profiles set name = '삭제된 학생' where id = pg_temp.fx('del');
 
 -- 실제 기관 하나와 기타 소속(catch-all) 기관 하나. 기타 소속은 한 사이트에 하나뿐이라 없을 때만 만든다.
 insert into public.tenants (code, name, region, org_type, tier) values ('HQBSPEC2', '스펙기관', '서울', '학교', 'S');
@@ -201,6 +206,8 @@ select pg_temp.expect_error('추이도 모르는 묶음 단위는 거부',
 -- ---------------------------------------------------------------------
 -- fn_hq_b2c_summary: B2C 회원 수(유형별), 기간 결제(admin_revenue_items 그대로 합)
 -- ---------------------------------------------------------------------
+select pg_temp.expect_text('B2C 회원 수는 비활성과 "삭제된 학생"을 포함 스위치와 무관하게 뺀다',
+  (select member_total::text from public.fn_hq_b2c_summary('2002-03-01', '2002-03-31', true)), '6');
 select pg_temp.expect_text('B2C 회원은 기관 없음과 기타 소속, QA 와 관리자 제외',
   (select member_total || ' ' || by_member_type::text
      from public.fn_hq_b2c_summary('2002-03-01', '2002-03-31', false)
