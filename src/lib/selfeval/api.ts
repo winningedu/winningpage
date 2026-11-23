@@ -336,6 +336,18 @@ export function writeConfirmFeeling(sessionId: string, sentenceId: string) {
   });
 }
 
+/** 한 문장의 근거를 선택 기록과 수기 메모에서 다시 고른다(명세 No.147). */
+export function writeRepickEvidence(
+  sessionId: string,
+  sentenceId: string,
+  picks: { refId: string; item: string }[],
+) {
+  return request<WriteEditResponse>(`${BASE}/write`, {
+    method: "POST",
+    body: { sessionId, action: "repick-evidence", sentenceId, picks },
+  });
+}
+
 // ── 검증과 최종 저장 ──────────────────────────────────────────────────
 export function verifySession(sessionId: string) {
   return request<VerifyResponse>(`${BASE}/verify`, {

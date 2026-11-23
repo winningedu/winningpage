@@ -38,6 +38,7 @@ import {
   writeConfirmFeeling,
   writeEdit,
   writeGenerate,
+  writeRepickEvidence,
 } from "./api";
 
 const json = (status: number, body: unknown) =>
@@ -201,6 +202,18 @@ describe("분석, 생성, 검증, 최종 저장", () => {
       sessionId: "s1",
       action: "confirm-feeling",
       sentenceId: "p1s2",
+    });
+  });
+
+  test("근거 다시 고르기는 repick-evidence 로 문장 id 와 picks 를 보낸다", async () => {
+    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
+    await writeRepickEvidence("s1", "p1s2", [{ refId: "a1", item: "method" }]);
+    expect(lastCall().path).toBe("/api/selfeval/write");
+    expect(lastCall().body).toEqual({
+      sessionId: "s1",
+      action: "repick-evidence",
+      sentenceId: "p1s2",
+      picks: [{ refId: "a1", item: "method" }],
     });
   });
 
