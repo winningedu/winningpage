@@ -13,6 +13,7 @@ import type { QuestionId } from "@/lib/diagnosis-v3/codes";
 import { LIKERT_LEVELS } from "@/lib/diagnosis-v3/likert";
 import { OPTIONS } from "@/lib/diagnosis-v3/options";
 import { q23Order } from "@/lib/renewalSurvey";
+import type { CascadeLevel } from "./CascadingSelect";
 import SurveyQuestionList from "./SurveyQuestionList";
 
 afterEach(cleanup);
@@ -22,9 +23,11 @@ let latest: Record<string, unknown> = {};
 function Harness({
   ids,
   initial = {},
+  levels,
 }: {
   ids: QuestionId[];
   initial?: Record<string, unknown>;
+  levels?: CascadeLevel[];
 }) {
   const [answers, setAnswers] = useState<Record<string, unknown>>(initial);
   latest = answers;
@@ -35,6 +38,7 @@ function Harness({
       onAnswer={(id, value) => setAnswers((prev) => ({ ...prev, [id]: value }))}
       diagnosedAt="2026-11-09"
       seed="seed-1"
+      cascadeLevels={levels}
     />
   );
 }
@@ -281,5 +285,22 @@ describe("SurveyQuestionList 성적 입력", () => {
     cleanup();
     render(<Harness ids={["q6m"]} initial={{ q1: 4, q4: 2 }} />);
     expect(screen.getByLabelText(label(OPTIONS.q8s, 4))).toBeInTheDocument();
+  });
+});
+
+describe("SurveyQuestionList 16번 목표 대학", () => {
+  it("셸이 내려준 4단 연쇄 선택을 보인다", () => {
+    render(
+      <Harness
+        ids={["q15"]}
+        initial={{ q1: 3 }}
+        levels={[
+          { key: "university", label: "대학 선택", options: ["연세대"] },
+          { key: "department", label: "학과 또는 모집단위", options: [] },
+        ]}
+      />,
+    );
+    expect(screen.getByText("대학 선택")).toBeInTheDocument();
+    expect(screen.getByText("학과 또는 모집단위")).toBeInTheDocument();
   });
 });

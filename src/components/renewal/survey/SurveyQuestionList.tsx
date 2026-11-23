@@ -16,6 +16,7 @@ import {
   type SurveyDraft,
   showsQ3Target,
 } from "@/lib/renewalSurvey";
+import CascadingSelect, { type CascadeLevel } from "./CascadingSelect";
 import ConditionalTextInput from "./ConditionalTextInput";
 import {
   MockGradesField,
@@ -34,6 +35,8 @@ type SurveyQuestionListProps = {
   diagnosedAt: IsoDate;
   /** q23 shuffle seed */
   seed: string;
+  /** q15 cascade options and fetch state, owned by SurveyStepShell */
+  cascadeLevels?: CascadeLevel[] | undefined;
 };
 
 /**
@@ -47,6 +50,7 @@ export default function SurveyQuestionList({
   onAnswer,
   diagnosedAt,
   seed,
+  cascadeLevels,
 }: SurveyQuestionListProps) {
   // null until q1 is answered; only q11 and q12 depend on it
   const track = draftTrack(answers);
@@ -121,6 +125,13 @@ export default function SurveyQuestionList({
                 grade={answers.q1}
                 title={question.helper ?? question.title}
                 value={value}
+                onChange={(next) => onAnswer(id, next)}
+              />
+            )}
+            {question.kind === "cascade" && cascadeLevels && (
+              <CascadingSelect
+                levels={cascadeLevels}
+                value={fieldsOf(value) as Record<string, string>}
                 onChange={(next) => onAnswer(id, next)}
               />
             )}
