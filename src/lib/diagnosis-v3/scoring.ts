@@ -14,7 +14,12 @@ import { type Likert, SCALE_ITEMS, scaleValue } from "./likert.js";
 import { OPTIONS, trackOf } from "./options.js";
 import { roundHalfUpInt } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
-import type { DiagnosisV3Answers } from "./types.js";
+import type {
+  AreaScore,
+  AreaState,
+  DiagnosisV3Answers,
+  GradeLevel,
+} from "./types.js";
 
 const thresholdRows = sheetRows("06_임계값");
 const thresholdRow = (label: string) => {
@@ -30,6 +35,49 @@ const percentCell = (label: string) =>
 // 06 C6 척도 비중, C7 보조 비중.
 export const SCALE_PERCENT = percentCell("척도 비중");
 export const AUX_PERCENT = percentCell("보조 비중");
+
+/** Rows of one 06 A group, top to bottom ("이 점수 이상"). */
+const groupRows = (group: string) =>
+  thresholdRows.filter((r) => r.c[0] === group);
+
+// 06 r14-r18 등급 80 / 70 / 60 / 45 / 0 = L1..L5 (spec No 39, 41).
+const LEVELS: readonly GradeLevel[] = ["L1", "L2", "L3", "L4", "L5"];
+const LEVEL_FLOORS = groupRows("등급").map((r) => numberCell(r, 2));
+
+// 06 r20-r23 상태라벨 70 / 60 / 45 / 0 = TOP, MID, LOW, WEAK (spec No 40).
+const STATES: readonly AreaState[] = ["TOP", "MID", "LOW", "WEAK"];
+const STATE_ROWS = groupRows("상태라벨");
+const STATE_FLOORS = STATE_ROWS.map((r) => numberCell(r, 2));
+
+const bandOf = <T>(
+  codes: readonly T[],
+  floors: readonly number[],
+  score: number,
+): T => {
+  const index = floors.findIndex((floor) => score >= floor);
+  const code = codes[index];
+  if (code === undefined) throw new Error(`no band for ${score}`);
+  return code;
+};
+
+export const gradeLevel = (score: number): GradeLevel =>
+  bandOf(LEVELS, LEVEL_FLOORS, score);
+export const areaState = (score: number): AreaState =>
+  bandOf(STATES, STATE_FLOORS, score);
+
+/** 06 B20-B23 "PAGE1 상위 / PAGE2 양호"; MIND uses the PAGE1 labels. */
+export const AREA_STATE_LABELS = (() => {
+  const parts = STATE_ROWS.map((r) => {
+    const match = textCell(r, 1).match(/^PAGE1 (.+) \/ PAGE2 (.+)$/);
+    if (!match?.[1] || !match[2]) throw new Error(`bad 06 B${r.r}`);
+    return { page1: match[1], page2: match[2] };
+  });
+  const labels = (page: "page1" | "page2") =>
+    Object.fromEntries(
+      STATES.map((state, i) => [state, parts[i]?.[page]]),
+    ) as Record<AreaState, string>;
+  return { page1: labels("page1"), page2: labels("page2") };
+})();
 
 // 03_단일선택 A5-A10: Q03_goal points by option label.
 const goalPoints = (ordinal: number): number => {
@@ -108,6 +156,12 @@ const auxOf = (
   throw new Error(`aux ${aux} not handled for ${code}`);
 };
 
+const areaScore = (score: number) => ({
+  score,
+  state: areaState(score),
+  level: gradeLevel(score),
+});
+
 const scoresOf = <C extends AreaCode>(
   codes: readonly C[],
   items: readonly { no: number; area: C; reverse: boolean }[],
@@ -118,14 +172,11 @@ const scoresOf = <C extends AreaCode>(
   Object.fromEntries(
     codes.map((code) => [
       code,
-      {
-        score: combine(
-          scaleOf(items, block, code),
-          auxOf(answers, track, code),
-        ),
-      },
+      areaScore(
+        combine(scaleOf(items, block, code), auxOf(answers, track, code)),
+      ),
     ]),
-  ) as Record<C, { score: number }>;
+  ) as Record<C, AreaScore>;
 
 export function scoreAreas(answers: DiagnosisV3Answers) {
   const track = trackOf(answers.q1);
