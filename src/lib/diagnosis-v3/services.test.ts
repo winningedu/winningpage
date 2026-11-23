@@ -148,4 +148,70 @@ describe("service fit (07_서비스)", () => {
     );
     expect(codes(byCode)).toEqual(["GOAL", "PERF"]);
   });
+
+  test("candidate scope per track and join month (07 C16-C25)", () => {
+    // PERF, DEEP, SELF, GROW would each win here; only the scope decides
+    const wants = {
+      q12: [1, 3, 5, 7, 9, 11],
+      q14: [5, 6, 7],
+      areaScores: scoresOf("H12", 0),
+    };
+    const h3 = (patch: Partial<ServiceInput>) =>
+      input({
+        ...patch,
+        areaScores: scoresOf("H3", 0),
+        q12: [1, 3, 5, 7, 9, 11],
+        q14: [5, 6, 7],
+      });
+    const GRADE_H3 = 5; // 고3
+    const GRADE_REPEAT = 6; // N수
+    const GRADE_M3 = 2; // 중3
+
+    // 고1 and 고2: all six, scope ALL
+    const h12 = recommendServices(input(wants));
+    expect(h12.scope).toBe("ALL");
+    expect(codes(h12)).not.toContain("GOAL");
+
+    // 고3 joined before June: all six, month 5 vs 6 is the boundary (07 B23)
+    const early = recommendServices(
+      h3({ grade: GRADE_H3, joinedAt: "2026-05-31" }),
+    );
+    expect(early.scope).toBe("ALL");
+    expect(codes(early)).not.toContain("CALL");
+
+    // 고3 joined in June or later: GOAL and CALL only
+    const late = recommendServices(
+      h3({ grade: GRADE_H3, joinedAt: "2026-06-01" }),
+    );
+    expect(late.scope).toBe("G3LATE");
+    expect(codes(late).sort()).toEqual(["CALL", "GOAL"]);
+
+    // joinedAt null uses diagnosedAt (07 B24)
+    const fallbackEarly = recommendServices(
+      h3({ grade: GRADE_H3, joinedAt: null, diagnosedAt: "2026-05-20" }),
+    );
+    expect(fallbackEarly.scope).toBe("ALL");
+    const fallbackLate = recommendServices(
+      h3({ grade: GRADE_H3, joinedAt: null, diagnosedAt: "2026-11-09" }),
+    );
+    expect(fallbackLate.scope).toBe("G3LATE");
+
+    // N수 and 중3: GOAL and CALL whatever the month
+    const repeat = recommendServices(
+      h3({ grade: GRADE_REPEAT, joinedAt: "2026-03-01" }),
+    );
+    expect(repeat.scope).toBe("NSU");
+    expect(codes(repeat).sort()).toEqual(["CALL", "GOAL"]);
+
+    const m3 = recommendServices(
+      input({
+        grade: GRADE_M3,
+        areaScores: scoresOf("M3", 0),
+        q12: [1, 3],
+        q14: [5],
+      }),
+    );
+    expect(m3.scope).toBe("M3");
+    expect(codes(m3).sort()).toEqual(["CALL", "GOAL"]);
+  });
 });

@@ -114,6 +114,8 @@ export type ServiceInput = {
 };
 
 export type ServicesResult = {
+  /** 07 C16-C21 candidate scope */
+  readonly scope: "ALL" | "M3" | "NSU" | "G3LATE";
   readonly ranked: readonly [ServiceFit, ServiceFit];
 };
 
@@ -182,15 +184,55 @@ const scoreService = (
   };
 };
 
+// 07 B23 "기준 월": joined before this month is 고3 전기, from it 고3 후기
+const [LATE_FROM_MONTH] = matchOf(cellAt(23), /^(\d+)$/) as [number];
+
+/** Candidate group labels as 07 C16-C21 write them. */
+const SEGMENT_BY_SCOPE = {
+  M3: TRACK_NAMES.M3,
+  NSU: "N수",
+  G3LATE: "고3후기",
+} as const;
+
+const scopeOf = (
+  track: TrackCode,
+  grade: Ordinal,
+  month: number,
+): ServicesResult["scope"] => {
+  if (track === "M3") return "M3";
+  if (track === "H12") return "ALL";
+  const sub = OPTIONS.q1
+    .find((option) => option.ordinal === grade)
+    ?.code?.split("|")[1];
+  if (sub === "N수") return "NSU";
+  return month < LATE_FROM_MONTH ? "ALL" : "G3LATE";
+};
+
+/** Service codes in the candidate lists for one group label (07 rows 16-21). */
+const candidatesOf = (segment: string): readonly string[] =>
+  sheet07
+    .filter((row) => row.r >= 16 && row.r <= 21)
+    .filter((row) => textCell(row, 2).split(" \u00b7 ").includes(segment))
+    .map((row) => textCell(row, 0));
+
 export function recommendServices(input: ServiceInput): ServicesResult {
   const track = trackOf(input.grade);
-  const scored = serviceRows(track).map((row) =>
-    scoreService(track, row, input),
-  );
+  const month = Number((input.joinedAt ?? input.diagnosedAt).slice(5, 7));
+  const scope = scopeOf(track, input.grade, month);
+  const segment =
+    scope === "ALL"
+      ? track === "H12"
+        ? TRACK_NAMES.H12
+        : "고3전기"
+      : SEGMENT_BY_SCOPE[scope];
+  const candidates = candidatesOf(segment);
+  const scored = serviceRows(track)
+    .filter((row) => candidates.includes(row.code))
+    .map((row) => scoreService(track, row, input));
   scored.sort(compareFit);
   const [first, second] = scored;
   if (!first || !second) throw new Error("fewer than 2 service candidates");
-  return { ranked: [strip(first), strip(second)] };
+  return { scope, ranked: [strip(first), strip(second)] };
 }
 
 const strip = ({
