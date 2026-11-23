@@ -6,6 +6,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("./api", () => ({ fetchHqTrends: vi.fn() }));
 
+const zone = vi.hoisted(() => ({ current: "Asia/Seoul" }));
+vi.mock("@/lib/time/zone", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/time/zone")>()),
+  browserTimeZone: () => zone.current,
+}));
+
 import type { HqTrendsResponse } from "./api";
 import * as api from "./api";
 import TrendSection from "./TrendSection";
@@ -54,6 +60,7 @@ const lastSearch = (fn: unknown) => {
 };
 
 beforeEach(() => {
+  zone.current = "Asia/Seoul";
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-23T03:00:00Z"));
   vi.mocked(api.fetchHqTrends).mockResolvedValue(DATA);
@@ -78,6 +85,18 @@ describe("TrendSection", () => {
       "from=2026-11-01&to=2026-11-23&grain=week&mau=calendar&includeInternal=1",
     );
     expect(screen.queryByLabelText("시작일")).not.toBeInTheDocument();
+  });
+
+  test("기본 기간의 오늘은 브라우저 시간대 기준이다(서울 11/24 05:00 은 로스앤젤레스 11/23)", async () => {
+    vi.setSystemTime(new Date("2026-11-23T20:00:00Z"));
+    zone.current = "America/Los_Angeles";
+
+    renderPage();
+
+    await waitFor(() => expect(api.fetchHqTrends).toHaveBeenCalled());
+    expect(lastSearch(api.fetchHqTrends)).toBe(
+      "from=2026-11-01&to=2026-11-23&grain=day&mau=calendar&includeInternal=0",
+    );
   });
 
   test("묶음마다 기간, 새 가입, 유형별 가입, 결제 주문을 표로 보여 준다", async () => {

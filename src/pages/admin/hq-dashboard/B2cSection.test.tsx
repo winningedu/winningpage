@@ -8,6 +8,12 @@ const flags = vi.hoisted(() => ({ hqB2cView: true }));
 vi.mock("@/config/site", () => ({ site: { features: flags } }));
 vi.mock("./api", () => ({ fetchLoginStats: vi.fn(), fetchHqB2c: vi.fn() }));
 
+const zone = vi.hoisted(() => ({ current: "Asia/Seoul" }));
+vi.mock("@/lib/time/zone", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/time/zone")>()),
+  browserTimeZone: () => zone.current,
+}));
+
 import type { HqB2cResponse, LoginStatsResponse } from "./api";
 import * as api from "./api";
 import B2cSection from "./B2cSection";
@@ -71,6 +77,7 @@ const lastSearch = (fn: unknown) => {
 };
 
 beforeEach(() => {
+  zone.current = "Asia/Seoul";
   flags.hqB2cView = true;
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-23T03:00:00Z"));
@@ -106,6 +113,18 @@ describe("B2cSection", () => {
     );
     expect(lastSearch(api.fetchHqB2c)).toBe(
       "from=2026-11-01&to=2026-11-20&includeInternal=1",
+    );
+  });
+
+  test("기본 기간의 오늘은 브라우저 시간대 기준이다(서울 11/24 05:00 은 로스앤젤레스 11/23)", async () => {
+    vi.setSystemTime(new Date("2026-11-23T20:00:00Z"));
+    zone.current = "America/Los_Angeles";
+
+    renderPage();
+
+    await waitFor(() => expect(api.fetchHqB2c).toHaveBeenCalled());
+    expect(lastSearch(api.fetchHqB2c)).toBe(
+      "from=2026-11-01&to=2026-11-23&includeInternal=0",
     );
   });
 

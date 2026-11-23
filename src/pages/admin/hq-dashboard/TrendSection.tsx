@@ -24,7 +24,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { kstYMD } from "@/lib/goal/calc";
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 import { fetchHqTrends } from "./api";
 import ErrorBox from "./ErrorBox";
 import { readLoginFilters, trendSearch } from "./filters";
@@ -34,7 +35,9 @@ import { formatByMemberType } from "./labels";
 export default function TrendSection() {
   const id = useId();
   const [params] = useSearchParams();
-  const search = trendSearch(readLoginFilters(params, kstYMD(new Date())));
+  const search = trendSearch(
+    readLoginFilters(params, ymdIn(new Date(), browserTimeZone())),
+  );
   const query = useQuery({
     queryKey: ["hqDashboard", "trends", search],
     queryFn: () => fetchHqTrends(search),
