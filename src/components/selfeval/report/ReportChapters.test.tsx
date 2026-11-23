@@ -300,6 +300,18 @@ describe("모델 문장 실패(No.201)", () => {
     expect(onRebuild).toHaveBeenCalledTimes(1);
   });
 
+  test("composePartial 이면 일부만 비웠다는 안내와 다시 만들기 버튼을 그린다", () => {
+    const { onRebuild } = renderDoc({
+      ...SAMPLE_PAYLOAD,
+      composePartial: true,
+    });
+    expect(
+      screen.getByText("일부 설명 문장을 만들지 못해 비워 두었어요."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "다시 만들기" }));
+    expect(onRebuild).toHaveBeenCalledTimes(1);
+  });
+
   test("composeMissing 이 아니면 다시 만들기를 그리지 않는다", () => {
     renderDoc();
     expect(screen.queryByRole("button", { name: "다시 만들기" })).toBeNull();
