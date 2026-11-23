@@ -6,9 +6,11 @@ import {
   type ActivityRecordLike,
   LINK_TYPE_LABELS,
   LINK_TYPES,
+  type LinkCheck,
   type LinkStrength,
   type LinkType,
   type RecordLink,
+  type Sentence,
 } from "./types.js";
 
 /** selfeval_record_links 한 줄(지운 연결 포함). 유형은 DB 값 그대로라 문자열이다. */
@@ -175,4 +177,86 @@ export function supportLinkStates(
     });
   }
   return out;
+}
+
+export type LinkTarget = {
+  recordId: string;
+  label: string;
+  mode: SupportLinkState["mode"];
+  carried: string[];
+  /** 이 기록을 근거로 인용한 문장 id(본문 순서). */
+  sentenceIds: string[];
+  /** 처음 인용한 문장의 글. 인용한 문장이 없으면 null. */
+  firstText: string | null;
+};
+
+/** 선택한 기록마다 본문이 어떤 문장에서 인용했는지 모은다(명세 No.182). */
+export function linkTargets(
+  states: SupportLinkState[],
+  labels: ReadonlyMap<string, string>,
+  sentences: Sentence[],
+): LinkTarget[] {
+  return states.map((st) => {
+    const citing = sentences.filter((s) =>
+      s.evidence.some((e) => e.refId === st.id),
+    );
+    return {
+      recordId: st.id,
+      label: labels.get(st.id) ?? st.id,
+      mode: st.mode,
+      carried: st.carried,
+      sentenceIds: citing.map((s) => s.id),
+      firstText: citing[0]?.text ?? null,
+    };
+  });
+}
+
+/** 모델이 판정할 대상: 연계 문장을 써야 하고 본문이 실제로 인용한 기록. */
+export const judgedTargets = (targets: LinkTarget[]): LinkTarget[] =>
+  targets.filter((t) => t.mode === "link" && t.sentenceIds.length > 0);
+
+export type LinkJudgment = {
+  recordId: string;
+  linkShown: boolean;
+  /** 그 기록 문장을 빼도 뒤 문장이 성립하면 true. */
+  standsWithout: boolean;
+};
+
+/**
+ * 연계 경고 목록을 만든다(명세 No.182, 190). 인용한 문장이 없는 기록은 미사용이고, 연계 문장을 써야 하는
+ * 기록은 구체물 낱말(코드)과 모델 판정을 싣는다. 기여 항목으로만 쓴 기록은 쓰였으면 점검하지 않는다.
+ */
+export function buildLinkChecks(
+  targets: LinkTarget[],
+  judgments: LinkJudgment[],
+): LinkCheck[] {
+  return targets.flatMap((t): LinkCheck[] => {
+    const base = { recordId: t.recordId, label: t.label };
+    if (t.sentenceIds.length === 0) {
+      return [
+        {
+          ...base,
+          status: "unused",
+          linkShown: null,
+          concreteWordPresent: null,
+          listingSuspect: null,
+        },
+      ];
+    }
+    if (t.mode !== "link") return [];
+    const j = judgments.find((x) => x.recordId === t.recordId);
+    const first = t.firstText ?? "";
+    return [
+      {
+        ...base,
+        status: "checked",
+        linkShown: j?.linkShown ?? null,
+        concreteWordPresent:
+          t.carried.length === 0
+            ? null
+            : t.carried.some((w) => first.includes(w)),
+        listingSuspect: j?.standsWithout ?? null,
+      },
+    ];
+  });
 }

@@ -460,6 +460,23 @@ export type GrowthFit = {
   }[];
 };
 
+/**
+ * 연계 점검 한 건(명세 No.182, 190). 점수, 필수 수정, 제출 가능 판정에는 넣지 않는 경고다.
+ * unused 는 선택했지만 본문이 인용하지 않은 기록이고, 나머지 칸은 비어 있다.
+ * 판정을 못 낸 칸(구체물 낱말이 없음, 모델 판정 없음)은 null 이다.
+ */
+export type LinkCheck = {
+  recordId: string;
+  label: string;
+  status: "checked" | "unused";
+  /** 연계가 드러난 문장이 있는가(모델). */
+  linkShown: boolean | null;
+  /** 넘어온 구체물 낱말이 연계 문장에 있는가(코드). */
+  concreteWordPresent: boolean | null;
+  /** 그 기록 문장을 빼도 글이 성립하는가(모델). true 면 나열 의심. */
+  listingSuspect: boolean | null;
+};
+
 export type VerificationSections = {
   items: ScoreItem[];
   total: number;
@@ -476,6 +493,8 @@ export type VerificationSections = {
   clicheDensity: number;
   clicheHits: string[];
   numberCount: number;
+  /** 연계 경고. 이전 리포트에는 없다. */
+  linkChecks?: LinkCheck[];
 };
 
 // ---------------------------------------------------------------------------

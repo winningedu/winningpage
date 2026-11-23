@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { carriedWords, type LinkInfo, supportLinkStates } from "./linkWrite.js";
-import type { ActivityRecordLike } from "./types.js";
+import {
+  buildLinkChecks,
+  carriedWords,
+  type LinkInfo,
+  linkTargets,
+  type SupportLinkState,
+  supportLinkStates,
+} from "./linkWrite.js";
+import type { ActivityRecordLike, Sentence } from "./types.js";
 
 const rec = (over: Partial<ActivityRecordLike> = {}): ActivityRecordLike => ({
   id: "r1",
@@ -138,6 +145,133 @@ describe("supportLinkStates", () => {
     expect(all.get("s2")).toMatchObject({
       mode: "contribute",
       reason: "no_link",
+    });
+  });
+});
+
+describe("연계 점검(명세 No.182, 190)", () => {
+  const state = (over: Partial<SupportLinkState> = {}): SupportLinkState => ({
+    id: "s1",
+    mode: "link",
+    reason: "linked",
+    hop: 1,
+    typeLabel: "이어받음",
+    strength: "explicit",
+    confirmed: false,
+    quotes: [],
+    carried: ["수요", "탄력성"],
+    ...over,
+  });
+  const sentence = (id: string, text: string, refs: string[]): Sentence => ({
+    id,
+    text,
+    evidence: refs.map((refId) => ({
+      sourceType: "D",
+      refId,
+      item: "method",
+      weight: "sub",
+    })),
+    feeling: false,
+    confirmed: false,
+  });
+  const labels = new Map([
+    ["s1", "보조탐구"],
+    ["s2", "곁탐구"],
+  ]);
+  const sentences = [
+    sentence("p1-s1", "핵심 기록으로 값을 구함.", ["c1"]),
+    sentence("p1-s2", "수요 표를 이어받아 기울기를 구함.", ["s1"]),
+    sentence("p1-s3", "수요 값을 다시 비교함.", ["s1"]),
+  ];
+
+  it("기록마다 인용한 문장 id 와 처음 인용한 문장을 모은다", () => {
+    const [t] = linkTargets([state()], labels, sentences);
+    expect(t).toMatchObject({
+      recordId: "s1",
+      label: "보조탐구",
+      sentenceIds: ["p1-s2", "p1-s3"],
+      firstText: "수요 표를 이어받아 기울기를 구함.",
+    });
+  });
+
+  it("처음 인용한 문장에 구체물 낱말이 있으면 있음, 없으면 없음이고 모델 판정을 싣는다", () => {
+    const judgments = [
+      { recordId: "s1", linkShown: true, standsWithout: false },
+    ];
+    const [ok] = buildLinkChecks(
+      linkTargets([state()], labels, sentences),
+      judgments,
+    );
+    expect(ok).toEqual({
+      recordId: "s1",
+      label: "보조탐구",
+      status: "checked",
+      linkShown: true,
+      concreteWordPresent: true,
+      listingSuspect: false,
+    });
+    const miss = buildLinkChecks(
+      linkTargets([state({ carried: ["공급"] })], labels, sentences),
+      [{ recordId: "s1", linkShown: false, standsWithout: true }],
+    )[0];
+    expect(miss).toMatchObject({
+      concreteWordPresent: false,
+      linkShown: false,
+      listingSuspect: true,
+    });
+  });
+
+  it("그 기록 문장을 빼도 성립한다는 판정이 나오면 나열 의심이다", () => {
+    const [c] = buildLinkChecks(linkTargets([state()], labels, sentences), [
+      { recordId: "s1", linkShown: true, standsWithout: true },
+    ]);
+    expect(c?.listingSuspect).toBe(true);
+  });
+
+  it("구체물 낱말이 없는 기록은 낱말 판정을 비워 둔다", () => {
+    const [c] = buildLinkChecks(
+      linkTargets([state({ carried: [] })], labels, sentences),
+      [{ recordId: "s1", linkShown: true, standsWithout: false }],
+    );
+    expect(c?.concreteWordPresent).toBeNull();
+  });
+
+  it("선택했지만 인용한 문장이 없으면 미사용이다", () => {
+    const [c] = buildLinkChecks(
+      linkTargets([state({ id: "s2" })], labels, sentences),
+      [],
+    );
+    expect(c).toEqual({
+      recordId: "s2",
+      label: "곁탐구",
+      status: "unused",
+      linkShown: null,
+      concreteWordPresent: null,
+      listingSuspect: null,
+    });
+  });
+
+  it("기여 항목으로만 쓴 기록은 쓰였으면 연계 점검 대상이 아니고 안 쓰였으면 미사용이다", () => {
+    const used = state({ mode: "contribute", reason: "no_link", carried: [] });
+    expect(buildLinkChecks(linkTargets([used], labels, sentences), [])).toEqual(
+      [],
+    );
+    const unused = buildLinkChecks(
+      linkTargets([{ ...used, id: "s2" }], labels, sentences),
+      [],
+    );
+    expect(unused.map((c) => [c.recordId, c.status])).toEqual([
+      ["s2", "unused"],
+    ]);
+  });
+
+  it("모델 판정이 빠진 연계 기록은 판정 없음으로 둔다", () => {
+    const [c] = buildLinkChecks(linkTargets([state()], labels, sentences), []);
+    expect(c).toMatchObject({
+      status: "checked",
+      linkShown: null,
+      listingSuspect: null,
+      concreteWordPresent: true,
     });
   });
 });
