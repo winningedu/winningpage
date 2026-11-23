@@ -9,7 +9,7 @@ import {
 } from "./codes.js";
 import { SCALE_ITEMS } from "./likert.js";
 import { OPTIONS, type OptionRow, trackOf } from "./options.js";
-import { sheetRows, textCell } from "./sheet.js";
+import { numberCell, sheetRows, textCell } from "./sheet.js";
 import type { DiagnosisV3Answers, IsoDate } from "./types.js";
 
 export type ValidationError = {
@@ -90,11 +90,14 @@ const Q8S_UNKNOWN = hidingOption("q8d", OPTIONS.q8s);
 /** 13 H7: q3 options 1..3 open the target university and major inputs. */
 const Q3_TARGET_ORDINALS = [1, 2, 3];
 
-const subjectRow = sheetRows("06_임계값").find(
-  (row) => row.c[1] === "과목별 성적 수집",
-);
+/** One 06_임계값 row by its B label. */
+const thresholdRow = (label: string) => {
+  const row = sheetRows("06_임계값").find((r) => r.c[1] === label);
+  if (!row) throw new Error(`missing 06 row ${label}`);
+  return row;
+};
 /** 06 C51 switch for q6s, q6r, q6m. */
-const SUBJECT_GRADES_ON = subjectRow?.c[2] === "사용";
+const SUBJECT_GRADES_ON = thresholdRow("과목별 성적 수집").c[2] === "사용";
 
 const isHidden = (
   question: QuestionId | "q3Target",
@@ -160,6 +163,43 @@ const withoutLoneExclusive = (rows: readonly OptionRow[], picks: number[]) => {
   return rest.length > 0 ? rest : picks;
 };
 
+/** 06 C55: q13 dates may fall on Day 1..42. */
+const EVENT_WINDOW_DAYS = numberCell(thresholdRow("일정 수집 범위"), 2);
+const MAX_EVENTS = maxPicks("q13");
+
+/** Exclusive q13 choices, the 14 EVENT: codes without a date kind. */
+const EVENT_CHOICES = ["NONE", "UNKNOWN"];
+const EVENT_KINDS = OPTIONS.q13
+  .map((option) => String(option.code).slice("EVENT:".length))
+  .filter((kind) => !EVENT_CHOICES.includes(kind));
+
+const DAY_MS = 86_400_000;
+
+/** Day number of date with diagnosedAt as Day 1; null for a malformed date. */
+const dayOf = (date: unknown, diagnosedAt: IsoDate): number | null => {
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date))
+    return null;
+  const time = Date.parse(`${date}T00:00:00Z`);
+  if (
+    Number.isNaN(time) ||
+    new Date(time).toISOString().slice(0, 10) !== date
+  ) {
+    return null;
+  }
+  return (time - Date.parse(`${diagnosedAt}T00:00:00Z`)) / DAY_MS + 1;
+};
+
+const isEvent = (value: unknown, diagnosedAt: IsoDate) => {
+  if (!isRecord(value) || !EVENT_KINDS.includes(value.kind as string)) {
+    return false;
+  }
+  if (value.subject !== undefined && typeof value.subject !== "string") {
+    return false;
+  }
+  const day = dayOf(value.date, diagnosedAt);
+  return day !== null && day >= 1 && day <= EVENT_WINDOW_DAYS;
+};
+
 const isValid = (question: QuestionId, value: unknown, input: Raw) => {
   if (question in SINGLE_CHOICES) {
     return isOrdinalOf(
@@ -184,6 +224,8 @@ const isValid = (question: QuestionId, value: unknown, input: Raw) => {
       );
     case "q22":
       return MBTI_VALUES.includes(value as string);
+    case "q13":
+      return EVENT_CHOICES.includes(value as string);
     default:
       return true;
   }
@@ -191,7 +233,7 @@ const isValid = (question: QuestionId, value: unknown, input: Raw) => {
 
 export function validateAnswers(
   input: unknown,
-  _diagnosedAt: IsoDate,
+  diagnosedAt: IsoDate,
 ): ValidationResult {
   if (!isRecord(input)) {
     return {
@@ -223,6 +265,12 @@ export function validateAnswers(
       const picks = withoutLoneExclusive(options, value as number[]);
       if (picks.length > max) errors.push({ question, reason: "too_many" });
       answers[question] = picks;
+    } else if (question === "q13" && Array.isArray(value)) {
+      if (value.length === 0 || !value.every((e) => isEvent(e, diagnosedAt))) {
+        errors.push({ question, reason: "invalid" });
+      } else if (value.length > MAX_EVENTS) {
+        errors.push({ question, reason: "too_many" });
+      }
     } else if (!isValid(question, value, input)) {
       errors.push({ question, reason: "invalid" });
     }

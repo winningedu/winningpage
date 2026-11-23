@@ -189,3 +189,40 @@ describe("multiple choice (13 F max, 16 r22-r26 exclusive)", () => {
     ).toEqual([[1], [1, 2, 3], [5]]);
   });
 });
+
+describe("q13 schedule (13 r24, 06 C55 window, Day 1 = diagnosedAt)", () => {
+  const event = (date: string, kind = "EXAM") => ({ kind, date });
+
+  test("Day 1 and Day 42 are accepted", () => {
+    expect(
+      errorsOf({ ...H12, q13: [event("2026-11-09"), event("2026-12-20")] }),
+    ).toEqual([]);
+  });
+
+  test.each([
+    [[event("2026-11-08")]],
+    [[event("2026-12-21")]],
+    [[event("2026-13-01")]],
+    [[event("2026/11/20")]],
+    [[event("2026-11-20", "NONE")]],
+    [[{ ...event("2026-11-20"), subject: 3 }]],
+    [[]],
+    ["LATER"],
+  ])("q13 = %j is invalid", (q13) => {
+    expect(errorsOf({ ...H12, q13 })).toEqual([
+      { question: "q13", reason: "invalid" },
+    ]);
+  });
+
+  test("the exclusive choices are plain strings", () => {
+    expect(errorsOf({ ...H12, q13: "NONE" })).toEqual([]);
+    expect(errorsOf({ ...H12, q13: "UNKNOWN" })).toEqual([]);
+  });
+
+  test("more than 3 events is too_many", () => {
+    const four = ["2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13"];
+    expect(errorsOf({ ...H12, q13: four.map((d) => event(d)) })).toEqual([
+      { question: "q13", reason: "too_many" },
+    ]);
+  });
+});
