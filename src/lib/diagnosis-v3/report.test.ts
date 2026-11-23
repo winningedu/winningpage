@@ -173,3 +173,57 @@ describe("2p 목표 (22 r30-r36)", () => {
     expect(p2.ladder.text).toBe(COPY_TEXT.LADDER_GAP_FAR);
   });
 });
+
+describe("3p 성적 (22 r38-r46)", () => {
+  test("계산 예시: no flow, no subjects, exam ops OK", () => {
+    const { p3 } = run().pages;
+    expect(p3.title).toBe(COPY_TEXT.GRD_HEAD_NA);
+    expect(p3.lead).toBe(COPY_TEXT.GRD_LEAD);
+    expect(p3.gpa).toBe("1.4 (5등급제)");
+    expect(p3.recent).toBe(COPY_TEXT.GRD_RECENT_NA);
+    expect(p3.trend).toBe("미입력");
+    expect(p3.bars).toBeUndefined();
+    expect(p3.subjects).toEqual({
+      kind: "skip",
+      note: COPY_TEXT.SUBJ_SKIP_NOTE,
+    });
+    expect(p3.examOps).toEqual({
+      heading: COPY_TEXT.EXAMOPS_TITLE,
+      body: COPY_TEXT.EXAMOPS_OK,
+    });
+  });
+
+  test("PDF p3 grades: subject table, recent gap and exam ops RISK", () => {
+    const { p3 } = run({
+      ...CALC_EXAMPLE,
+      q6: 1.25,
+      q6r: 1.33,
+      q6s: { KOR: 1, MATH: 1.5, ENG: 1.5, SOC: 1.25 },
+      q8: 5,
+      q8s: 2,
+      q8d: 2,
+      q10: [15],
+    }).pages;
+    expect(p3.title).toBe(COPY_TEXT.GRD_HEAD_5);
+    expect(p3.recent).toBe(COPY_TEXT.GRD_RECENT_DOWN?.replace("{d}", "0.08"));
+    expect(p3.trend).toBe("과목마다 오르내림이 커요 \u00b7 수학 내려갔어요");
+    expect(p3.bars?.school).toEqual([
+      { subject: "KOR", grade: 1 },
+      { subject: "MATH", grade: 1.5 },
+      { subject: "ENG", grade: 1.5 },
+      { subject: "SOC", grade: 1.25 },
+    ]);
+    expect(p3.bars?.mock).toBeUndefined();
+    expect(p3.subjects).toEqual({
+      kind: "table",
+      rows: [
+        { subject: "KOR", verdict: "STRENGTH", text: COPY_TEXT.SUBJ_J1_강점 },
+        { subject: "MATH", verdict: "CHECK", text: COPY_TEXT.SUBJ_J1_점검 },
+        { subject: "ENG", verdict: "CHECK", text: COPY_TEXT.SUBJ_J1_점검 },
+        { subject: "SOC", verdict: "KEEP", text: COPY_TEXT.SUBJ_J1_유지 },
+      ],
+      note: COPY_TEXT.SUBJ_RULE_NOTE,
+    });
+    expect(p3.examOps.body).toBe(COPY_TEXT.EXAMOPS_RISK);
+  });
+});
