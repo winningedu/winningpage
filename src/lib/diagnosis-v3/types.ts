@@ -883,6 +883,8 @@ export type Page16 = {
   readonly services: readonly [ServiceCard, ServiceCard];
   /** 22 r118 */
   readonly scopeNote?: string;
+  /** candidate scope behind scopeNote (07 B30); render layer picks the closed-site notice by it */
+  readonly scope?: "ALL" | "M3" | "NSU" | "G3LATE";
   /** 22 r119 */
   readonly agenda: readonly [string, string, string];
   /** 22 r120 */

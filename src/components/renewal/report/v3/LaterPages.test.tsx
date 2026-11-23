@@ -5,7 +5,9 @@ import LaterPages from "./LaterPages";
 import { laterPages } from "./laterPagesFixture";
 import { PAGE_TITLES } from "./parts/labels";
 
-vi.mock("@/config/site", () => ({ site: { brandName: "TEST" } }));
+vi.mock("@/config/site", () => ({
+  site: { brandName: "TEST", features: { callmentor: true } },
+}));
 
 describe("LaterPages", () => {
   it("renders pages 7 to 16 as 10 sheets with 4 planners of 7 day cells each", () => {

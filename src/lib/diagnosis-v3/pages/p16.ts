@@ -157,6 +157,8 @@ export function buildPage16(engine: Engine): Page16 {
     ...(services.scope === "ALL"
       ? {}
       : { scopeNote: copy(SCOPE_NOTES[services.scope]) }),
+    // 07 C16-C21: lets the render layer pick the closed-site notice
+    scope: services.scope,
     // 22 r119
     agenda: [
       fill("AGENDA_P1", {
