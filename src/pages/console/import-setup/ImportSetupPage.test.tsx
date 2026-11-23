@@ -396,6 +396,14 @@ describe("ImportSetupPage 미리보기", () => {
   });
 });
 
+/** 미리보기나 적용 뒤 저절로 열리는 형식 오류 확인 창을 닫는다. */
+async function closeFormatDialog() {
+  fireEvent.click(await screen.findByRole("button", { name: "확인" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("heading", { name: /형식 오류/ })).toBeNull(),
+  );
+}
+
 const FORMAT_ERROR_ROW = {
   line: 5,
   displayName: "가*짜",
@@ -416,6 +424,7 @@ describe("ImportSetupPage 미리보기 형식 오류", () => {
     await previewIt({}, FORMAT_PREVIEW);
 
     expect(await screen.findByText("가*짜")).toBeTruthy();
+    await closeFormatDialog();
     expect(screen.getByText("형식 오류")).toBeTruthy();
     expect(screen.getByText("학년은 중1~고3 중에서 골라 적어요")).toBeTruthy();
     expect(
@@ -446,6 +455,64 @@ describe("ImportSetupPage 미리보기 형식 오류", () => {
     expect(screen.getByText("등록되지 않은 그룹")).toBeTruthy();
   });
 
+  it("미리보기에 형식 오류 줄이 있으면 확인 창이 저절로 열려 틀린 칸의 글을 보이고, 확인으로 닫는다", async () => {
+    await previewIt(
+      {},
+      {
+        ...PREVIEW,
+        rows: [{ ...FORMAT_ERROR_ROW, values: { grade: "3학년" } }],
+      },
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "형식 오류 1줄을 고쳐 주세요",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText('5행 가*짜: 학년 "3학년"은 중1~고3 중에서 골라 적어요'),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: /형식 오류/ })).toBeNull(),
+    );
+  });
+
+  it("형식 오류가 없으면 확인 창을 열지 않는다", async () => {
+    await previewIt();
+
+    await screen.findByText("김*늘");
+    expect(screen.queryByRole("heading", { name: /형식 오류/ })).toBeNull();
+  });
+
+  it("적용 뒤 가입 전 줄을 저장하지 못했으면 확인 창에 몇 명인지 보인다", async () => {
+    await previewIt({
+      "POST /api/console/school-year/rollover": {
+        body: {
+          ok: true,
+          mode: "rollover",
+          graduated: 150,
+          promoted: 300,
+          skipped: 2,
+          assigned: 297,
+          pendingStored: 0,
+          pendingSkipped: 2,
+        },
+      },
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "적용" }));
+    fireEvent.click(await screen.findByRole("button", { name: "확인" }));
+
+    expect(
+      await screen.findByText(
+        "학년이나 반을 알 수 없는 2명은 저장하지 못했어요",
+      ),
+    ).toBeTruthy();
+  });
+
   it("형식 오류가 없으면 안내를 보이지 않는다", async () => {
     await previewIt();
 
@@ -471,6 +538,7 @@ describe("ImportSetupPage 미리보기 형식 오류", () => {
       },
       FORMAT_PREVIEW,
     );
+    await closeFormatDialog();
 
     fireEvent.click(await screen.findByRole("button", { name: "적용" }));
     fireEvent.click(await screen.findByRole("button", { name: "확인" }));
@@ -507,9 +575,11 @@ describe("ImportSetupPage 미리보기 형식 오류", () => {
       },
       FORMAT_PREVIEW,
     );
+    await closeFormatDialog();
     fireEvent.click(await screen.findByRole("button", { name: "적용" }));
     fireEvent.click(await screen.findByRole("button", { name: "확인" }));
     await screen.findByText("1명은 저장하지 못했어요");
+    await closeFormatDialog();
 
     fireEvent.click(screen.getByRole("button", { name: "미리보기" }));
 
