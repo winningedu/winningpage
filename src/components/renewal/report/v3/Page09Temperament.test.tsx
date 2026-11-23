@@ -32,7 +32,8 @@ describe("Page09Temperament (22 r86-r94)", () => {
   });
 
   it("omits the low reliability note when absent (22 r93)", () => {
-    render(<Page09Temperament page={{ ...p9, lowReliability: undefined }} />);
+    const { lowReliability: _omitted, ...page } = p9;
+    render(<Page09Temperament page={page} />);
     expect(screen.queryByText("LOWREL text")).toBeNull();
   });
 });

@@ -57,7 +57,8 @@ describe("Page11Plan (22 r101-r107)", () => {
   });
 
   it("omits style tips when absent (22 r106)", () => {
-    render(<Page11Plan page={{ ...p11, styleTips: undefined }} />);
+    const { styleTips: _omitted, ...page } = p11;
+    render(<Page11Plan page={page} />);
     expect(screen.queryByText("TIP1")).toBeNull();
   });
 });

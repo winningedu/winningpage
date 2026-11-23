@@ -36,7 +36,8 @@ describe("Page16Services (22 r115-r121)", () => {
   });
 
   it("omits the scope note when absent (22 r118)", () => {
-    render(<Page16Services page={{ ...p16, scopeNote: undefined }} />);
+    const { scopeNote: _omitted, ...page } = p16;
+    render(<Page16Services page={page} />);
     expect(screen.queryByText("SCOPE note")).toBeNull();
   });
 });

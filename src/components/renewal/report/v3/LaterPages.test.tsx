@@ -17,9 +17,8 @@ describe("LaterPages", () => {
   });
 
   it("renders no page 7 for M3 (22 r70)", () => {
-    const { container } = render(
-      <LaterPages pages={{ ...laterPages, p7: undefined }} />,
-    );
+    const { p7: _omitted, ...withoutP7 } = laterPages;
+    const { container } = render(<LaterPages pages={withoutP7} />);
     expect(container.querySelectorAll(".fd-report-sheet")).toHaveLength(9);
     expect(screen.queryByText("P7 title")).toBeNull();
     expect(screen.queryByText("7 / 16")).toBeNull();
