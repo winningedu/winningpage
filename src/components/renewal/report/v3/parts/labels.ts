@@ -90,6 +90,14 @@ export const REPORT_LABELS = {
   /** PDF p4 cards */
   myCycle: "나의 학습관리 사이클",
   breakPoints: "끊김 지점",
+  /** PDF p5 cards */
+  obstacles: "최근 공부를 가장 방해하는 것",
+  selected: "선택함",
+  mind: "마음 상태",
+  interpretation: "해석",
+  crossCheck: "교차 확인",
+  crossOption: "고른 방해 요인",
+  crossAnswers: "관련 응답",
   /** joins two short values on one line, as the PDF does */
   joiner: " \u00b7 ",
   studentOnly: "학생 전용",
