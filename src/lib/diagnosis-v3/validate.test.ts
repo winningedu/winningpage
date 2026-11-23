@@ -281,3 +281,18 @@ describe("unknown keys (review W1, W2)", () => {
     ).toEqual(unknown);
   });
 });
+
+describe("nested unknown keys (review W1)", () => {
+  test.each([
+    ["q9", () => ({ ...H12.q9, evil: 1 })],
+    ["q13", () => [{ kind: "EXAM", date: "2026-11-20", evil: 1 }]],
+    ["q3Target", () => ({ university: "a", major: "b", evil: "c" })],
+    ["q15", () => ({ ...H12.q15, evil: "c" })],
+    ["q21", () => ({ weekday: 1, weekend: 1, evil: 1 })],
+    ["q6m", () => ({ month: 9, grades: { KOR: 3 }, evil: 1 })],
+  ])("%s with an extra key is invalid", (question, value) => {
+    expect(errorsOf({ ...H12, [question]: value() })).toEqual([
+      { question, reason: "invalid" },
+    ]);
+  });
+});

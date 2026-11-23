@@ -28,6 +28,10 @@ type Raw = Readonly<Record<string, unknown>>;
 const isRecord = (value: unknown): value is Raw =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+/** Review W1: a record may carry only the listed own keys. */
+const hasOnlyKeys = (value: Raw, keys: readonly string[]) =>
+  Object.keys(value).every((key) => keys.includes(key));
+
 const isOrdinalOf = (rows: readonly OptionRow[], value: unknown) =>
   rows.some((option) => option.ordinal === value);
 
@@ -36,6 +40,7 @@ const isLikert = (value: unknown) =>
 
 const isLikertBlock = (value: unknown, size: number) =>
   isRecord(value) &&
+  hasOnlyKeys(value, ["items", "verify"]) &&
   Array.isArray(value.items) &&
   value.items.length === size &&
   value.items.every(isLikert) &&
@@ -194,7 +199,11 @@ const dayOf = (date: unknown, diagnosedAt: IsoDate): number | null => {
 };
 
 const isEvent = (value: unknown, diagnosedAt: IsoDate) => {
-  if (!isRecord(value) || !EVENT_KINDS.includes(value.kind as string)) {
+  if (
+    !isRecord(value) ||
+    !hasOnlyKeys(value, ["kind", "date", "subject"]) ||
+    !EVENT_KINDS.includes(value.kind as string)
+  ) {
     return false;
   }
   if (value.subject !== undefined && typeof value.subject !== "string") {
@@ -225,6 +234,13 @@ const isText = (value: unknown) => typeof value === "string" && value !== "";
 
 const isAdmissionTarget = (value: unknown) =>
   isRecord(value) &&
+  hasOnlyKeys(value, [
+    "universityKey",
+    "departmentKey",
+    "mainTrack",
+    "admissionTrack",
+    "subjectReflection",
+  ]) &&
   isText(value.universityKey) &&
   isText(value.departmentKey) &&
   isText(value.mainTrack) &&
@@ -257,6 +273,7 @@ const isValid = (
     case "q6m":
       return (
         isRecord(value) &&
+        hasOnlyKeys(value, ["month", "grades"]) &&
         Number.isInteger(value.month) &&
         (value.month as number) >= MOCK_MONTHS.first &&
         (value.month as number) <= MOCK_MONTHS.last &&
@@ -272,11 +289,13 @@ const isValid = (
     case "q3Target":
       return (
         isRecord(value) &&
+        hasOnlyKeys(value, ["university", "major"]) &&
         Object.values(value).every((text) => typeof text === "string")
       );
     case "q21":
       return (
         isRecord(value) &&
+        hasOnlyKeys(value, ["weekday", "weekend"]) &&
         isOrdinalOf(OPTIONS.q21Weekday, value.weekday) &&
         isOrdinalOf(OPTIONS.q21Weekend, value.weekend)
       );
