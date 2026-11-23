@@ -14,7 +14,7 @@ function row(
     course?: string | null;
     subject?: string | null;
     submittedAt?: string;
-    topic?: string;
+    topic?: string | null;
   } = {},
 ): CandidateRow {
   return {
@@ -26,7 +26,7 @@ function row(
       semester: 1,
       subjectGroup: null,
       subject: over.subject === undefined ? "수학" : over.subject,
-      topic: over.topic ?? `주제 ${id}`,
+      topic: over.topic === undefined ? `주제 ${id}` : over.topic,
       concept: null,
       method: null,
       result: null,
@@ -60,6 +60,14 @@ const link = (
   quoteFrom: null,
   quoteTo: null,
   ...over,
+});
+
+describe("layoutLinkMap titles", () => {
+  test("주제와 과목이 모두 없으면 제목을 만들지 않고 과목 열은 과목 미기재로 둔다", () => {
+    const map = layoutLinkMap([row("a", { topic: null, subject: null })], []);
+    expect(map.nodes[0]?.title).toBeNull();
+    expect(map.nodes[0]?.label).toBe("과목 미기재");
+  });
 });
 
 describe("layoutLinkMap", () => {

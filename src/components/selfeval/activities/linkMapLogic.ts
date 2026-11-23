@@ -69,7 +69,10 @@ export type MapEdge = {
 
 export type MapNode = {
   id: string;
-  title: string;
+  /** 주제, 없으면 과목. 둘 다 없으면 제목을 그리지 않는다. */
+  title: string | null;
+  /** 과목 열 이름. 제목이 없을 때 목록에서 기록을 가리키는 글자로 쓴다. */
+  label: string;
   col: number;
   row: number;
 };
@@ -94,7 +97,8 @@ export function layoutLinkMap(
     if (!labels.includes(label)) labels.push(label);
     return {
       id: r.activity.id,
-      title: r.activity.topic ?? r.activity.subject ?? "활동",
+      title: r.activity.topic ?? r.activity.subject,
+      label,
       col: labels.indexOf(label),
       row,
     };

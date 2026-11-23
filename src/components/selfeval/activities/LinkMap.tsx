@@ -43,8 +43,10 @@ export default function LinkMap({
   const map = layoutLinkMap(rows, links);
   const [a, setA] = useState("");
   const [b, setB] = useState("");
-  const titleOf = (id: string) =>
-    map.nodes.find((n) => n.id === id)?.title ?? id;
+  const titleOf = (id: string) => {
+    const n = map.nodes.find((x) => x.id === id);
+    return n === undefined ? id : (n.title ?? n.label);
+  };
   const nodeOf = (id: string) => map.nodes.find((n) => n.id === id);
   const width = map.columns.length * COL_W + PAD * 2;
   const height = HEAD_H + map.nodes.length * ROW_H + PAD;
@@ -221,7 +223,7 @@ export default function LinkMap({
                   <option value="">기록 고르기</option>
                   {map.nodes.map((n) => (
                     <option key={n.id} value={n.id}>
-                      {n.title}
+                      {n.title ?? n.label}
                     </option>
                   ))}
                 </select>
