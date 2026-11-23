@@ -3,6 +3,7 @@
 // options (16 r22-r26) and the q13 date window (06 r55, judge-report R11).
 
 import {
+  QUESTION_IDS,
   type QuestionId,
   REQUIRED_QUESTIONS,
   type TrackCode,
@@ -13,7 +14,8 @@ import { numberCell, sheetRows, textCell } from "./sheet.js";
 import type { DiagnosisV3Answers, IsoDate } from "./types.js";
 
 export type ValidationError = {
-  readonly question: QuestionId | "q3Target";
+  /** "unknown": a key that is no 13_문항메타 question (reported once, name not echoed) */
+  readonly question: QuestionId | "q3Target" | "unknown";
   readonly reason: "missing" | "invalid" | "hidden" | "too_many";
 };
 
@@ -150,7 +152,7 @@ const MULTI_CHOICES = {
 } as const;
 type MultiChoice = keyof typeof MULTI_CHOICES;
 const isMultiChoice = (question: string): question is MultiChoice =>
-  question in MULTI_CHOICES;
+  Object.hasOwn(MULTI_CHOICES, question);
 
 const isPickList = (rows: readonly OptionRow[], value: unknown) =>
   Array.isArray(value) &&
@@ -234,13 +236,13 @@ const isValid = (
   value: unknown,
   input: Raw,
 ) => {
-  if (question in SINGLE_CHOICES) {
+  if (Object.hasOwn(SINGLE_CHOICES, question)) {
     return isOrdinalOf(
       SINGLE_CHOICES[question as keyof typeof SINGLE_CHOICES],
       value,
     );
   }
-  if (question in LIKERT_SIZES) {
+  if (Object.hasOwn(LIKERT_SIZES, question)) {
     return isLikertBlock(
       value,
       LIKERT_SIZES[question as keyof typeof LIKERT_SIZES],
@@ -287,6 +289,8 @@ const isValid = (
   }
 };
 
+const KNOWN_KEYS: ReadonlySet<string> = new Set([...QUESTION_IDS, "q3Target"]);
+
 export function validateAnswers(
   input: unknown,
   diagnosedAt: IsoDate,
@@ -301,13 +305,22 @@ export function validateAnswers(
     };
   }
   const errors: ValidationError[] = [];
-  const answers: Record<string, unknown> = { ...input };
+  const answers: Record<string, unknown> = {};
   const track = isOrdinalOf(OPTIONS.q1, input.q1)
     ? trackOf(input.q1 as number)
     : null;
-  for (const question of Object.keys(input) as (QuestionId | "q3Target")[]) {
+  for (const key of Object.keys(input)) {
+    // review W1: only 13_문항메타 ids (and q3Target, 13 H7) are kept
+    if (!KNOWN_KEYS.has(key)) {
+      if (!errors.some((error) => error.question === "unknown")) {
+        errors.push({ question: "unknown", reason: "invalid" });
+      }
+      continue;
+    }
+    const question = key as QuestionId | "q3Target";
     const value = input[question];
     if (value === undefined) continue;
+    answers[question] = value;
     if (isHidden(question, input, track)) {
       errors.push({ question, reason: "hidden" });
     } else if (isMultiChoice(question)) {

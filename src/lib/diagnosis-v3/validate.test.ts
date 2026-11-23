@@ -259,3 +259,25 @@ describe("other optional values", () => {
     ).toEqual([]);
   });
 });
+
+describe("unknown keys (review W1, W2)", () => {
+  const unknown = [{ question: "unknown", reason: "invalid" }];
+
+  test("an unknown top-level key is rejected", () => {
+    expect(errorsOf({ ...H12, evil: "x".repeat(400_000) })).toEqual(unknown);
+  });
+
+  test.each(["constructor", "toString", "hasOwnProperty"])(
+    "the inherited name %s is rejected, not thrown on",
+    (key) => {
+      expect(errorsOf({ ...H12, [key]: 1 })).toEqual(unknown);
+    },
+  );
+
+  test("a JSON __proto__ key is rejected", () => {
+    const payload = JSON.parse(`{"__proto__": {"x": 1}}`);
+    expect(
+      errorsOf({ ...H12, ...Object.fromEntries(Object.entries(payload)) }),
+    ).toEqual(unknown);
+  });
+});
