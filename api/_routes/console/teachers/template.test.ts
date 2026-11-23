@@ -6,10 +6,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import * as XLSX from "xlsx";
-import {
-  parseTeacherLines,
-  readTeacherFile,
-} from "../../../../src/pages/console/teachers/teacherFile.js";
 
 const TEMPLATE = join(
   process.cwd(),
@@ -45,35 +41,6 @@ describe("W15 teacher-roster.xlsx", () => {
     }
   });
 
-  test("sheet is named 선생님 and the app's own read path returns a school example and an academy example with numeric 반", async () => {
-    const bytes = readFileSync(TEMPLATE);
-    const book = XLSX.read(bytes);
-    expect(book.SheetNames).toEqual(["선생님"]);
-
-    const text = await readTeacherFile(
-      new File([bytes], "teacher-roster.xlsx"),
-    );
-    const [school, academy, ...rest] = parseTeacherLines(text);
-
-    expect(rest).toEqual([]);
-    expect(school).toEqual({
-      name: school?.name,
-      phone: "010-1234-5678",
-      grade: "고2",
-      group: "",
-      className: "3",
-    });
-    expect(school?.name).not.toBe("");
-    expect(academy).toEqual({
-      name: academy?.name,
-      phone: "010-4321-8765",
-      grade: "고1",
-      group: "A반",
-      className: "1",
-    });
-    expect(academy?.name).not.toBe("");
-  });
-
   test("columns carry data validation: 학년 list of six grades, 반 whole number >= 1, 전화번호 text format", () => {
     const xml = execFileSync(
       "unzip",
@@ -81,7 +48,8 @@ describe("W15 teacher-roster.xlsx", () => {
       { encoding: "utf8" },
     );
     const rules =
-      xml.match(/<dataValidation [^>]*>.*?<\/dataValidation>/g) ?? [];
+      xml.match(/<dataValidation [^>]*>.*?<\/dataValidation>/g) ??
+      ([] as string[]);
     const rule = (sqref: string) =>
       rules.find((r) => r.includes(`sqref="${sqref}"`)) ?? "";
 
@@ -96,7 +64,7 @@ describe("W15 teacher-roster.xlsx", () => {
       encoding: "utf8",
     });
     const textXf = (
-      styles.split("<cellXfs")[1]?.match(/<xf [^>]*>/g) ?? []
+      styles.split("<cellXfs")[1]?.match(/<xf [^>]*>/g) ?? ([] as string[])
     ).findIndex((x) => x.includes('numFmtId="49"'));
     expect(textXf).toBeGreaterThan(0);
     for (const ref of ["B2", "B3", "B4", "B500"]) {

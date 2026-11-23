@@ -452,7 +452,7 @@ export async function previewTeacherImport(
   const { verdicts, reasons } = await judgeAll(admin, tenantId, rows);
   return verdicts.map((verdict, index) =>
     verdict === "format_error"
-      ? { index, verdict, reasons: reasons[index] }
+      ? { index, verdict, reasons: reasons[index] ?? [] }
       : { index, verdict },
   );
 }
