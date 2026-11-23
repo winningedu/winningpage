@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { SCHEDULE_FIELD_LABELS } from "@/data/diagnosisSurveyV3";
 import ScheduleInput from "./ScheduleInput";
 
 afterEach(cleanup);
@@ -30,5 +31,25 @@ describe("ScheduleInput 행 오류", () => {
       "true",
     );
     expect(screen.getByLabelText("날짜 1")).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("지난 날짜나 42일 밖 날짜는 고를 수 있는 기간을 알린다", () => {
+    // 16 r30 past date; 06 C55 Day 42 of 2026-11-09 is 2026-12-20
+    renderRows([{ kind: "PERF", date: "2026-11-08", subject: "" }]);
+    expect(
+      screen.getByText("2026-11-09부터 2026-12-20 사이 날짜를 골라 주세요."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("날짜 1")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(
+      screen.getByLabelText(`${SCHEDULE_FIELD_LABELS.kind} 1`),
+    ).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("올바른 행에는 오류 문구가 없다", () => {
+    renderRows([{ kind: "PERF", date: "2026-12-20", subject: "" }]);
+    expect(screen.queryByText(/골라 주세요/)).toBeNull();
   });
 });
