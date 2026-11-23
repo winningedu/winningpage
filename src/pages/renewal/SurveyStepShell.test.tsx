@@ -157,6 +157,10 @@ function StepStub() {
   );
 }
 
+function LoginStub() {
+  return <p>로그인 {useLocation().search}</p>;
+}
+
 function renderSubmit(
   onResult: (v: unknown) => void,
   draft?: Record<string, unknown>,
@@ -174,6 +178,7 @@ function renderSubmit(
           />
           <Route path=":step" element={<StepStub />} />
         </Route>
+        <Route path="/login" element={<LoginStub />} />
         <Route path="/pricing" element={<p>결제 페이지</p>} />
         <Route
           path="/learning-diagnosis/report/:attemptId"
@@ -592,6 +597,21 @@ describe("SurveyStepShell v3 제출", () => {
     ).toBeInTheDocument();
     expect(consumeMock).not.toHaveBeenCalled();
     expect(submitMock).not.toHaveBeenCalled();
+  });
+
+  it("세션이 없으면 로그인 화면으로 보내고 설문으로 돌아오게 한다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "proceed", status: "free_used" });
+    submitMock.mockResolvedValue({ ok: false, reason: "no-session" });
+    renderSubmit(vi.fn());
+    await answerAllAndSubmit();
+    expect(
+      await screen.findByText(
+        `로그인 ?redirect=${encodeURIComponent("/app/learning-diagnosis/survey")}`,
+      ),
+    ).toBeInTheDocument();
+    expect(window.alert).toHaveBeenCalledWith(
+      "로그인 정보를 확인할 수 없어요. 다시 로그인해 주세요.",
+    );
   });
 
   it("목표 대학 입결 키를 확인하지 못하면 소진하지 않고 다시 시도 안내를 보인다", async () => {

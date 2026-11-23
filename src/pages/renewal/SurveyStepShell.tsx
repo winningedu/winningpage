@@ -269,6 +269,11 @@ export default function SurveyStepShell() {
       answers: submitAnswers,
     });
     if (!result.ok) {
+      if (result.reason === "no-session") {
+        window.alert("로그인 정보를 확인할 수 없어요. 다시 로그인해 주세요.");
+        navigate(`/login?redirect=${encodeURIComponent(pathname)}`);
+        return null;
+      }
       window.alert("진단 결과를 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.");
       return null;
     }
@@ -281,7 +286,7 @@ export default function SurveyStepShell() {
       state: { fromSubmit: true },
     });
     return result.payload;
-  }, [answers, navigate, userId, resumeEnabled, showAnswerProblem]);
+  }, [answers, navigate, pathname, userId, resumeEnabled, showAnswerProblem]);
 
   if (accessFailed) {
     return (
