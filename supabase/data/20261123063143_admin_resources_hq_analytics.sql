@@ -11,3 +11,8 @@ values
   ('hqDashboard', '통계', '대시보드', 10, true),
   ('webAnalytics', '통계', '방문 분석', 20, true)
 on conflict (key) do nothing;
+
+-- 실행 기록
+-- 2026-11-23 dev gjowqdiopinhixfivnkx: 실행 전 0행, 실행 후 2행(hqDashboard, webAnalytics). 재실행 변경 없음.
+-- 2026-11-23 Winning prod ykrpjcsubmbenfcnwlzd: 실행 전 0행, 실행 후 2행. 재실행 변경 없음.
+-- 2026-11-23 Schoolmentor prod aalujumpwlnwlemnqrus: 실행 전 0행, 실행 후 2행. 재실행 변경 없음.

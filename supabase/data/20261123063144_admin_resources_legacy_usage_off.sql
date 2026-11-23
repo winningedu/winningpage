@@ -8,3 +8,8 @@ update public.admin_resources
 set is_active = false
 where key in ('dailyEntries', 'usageStatus')
   and is_active is distinct from false;
+
+-- 실행 기록
+-- 2026-11-23 dev gjowqdiopinhixfivnkx: 실행 전 켜짐 2행(dailyEntries, usageStatus), 실행 후 꺼짐 2행. 재실행 변경 없음.
+-- 2026-11-23 Winning prod ykrpjcsubmbenfcnwlzd: 실행 전 켜짐 2행, 실행 후 꺼짐 2행. 재실행 변경 없음.
+-- 2026-11-23 Schoolmentor prod aalujumpwlnwlemnqrus: 실행 전 켜짐 2행, 실행 후 꺼짐 2행. 재실행 변경 없음.
