@@ -15,6 +15,7 @@ import {
 } from "@/data/diagnosisSurveyV3";
 import { renewalSurveyQuestions } from "@/data/renewalSurveyQuestions.js";
 import type { QuestionId, TrackCode } from "@/lib/diagnosis-v3/codes";
+import { defaultQ4 } from "@/lib/diagnosis-v3/gradeConvert";
 import { SCALE_ITEMS } from "@/lib/diagnosis-v3/likert";
 import { OPTIONS, trackOf } from "@/lib/diagnosis-v3/options";
 import type { AdmissionTarget, IsoDate } from "@/lib/diagnosis-v3/types";
@@ -393,4 +394,25 @@ export function q23Order(seed: string): string[] {
     [keys[i], keys[j]] = [keys[j] as string, keys[i] as string];
   }
   return [...keys, "V"];
+}
+
+/**
+ * Draft after one answer. Picking q1 fills the q4 default (16 r19-r21, the
+ * student can change it, 13 H9) and, when the track changes, clears the
+ * track-specific q11 and q12 answers (기능요구명세서 row 5).
+ */
+export function applyAnswer(
+  draft: SurveyDraft,
+  id: string,
+  value: unknown,
+  diagnosedAt: IsoDate,
+): SurveyDraft {
+  const next: Record<string, unknown> = { ...draft, [id]: value };
+  if (id !== "q1") return next;
+  next.q4 = defaultQ4(value as number, diagnosedAt);
+  if (draftTrack(draft) !== draftTrack(next)) {
+    delete next.q11;
+    delete next.q12;
+  }
+  return next;
 }

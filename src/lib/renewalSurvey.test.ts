@@ -6,6 +6,7 @@ import {
 } from "@/lib/diagnosis-v3/testFixtures";
 import type { LikertBlock } from "@/lib/diagnosis-v3/types";
 import {
+  applyAnswer,
   q23Order,
   scheduleDateBounds,
   screenProblems,
@@ -221,5 +222,30 @@ describe("v3 21번 기질 문항 순서", () => {
   it("같은 시드는 같은 순서, 다른 시드는 다른 순서다", () => {
     expect(q23Order("attempt-a")).toEqual(q23Order("attempt-a"));
     expect(q23Order("attempt-a")).not.toEqual(q23Order("attempt-b"));
+  });
+});
+
+describe("v3 1번 학년 응답", () => {
+  it("학년을 고르면 4번 등급 체계 기본값을 16번 시트 규칙으로 채운다", () => {
+    // 16 r20: 2026 고1 = 2026 entry, 5등급제 (ordinal 2); 16 r21: N수 = 9등급제
+    expect(applyAnswer({}, "q1", 3, "2026-11-09").q4).toBe(2);
+    expect(applyAnswer({}, "q1", 6, "2026-11-09").q4).toBe(1);
+    // 16 r19: 중학생 = 성취평가제 중심 (ordinal 3)
+    expect(applyAnswer({}, "q1", 1, "2026-11-09").q4).toBe(3);
+  });
+
+  it("학생이 고른 4번은 다른 문항 응답으로 바뀌지 않는다", () => {
+    const draft = applyAnswer({ q1: 3 }, "q4", 1, "2026-11-09");
+    expect(applyAnswer(draft, "q2", 1, "2026-11-09").q4).toBe(1);
+  });
+
+  it("트랙이 바뀌면 트랙별 11번, 12번 응답을 비운다", () => {
+    const answered = { q1: 3, q11: { "1": 4 }, q12: [1] };
+    const sameTrack = applyAnswer(answered, "q1", 4, "2026-11-09");
+    expect(sameTrack.q11).toEqual({ "1": 4 });
+    expect(sameTrack.q12).toEqual([1]);
+    const otherTrack = applyAnswer(answered, "q1", 5, "2026-11-09");
+    expect(otherTrack).not.toHaveProperty("q11");
+    expect(otherTrack).not.toHaveProperty("q12");
   });
 });
