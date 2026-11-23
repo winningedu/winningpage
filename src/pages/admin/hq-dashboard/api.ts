@@ -74,3 +74,80 @@ export function fetchHqSummary(includeInternal: boolean): Promise<HqSummary> {
 export function fetchHqTenants(includeInternal: boolean): Promise<HqTenants> {
   return getJson<HqTenants>("/api/admin/hq-dashboard/tenants", includeInternal);
 }
+
+// 로그인 지표(/api/admin/hq-dashboard/logins). search 는 filters.ts 의 statsSearch, logSearch 가 만든다.
+export type LoginSource = "measured" | "estimated" | "none";
+
+export interface LoginBucket {
+  start: string;
+  end: string;
+  source: LoginSource;
+  members: number;
+  byMemberType: Record<string, number>;
+}
+
+export interface LoginStatsResponse {
+  ok: true;
+  from: string;
+  to: string;
+  grain: "day" | "week" | "month";
+  mauMode: "calendar" | "rolling30";
+  includeInternal: boolean;
+  firstMeasuredOn: string | null;
+  series: LoginBucket[];
+  dau: { from: string; to: string; average: number; source: LoginSource };
+  mau: {
+    from: string;
+    to: string;
+    mode: "calendar" | "rolling30";
+    members: number;
+    source: LoginSource;
+    byMemberType: Record<string, number>;
+  };
+}
+
+export interface LoginLogItem {
+  profileId: string;
+  kstDate: string;
+  firstSeenAt: string;
+  name: string | null;
+  memberType: string | null;
+  tenantName: string | null;
+}
+
+export interface LoginLogResponse {
+  ok: true;
+  from: string;
+  to: string;
+  includeInternal: boolean;
+  page: number;
+  pageSize: number;
+  total: number;
+  namesVisible: boolean;
+  items: LoginLogItem[];
+}
+
+async function getLogins<T>(search: string): Promise<T> {
+  const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
+  const response = await fetch(`/api/admin/hq-dashboard/logins?${search}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.ok) {
+    throw new Error(
+      String(
+        result?.error?.message ??
+          `요청에 실패했습니다. (HTTP ${response.status})`,
+      ),
+    );
+  }
+  return result as T;
+}
+
+export function fetchLoginStats(search: string) {
+  return getLogins<LoginStatsResponse>(search);
+}
+
+export function fetchLoginLog(search: string) {
+  return getLogins<LoginLogResponse>(search);
+}

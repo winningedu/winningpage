@@ -10,6 +10,9 @@ vi.mock("./TenantOverview", () => ({
   ),
 }));
 
+// 로그인 지표 화면은 LoginSection.test.tsx 가 본다.
+vi.mock("./LoginSection", () => ({ default: () => null }));
+
 import HqDashboardAdmin from "./HqDashboardAdmin";
 
 test("기관을 고르면 그 기관과 읽기 전용 사유를 미리 고른 대행 고르기 화면으로 간다(Q4)", async () => {

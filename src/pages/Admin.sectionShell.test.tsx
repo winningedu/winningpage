@@ -44,6 +44,7 @@ vi.mock("./admin/shared/adminSession", () => ({
 
 // 대시보드 내용(서버 조회)은 hq-dashboard 테스트가 본다. 여기서는 섹션 셸만 본다.
 vi.mock("./admin/hq-dashboard/TenantOverview", () => ({ default: () => null }));
+vi.mock("./admin/hq-dashboard/LoginSection", () => ({ default: () => null }));
 
 import { AdminSectionRoute } from "./Admin";
 
