@@ -3,6 +3,7 @@
 // 스쿨멘토 학생 가입 확정. 위닝 배포에서는 404.
 
 import { SYNTHETIC_DOMAIN } from "../../_lib/auth/login.js";
+import { normalizeClassName } from "../../_lib/console/className.js";
 import { defineHandler, requireUserId } from "../../_lib/handler.js";
 import { getClientIp } from "../../_lib/phoneCode.js";
 import { mapSignupRpcError } from "../../_lib/signup/errors.js";
@@ -76,6 +77,7 @@ export default defineHandler({
 
     // 클라이언트가 보낸 기관 id 는 받지 않는다. 코드로 다시 찾는다(null 은 기타 소속).
     let tenant: { id: string; name: string; orgType: string } | null = null;
+    let className = input.className;
     if (input.tenantCode !== null) {
       const found = await lookupSignupTenant(
         ctx.supabaseAdmin,
@@ -103,6 +105,15 @@ export default defineHandler({
         });
         return;
       }
+      className = normalizeClassName(input.className);
+      if (className === "") {
+        res.status(400).json({
+          code: "CLASS_INVALID",
+          message: "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+          field: "className",
+        });
+        return;
+      }
     }
 
     const { data: signup, error: signupError } = await ctx.supabaseAdmin.rpc(
@@ -118,7 +129,7 @@ export default defineHandler({
         p_tenant_id: tenant?.id ?? null,
         p_grade: input.grade,
         p_group_name: input.groupName,
-        p_class_name: input.className,
+        p_class_name: className,
         p_number: input.number,
         p_guardian_name: input.guardianName,
         p_guardian_phone: input.guardianPhone,

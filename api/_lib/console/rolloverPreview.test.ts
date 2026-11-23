@@ -4,7 +4,6 @@ import { describe, expect, test } from "vitest";
 import {
   evaluateRolloverPreview,
   isGradeCell,
-  normalizeClassName,
   type PreviewStudent,
   parseRolloverText,
 } from "./rolloverPreview.js";
@@ -41,14 +40,6 @@ describe("parseRolloverText", () => {
         to: { grade: "", group: "", className: "", number: "" },
       },
     ]);
-  });
-});
-
-describe("normalizeClassName", () => {
-  test("a school keeps the digits without leading zeros, an academy removes whitespace (fn_normalize_class_name)", () => {
-    expect(normalizeClassName("학교", "03반")).toBe("3");
-    expect(normalizeClassName("학교", "반")).toBe("");
-    expect(normalizeClassName("학원", " A 반 ")).toBe("A반");
   });
 });
 
@@ -101,6 +92,21 @@ describe("evaluateRolloverPreview", () => {
         result: "no_homeroom",
       },
     ]);
+    expect(r.applyRows).toEqual([
+      { studentId: "s1", groupId: null, className: "3", number: 8 },
+    ]);
+  });
+
+  test("a class cell with the trailing 반, spaces or leading zeros is the same class", () => {
+    const r = run(
+      "김하늘\t1학년\t없음\t4반\t7번\t2학년\t없음\t03 반\t8번",
+      [kim],
+      {
+        homeroomClasses: new Set(["고2||3"]),
+      },
+    );
+
+    expect(r.rows[0]?.result).toBe("applied");
     expect(r.applyRows).toEqual([
       { studentId: "s1", groupId: null, className: "3", number: 8 },
     ]);

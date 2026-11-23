@@ -169,6 +169,33 @@ describe("POST /api/enrollment/self-assign", () => {
     expect((await post(BODY)).status).toBe(500);
   });
 
+  test.each(["반", "0", "00반"])(
+    "class name '%s' is a 400 CLASS_INVALID before any lookup",
+    async (className) => {
+      expect(await post({ ...BODY, className })).toMatchObject({
+        status: 400,
+        body: {
+          error: {
+            code: "CLASS_INVALID",
+            message: "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+          },
+        },
+      });
+      expect(state.rpcCalls).toEqual([]);
+    },
+  );
+
+  test.each([
+    ["3반", "3"],
+    [" 03 ", "3"],
+    ["A반", "A"],
+    ["B 반", "B"],
+  ])("class name '%s' goes to the DB as '%s'", async (className, want) => {
+    await post({ ...BODY, className });
+
+    expect(state.rpcCalls[0]?.args).toMatchObject({ p_class_name: want });
+  });
+
   test.each([
     ["no grade", { className: "3" }],
     ["no class name", { grade: "고2" }],

@@ -196,6 +196,24 @@ describe("JoinTenantModal", () => {
     });
   });
 
+  it.each([
+    ["3반", "3"],
+    ["A반", "A"],
+  ])("반 '%s' 은 '%s' 로 보낸다", async (raw, want) => {
+    await reachFields("학교");
+    mockApiFetch.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+
+    fireEvent.change(screen.getByLabelText("학년"), {
+      target: { value: "고1" },
+    });
+    fireEvent.change(screen.getByLabelText("반"), { target: { value: raw } });
+    fireEvent.click(screen.getByRole("button", { name: "옮기기" }));
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(2));
+    const [, init] = mockApiFetch.mock.calls[1] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toMatchObject({ className: want });
+  });
+
   it("학교에는 그룹 칸이 없다", async () => {
     await reachFields("학교");
 
@@ -205,6 +223,20 @@ describe("JoinTenantModal", () => {
   it.each([
     ["학년을 고르지 않으면", "", "3", "", "학년을 선택해 주세요."],
     ["반을 비우면", "고1", "  ", "", "반을 입력해 주세요."],
+    [
+      "반이 0 뿐이면",
+      "고1",
+      "00반",
+      "",
+      "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+    ],
+    [
+      "반이 반 한 글자면",
+      "고1",
+      "반",
+      "",
+      "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+    ],
     [
       "번호가 100이면",
       "고1",

@@ -1,5 +1,5 @@
 // 3단계 학생 정보(사 #101, 결정 r7, 교 결정 r10).
-// 학교는 반이 숫자, 학원은 글자도 받고 그룹을 적는다. 기타 소속은 반과 번호를 받지 않는다(결정 77).
+// 반은 학교와 학원 모두 글자와 숫자를 받고, 학원은 그룹도 적는다. 기타 소속은 반과 번호를 받지 않는다(결정 77).
 import { useEffect, useState } from "react";
 import {
   AuthTitle,
@@ -300,14 +300,8 @@ export default function StudentInfoStep({
               id="school-class-name"
               name="className"
               size="lg"
-              // 학교는 숫자만, 학원은 글자도 받는다.
-              inputMode={isSchool ? "numeric" : "text"}
               value={formData.className}
-              onChange={(value) =>
-                updateFormData({
-                  className: isSchool ? value.replace(/\D/g, "") : value,
-                })
-              }
+              onChange={field("className")}
             />
 
             <TextField

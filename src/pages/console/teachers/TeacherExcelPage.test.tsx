@@ -98,7 +98,7 @@ describe("W15 기본 화면", () => {
     expect(link.getAttribute("href")).toBe("/templates/teacher-roster.xlsx");
     expect(
       screen.getByText(
-        "양식 5칸: 선생님 이름, 전화번호, 학년, 그룹, 반. 예시 2행이 들어 있어요",
+        "양식 5칸: 선생님 이름, 전화번호, 학년, 그룹, 반. 학년은 중1~고3 중 하나, 반은 3 또는 A처럼 '반' 글자 없이 적어요. 예시 2행이 들어 있어요",
       ),
     ).toBeTruthy();
     expect(screen.getByText("2. 파일 올리기 또는 붙여넣기")).toBeTruthy();
@@ -183,6 +183,50 @@ describe("W15 미리보기", () => {
     expect(
       screen.getByText("적용 가능 1건, 오류 2건. 오류 행은 적용하지 않아요"),
     ).toBeTruthy();
+  });
+
+  it("형식 오류 줄에는 어긋난 칸마다 이유를 풀어서 보인다", async () => {
+    stubPage({
+      [PREVIEW]: {
+        body: {
+          rows: [
+            {
+              index: 0,
+              verdict: "format_error",
+              reasons: ["name", "phone", "grade", "class"],
+            },
+            {
+              index: 1,
+              verdict: "format_error",
+              reasons: ["group_without_class"],
+            },
+            { index: 2, verdict: "new" },
+          ],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/excel");
+    await screen.findByText("1. 양식 내려받기");
+    paste(PASTED);
+    fireEvent.click(screen.getByRole("button", { name: "올리기" }));
+
+    await screen.findByText("3. 행 판정 미리보기");
+    const rows = screen.getAllByRole("row").slice(1);
+    const first = within(rows[0] as HTMLElement);
+    expect(first.getByText("형식 오류")).toBeTruthy();
+    expect(first.getByText("이름을 적어요")).toBeTruthy();
+    expect(first.getByText("전화번호를 확인해 주세요")).toBeTruthy();
+    expect(first.getByText("학년은 중1~고3 중에서 골라 적어요")).toBeTruthy();
+    expect(
+      first.getByText("반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요"),
+    ).toBeTruthy();
+    expect(
+      within(rows[1] as HTMLElement).getByText(
+        "그룹을 적었다면 학년과 반도 적어요",
+      ),
+    ).toBeTruthy();
+    expect(within(rows[2] as HTMLElement).queryByText(/적어요/)).toBeNull();
   });
 
   it("취소하면 처음 화면으로 돌아간다", async () => {

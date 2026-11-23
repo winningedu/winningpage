@@ -4,6 +4,7 @@
 // 반은 필수, 번호는 선택 1~99(결정 98.10)이다. 그룹은 화면이 학원일 때만 받고 DB 가 등록 여부를 본다(WC080).
 // 프로필, 학적, 열린 변경 신청 정리는 DB 함수 한 번의 트랜잭션이라 실패하면 소속이 그대로다. 위닝 배포에서는 404.
 
+import { normalizeClassName } from "../../_lib/console/className.js";
 import { sendEnrollmentRpcError } from "../../_lib/console/enrollmentErrors.js";
 import {
   isEnrollmentGrade,
@@ -48,6 +49,14 @@ function parseBody(body: unknown): Parsed {
       message: "반을 입력해 주세요.",
     };
   }
+  const normalizedClass = normalizeClassName(className);
+  if (normalizedClass === "") {
+    return {
+      ok: false,
+      code: "CLASS_INVALID",
+      message: "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+    };
+  }
   if (groupName != null && typeof groupName !== "string") return BAD_REQUEST;
   if (number != null && !isEnrollmentNumber(number)) return BAD_REQUEST;
   return {
@@ -56,7 +65,7 @@ function parseBody(body: unknown): Parsed {
       code: code.trim(),
       grade,
       groupName: (groupName as string | null | undefined) || null,
-      className: className.trim(),
+      className: normalizedClass,
       number: (number as number | null | undefined) ?? null,
     },
   };

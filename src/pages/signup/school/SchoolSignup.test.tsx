@@ -350,13 +350,17 @@ describe("3단계 학생 정보 칸", () => {
     expect(screen.queryByLabelText("번호(선택)")).toBeNull();
   });
 
-  it("학교의 반 칸은 숫자만 받는다", async () => {
-    await goToStudentInfo("학교");
+  it.each(["학교", "학원"])(
+    "%s 의 반 칸은 글자도 그대로 받는다",
+    async (orgType) => {
+      await goToStudentInfo(orgType);
 
-    type("반", "3반");
+      type("반", "A반");
 
-    expect(screen.getByLabelText("반")).toHaveValue("3");
-  });
+      expect(screen.getByLabelText("반")).toHaveValue("A반");
+      expect(screen.getByLabelText("반")).not.toHaveAttribute("inputmode");
+    },
+  );
 
   it("14세 미만에게도 성별을 받는다", async () => {
     await goToStudentInfo();

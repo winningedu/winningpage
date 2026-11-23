@@ -4,6 +4,7 @@
 // fn_enrollment_join 은 service_role 전용이다. 학생 id 는 토큰에서, 기관은 학생 프로필에서 서버가 정해
 // 넘기고 본문의 id 는 쓰지 않는다. 이미 학급이 있으면 DB 가 막는다(WC079).
 
+import { normalizeClassName } from "../../_lib/console/className.js";
 import { loadTenant } from "../../_lib/console/directory.js";
 import { sendEnrollmentRpcError } from "../../_lib/console/enrollmentErrors.js";
 import {
@@ -56,6 +57,17 @@ export default defineHandler({
       sendError(res, "coded", 400, "입력 값을 확인해 주세요.", "BAD_REQUEST");
       return;
     }
+    const className = normalizeClassName(body.className);
+    if (className === "") {
+      sendError(
+        res,
+        "coded",
+        400,
+        "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+        "CLASS_INVALID",
+      );
+      return;
+    }
 
     const { data: profile, error: profileError } = await ctx.supabaseAdmin
       .from("profiles")
@@ -89,7 +101,7 @@ export default defineHandler({
       p_tenant: profile.tenant_id as string,
       p_grade: body.grade,
       p_group_name: body.groupName as string,
-      p_class_name: body.className,
+      p_class_name: className,
       p_number: body.number as number,
     });
     if (error) {

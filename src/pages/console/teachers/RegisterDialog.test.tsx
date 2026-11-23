@@ -104,7 +104,7 @@ describe("W14b 개별 등록 다학년", () => {
     expect(calls.find((c) => c.key.startsWith("POST"))?.body).toEqual({
       name: "윤서진",
       phone: "010-5678-1234",
-      classes: [{ grade: null, name: "A반" }],
+      classes: [{ grade: null, name: "A" }],
     });
     fireEvent.click(screen.getByRole("button", { name: "안내 파일 내려받기" }));
     await waitFor(() =>
@@ -160,7 +160,7 @@ describe("W14b 개별 등록", () => {
     expect(calls.find((c) => c.key.startsWith("POST"))?.body).toEqual({
       name: "윤서진",
       phone: "010-5678-1234",
-      classes: [{ grade: "고3", name: "2반" }],
+      classes: [{ grade: "고3", name: "2" }],
     });
     expect(onDone).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Ab3!xYz9Qk")).toBeNull();

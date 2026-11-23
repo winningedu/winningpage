@@ -143,7 +143,7 @@ describe("POST /api/console/teachers/import", () => {
       ["전화번호 형식이 틀림", row({ phone: "02-123-4567" })],
       ["학년이 목록에 없음", row({ grade: "7학년" })],
       ["학년만 있고 반이 없음", row({ className: "" })],
-      ["반 이름이 숫자가 아님(학교)", row({ className: "가나다" })],
+      ["반이 '반' 한 글자뿐임", row({ className: "반" })],
     ])("%s 이면 형식 오류이고 등록하지 않는다", async (_label, bad) => {
       const r = await run([bad, row({ name: "박교사", phone: "01022223333" })]);
 

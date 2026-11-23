@@ -4,6 +4,7 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type ConsoleAuditCtx, writeConsoleAuditLog } from "./audit.js";
+import { normalizeClassName } from "./className.js";
 import {
   type RegisterInput,
   RpcError,
@@ -89,6 +90,14 @@ const ERROR_VERDICTS: ImportVerdict[] = [
   "phone_conflict",
 ];
 
+/** 형식 오류 행에서 어긋난 칸. 열 순서대로 모두 담는다. */
+export type ImportReason =
+  | "name"
+  | "phone"
+  | "grade"
+  | "class"
+  | "group_without_class";
+
 export interface ImportRowResult {
   index: number;
   verdict: ImportVerdict;
@@ -141,13 +150,6 @@ function classKeyOf(grade: string, groupId: string | null, name: string) {
 
 const mixedKeyOf = (groupId: string | null, name: string) =>
   `${groupId ?? ""}|${name.toLowerCase()}`;
-
-/** 서버의 fn_normalize_class_name 과 같은 규칙: 학교는 숫자만(앞의 0 제거), 그 밖은 공백 제거. */
-export function normalizeClassName(orgType: string, raw: string): string {
-  return orgType === "학교"
-    ? raw.replace(/\D/g, "").replace(/^0+/, "")
-    : raw.replace(/\s/g, "");
-}
 
 function normalizePhone(raw: string): string {
   return raw.replace(/\D/g, "");
@@ -288,8 +290,13 @@ async function loadJudgeContext(
 function judgeRows(
   rows: ImportRowInput[],
   context: JudgeContext,
-): { prepared: PreparedRow[]; verdicts: ImportVerdict[] } {
+): {
+  prepared: PreparedRow[];
+  verdicts: ImportVerdict[];
+  reasons: ImportReason[][];
+} {
   const verdicts: ImportVerdict[] = [];
+  const reasons: ImportReason[][] = [];
   const prepared: PreparedRow[] = [];
   const firstNameByPhone = new Map<string, string>();
 
@@ -312,17 +319,17 @@ function judgeRows(
     prepared.push(row);
 
     const hasClass = grade !== "" || className !== "";
-    const normalizedClass = normalizeClassName(context.orgType, className);
-    if (
-      name === "" ||
-      !/^01[0-9]{8,9}$/.test(phone) ||
-      (hasClass &&
-        (!GRADES.includes(grade) ||
-          className === "" ||
-          normalizedClass === "")) ||
-      (!hasClass && group !== "")
-    ) {
+    const normalizedClass = normalizeClassName(className);
+    // 결정 118: 학년은 중1~고3 여섯 값만, 반은 비거나 0 뿐인 값만 막는다. 학교와 학원이 같다.
+    const rowReasons: ImportReason[] = [];
+    if (name === "") rowReasons.push("name");
+    if (!/^01[0-9]{8,9}$/.test(phone)) rowReasons.push("phone");
+    if (hasClass && !GRADES.includes(grade)) rowReasons.push("grade");
+    if (hasClass && normalizedClass === "") rowReasons.push("class");
+    if (!hasClass && group !== "") rowReasons.push("group_without_class");
+    if (rowReasons.length > 0) {
       verdicts.push("format_error");
+      reasons[index] = rowReasons;
       continue;
     }
 
@@ -401,7 +408,7 @@ function judgeRows(
       verdicts[row.index] = "shared_login";
     }
   }
-  return { prepared, verdicts };
+  return { prepared, verdicts, reasons };
 }
 
 /** 기관의 현재 교사와 학급을 읽어 모든 행을 판정한다. 읽기만 한다. */
@@ -409,7 +416,11 @@ async function judgeAll(
   admin: SupabaseClient,
   tenantId: string,
   rows: ImportRowInput[],
-): Promise<{ prepared: PreparedRow[]; verdicts: ImportVerdict[] }> {
+): Promise<{
+  prepared: PreparedRow[];
+  verdicts: ImportVerdict[];
+  reasons: ImportReason[][];
+}> {
   const rowGrades = rows
     .map((r) => r.grade.trim())
     .filter((g) => GRADES.includes(g));
@@ -428,9 +439,15 @@ export async function previewTeacherImport(
   admin: SupabaseClient,
   tenantId: string,
   rows: ImportRowInput[],
-): Promise<{ index: number; verdict: ImportVerdict }[]> {
-  const { verdicts } = await judgeAll(admin, tenantId, rows);
-  return verdicts.map((verdict, index) => ({ index, verdict }));
+): Promise<
+  { index: number; verdict: ImportVerdict; reasons?: ImportReason[] }[]
+> {
+  const { verdicts, reasons } = await judgeAll(admin, tenantId, rows);
+  return verdicts.map((verdict, index) =>
+    verdict === "format_error"
+      ? { index, verdict, reasons: reasons[index] ?? [] }
+      : { index, verdict },
+  );
 }
 
 interface StoredRun {

@@ -34,6 +34,22 @@ const ERRORS: Verdict[] = [
   "phone_conflict",
 ];
 
+/** 서버가 형식 오류 행에 싣는 어긋난 칸(ImportReason). */
+export type Reason =
+  | "name"
+  | "phone"
+  | "grade"
+  | "class"
+  | "group_without_class";
+
+export const REASON_LABEL: Record<Reason, string> = {
+  name: "이름을 적어요",
+  phone: "전화번호를 확인해 주세요",
+  grade: "학년은 중1~고3 중에서 골라 적어요",
+  class: "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+  group_without_class: "그룹을 적었다면 학년과 반도 적어요",
+};
+
 export const isErrorVerdict = (v: Verdict) => ERRORS.includes(v);
 
 export type ApplyMode = "overwrite" | "skip";

@@ -54,7 +54,7 @@ describe("POST /api/console/teachers/import-preview", () => {
       rows: [
         { index: 0, verdict: "new" },
         { index: 1, verdict: "class_duplicate" },
-        { index: 2, verdict: "format_error" },
+        { index: 2, verdict: "format_error", reasons: ["name"] },
       ],
     });
     expect(kit.state.inserts).toEqual([]);
@@ -180,6 +180,119 @@ describe("POST /api/console/teachers/import-preview", () => {
       expect((r.body as { rows: { verdict: string }[] }).rows[0]?.verdict).toBe(
         "same",
       );
+    });
+  });
+
+  describe("형식 오류(결정 118): 학년은 중1~고3, 반은 글자나 숫자, 어긋난 칸을 reasons 로 알린다", () => {
+    const verdictOf = async (over: Record<string, string>) => {
+      const r = await post({ rows: [row(over)] });
+      return (r.body as { rows: Record<string, unknown>[] }).rows[0];
+    };
+
+    test.each([["반"], ["0"], ["00반"], [" 0 반"], [""]])(
+      "반 '%s' 은 형식 오류이다",
+      async (className) => {
+        expect(await verdictOf({ className })).toEqual({
+          index: 0,
+          verdict: "format_error",
+          reasons: ["class"],
+        });
+      },
+    );
+
+    test.each(["A", "B반", "3학년 2반", "1-2", "3 반", "3", "03반", " 12반 "])(
+      "학교에서 반 '%s' 은 유효하다",
+      async (className) => {
+        expect((await verdictOf({ className }))?.verdict).toBe("new");
+      },
+    );
+
+    test("학원도 글자 반은 유효하다", async () => {
+      kit.state.rows.tenants = () => ({
+        org_type: "캠퍼스",
+        school_year: 2026,
+      });
+      expect((await verdictOf({ className: "A반" }))?.verdict).toBe("new");
+    });
+
+    test.each(["3학년", "3", "고 3", "고4", ""])(
+      "학년 '%s' 은 형식 오류이다",
+      async (grade) => {
+        expect(await verdictOf({ grade })).toEqual({
+          index: 0,
+          verdict: "format_error",
+          reasons: ["grade"],
+        });
+      },
+    );
+
+    test.each(["중1", "중2", "중3", "고1", "고2", "고3"])(
+      "학년 '%s' 은 유효하다",
+      async (grade) => {
+        expect((await verdictOf({ grade }))?.verdict).toBe("new");
+      },
+    );
+
+    test("틀린 칸을 열 순서대로 모두 알린다", async () => {
+      expect(
+        await verdictOf({
+          name: " ",
+          phone: "123",
+          grade: "7학년",
+          className: "반",
+        }),
+      ).toEqual({
+        index: 0,
+        verdict: "format_error",
+        reasons: ["name", "phone", "grade", "class"],
+      });
+    });
+
+    test("그룹만 있고 학년과 반이 없으면 group_without_class 이다", async () => {
+      expect(await verdictOf({ group: "A", grade: "", className: "" })).toEqual(
+        { index: 0, verdict: "format_error", reasons: ["group_without_class"] },
+      );
+    });
+
+    test("실제 고객 파일 모양: 학년 '3학년' 4행은 모두 학년 오류이고, '고3' 으로 바꾸면 신규이다", async () => {
+      kit.state.rows.tenants = () => ({
+        org_type: "캠퍼스",
+        school_year: 2026,
+      });
+      kit.state.rows.class_groups = () =>
+        ["ACE1", "ACE2", "Vgroup", "Mathink"].map((name, i) => ({
+          id: `g${i}`,
+          name,
+        }));
+      const customer = (grade: string) =>
+        [
+          ["ACE1", "1"],
+          ["ACE2", "2"],
+          ["Vgroup", "1"],
+          ["Mathink", "1"],
+        ].map(([group, className], i) => ({
+          name: `가상교사${i + 1}`,
+          phone: `0100000000${i + 1}`,
+          grade,
+          group: group as string,
+          className: className as string,
+        }));
+
+      const bad = await post({ rows: customer("3학년") });
+      const good = await post({ rows: customer("고3") });
+
+      expect((bad.body as { rows: unknown[] }).rows).toEqual(
+        [0, 1, 2, 3].map((index) => ({
+          index,
+          verdict: "format_error",
+          reasons: ["grade"],
+        })),
+      );
+      expect(
+        (good.body as { rows: { verdict: string }[] }).rows.map(
+          (x) => x.verdict,
+        ),
+      ).toEqual(["new", "new", "new", "new"]);
     });
   });
 
