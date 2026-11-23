@@ -2,6 +2,7 @@
 // 현지 시각이 발송 시각인 학생에게만 보낸다. 알림톡 발송기(sendAndLog)는 mock 이라
 // 실제 발송은 절대 일어나지 않는다.
 
+import { readFileSync } from "node:fs";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -48,6 +49,8 @@ vi.mock("../_lib/supabaseAdmin.js", async (importOriginal) => ({
 }));
 
 import daily from "./daily-report.js";
+import monthly from "./monthly-report.js";
+import weekly from "./weekly-report.js";
 
 async function run(
   handler: (req: VercelRequest, res: VercelResponse) => Promise<unknown>,
@@ -204,5 +207,121 @@ describe("daily-report 크론 — 현지 22시", () => {
     at("2026-11-23T03:00:00Z");
     await run(daily, { date: "2026-11-20" });
     expect(keysSent()).toEqual(["dailyReport:p1:s-la:2026-11-20"]);
+  });
+});
+
+describe("weekly-report 크론 — 현지 월요일 08시, 지난 주", () => {
+  const records = (id: string): Row[] => [
+    { profile_id: id, record_date: "2026-11-18" },
+  ];
+
+  test("서울 학생은 일요일 23:00Z(월 08:00 서울) 실행에서 지난 주 월요일 키로 보낸다", async () => {
+    seed([{ id: "s-seoul", tz: "Asia/Seoul" }], records("s-seoul"));
+
+    at("2026-11-23T16:00:00Z"); // 서울은 화요일 01시
+    await run(weekly);
+    expect(state.sendAndLog).not.toHaveBeenCalled();
+
+    at("2026-11-22T23:00:00Z");
+    await run(weekly);
+    expect(keysSent()).toEqual(["weeklyReport:p1:s-seoul:2026-11-16"]);
+  });
+
+  test("로스앤젤레스 학생은 월요일 16:00Z(PST) 실행에서 보낸다", async () => {
+    seed([{ id: "s-la", tz: "America/Los_Angeles" }], records("s-la"));
+
+    at("2026-11-22T23:00:00Z");
+    await run(weekly);
+    expect(state.sendAndLog).not.toHaveBeenCalled();
+
+    at("2026-11-23T16:00:00Z");
+    await run(weekly);
+    expect(keysSent()).toEqual(["weeklyReport:p1:s-la:2026-11-16"]);
+  });
+
+  test("지난 주에 기록이 없으면 보내지 않고, 같은 시간 재실행은 같은 키를 쓴다", async () => {
+    seed(
+      [{ id: "s-seoul", tz: "Asia/Seoul" }],
+      [{ profile_id: "s-seoul", record_date: "2026-11-10" }],
+    );
+    at("2026-11-22T23:00:00Z");
+    await run(weekly);
+    expect(state.sendAndLog).not.toHaveBeenCalled();
+
+    seed([{ id: "s-seoul", tz: "Asia/Seoul" }], records("s-seoul"));
+    await run(weekly);
+    at("2026-11-22T23:40:00Z");
+    await run(weekly);
+    expect(keysSent()).toEqual([
+      "weeklyReport:p1:s-seoul:2026-11-16",
+      "weeklyReport:p1:s-seoul:2026-11-16",
+    ]);
+  });
+
+  test("?week= 로 주 시작일을 강제하면 시각과 무관하게 그 주 기록 학생에게 보낸다", async () => {
+    seed([{ id: "s-la", tz: "America/Los_Angeles" }], records("s-la"));
+    at("2026-11-25T03:00:00Z");
+    await run(weekly, { week: "2026-11-16" });
+    expect(keysSent()).toEqual(["weeklyReport:p1:s-la:2026-11-16"]);
+  });
+});
+
+describe("monthly-report 크론 — 현지 1일 08시, 지난 달", () => {
+  const records = (id: string): Row[] => [
+    { profile_id: id, record_date: "2026-11-15" },
+  ];
+
+  test("서울 학생은 11월 30일 23:00Z(12/1 08:00 서울) 실행에서 지난 달 키로 보낸다", async () => {
+    seed([{ id: "s-seoul", tz: "Asia/Seoul" }], records("s-seoul"));
+
+    at("2026-11-30T22:00:00Z");
+    await run(monthly);
+    expect(state.sendAndLog).not.toHaveBeenCalled();
+
+    at("2026-11-30T23:00:00Z");
+    await run(monthly);
+    expect(keysSent()).toEqual(["monthlyReport:p1:s-seoul:2026-11"]);
+  });
+
+  test("로스앤젤레스 학생은 12월 1일 16:00Z(PST) 실행에서 보낸다", async () => {
+    seed([{ id: "s-la", tz: "America/Los_Angeles" }], records("s-la"));
+
+    at("2026-11-30T23:00:00Z");
+    await run(monthly);
+    expect(state.sendAndLog).not.toHaveBeenCalled();
+
+    at("2026-12-01T16:00:00Z");
+    await run(monthly);
+    expect(keysSent()).toEqual(["monthlyReport:p1:s-la:2026-11"]);
+  });
+
+  test("?month= 로 달을 강제하면 시각과 무관하게 그 달 기록 학생에게 보낸다", async () => {
+    seed([{ id: "s-la", tz: "America/Los_Angeles" }], records("s-la"));
+    at("2026-12-10T03:00:00Z");
+    await run(monthly, { month: "2026-11" });
+    expect(keysSent()).toEqual(["monthlyReport:p1:s-la:2026-11"]);
+  });
+});
+
+describe("vercel.json 크론 표현식", () => {
+  const crons = (
+    JSON.parse(readFileSync("vercel.json", "utf8")) as {
+      crons: Array<{ path: string; schedule: string }>;
+    }
+  ).crons;
+  const scheduleOf = (path: string) =>
+    crons.find((c) => c.path === path)?.schedule;
+
+  test.each([
+    "/api/cron/daily-report",
+    "/api/cron/weekly-report",
+    "/api/cron/monthly-report",
+  ])("%s 는 매시 정각에 돈다", (path) => {
+    expect(scheduleOf(path)).toBe("0 * * * *");
+  });
+
+  test("다른 크론은 그대로다", () => {
+    expect(scheduleOf("/api/cron/growth-archive")).toBe("0 19 * * *");
+    expect(scheduleOf("/api/cron/growth-resume")).toBe("*/2 * * * *");
   });
 });
