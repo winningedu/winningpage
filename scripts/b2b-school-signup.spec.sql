@@ -353,6 +353,44 @@ select pg_temp.expect_text('시간대가 없으면 기본값이 저장된다',
   pg_temp.signup_zone(3, '{}'), 'Asia/Seoul');
 select pg_temp.expect_text('메타데이터가 아예 없어도 기본값이 저장된다',
   pg_temp.signup_zone(4, null), 'Asia/Seoul');
+-- 위닝 가입 RPC(complete_signup_profile)도 같은 메타데이터를 읽는다. auth.uid() 는 JWT 클레임에서 온다.
+create function pg_temp.winning_signup_zone(n int, p_meta jsonb) returns text
+language plpgsql as $$
+declare
+  v_phone text := '010-61' || lpad(n::text, 2, '0') || '-0001';
+  v_uid uuid := pg_temp.new_auth_only('wzone' || n || '@example.com', p_meta);
+begin
+  insert into public.phone_verifications (phone, code_hash, purpose, verified_at, expires_at)
+  values (regexp_replace(v_phone, '[^0-9]', '', 'g'), 'x', 'signup', now(), now() + interval '10 minutes');
+  perform set_config('request.jwt.claim.sub', v_uid::text, true);
+  perform public.complete_signup_profile(
+    p_name => '김학부모', p_username => 'wz' || n, p_phone => v_phone, p_email => 'wzone' || n || '@example.com',
+    p_region => '서울', p_school_type => '', p_school_name => '', p_member_type => 'parent',
+    p_terms_service_agreed => true, p_privacy_required_agreed => true, p_identity_required_agreed => true,
+    p_privacy_optional_agreed => false, p_marketing_agreed => false, p_ads_agreed => false,
+    p_birth_date => date '1980-01-01', p_gender => '여');
+  perform set_config('request.jwt.claim.sub', '', true);
+  return (select time_zone from public.profiles where id = v_uid);
+end $$;
+
+select pg_temp.expect_text('위닝 가입 RPC: 뉴욕 브라우저면 America/New_York 이 저장된다',
+  pg_temp.winning_signup_zone(1, '{"time_zone": "America/New_York"}'), 'America/New_York');
+select pg_temp.expect_text('위닝 가입 RPC: 틀린 시간대는 기본값이 저장된다',
+  pg_temp.winning_signup_zone(2, '{"time_zone": "KST"}'), 'Asia/Seoul');
+select pg_temp.expect_text('위닝 가입 RPC: 메타데이터가 없으면 기본값이 저장된다',
+  pg_temp.winning_signup_zone(3, null), 'Asia/Seoul');
+
+-- dev 의 auth.users 트리거(handle_new_user)가 행을 먼저 만드는 경로. 트리거는 이 스펙 안에서만 붙였다 뗀다.
+create trigger zz_spec_handle_new_user after insert on auth.users
+  for each row execute function public.handle_new_user();
+select pg_temp.new_auth_only('trg1@example.com', '{"time_zone": "Asia/Tokyo"}');
+select pg_temp.new_auth_only('trg2@example.com', '{"time_zone": "KST"}');
+select pg_temp.expect_text('handle_new_user: 메타데이터 시간대가 새 행에 들어간다',
+  (select time_zone from public.profiles where email = 'trg1@example.com'), 'Asia/Tokyo');
+select pg_temp.expect_text('handle_new_user: 틀린 시간대는 기본값이다',
+  (select time_zone from public.profiles where email = 'trg2@example.com'), 'Asia/Seoul');
+drop trigger zz_spec_handle_new_user on auth.users;
+
 select pg_temp.expect_error('profiles.time_zone 에 틀린 값을 쓰면 23514', $$
   update public.profiles set time_zone = 'KST' where email = 'zone1@example.com'
 $$, '23514');
