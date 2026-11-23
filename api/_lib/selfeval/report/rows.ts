@@ -1,5 +1,6 @@
 // 리포트 입력 행 변환(명세 No.140, 141, 158). DB 행에서 순수 규칙만 떼어 단위로 검증한다.
 
+import { recordStatusOf, submittedAtOf } from "../rows.js";
 import { academicYearWindow } from "./date.js";
 import type {
   LinkType,
@@ -45,13 +46,6 @@ export type LinkRow = {
 export const LINK_COLUMNS =
   "from_record_id, to_record_id, link_type, strength, confirmed, deleted";
 
-/** record_status 가 null 인 옛 행은 status 에서 파생한다(planned 면 plan, 그 밖은 completed). */
-export function recordStatusOf(
-  row: Pick<ActivityRow, "record_status" | "status">,
-): RecordStatus {
-  return row.record_status ?? (row.status === "planned" ? "plan" : "completed");
-}
-
 export function toReportRecord(
   row: ActivityRow,
   selectedRole: "core" | "support" | null,
@@ -71,8 +65,14 @@ export function toReportRecord(
     sources: row.sources,
     summary: row.summary,
     reflection: row.reflection,
-    recordStatus: recordStatusOf(row),
-    submittedAt: row.submitted_at ?? row.created_at,
+    recordStatus: recordStatusOf({
+      recordStatus: row.record_status,
+      status: row.status,
+    }),
+    submittedAt: submittedAtOf({
+      submittedAt: row.submitted_at,
+      createdAt: row.created_at,
+    }),
     parentRecordId: row.parent_record_id,
     selectedRole,
   };
@@ -84,7 +84,9 @@ const SOURCES = new Set(["performance", "deep", "manual"]);
 export function keepRecord(row: ActivityRow, academicYear: number): boolean {
   if (!SOURCES.has(row.source_program)) return false;
   const { from, to } = academicYearWindow(academicYear);
-  const at = Date.parse(row.submitted_at ?? row.created_at);
+  const at = Date.parse(
+    submittedAtOf({ submittedAt: row.submitted_at, createdAt: row.created_at }),
+  );
   return at >= Date.parse(from) && at < Date.parse(to);
 }
 

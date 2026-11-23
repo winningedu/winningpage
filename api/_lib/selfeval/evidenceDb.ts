@@ -4,6 +4,7 @@
 
 import { type Db, must } from "../growth/intake/collectDb.js";
 import type { LinkInfo, MemoRow, RecordExtras } from "./evidenceSources.js";
+import type { RecordStatus } from "./types.js";
 
 export type EvidenceRows = {
   extras: Map<string, RecordExtras>;
@@ -13,7 +14,7 @@ export type EvidenceRows = {
 
 type ExtraDbRow = {
   id: string;
-  record_status: string | null;
+  record_status: RecordStatus | null;
   entry_kind: string | null;
   summary: string | null;
   reflection: string | null;

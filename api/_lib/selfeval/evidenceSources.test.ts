@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildWriteEvidence,
   type RecordExtras,
-  recordStatusOf,
   sourceTypeOfRecord,
 } from "./evidenceSources.js";
+import { recordStatusOf } from "./rows.js";
 import type { SessionActivityWithRecord } from "./view.js";
 
 describe("sourceTypeOfRecord", () => {

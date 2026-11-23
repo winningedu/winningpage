@@ -1,13 +1,26 @@
 // selfeval 테이블 행의 읽기 모양. db.ts 가 읽어 온 snake_case 행을 순수 모듈(view, sessionBody 등)이
-// 같은 타입으로 받도록 모아 둔다. 타입만 있고 런타임 코드는 없다.
+// 같은 타입으로 받도록 모아 둔다. 기록 상태와 제출일을 읽는 규칙 둘만 런타임 코드로 둔다.
 
 import type {
+  ActivityRecordLike,
   CareerInfo,
   GrowthSnapshot,
   RecordLink,
+  RecordStatus,
   ReplyPending,
   ReportType,
 } from "./types.js";
+
+/** record_status 가 비어 있으면 status 에서 파생한다(planned 면 plan, 그 밖은 completed). */
+export const recordStatusOf = (
+  r: Pick<ActivityRecordLike, "recordStatus" | "status">,
+): RecordStatus =>
+  r.recordStatus ?? (r.status === "planned" ? "plan" : "completed");
+
+/** submitted_at 이 비어 있으면 created_at 으로 읽는다. */
+export const submittedAtOf = (
+  r: Pick<ActivityRecordLike, "submittedAt" | "createdAt">,
+): string => r.submittedAt ?? r.createdAt;
 
 export type SessionRow = {
   id: string;

@@ -3,7 +3,6 @@ import {
   type ActivityRow,
   keepRecord,
   memoInWindow,
-  recordStatusOf,
   toReportLink,
   toReportRecord,
 } from "./rows.js";
@@ -31,13 +30,13 @@ const row = (over: Partial<ActivityRow> = {}): ActivityRow => ({
   ...over,
 });
 
-describe("recordStatusOf", () => {
+describe("toReportRecord recordStatus", () => {
   it("uses record_status and derives it from status when it is null", () => {
-    expect(recordStatusOf(row({ record_status: "in_progress" }))).toBe(
-      "in_progress",
-    );
-    expect(recordStatusOf(row({ status: "planned" }))).toBe("plan");
-    expect(recordStatusOf(row({ status: "draft" }))).toBe("completed");
+    const status = (over: Partial<ActivityRow>) =>
+      toReportRecord(row(over), null).recordStatus;
+    expect(status({ record_status: "in_progress" })).toBe("in_progress");
+    expect(status({ status: "planned" })).toBe("plan");
+    expect(status({ status: "draft" })).toBe("completed");
   });
 });
 

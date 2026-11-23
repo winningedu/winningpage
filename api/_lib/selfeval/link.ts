@@ -1,5 +1,6 @@
 // 활동 기록 연계 판정의 순수 규칙(명세 No.174~187). 모델은 후보만 내고, 인정 여부는 여기서 정한다.
 
+import { recordStatusOf, submittedAtOf } from "./rows.js";
 import { extractKeywords } from "./text.js";
 import {
   type ActivityRecordLike,
@@ -9,7 +10,6 @@ import {
   LINK_TYPES,
   type LinkStrength,
   type LinkType,
-  type RecordStatus,
 } from "./types.js";
 
 export type LinkAreaContext = { area: Area; subject: string | null };
@@ -65,11 +65,7 @@ export function linkRecordText(r: ActivityRecordLike): string {
   ]);
 }
 
-export const recordStatusOf = (r: ActivityRecordLike): RecordStatus =>
-  r.recordStatus ?? (r.status === "planned" ? "plan" : "completed");
-
-export const submittedAtOf = (r: ActivityRecordLike): string =>
-  r.submittedAt ?? r.createdAt;
+export { recordStatusOf, submittedAtOf };
 
 const isLinkType = (v: string): v is LinkType =>
   (LINK_TYPES as readonly string[]).includes(v);

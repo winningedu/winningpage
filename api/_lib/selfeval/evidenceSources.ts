@@ -14,18 +14,20 @@ import {
   type SupportLinkState,
   supportLinkStates,
 } from "./linkWrite.js";
+import { recordStatusOf } from "./rows.js";
 import {
   type ActivityRecordLike,
   type Analysis,
   type AnalysisField,
   BODY_EVIDENCE_FIELDS,
+  type RecordStatus,
 } from "./types.js";
 import type { SessionActivityWithRecord } from "./view.js";
 
 const SUBJECT_GROUP_LABEL = "교과";
 
 export type RecordExtras = {
-  recordStatus: string | null;
+  recordStatus: RecordStatus | null;
   entryKind: string | null;
   summary: string | null;
   reflection: string | null;
@@ -58,21 +60,6 @@ export function sourceTypeOfRecord(
   if (r.entryKind === "deep") return "D";
   if (r.entryKind === "activity") return "A";
   return r.subjectGroup === SUBJECT_GROUP_LABEL ? "P" : "A";
-}
-
-/** record_status 가 비어 있으면 status 에서 파생한다(planned 면 plan, 그 밖은 completed). */
-export function recordStatusOf(r: {
-  recordStatus: string | null;
-  status: ActivityRecordLike["status"];
-}): "completed" | "in_progress" | "plan" {
-  if (
-    r.recordStatus === "completed" ||
-    r.recordStatus === "in_progress" ||
-    r.recordStatus === "plan"
-  ) {
-    return r.recordStatus;
-  }
-  return r.status === "planned" ? "plan" : "completed";
 }
 
 const asStrings = (v: unknown): string[] =>
