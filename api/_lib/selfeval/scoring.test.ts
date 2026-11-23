@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SCORE_RUBRIC } from "./dictionaries.js";
+import { IMPROVEMENT_HINTS, SCORE_RUBRIC } from "./dictionaries.js";
 import {
   assembleVerification,
   improvements,
@@ -241,5 +241,24 @@ describe("assembleVerification", () => {
     expect(v.growthFit).toBeNull();
     expect(v.charCount.withSpace).toBeGreaterThan(v.charCount.withoutSpace);
     expect(v.submittable).toBe(v.mandatoryFixes.length === 0);
+  });
+});
+
+describe("후속 항목 문구(명세 No.53)", () => {
+  it("확인 문장이 실제 후속 행동과 한계와 이어진 남은 질문이다", () => {
+    const next = SCORE_RUBRIC.find((r) => r.key === "next");
+    expect(next?.checks).toEqual([
+      "결과나 한계에서 이어진 실제 후속 행동(기록 근거 있음)이 있는가",
+      "남은 질문을 한계와 이어 한 구절로 지목했는가",
+    ]);
+  });
+
+  it("고치면 좋은 곳 안내는 기록 근거가 있는 후속 행동과 한계에 이은 질문을 묻고 계획은 묻지 않는다", () => {
+    const hint = IMPROVEMENT_HINTS.next;
+    expect(hint).toContain("실제로 한 후속 행동");
+    expect(hint).toContain("기록 근거");
+    expect(hint).toContain("남은 질문");
+    expect(hint).toContain("한계와 이어");
+    expect(hint).not.toContain("다음에 확인하고 싶은");
   });
 });

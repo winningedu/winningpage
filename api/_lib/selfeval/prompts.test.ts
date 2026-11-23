@@ -306,6 +306,13 @@ describe("buildVerifyPrompt", () => {
     growth: null,
   };
 
+  it("미래 계획 문장은 인정하지 않는다는 규칙을 넣는다(명세 No.53)", () => {
+    const sys = buildVerifyPrompt(vin).system;
+    expect(sys).toContain(
+      '"계획을 세움", "~할 예정" 같은 미래 계획 문장은 인정하지 않는다',
+    );
+  });
+
   it("루브릭 8항목의 확인 문장을 모두 싣고 pass 만 내게 한다", () => {
     const b = buildVerifyPrompt(vin);
     for (const r of SCORE_RUBRIC) {
