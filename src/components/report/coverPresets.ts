@@ -11,7 +11,8 @@ export type ReportCoverKind =
   | "inquiryDesign"
   | "inquiryFinal"
   | "inquiryRecord"
-  | "selfeval";
+  | "selfeval"
+  | "selfevalReport";
 
 export type ReportCoverPreset = {
   serviceLabel: string;
@@ -147,6 +148,24 @@ export const REPORT_COVER_PRESETS: Record<ReportCoverKind, ReportCoverPreset> =
         "과정과 역할",
         "결과와 판단",
         "정리와 다음 단계",
+      ],
+      disclaimer: `본 자기평가서는 학생이 선택한 활동 기록과 입력 내용을 바탕으로 하여 ${site.brandName} 자기평가 결과에 대하여 작성한 내용입니다.`,
+    },
+    // 자기평가서 v4.2 리포트(표지 + 01~05장). 샘플 PDF 문구, 가운뎃점은 쉼표로 바꿨다.
+    selfevalReport: {
+      serviceLabel: "자기평가",
+      englishLabel: "SELF EVALUATION REPORT",
+      areasHeading: "REPORT CONTENTS",
+      subtitle: [
+        "선택한 활동 기록에서 문항에 맞는 근거를 골라 학생이 스스로 완성한 자기평가서.",
+        "자기평가 본문이 어떤 수행평가, 심화탐구, 수기 기록에서 만들어졌는지 함께 보여줍니다.",
+      ],
+      areas: [
+        "자기평가 본문",
+        "과목별 수행, 심화 활동",
+        "기 제출 보고서와의 연관성",
+        "수기 수행보고 연관성",
+        "성장 흐름과 다음 단계",
       ],
       disclaimer: `본 자기평가서는 학생이 선택한 활동 기록과 입력 내용을 바탕으로 하여 ${site.brandName} 자기평가 결과에 대하여 작성한 내용입니다.`,
     },

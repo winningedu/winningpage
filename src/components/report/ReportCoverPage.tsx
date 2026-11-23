@@ -20,7 +20,8 @@ import { cn } from "@/lib/utils";
 import { REPORT_COVER_PRESETS, type ReportCoverKind } from "./coverPresets";
 import { coverTitleFontSize } from "./coverTitleSize";
 
-export type ReportCoverPageVariant = "a4" | "flow";
+// "screen" - 자기평가서 v4.2 리포트 전용. 화면에도 보이고 인쇄에서 flow 와 같이 A4 한 장으로 나온다.
+export type ReportCoverPageVariant = "a4" | "flow" | "screen";
 
 export type ReportCoverInfoItem = {
   label: string;
@@ -35,6 +36,12 @@ export type ReportCoverPageProps = {
   title: string;
   infoItems: readonly ReportCoverInfoItem[];
   variant?: ReportCoverPageVariant;
+  /** 제목 아래 한 줄(자기평가서 "근거 연계 리포트 포함"). 없으면 그리지 않는다. */
+  tagline?: string;
+  /** 목차 항목 뒤에 붙일 비고. 키는 0부터 시작하는 항목 순번(자기평가서 04장 "해당 없음"). */
+  areaNotes?: Readonly<Record<number, string>>;
+  /** 계단 6단 중 채워 그릴 단계. 없으면 6단 모두 채운다. */
+  filledSteps?: readonly boolean[];
   className?: string;
 };
 
@@ -51,6 +58,9 @@ const STEPS = [
 const A4_SHEET_CLASS =
   "fd-report-sheet fd-report-cover-a4 w-full shrink-0 rounded-2xl shadow-[0_0_1.25rem_rgba(0,0,0,0.06)] lg:w-280";
 const FLOW_SHEET_CLASS = "fd-report-cover-flow hidden print:block";
+const SCREEN_SHEET_CLASS =
+  "fd-report-cover-flow w-full rounded-2xl border border-line print:rounded-none print:border-0";
+const UNFILLED_STEP = { bg: "#e4e0d6", fg: "#9aa5b5" } as const;
 
 // a4: report-print.css 의 `.fd-report-sheet` 인쇄 규칙(패딩, overflow visible)보다 셀렉터를
 // 한 단계 높여 덮는다. 폭 70rem 은 그 파일 값 그대로 쓴다.
@@ -82,19 +92,27 @@ export default function ReportCoverPage({
   title,
   infoItems,
   variant = "flow",
+  tagline,
+  areaNotes,
+  filledSteps,
   className,
 }: ReportCoverPageProps) {
   const preset = REPORT_COVER_PRESETS[kind];
   const isA4 = variant === "a4";
   const filledItems = infoItems.filter(({ value }) => value?.trim());
   const printRule = isA4 ? A4_PRINT_RULE : FLOW_PRINT_RULE;
+  const sheetClass = isA4
+    ? A4_SHEET_CLASS
+    : variant === "screen"
+      ? SCREEN_SHEET_CLASS
+      : FLOW_SHEET_CLASS;
 
   return (
     <section
       aria-label={`${preset.serviceLabel} 리포트 표지`}
       className={cn(
         "relative aspect-[2382/3369] overflow-hidden bg-white break-keep [container-type:inline-size] print:[print-color-adjust:exact]",
-        isA4 ? A4_SHEET_CLASS : FLOW_SHEET_CLASS,
+        sheetClass,
         className,
       )}
     >
@@ -139,6 +157,12 @@ export default function ReportCoverPage({
         {title}
       </h1>
 
+      {tagline && (
+        <p className="absolute inset-x-[8.1%] top-[26.3%] text-[2cqw] font-bold leading-[1.4] text-[#1e6fd9]">
+          {tagline}
+        </p>
+      )}
+
       <div className="absolute inset-x-[8.1%] top-[31.5%] text-[1.85cqw] leading-[1.65] text-[#5a6b82]">
         <p>{preset.subtitle[0]}</p>
         <p>{preset.subtitle[1]}</p>
@@ -160,29 +184,39 @@ export default function ReportCoverPage({
                 {String(index + 1).padStart(2, "0")}
               </span>
               <span className="text-[2cqw] font-bold text-white">{area}</span>
+              {areaNotes?.[index] && (
+                <span className="text-[1.4cqw] text-[#8fb8f0]">
+                  {areaNotes[index]}
+                </span>
+              )}
             </li>
           ))}
         </ol>
 
         <div className="absolute inset-y-[1.8cqw] left-[29.6cqw] right-[1.8cqw] overflow-hidden rounded-[2.2cqw] bg-[#f3efe7]">
           <ol className="absolute inset-x-[1.77cqw] bottom-0 flex items-end gap-[0.5cqw]">
-            {STEPS.map((step, index) => (
-              <li
-                key={step.label}
-                data-testid="cover-step"
-                className="flex-1 rounded-t-[1.2cqw] px-[0.85cqw] pt-[1.1cqw] text-[1.4cqw] font-bold leading-[1.7cqw]"
-                style={{
-                  height: `${step.height}cqw`,
-                  backgroundColor: step.bg,
-                  color: step.fg,
-                }}
-              >
-                <span className="block">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span className="block">{step.label}</span>
-              </li>
-            ))}
+            {STEPS.map((step, index) => {
+              const filled = filledSteps?.[index] ?? true;
+              const colors = filled ? step : UNFILLED_STEP;
+              return (
+                <li
+                  key={step.label}
+                  data-testid="cover-step"
+                  data-filled={filled}
+                  className="flex-1 rounded-t-[1.2cqw] px-[0.85cqw] pt-[1.1cqw] text-[1.4cqw] font-bold leading-[1.7cqw]"
+                  style={{
+                    height: `${step.height}cqw`,
+                    backgroundColor: colors.bg,
+                    color: colors.fg,
+                  }}
+                >
+                  <span className="block">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className="block">{step.label}</span>
+                </li>
+              );
+            })}
           </ol>
         </div>
       </div>

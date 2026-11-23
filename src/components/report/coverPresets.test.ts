@@ -15,7 +15,7 @@ const KINDS: ReportCoverKind[] = [
 ];
 
 // U+2014, U+2013, U+00B7, U+2192
-const BANNED = new RegExp("[\\u2014\\u2013\\u00B7\\u2192]");
+const BANNED = /[\u2014\u2013\u00B7\u2192]/;
 
 describe("REPORT_COVER_PRESETS", () => {
   it.each(KINDS)("%s 프리셋은 모든 필드를 갖는다", (kind) => {
@@ -73,5 +73,37 @@ describe("REPORT_COVER_PRESETS", () => {
 
   it.each(KINDS)("%s 고지에 site.brandName 이 들어 있다", (kind) => {
     expect(REPORT_COVER_PRESETS[kind].disclaimer).toContain(site.brandName);
+  });
+});
+
+describe("selfevalReport 프리셋(자기평가서 v4.2 표지)", () => {
+  const preset = REPORT_COVER_PRESETS.selfevalReport;
+
+  it("목차 01~05장 제목을 샘플 그대로 갖는다", () => {
+    expect(preset.areas).toEqual([
+      "자기평가 본문",
+      "과목별 수행, 심화 활동",
+      "기 제출 보고서와의 연관성",
+      "수기 수행보고 연관성",
+      "성장 흐름과 다음 단계",
+    ]);
+  });
+
+  it("서비스 라벨과 영문 라벨은 자기평가, SELF EVALUATION REPORT 다", () => {
+    expect(preset.serviceLabel).toBe("자기평가");
+    expect(preset.englishLabel).toBe("SELF EVALUATION REPORT");
+  });
+
+  it("문구에 금지 문자가 없고 고지에 브랜드명이 있다", () => {
+    const texts = [
+      preset.serviceLabel,
+      preset.englishLabel,
+      preset.areasHeading,
+      ...preset.subtitle,
+      ...preset.areas,
+      preset.disclaimer,
+    ];
+    for (const text of texts) expect(text).not.toMatch(BANNED);
+    expect(preset.disclaimer).toContain(site.brandName);
   });
 });
