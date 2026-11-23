@@ -5742,6 +5742,30 @@ export type Database = {
           },
         ];
       };
+      profile_login_slots: {
+        Row: {
+          profile_id: string;
+          slot_start: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          profile_id: string;
+          slot_start: string;
+        };
+        Update: {
+          profile_id?: string;
+          slot_start?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_login_slots_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           address: string | null;
@@ -9201,6 +9225,7 @@ export type Database = {
           p_mau_mode: string;
           p_scope: string;
           p_to: string;
+          p_tz: string;
         };
         Returns: {
           bucket_end: string;
@@ -9217,10 +9242,11 @@ export type Database = {
           p_limit: number;
           p_offset: number;
           p_to: string;
+          p_tz: string;
         };
         Returns: {
           first_seen_at: string;
-          kst_date: string;
+          login_date: string;
           member_type: string;
           name: string;
           profile_id: string;
