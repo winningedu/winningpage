@@ -127,7 +127,12 @@ export const p10: Page10 = {
 export const p11: Page11 = {
   title: "P11 title",
   lead: "PLAN lead",
-  urgency: { label: "URG label", text: "URG text" },
+  urgency: {
+    title: "URG title",
+    points: 10,
+    label: "URG label",
+    text: "URG text",
+  },
   events: { kind: "events", within: ["EVT within1"], after: "EVT after" },
   table: {
     columns: ["COL1", "COL2", "COL3"],
@@ -142,7 +147,7 @@ export const p11: Page11 = {
   },
   numbers: { logMinutes: 15, rates: [80, 70, 60], minLoad: "MINLOAD text" },
   styleTips: ["TIP1"],
-  checkpoints: ["CHECK1", "CHECK2"],
+  checkpoints: ["CHECK1", "CHECK2", "CHECK3", "CHECK4", "CHECK5", "CHECK6"],
 };
 
 export const planner = (week: 1 | 2 | 3 | 4): PlannerPage => ({

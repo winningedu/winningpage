@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import CopyText from "./CopyText";
 
 type ReportCardProps = {
   title: string;
@@ -20,9 +21,13 @@ export default function ReportCard({
     <Card className={className}>
       <CardHeader className="flex items-baseline justify-between">
         <CardTitle className="text-base font-bold text-ink-title">
-          {title}
+          <CopyText text={title} />
         </CardTitle>
-        {meta && <span className="text-xs text-ink-sub">{meta}</span>}
+        {meta && (
+          <span className="text-xs text-ink-sub">
+            <CopyText text={meta} />
+          </span>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-3 text-sm text-ink-strong">
         {children}

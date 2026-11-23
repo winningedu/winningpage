@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { p9 } from "./laterPagesFixture";
 import Page09Temperament from "./Page09Temperament";
+import { TEMPERAMENT_LABELS as TL } from "./parts/labels";
 
 vi.mock("@/config/site", () => ({ site: { brandName: "TEST" } }));
 
@@ -43,6 +44,29 @@ describe("Page09Temperament (22 r86-r94)", () => {
       screen.getByRole("heading", { level: 3, name: "TFACTOR heading" }),
     ).toBeInTheDocument();
     expect(screen.getByText("TFACTOR text").tagName).toBe("P");
+  });
+
+  it("heads the study, cross-check and factor lists like PDF p10", () => {
+    render(<Page09Temperament page={p9} />);
+    for (const [heading, item] of [
+      [TL.strengths, "STUDY strength"],
+      [TL.cautions, "STUDY caution"],
+      [TL.crossCheck, "CROSS item"],
+    ]) {
+      const section = screen.getByText(heading as string).closest("section");
+      expect(section).toHaveTextContent(item as string);
+    }
+    expect(screen.getByText(TL.study)).toBeInTheDocument();
+    expect(screen.getByText(TL.factors)).toBeInTheDocument();
+  });
+
+  it("drops a study column with no items", () => {
+    render(
+      <Page09Temperament
+        page={{ ...p9, study: { strengths: ["STUDY strength"], cautions: [] } }}
+      />,
+    );
+    expect(screen.queryByText(TL.cautions)).toBeNull();
   });
 
   it("omits the low reliability note when absent (22 r93)", () => {

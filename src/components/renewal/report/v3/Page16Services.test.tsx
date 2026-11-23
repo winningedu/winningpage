@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { p16 } from "./laterPagesFixture";
 import Page16Services from "./Page16Services";
+import { SERVICE_LABELS as SL } from "./parts/labels";
 
 const mockSite = vi.hoisted(() => ({
   brandName: "TEST",
@@ -56,6 +57,18 @@ describe("Page16Services (22 r115-r121)", () => {
       expect(screen.getByText(t)).toBeInTheDocument();
     }
     expect(screen.getAllByRole("article")).toHaveLength(2);
+  });
+
+  it("heads the preference chips, the agenda and the reading notes like PDF p17", () => {
+    render(<Page16Services page={p16} />);
+    for (const [heading, item] of [
+      [SL.preferences, "PREF1"],
+      [SL.agenda, "AGENDA1"],
+      [SL.reading, "READ1"],
+    ]) {
+      const section = screen.getByText(heading as string).closest("section");
+      expect(section).toHaveTextContent(item as string);
+    }
   });
 
   it("keeps the callmentor card on sites where callmentor is open", () => {

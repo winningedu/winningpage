@@ -47,7 +47,7 @@ export default function Page03Grades({ page, tocTitle }: Page03GradesProps) {
           <ReportCard title={L.schoolGrades}>
             <GradeList label={L.schoolGrades} grades={bars.school} />
           </ReportCard>
-          {bars.mock && (
+          {bars.mock && bars.mock.grades.length > 0 && (
             <ReportCard
               title={L.mockGrades}
               meta={`${bars.mock.month}${L.month}`}
@@ -79,7 +79,9 @@ export default function Page03Grades({ page, tocTitle }: Page03GradesProps) {
                     </td>
                     <td className="flex items-center gap-2 py-2">
                       <StatusBadge>{VERDICT_LABELS[row.verdict]}</StatusBadge>
-                      <span>{row.text}</span>
+                      <span>
+                        <CopyText text={row.text} />
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -96,15 +98,21 @@ export default function Page03Grades({ page, tocTitle }: Page03GradesProps) {
         )}
       </ReportCard>
       {/* 22 r46 */}
-      <ReportCard title={page.examOps.heading}>
+      <ReportCard
+        title={page.examOps.heading}
+        {...(page.examOpsVerdict ? { meta: page.examOpsVerdict } : {})}
+      >
         <p>
           <CopyText text={page.examOps.body} />
         </p>
         {/* spec row 76: 응답 근거 */}
         <p className="text-sm text-ink-sub">
-          {`${evidence.item} ${evidence.answer}`}
-          {evidence.examRoom &&
-            `${L.joiner}${L.examRoomQuestion} ${evidence.examRoom} ${L.examRoomPicked}`}
+          <CopyText text={`${evidence.item} ${evidence.answer}`} />
+          {evidence.examRoom && (
+            <CopyText
+              text={`${L.joiner}${L.examRoomQuestion} ${evidence.examRoom} ${L.examRoomPicked}`}
+            />
+          )}
         </p>
       </ReportCard>
     </ReportSheet>

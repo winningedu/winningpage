@@ -1,7 +1,12 @@
 // 3p 성적 (22 r38-r46).
 
 import { copy, fill } from "../copy.js";
-import { EXAM_ITEM, EXAM_ITEM_LABEL, EXAM_OPTION } from "../examOps.js";
+import {
+  EXAM_ITEM,
+  EXAM_ITEM_LABEL,
+  EXAM_OPS_WORDS,
+  EXAM_OPTION,
+} from "../examOps.js";
 import { LIKERT_LEVELS } from "../likert.js";
 import { OPTIONS } from "../options.js";
 import type { Engine } from "../report.js";
@@ -105,6 +110,8 @@ export function buildPage3(engine: Engine): Page3 {
       heading: copy("EXAMOPS_TITLE"),
       body: copy(EXAM_OPS_IDS[scores.examOps]),
     },
+    // spec row 76: 보완 / 보통 / 양호 next to the card title (21 C35)
+    examOpsVerdict: EXAM_OPS_WORDS[scores.examOps],
     // spec row 76: 응답 근거 (8-15 응답어, 10번 15항목 선택 여부) from 21 C35
     examOpsEvidence: examOpsEvidence(answers),
   };

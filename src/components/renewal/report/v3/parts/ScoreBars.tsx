@@ -1,4 +1,6 @@
 import type { ScoreBar } from "@/lib/diagnosis-v3/types";
+import CopyText from "./CopyText";
+import { joinCopyLines } from "./lineBreak";
 import StatusBadge, { STATE_FILL_CLASS } from "./StatusBadge";
 
 const SCORE_MAX = 100;
@@ -19,10 +21,12 @@ export default function ScoreBars({ bars }: ScoreBarsProps) {
             key={bar.code}
             className="grid grid-cols-[7rem_1fr_2.5rem_auto] items-center gap-3 text-sm"
           >
-            <span className="text-ink-strong">{bar.label}</span>
+            <span className="text-ink-strong">
+              <CopyText text={bar.label} />
+            </span>
             <div
               role="img"
-              aria-label={`${bar.label} ${bar.score}`}
+              aria-label={`${joinCopyLines(bar.label)} ${bar.score}`}
               className="h-2 overflow-hidden rounded-full bg-surface-muted"
             >
               <div
@@ -33,7 +37,9 @@ export default function ScoreBars({ bars }: ScoreBarsProps) {
             <span className="text-right font-semibold tabular-nums">
               {bar.score}
             </span>
-            <StatusBadge state={state}>{bar.state}</StatusBadge>
+            <StatusBadge state={state}>
+              <CopyText text={bar.state} />
+            </StatusBadge>
           </li>
         );
       })}

@@ -35,6 +35,12 @@ describe("Page06School", () => {
     ).toBeInTheDocument();
   });
 
+  it("hides the 보완 영역 card when every area is 60 or more", () => {
+    render(<Page06School page={{ ...p6, weaknesses: [] }} tocTitle={TOC} />);
+    expect(screen.queryByText("보완 영역")).toBeNull();
+    expect(screen.getByText("강점 영역")).toBeInTheDocument();
+  });
+
   it("hides the hardest list when q12 had no picks", () => {
     const { hardest: _h, strengthNote: _n, ...rest } = p6;
     render(<Page06School page={rest} tocTitle={TOC} />);

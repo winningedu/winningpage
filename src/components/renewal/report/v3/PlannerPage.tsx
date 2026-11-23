@@ -1,6 +1,7 @@
 // Pages 12 to 15: weekly planner (22_리포트요소 r109-r113).
 import type { PlannerPage as PlannerData } from "@/lib/diagnosis-v3/types";
 import { Bullets, PageEyebrow, PageTitle, Para } from "./LaterShared";
+import CopyText from "./parts/CopyText";
 import { PLANNER_LABELS as PL } from "./parts/labels";
 import ReportSheet from "./parts/ReportSheet";
 
@@ -17,7 +18,9 @@ export default function PlannerPage({
       <header className="flex flex-col gap-1">
         <PageEyebrow page={no} />
         <PageTitle>{page.goal}</PageTitle>
-        <p className="text-sm font-bold text-ink">{page.badge}</p>
+        <p className="text-sm font-bold text-ink">
+          <CopyText text={page.badge} />
+        </p>
         <Para>{page.redx}</Para>
       </header>
       {/* 22 r110 */}
@@ -40,15 +43,17 @@ export default function PlannerPage({
         <tbody>
           {page.tasks.map((t) => (
             <tr key={`${t.area}-${t.task}`}>
-              <td className="border border-[#e5e5e5] p-2 text-ink">{t.area}</td>
-              <td className="border border-[#e5e5e5] p-2 text-[#808080]">
-                {t.task}
+              <td className="border border-[#e5e5e5] p-2 text-ink">
+                <CopyText text={t.area} />
               </td>
               <td className="border border-[#e5e5e5] p-2 text-[#808080]">
-                {t.due}
+                <CopyText text={t.task} />
               </td>
               <td className="border border-[#e5e5e5] p-2 text-[#808080]">
-                {t.done}
+                <CopyText text={t.due} />
+              </td>
+              <td className="border border-[#e5e5e5] p-2 text-[#808080]">
+                {t.done && <CopyText text={t.done} />}
               </td>
               <td className="w-24 border border-[#e5e5e5] p-2" />
             </tr>
@@ -64,10 +69,12 @@ export default function PlannerPage({
             data-highlight={d.highlight}
             className={`flex min-h-28 flex-col gap-1 rounded-lg border p-2 ${d.highlight ? "border-ink bg-[#f5f5f5]" : "border-[#e5e5e5]"}`}
           >
-            <p className="text-sm font-bold text-ink">{d.date}</p>
+            <p className="text-sm font-bold text-ink">
+              <CopyText text={d.date} />
+            </p>
             {d.tasks.map((task) => (
               <p key={task} className="text-xs text-[#808080]">
-                {task}
+                <CopyText text={task} />
               </p>
             ))}
             <p className="mt-auto text-xs text-ink">{PL.planMinutes}</p>

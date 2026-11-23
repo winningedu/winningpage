@@ -1,7 +1,5 @@
 import { Fragment } from "react";
-
-/** COPY_TEXT keeps its <br> markup (types.ts pages note). */
-const LINE_BREAK = /<br\s*\/?>/i;
+import { LINE_BREAK } from "./lineBreak";
 
 /** Renders a copy string with its <br> markup as line breaks, never as HTML. */
 export default function CopyText({ text }: { text: string }) {

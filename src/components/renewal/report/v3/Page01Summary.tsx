@@ -37,9 +37,13 @@ export default function Page01Summary({ page, tocTitle }: Page01SummaryProps) {
           <dl className="grid grid-cols-[6rem_1fr] gap-y-2">
             <dt className="text-ink-sub">{L.profileGradeSchool}</dt>
             <dd>
-              <span>{profile.grade}</span>
+              <span>
+                <CopyText text={profile.grade} />
+              </span>
               {L.joiner}
-              <span>{profile.school}</span>
+              <span>
+                <CopyText text={profile.school} />
+              </span>
             </dd>
             {row(L.profileTarget, profile.target)}
             {row(L.profileGpa, profile.gpa)}
@@ -47,9 +51,15 @@ export default function Page01Summary({ page, tocTitle }: Page01SummaryProps) {
             {/* 22 r16: the layout joins the three plan.due dates */}
             <dt className="text-ink-sub">{L.profilePeriod}</dt>
             <dd>
-              <span>{`${period.from} ~ ${period.to} ${L.periodWeeks}`}</span>
+              <span>
+                <CopyText
+                  text={`${period.from} ~ ${period.to} ${L.periodWeeks}`}
+                />
+              </span>
               {L.joiner}
-              <span>{`${L.redx} ${period.redx}`}</span>
+              <span>
+                <CopyText text={`${L.redx} ${period.redx}`} />
+              </span>
             </dd>
             {row(L.profileTemperament, profile.temperament)}
             {row(L.profileReliability, profile.reliability)}
@@ -71,24 +81,30 @@ export default function Page01Summary({ page, tocTitle }: Page01SummaryProps) {
       <div className="grid grid-cols-3 gap-4">
         <ReportCard title={page.kpi1.label}>
           <p className="text-xl font-bold">
-            {page.kpi1.area.label} {page.kpi1.area.score}
+            <CopyText text={page.kpi1.area.label} /> {page.kpi1.area.score}
             {L.points}
           </p>
-          <p className="text-ink-sub">{page.kpi1.subtitle}</p>
+          <p className="text-ink-sub">
+            <CopyText text={page.kpi1.subtitle} />
+          </p>
         </ReportCard>
         <ReportCard title={page.kpi2.label}>
           <p className="text-xl font-bold">
             <span>{page.kpi2.total}</span>
             {L.points}
           </p>
-          <p className="text-ink-sub">{page.kpi2.sub}</p>
+          <p className="text-ink-sub">
+            <CopyText text={page.kpi2.sub} />
+          </p>
         </ReportCard>
         <ReportCard title={page.kpi3.label}>
           <p className="text-xl font-bold">
-            {page.kpi3.area.label} {page.kpi3.area.score}
+            <CopyText text={page.kpi3.area.label} /> {page.kpi3.area.score}
             {L.points}
           </p>
-          <p className="text-ink-sub">{page.kpi3.sub}</p>
+          <p className="text-ink-sub">
+            <CopyText text={page.kpi3.sub} />
+          </p>
         </ReportCard>
       </div>
       {/* 22 r10, absent when SIMPLE */}
@@ -97,7 +113,7 @@ export default function Page01Summary({ page, tocTitle }: Page01SummaryProps) {
           <h3 className="font-bold">
             {L.studentType}
             {L.joiner}
-            {page.typeSummary.name}
+            <CopyText text={page.typeSummary.name} />
           </h3>
           <p className="mt-1">
             <CopyText text={page.typeSummary.body} />
@@ -124,10 +140,14 @@ export default function Page01Summary({ page, tocTitle }: Page01SummaryProps) {
       </ReportCard>
       {/* 22 r27 */}
       <section className="flex gap-6 rounded-xl bg-navy-ink p-6 text-white">
-        <h3 className="w-24 shrink-0 text-sm">{page.one.title}</h3>
+        <h3 className="w-24 shrink-0 text-sm">
+          <CopyText text={page.one.title} />
+        </h3>
         <ul className="flex flex-col gap-1 text-base font-semibold">
           {page.one.actions.map((action) => (
-            <li key={action}>{action}</li>
+            <li key={action}>
+              <CopyText text={action} />
+            </li>
           ))}
         </ul>
       </section>

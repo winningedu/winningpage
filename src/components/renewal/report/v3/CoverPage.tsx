@@ -23,7 +23,7 @@ export default function CoverPage({ cover }: { cover: CoverPageData }) {
               className={`flex flex-col gap-1 border-t-2 pt-2 ${stage.broken ? "border-dashed border-error text-error" : "border-line"}`}
             >
               <span className={`text-xs ${stage.broken ? "" : "text-ink-sub"}`}>
-                {stage.label}
+                <CopyText text={stage.label} />
               </span>
               <span className="text-xl font-semibold tabular-nums">
                 {stage.score}
@@ -60,7 +60,9 @@ export default function CoverPage({ cover }: { cover: CoverPageData }) {
             <dt className="text-xs text-ink-sub">
               {REPORT_LABELS.coverStudent}
             </dt>
-            <dd className="text-lg font-semibold">{cover.studentName}</dd>
+            <dd className="text-lg font-semibold">
+              <CopyText text={cover.studentName} />
+            </dd>
           </div>
         )}
         <div className="flex flex-col gap-1">
@@ -68,14 +70,16 @@ export default function CoverPage({ cover }: { cover: CoverPageData }) {
             {REPORT_LABELS.coverGradeSchool}
           </dt>
           <dd className="text-lg font-semibold">
-            {cover.gradeLabel}
+            <CopyText text={cover.gradeLabel} />
             {REPORT_LABELS.joiner}
-            {cover.schoolTypeLabel}
+            <CopyText text={cover.schoolTypeLabel} />
           </dd>
         </div>
         <div className="flex flex-col gap-1">
           <dt className="text-xs text-ink-sub">{REPORT_LABELS.coverDate}</dt>
-          <dd className="text-lg font-semibold">{cover.diagnosedAt}</dd>
+          <dd className="text-lg font-semibold">
+            <CopyText text={cover.diagnosedAt} />
+          </dd>
         </div>
       </dl>
     </ReportSheet>

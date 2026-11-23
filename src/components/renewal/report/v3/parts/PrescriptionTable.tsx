@@ -36,9 +36,15 @@ export default function PrescriptionTable({
             <tbody>
               {rx.weak.items.map((item) => (
                 <tr key={item.question} className="border-b border-line">
-                  <td className="py-2 pr-3">{item.question}</td>
-                  <td className="py-2 pr-3">{item.target}</td>
-                  <td className="py-2">{item.link}</td>
+                  <td className="py-2 pr-3">
+                    <CopyText text={item.question} />
+                  </td>
+                  <td className="py-2 pr-3">
+                    <CopyText text={item.target} />
+                  </td>
+                  <td className="py-2">
+                    <CopyText text={item.link} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -58,7 +64,8 @@ export default function PrescriptionTable({
                 key={item.question}
                 className="rounded-md bg-surface-card px-3 py-2"
               >
-                {item.question} ({item.answer})
+                <CopyText text={item.question} /> (
+                <CopyText text={item.answer} />)
               </li>
             ))}
           </ul>

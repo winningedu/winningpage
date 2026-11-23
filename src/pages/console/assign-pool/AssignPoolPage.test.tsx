@@ -269,12 +269,27 @@ describe("W12 미배정 목록 default", () => {
     expect(classSelect.value).toBe("");
   });
 
-  it("담임 선생님이 주소로 열면 대시보드로 돌려보낸다", async () => {
-    stubPage({}, homeroomMe);
+  it("담임 선생님도 주소로 열 수 있고 반 선택에는 반 목록 API 가 준 담당 학급만 나온다", async () => {
+    stubPage(
+      {
+        "GET /api/console/classes": { body: { classes: [classes.classes[0]] } },
+      },
+      homeroomMe,
+    );
 
     renderRoutes(routes, "/teacher/unassigned");
 
-    expect(await screen.findByText("대시보드 화면")).toBeTruthy();
+    const row = (await screen.findByText("노*윤")).closest("tr") as HTMLElement;
+    expect(screen.queryByText("대시보드 화면")).toBeNull();
+    fireEvent.change(within(row).getByLabelText("학년 선택"), {
+      target: { value: "고2" },
+    });
+    const options = Array.from(
+      (within(row).getByLabelText("반 선택") as HTMLSelectElement).options,
+    ).map((o) => o.value);
+    expect(options).toContain("c3");
+    expect(options).not.toContain("c4");
+    expect(options).not.toContain("d1");
   });
 });
 

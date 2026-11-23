@@ -44,6 +44,23 @@ describe("Page03Grades", () => {
     expect(screen.getByText(/^8-15 /)).toHaveTextContent(/^8-15 보통이다$/);
   });
 
+  it("shows the exam ops verdict word beside the card title (spec row 76)", () => {
+    render(<Page03Grades page={p3} tocTitle="성적 진단" />);
+    const title = screen.getByText(p3.examOps.heading);
+    expect(title.parentElement).toContainElement(
+      screen.getByText(p3.examOpsVerdict as string),
+    );
+  });
+
+  it("draws no mock grade card when the mock month has no grades", () => {
+    const bars = {
+      school: p3.bars?.school ?? [],
+      mock: { month: 9, grades: [] },
+    };
+    render(<Page03Grades page={{ ...p3, bars }} tocTitle="성적 진단" />);
+    expect(screen.queryByText("최근 모의고사 등급")).toBeNull();
+  });
+
   it("skip note replaces the table and absent bars draw nothing", () => {
     const { bars: _bars, ...rest } = p3;
     render(

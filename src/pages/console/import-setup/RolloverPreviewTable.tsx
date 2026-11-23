@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import Chip, { type ChipTone } from "../Chip";
 import type { GradeLabeler } from "../classLabel";
+import { REASON_LABEL, VERDICT_LABEL } from "../teachers/excelImport";
 import { useGradeLabel, useIsAcademy } from "../useConsoleMe";
 
 export interface PreviewSlot {
@@ -29,7 +30,17 @@ export type PreviewResult =
   | "duplicate_target"
   | "same_name"
   | "no_homeroom"
-  | "class_changed";
+  | "class_changed"
+  | "format_error";
+
+export type FormatReason = "grade" | "class" | "group";
+
+/** 형식 오류 이유 문장. 선생님 엑셀과 같은 말을 쓴다. */
+export const FORMAT_REASON_LABEL: Record<FormatReason, string> = {
+  grade: REASON_LABEL.grade,
+  class: REASON_LABEL.class,
+  group: VERDICT_LABEL.group_not_registered,
+};
 
 export interface PreviewRow {
   line: number;
@@ -39,6 +50,10 @@ export interface PreviewRow {
   result: PreviewResult;
   /** 반이 바뀌는 줄에서 새 반에 담임이 없을 때. 반 변경 칩 옆에 담임 없음 칩도 보인다. */
   noHomeroom?: boolean;
+  /** 형식 오류 줄에서 틀린 칸. */
+  reasons?: FormatReason[];
+  /** 형식 오류 줄에서 틀린 칸마다 사람이 적은 글 그대로. */
+  values?: Partial<Record<FormatReason, string>>;
 }
 
 const RESULTS: Record<PreviewResult, { label: string; tone: ChipTone }> = {
@@ -53,6 +68,7 @@ const RESULTS: Record<PreviewResult, { label: string; tone: ChipTone }> = {
     label: "새 반에 담임 선생님 없음(안내만, 반영됨)",
     tone: "Warning",
   },
+  format_error: { label: "형식 오류", tone: "Danger" },
 };
 
 // 졸업 칩은 학교는 "3학년", 학원은 "고3" 으로 말한다.
@@ -107,6 +123,11 @@ export default function RolloverPreviewTable({ rows }: { rows: PreviewRow[] }) {
                   </Chip>
                 )}
               </div>
+              {(row.reasons ?? []).map((reason) => (
+                <p key={reason} className="text-app-caption text-ink-danger">
+                  {FORMAT_REASON_LABEL[reason]}
+                </p>
+              ))}
             </TableCell>
           </TableRow>
         ))}

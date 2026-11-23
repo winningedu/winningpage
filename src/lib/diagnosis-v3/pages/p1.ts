@@ -65,7 +65,7 @@ export const trendText = (answers: DiagnosisV3Answers) => {
 };
 
 /** 16번 target names, else the 3번 inputs, else 「미입력」 (22 r13). */
-const targetText = (engine: Engine) => {
+export const targetText = (engine: Engine) => {
   const admission = engine.context.admission;
   if (engine.answers.q15 && admission) {
     return (
