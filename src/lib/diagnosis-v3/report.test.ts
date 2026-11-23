@@ -816,10 +816,14 @@ describe("8p-10p MBTI and 기질 (22 r79-r99)", () => {
 
 describe("11p 4주 플랜 and 12-15p 플래너 (22 r101-r113)", () => {
   test("계산 예시: urgency 보통, events and table (계산 예시 D28, D33)", () => {
-    const { p11, p12, p15 } = run().pages;
+    const { pages, scores } = run();
+    const { p11, p12, p15 } = pages;
     expect(p11.title).toBe(COPY_TEXT.PLAN_HEAD);
     expect(p11.lead).toBe(COPY_TEXT.PLAN_LEAD);
+    // PDF p11 "실행 긴급도 10점, 낮음": 22 B102 title and the points
     expect(p11.urgency).toEqual({
+      title: "실행 긴급도",
+      points: scores.urgency.points,
       label: cell("06_긴급도", "URG_L2", 1),
       text: COPY_TEXT.URG_L2,
     });

@@ -841,8 +841,15 @@ export type Page11 = {
   readonly title: string;
   /** 22 r101 PLAN_LEAD */
   readonly lead: string;
-  /** 22 r102 (judge-report R5: label and URG text only) */
-  readonly urgency: { readonly label: string; readonly text: string };
+  /** 22 r102 (judge-report R5: no formula sentence) */
+  readonly urgency: {
+    /** 22 B102 element name, the PDF p11 box title */
+    readonly title: string;
+    /** scores.urgency.points (not a 0..100 score), the PDF p11 "N점" */
+    readonly points: number;
+    readonly label: string;
+    readonly text: string;
+  };
   /** 22 r103 */
   readonly events:
     | {

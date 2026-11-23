@@ -76,6 +76,25 @@ export const PLANNER_LABELS = {
   weekendItems: ["실행률", "밀린 요일\u00b7과목", "다음 주 조정"],
 } as const;
 
+/** PDF p12 (report page 11) layout words; 22 r103-r107 hold no display cell for them. */
+export const PLAN_LABELS = {
+  eventsWithin: "4주 안의 일정 \u2192 해당 주차 과제로 반영",
+  eventsAfter: "4주 이후 일정 \u2192 참고 표시만",
+  /** table corner and the "1주" row suffix */
+  week: "주차",
+  weekSuffix: "주",
+  reducedWeek: "일정 주 \u00b7 축소",
+  minutes: "분",
+  logCaption: "매일 밤 기록",
+  arrow: "\u2192",
+  percent: "%",
+  rateCaption: "주차별 목표 실행률",
+  /** checkpoint n of 1..4 reads "n주 점검" */
+  checkSuffix: "주 점검",
+  /** checkpoints past the re-diagnosis day are Day 29..42 events (22 r107) */
+  afterLabel: "4주 이후 일정",
+} as const;
+
 export const REPORT_LABELS = {
   reportName: "학습진단 리포트",
   /** PDF cover */
