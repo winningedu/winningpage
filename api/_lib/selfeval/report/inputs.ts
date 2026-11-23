@@ -82,6 +82,8 @@ export type StageInputs = {
 };
 
 export type BuildInput = {
+  /** 날짜 표기와 학년도 경계의 기준인 회원 시간대. */
+  timeZone: string;
   session: SessionFacts;
   /** 최종본 sections 원문. 옛 모양이 섞여 있을 수 있다. */
   bodySections: unknown;

@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   row: null as unknown,
   claimOk: true,
   loadedForUser: [] as string[],
+  zones: [] as string[],
   model: null as unknown,
 }));
 
@@ -34,7 +35,15 @@ vi.mock("../../_lib/selfeval/db.js", async (importOriginal) => ({
   },
 }));
 vi.mock("../../_lib/selfeval/report/load.js", () => ({
-  loadReportInput: async () => state.loaded,
+  loadReportInput: async (
+    _db: unknown,
+    _userId: string,
+    _session: unknown,
+    tz: string,
+  ) => {
+    state.zones.push(tz);
+    return state.loaded;
+  },
 }));
 vi.mock("../../_lib/selfeval/report/store.js", () => ({
   createReportStore: () => ({
@@ -57,7 +66,11 @@ type Res = { status: number; body: Record<string, unknown> };
 
 async function call(
   method: "GET" | "POST",
-  input: { body?: unknown; query?: Record<string, string> } = {},
+  input: {
+    body?: unknown;
+    query?: Record<string, string>;
+    zone?: string | null;
+  } = {},
 ): Promise<Res> {
   const out: Res = { status: 0, body: {} };
   const res = {
@@ -75,7 +88,12 @@ async function call(
     method,
     body: input.body,
     query: input.query ?? {},
-    headers: { authorization: "Bearer t" },
+    headers: {
+      authorization: "Bearer t",
+      ...(input.zone === null
+        ? {}
+        : { "x-time-zone": input.zone ?? "Asia/Seoul" }),
+    },
     socket: {},
   };
   await (handler as unknown as (a: unknown, b: unknown) => Promise<void>)(
@@ -112,6 +130,7 @@ beforeEach(() => {
   state.row = null;
   state.claimOk = true;
   state.loadedForUser = [];
+  state.zones = [];
   state.model = modelEcho();
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -155,6 +174,20 @@ describe("POST /api/selfeval/report", () => {
     expect(open.body).toMatchObject({
       error: { code: "SESSION_NOT_COMPLETED" },
     });
+  });
+
+  test("passes the viewer time zone to the input loader and requires the header", async () => {
+    await call("POST", {
+      body: { sessionId: SESSION },
+      zone: "America/Chicago",
+    });
+    expect(state.zones).toEqual(["America/Chicago"]);
+    const none = await call("POST", {
+      body: { sessionId: SESSION },
+      zone: null,
+    });
+    expect(none.status).toBe(400);
+    expect(none.body).toMatchObject({ error: { code: "TIME_ZONE_REQUIRED" } });
   });
 
   test("answers 409 FINAL_REPORT_MISSING without a final body and 409 REPORT_BUSY when another request holds it", async () => {

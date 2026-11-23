@@ -5,10 +5,13 @@ import { diagnosisSource, goalSource, growthSource } from "./stages.js";
 describe("diagnosisSource", () => {
   it("reads the first student headline line and the KST diagnosis date", () => {
     expect(
-      diagnosisSource({
-        diagnosed_at: "2026-03-04T05:00:00.000Z",
-        payload: { headlineLines: ["함수 개념 이해는 양호함", "둘째 줄"] },
-      }),
+      diagnosisSource(
+        {
+          diagnosed_at: "2026-03-04T05:00:00.000Z",
+          payload: { headlineLines: ["함수 개념 이해는 양호함", "둘째 줄"] },
+        },
+        "Asia/Seoul",
+      ),
     ).toEqual({
       state: "ok",
       value: { sentence: "함수 개념 이해는 양호함", date: "2026.03.04" },
@@ -16,18 +19,24 @@ describe("diagnosisSource", () => {
   });
 
   it("is none when there is no report or no usable headline", () => {
-    expect(diagnosisSource(null)).toEqual({ state: "none" });
+    expect(diagnosisSource(null, "Asia/Seoul")).toEqual({ state: "none" });
     expect(
-      diagnosisSource({
-        diagnosed_at: "2026-03-04T05:00:00.000Z",
-        payload: { headlineLines: [" ", 3] },
-      }),
+      diagnosisSource(
+        {
+          diagnosed_at: "2026-03-04T05:00:00.000Z",
+          payload: { headlineLines: [" ", 3] },
+        },
+        "Asia/Seoul",
+      ),
     ).toEqual({ state: "none" });
     expect(
-      diagnosisSource({
-        diagnosed_at: "2026-03-04T05:00:00.000Z",
-        payload: null,
-      }),
+      diagnosisSource(
+        {
+          diagnosed_at: "2026-03-04T05:00:00.000Z",
+          payload: null,
+        },
+        "Asia/Seoul",
+      ),
     ).toEqual({ state: "none" });
   });
 });

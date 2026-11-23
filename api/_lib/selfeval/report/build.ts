@@ -28,7 +28,7 @@ export function buildReport(
   const text = (id: string): string | null => compose?.[id] ?? null;
   const body = readBody(input.bodySections, input);
   const ch02 = buildCh02(input, body, text);
-  const ch03 = buildCh03(ch02, text);
+  const ch03 = buildCh03(ch02, text, input.timeZone);
   const ch04 = buildCh04(input, body, ch02, text);
   const candidates = findNextStepCandidates(input, body, ch02);
   const needs = buildNeeds(input, body, ch02, ch03, ch04, candidates);

@@ -12,7 +12,7 @@ function run(
   const input = sampleInput(over);
   const body = readBody(input.bodySections, input);
   const ch02 = buildCh02(input, body, text);
-  return buildCh03(ch02, text).rows;
+  return buildCh03(ch02, text, "Asia/Seoul").rows;
 }
 
 describe("buildCh03", () => {

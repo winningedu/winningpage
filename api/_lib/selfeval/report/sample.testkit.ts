@@ -214,6 +214,7 @@ export function sampleInput(over: Partial<BuildInput> = {}): BuildInput {
     },
     bodySections: SAMPLE_BODY,
     charCount: { withSpace: 493, withoutSpace: 380 },
+    timeZone: "Asia/Seoul",
     savedAt: "2026-11-10T03:00:00.000Z",
     serviceTier: "individual",
     profileGrade: "고1",
