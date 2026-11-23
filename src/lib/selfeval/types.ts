@@ -553,7 +553,7 @@ export type SessionInput = {
   area: Area;
   subject: string | null;
   activityName: string | null;
-  schoolPrompt: string;
+  schoolPrompt: string | null;
   teacherNote: string | null;
   targetChars: number | null;
   targetCharsMode: TargetCharsMode;

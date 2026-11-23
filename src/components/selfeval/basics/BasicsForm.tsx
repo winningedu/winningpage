@@ -196,8 +196,9 @@ export default function BasicsForm({
           <fieldset disabled={disabled} className="mt-4 flex flex-col gap-4">
             <Field
               id={id("prompt")}
-              label="학교 문항 전문"
+              label="학교 문항 전문 (선택)"
               error={errors.schoolPrompt}
+              hint="문항이 있으면 가장 먼저 쓰고, 비워 두어도 진행할 수 있어요"
             >
               <textarea
                 id={id("prompt")}

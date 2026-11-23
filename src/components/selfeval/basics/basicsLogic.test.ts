@@ -98,10 +98,14 @@ describe("validateBasics", () => {
     expect(validateBasics({ ...f, activityName: "천문 동아리" })).toEqual({});
   });
 
-  test("학교 문항은 필수다", () => {
+  test("학교 문항은 비워도 통과한다", () => {
+    expect(validateBasics(filled({ schoolPrompt: "  " }))).toEqual({});
+  });
+
+  test("학교 문항이 비면 서버 바디에는 null 로 보낸다", () => {
     expect(
-      validateBasics(filled({ schoolPrompt: "" })).schoolPrompt,
-    ).toBeTruthy();
+      buildCreateInput(filled({ schoolPrompt: "  " })).schoolPrompt,
+    ).toBeNull();
   });
 
   test("학년과 학기를 고르지 않으면 오류다", () => {
