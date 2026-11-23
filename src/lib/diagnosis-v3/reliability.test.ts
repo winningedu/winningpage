@@ -62,4 +62,33 @@ describe("response reliability (17_신뢰도, spec No 42-47)", () => {
     expect(result.temperament).toBe("CAUTION");
     expect(result.diagnosis).toBe("GOOD");
   });
+
+  const run = (length: number): Likert[] => [
+    ...Array<Likert>(length).fill(2),
+    ...([3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3].slice(
+      length,
+    ) as Likert[]),
+  ];
+  const f5Case = (length: number, q10: readonly number[] | undefined) => {
+    const { q10: _q10, ...rest } = CALC_EXAMPLE;
+    const q9 = { ...CALC_EXAMPLE.q9, items: run(length) };
+    return scoreReliability(q10 ? { ...rest, q9, q10 } : { ...rest, q9 });
+  };
+
+  test("F5: 10 same answers in a row and q10 skipped is 응답 단순 (17 C11)", () => {
+    expect(f5Case(10, undefined)).toMatchObject({
+      flags: { F5: true },
+      diagnosis: "SIMPLE",
+    });
+    expect(f5Case(10, []).flags.F5).toBe(true);
+  });
+
+  test("F5 needs 10 in a row: 9 is not enough", () => {
+    expect(f5Case(9, undefined).flags.F5).toBe(false);
+  });
+
+  test("No 129: the q10 exclusive pick counts as picked, so no F5", () => {
+    expect(f5Case(15, [16]).flags.F5).toBe(false);
+    expect(f5Case(15, [3]).flags.F5).toBe(false);
+  });
 });

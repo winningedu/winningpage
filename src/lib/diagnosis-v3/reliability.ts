@@ -45,13 +45,27 @@ const SIMPLE_MIN = numberIn(
 );
 const MID_SUM = numberIn(verdictCell("학습진단", "보통"), /= (\d+)/);
 
+// 17 C11 "같은 응답이 10개 이상 연속 AND q10 미선택"
+const F5_RUN = numberIn(cellOf("F5", 2), /(\d+)개 이상 연속/);
+
+const longestRun = (items: readonly Likert[]) => {
+  let longest = 0;
+  let current = 0;
+  items.forEach((item, i) => {
+    current = i > 0 && item === items[i - 1] ? current + 1 : 1;
+    longest = Math.max(longest, current);
+  });
+  return longest;
+};
+
 export function scoreReliability(answers: DiagnosisV3Answers): Reliability {
   const flags = {
     F1: V1_FLAG.includes(answers.q9.verify),
     F2: V2_FLAG.includes(answers.q11.verify),
     F3: !V3_PASS.includes(answers.q20.verify),
     F4: !V4_PASS.includes(answers.q23.verify),
-    F5: false,
+    // 16 r26: any q10 pick, the exclusive one included, counts as picked
+    F5: longestRun(answers.q9.items) >= F5_RUN && !answers.q10?.length,
     F6: false,
   };
   const verifyFlags = [flags.F1, flags.F2, flags.F3].filter(Boolean).length;
