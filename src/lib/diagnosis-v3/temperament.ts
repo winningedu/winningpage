@@ -12,6 +12,7 @@ import {
 import { type Likert, SCALE_ITEMS, scaleValue } from "./likert.js";
 import { roundHalfUpInt } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
+import { COPY_TEXT } from "./source/copyText.js";
 import type { DiagnosisV3Scores, LikertBlock, TempRuleArea } from "./types.js";
 
 const tempSheet = sheetRows("18_기질설정");
@@ -24,11 +25,42 @@ const tempRow = (r: number) => {
 export type TempLevel = "H" | "M" | "L";
 
 // 18 r14-r16: 높음 70, 중간 40, 낮음 0 ("이 점수 이상").
-const LEVEL_ROWS: readonly { level: TempLevel; min: number }[] = [
-  { level: "H", min: numberCell(tempRow(14), 2) },
-  { level: "M", min: numberCell(tempRow(15), 2) },
-  { level: "L", min: numberCell(tempRow(16), 2) },
+const LEVEL_ROWS: readonly {
+  level: TempLevel;
+  min: number;
+  label: string;
+}[] = [
+  {
+    level: "H",
+    min: numberCell(tempRow(14), 2),
+    label: textCell(tempRow(14), 1),
+  },
+  {
+    level: "M",
+    min: numberCell(tempRow(15), 2),
+    label: textCell(tempRow(15), 1),
+  },
+  {
+    level: "L",
+    min: numberCell(tempRow(16), 2),
+    label: textCell(tempRow(16), 1),
+  },
 ];
+
+const levelLabel = (level: TempLevel): string => {
+  const row = LEVEL_ROWS.find((candidate) => candidate.level === level);
+  if (!row) throw new Error(`no label for level ${level}`);
+  return row.label;
+};
+
+// 18 r6-r12: C = "<label> (기질|성격)", e.g. "자극추구 (기질)".
+const DIM_LABELS = Object.fromEntries(
+  TEMP_DIMS.map((dim, i) => {
+    const row = tempRow(6 + i);
+    if (textCell(row, 1) !== dim) throw new Error(`18 r${row.r} is not ${dim}`);
+    return [dim, textCell(row, 2).replace(/ \(.*\)$/, "")];
+  }),
+) as Record<TempDim, string>;
 
 export const tempLevelOf = (score: number): TempLevel => {
   const found = LEVEL_ROWS.find((row) => score >= row.min);
@@ -422,5 +454,86 @@ export function scoreTemperament(input: TemperamentInput): TemperamentResult {
     ),
     rules: temperamentRules(input.track, vars),
     methods: temperamentMethods(vars),
+  };
+}
+
+const copy = (id: string): string => {
+  const text = COPY_TEXT[id];
+  if (text === undefined) throw new Error(`missing copy ${id}`);
+  return text;
+};
+
+const fill = (template: string, values: Record<string, string | number>) =>
+  template.replace(/\{(\w+)\}/g, (_, key: string) => {
+    const value = values[key];
+    if (value === undefined) throw new Error(`no value for {${key}}`);
+    return String(value);
+  });
+
+/** 22 r86-r94: page 9 text for the temperament result (copy sheet 13, 10, 11). */
+export function temperamentPage9(
+  result: TemperamentResult,
+  reliability: "CAUTION" | "NORMAL",
+): Page9 {
+  const [top, second] = result.ranked;
+  if (!top || !second) throw new Error("need two ranked dimensions");
+  const mixed =
+    result.representative.kind === "mixed" ? result.representative.dims : null;
+  const names = mixed && {
+    a: DIM_LABELS[mixed[0]],
+    b: DIM_LABELS[mixed[1]],
+  };
+  // 22 r90: single = STR1, STR2, CAU1, CAU2; mixed = STR1 and CAU1 of both.
+  const typeCopy = (dim: TempDim, part: string) =>
+    copy(`TEMP_TYPE_${dim}_${part}`);
+  const shown = mixed ?? [top];
+  const parts = mixed ? ["1"] : ["1", "2"];
+  const pick = (kind: "STR" | "CAU") =>
+    shown.flatMap((dim) => parts.map((n) => typeCopy(dim, `${kind}${n}`)));
+  return {
+    title: names ? fill(copy("TEMP_MIX_HEAD"), names) : typeCopy(top, "HEAD"),
+    lead: copy("TEMP_LEAD"),
+    scaleNote: copy("TEMP_SCALE_NOTE"),
+    hero: {
+      name: names ? fill(copy("temp.mixed"), names) : typeCopy(top, "NAME"),
+      sub: fill(copy("temp.hero_sub"), {
+        top: DIM_LABELS[top],
+        second: DIM_LABELS[second],
+        level2: levelLabel(result.dims[second].level),
+      }),
+      body: names ? copy("TEMP_MIXED_BODY") : typeCopy(top, "BODY"),
+    },
+    dims: TEMP_DIMS.map((dim) => ({
+      dim,
+      score: result.dims[dim].score,
+      level: result.dims[dim].level,
+      text: copy(`TEMP_DIM_${dim}_${result.dims[dim].level}`),
+    })),
+    study: { strengths: pick("STR"), cautions: pick("CAU") },
+    crossCheck: [
+      copy(result.xchkHa ? "TEMP_XCHK_DIFF" : "TEMP_XCHK_OK"),
+      ...(result.xchkSust ? [copy("TEMP_XCHK_DIFF2")] : []),
+    ],
+    factors: {
+      items: TEMP_FACTORS.map((factor) => {
+        const code = factor.replace("F_", "");
+        const label = result.factorLabels[factor];
+        return {
+          factor,
+          text: `${fill(copy("temp.factor"), {
+            name: FACTOR_ROWS[factor].name,
+            score: result.factors[factor],
+            label,
+          })} ${copy(`TEMP_F_${code}_${label}`)}`,
+        };
+      }),
+      swayCause: fill(copy("temp.sway_cause"), {
+        cause: copy(`TEMP_CAUSE_${result.swayCause}`),
+      }),
+    },
+    ...(reliability === "CAUTION"
+      ? { lowReliability: copy("TEMP_LOWREL") }
+      : {}),
+    protect: copy("TEMP_PROTECT"),
   };
 }

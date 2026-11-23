@@ -10,6 +10,7 @@ import {
   temperamentDims,
   temperamentFactors,
   temperamentMethods,
+  temperamentPage9,
   temperamentRules,
 } from "./temperament.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
@@ -360,5 +361,111 @@ describe("scoreTemperament on CALC_EXAMPLE (계산 예시 A30-A32)", () => {
       reliability: { diagnosis: "GOOD", temperament: "NORMAL" },
     });
     expect(mixed.representative).toEqual({ kind: "mixed", dims: ["NS", "HA"] });
+  });
+});
+
+describe("page 9 text (22 r86-r94, PDF p9)", () => {
+  const mid = L(2, 2, 2, 2, 2);
+  const high = L(3, 3, 3, 3, 1);
+  const q23 = {
+    items: [...mid, ...mid, ...mid, ...high, ...high, ...high, ...mid],
+    verify: 3 as Likert,
+  };
+  const pdf = scoreTemperament({
+    q23,
+    track: "H12",
+    q20Item5: 2,
+    exec: 50,
+    recv: 50,
+    reliability: { diagnosis: "GOOD", temperament: "NORMAL" },
+  });
+
+  test("single type: title, hero, strengths and cautions of PS", () => {
+    const page = temperamentPage9(pdf, "NORMAL");
+    expect(page.title).toBe("시작하면 끝까지 해내는 기질입니다.");
+    expect(page.hero).toEqual({
+      name: "끈기\u00b7성취형",
+      sub: "인내력 우세 \u00b7 자극추구 중간",
+      body: "당장 결과가 보이지 않아도 꾸준히 이어 가는 힘이 있습니다. 방향이 맞는지 주기적으로 점검하면 끈기가 그대로 성과가 됩니다.",
+    });
+    expect(page.study).toEqual({
+      strengths: [
+        "지루한 반복도 끝까지 해냅니다.",
+        "장기 계획을 끝까지 가져갈 힘이 있습니다.",
+      ],
+      cautions: [
+        "방법이 맞지 않아도 계속 붙들고 있을 수 있습니다.",
+        "스스로를 너무 몰아붙여 지칠 수 있습니다.",
+      ],
+    });
+  });
+
+  test("seven dims with score, level and the level sentence", () => {
+    const page = temperamentPage9(pdf, "NORMAL");
+    expect(page.dims.map((d) => [d.dim, d.score, d.level])).toEqual([
+      ["NS", 50, "M"],
+      ["HA", 50, "M"],
+      ["RD", 50, "M"],
+      ["PS", 75, "H"],
+      ["SD", 75, "H"],
+      ["CO", 75, "H"],
+      ["ST", 50, "M"],
+    ]);
+    expect(page.dims[0]?.text).toBe(
+      "새로운 것도 시도하고 익숙한 방식도 유지하는, 균형 잡힌 편이에요.",
+    );
+  });
+
+  test("cross check, factor lines and the sway cause", () => {
+    const page = temperamentPage9(pdf, "NORMAL");
+    expect(page.crossCheck).toEqual(["학습진단 응답과 같은 방향입니다."]);
+    expect(page.factors.items.map((i) => i.text)).toEqual([
+      "기질 안정도 50 \u00b7 균형형 상황에 따라 긴장도가 달라지는 편입니다.",
+      "선택 흔들림 42 \u00b7 보통 목표는 유지하되 상황에 따라 전략을 바꾸는 편입니다.",
+      "압박 대응력 63 \u00b7 보통 압박이 커지면 흔들릴 수 있어 실전 리허설이 도움이 됩니다.",
+      "학습 지속력 69 \u00b7 중기형 2~4주 단위로 계획을 끊어 점검하면 잘 이어 갑니다.",
+    ]);
+    expect(page.factors.swayCause).toBe("주된 원인: 새것에 끌림(자극추구)");
+    expect(page.protect).toContain("기질에는 좋고 나쁨이 없습니다.");
+    expect(page.lowReliability).toBeUndefined();
+  });
+
+  test("CAUTION adds TEMP_LOWREL, DIFF cross checks show their sentences", () => {
+    const diff = scoreTemperament({
+      q23,
+      track: "H12",
+      q20Item5: 0,
+      exec: 50,
+      recv: 50,
+      reliability: { diagnosis: "GOOD", temperament: "CAUTION" },
+    });
+    const page = temperamentPage9(
+      { ...diff, xchkHa: true, xchkSust: true },
+      "CAUTION",
+    );
+    expect(page.lowReliability).toContain("기질 문항의 응답이 한쪽으로 몰려");
+    expect(page.crossCheck).toHaveLength(2);
+    expect(page.crossCheck[0]).toContain("위험회피 점수와");
+    expect(page.crossCheck[1]).toContain("학습 지속력과 학습 수행 점수가");
+  });
+
+  test("mixed type: TEMP_MIX_HEAD title, TEMP_MIXED_BODY, STR1 and CAU1 of both", () => {
+    const mixed = scoreTemperament({
+      q23: { items: Array(35).fill(2) as Likert[], verify: 3 },
+      track: "H12",
+      q20Item5: 2,
+      exec: 50,
+      recv: 50,
+      reliability: { diagnosis: "GOOD", temperament: "NORMAL" },
+    });
+    const page = temperamentPage9(mixed, "NORMAL");
+    expect(page.title).toContain("자극추구\u00b7위험회피 두 기질이");
+    expect(page.hero.name).toBe("자극추구\u00b7위험회피 혼합형");
+    expect(page.hero.body).toContain("두 기질이 비슷하게 나타나");
+    expect(page.study.strengths).toEqual([
+      "새 공부법\u00b7탐구 주제를 빨리 시도합니다.",
+      "준비가 꼼꼼해 실수가 적습니다.",
+    ]);
+    expect(page.study.cautions).toHaveLength(2);
   });
 });
