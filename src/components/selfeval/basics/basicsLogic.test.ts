@@ -92,9 +92,11 @@ describe("validateBasics", () => {
     expect(validateBasics(filled({ subject: "  " })).subject).toBeTruthy();
   });
 
-  test("창체 영역은 활동명이 선택이고 과목명은 묻지 않는다", () => {
-    const f = filled({ area: "club", subject: "", activityName: "" });
-    expect(validateBasics(f)).toEqual({});
+  test("창체 영역은 활동명이 필수이고 과목명은 묻지 않는다", () => {
+    const f = filled({ area: "club", subject: "", activityName: "  " });
+    expect(validateBasics(f)).toEqual({
+      activityName: "활동명을 입력해 주세요.",
+    });
     expect(validateBasics({ ...f, activityName: "천문 동아리" })).toEqual({});
   });
 

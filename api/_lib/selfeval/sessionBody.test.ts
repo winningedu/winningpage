@@ -63,15 +63,20 @@ describe("validateSessionCreateBody", () => {
     expect(r).toMatchObject({ ok: false, code: "SUBJECT_REQUIRED" });
   });
 
-  it("창체는 활동명이 비어 있어도 통과하고 null 로 정규화한다", () => {
-    const r = validateSessionCreateBody({
-      ...valid,
-      area: "club",
-      subject: null,
-      activityName: "  ",
-    });
-    expect(r.ok).toBe(true);
-    if (r.ok) expect(r.input.activityName).toBeNull();
+  it("창체(자율, 진로, 동아리)는 활동명이 비면 ACTIVITY_NAME_REQUIRED", () => {
+    for (const area of ["autonomy", "career", "club"] as const) {
+      const r = validateSessionCreateBody({
+        ...valid,
+        area,
+        subject: null,
+        activityName: "  ",
+      });
+      expect(r).toMatchObject({
+        ok: false,
+        code: "ACTIVITY_NAME_REQUIRED",
+        message: "활동명을 입력해 주세요.",
+      });
+    }
   });
 
   it("창체는 과목을 버린다", () => {
@@ -232,7 +237,7 @@ describe("applySessionPatch", () => {
     const ok = applySessionPatch(current, { targetChars: 900 });
     expect(ok.ok && ok.input.targetChars).toBe(900);
     const noName = applySessionPatch(current, { area: "club" });
-    expect(noName.ok && noName.input.activityName).toBeNull();
+    expect(noName).toMatchObject({ ok: false, code: "ACTIVITY_NAME_REQUIRED" });
   });
 });
 

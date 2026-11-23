@@ -131,6 +131,9 @@ export function validateBasics(form: BasicsForm): BasicsErrors {
   if (form.area === "subject" && form.subject.trim() === "") {
     errors.subject = "과목명을 입력해 주세요.";
   }
+  if (form.area !== "subject" && form.activityName.trim() === "") {
+    errors.activityName = "활동명을 입력해 주세요.";
+  }
   if (parseTargetChars(form.targetChars) === "invalid") {
     errors.targetChars = `목표 글자 수는 ${TARGET_CHARS_MIN}자에서 ${TARGET_CHARS_MAX}자 사이 숫자로 입력해 주세요.`;
   }
