@@ -390,6 +390,16 @@ select pg_temp.expect_error('update: 담당 학급이 아니면 학적 없음(WC
   $$select pg_temp.upd('s2', 2, '고1', 'a2', 9, 'homeroom_edit', 'correction', null, 'ta', array['a1'])$$, 'WC081');
 select pg_temp.expect_error('update: 학급 없는 학생은 담임 범위가 아니다(WC081)',
   $$select pg_temp.upd('s4', 1, '고1', 'a2', 9, 'homeroom_edit', 'correction', null, 'ta', array['a2'])$$, 'WC081');
+select pg_temp.expect_error('update: 담임의 풀 배정이라도 담당 밖 학급이면 거부된다(WC081)',
+  $$select pg_temp.upd('s4', 1, '고1', 'a1', 9, 'pool_assign', 'transfer', null, 'ta', array['a2'])$$, 'WC081');
+select pg_temp.expect_error('update: 담임의 풀 배정은 학급을 비울 수 없다(WC081)',
+  $$select pg_temp.upd('s4', 1, '고1', null, null, 'pool_assign', 'transfer', null, 'ta', array['a2'])$$, 'WC081');
+select pg_temp.expect_text('update: 담임이 풀 학생을 담당 학급으로 배정한다(pool_assign)',
+  pg_temp.upd('s4', 1, '고1', 'a2', 8, 'pool_assign', 'transfer', null, 'ta', array['a2']), '2');
+select pg_temp.expect_text('update: 풀 배정 이력은 pool_assign 으로 남는다',
+  (select count(*)::text from public.enrollment_changes
+    where student_id = pg_temp.fx('s4') and kind = 'pool_assign' and from_class_id is null
+      and to_class_id = pg_temp.cls('a2')), '1');
 select pg_temp.expect_text('update: 담당 학급이면 수정된다',
   pg_temp.upd('s2', 2, '고1', 'a2', 3, 'homeroom_edit', 'number_change', null, 'ta', array['a2']), '3');
 select pg_temp.expect_error('update: 담임이 다른 교사의 학급으로 옮기면 거부된다(WC081)',
