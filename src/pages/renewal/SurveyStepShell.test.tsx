@@ -99,7 +99,13 @@ const denied = (tenantReason: string | null) => ({
   checkFailed: false,
 });
 
-function SubmitChild({ onResult }: { onResult: (v: unknown) => void }) {
+function SubmitChild({
+  onResult,
+  draft = CALC_DRAFT,
+}: {
+  onResult: (v: unknown) => void;
+  draft?: Record<string, unknown>;
+}) {
   const ctx = useOutletContext<{
     submitDiagnosis: () => Promise<unknown>;
     setAnswer: (id: string, v: unknown) => void;
@@ -109,7 +115,7 @@ function SubmitChild({ onResult }: { onResult: (v: unknown) => void }) {
       <button
         type="button"
         onClick={() => {
-          for (const [id, value] of Object.entries(CALC_DRAFT)) {
+          for (const [id, value] of Object.entries(draft)) {
             ctx.setAnswer(id, value);
           }
         }}
@@ -141,12 +147,32 @@ function ReportStub() {
   );
 }
 
-function renderSubmit(onResult: (v: unknown) => void) {
+// Survey screen stand-in: shows the step and the shell's diagnosis date.
+function StepStub() {
+  const { diagnosedAt } = useOutletContext<{ diagnosedAt: string }>();
+  return (
+    <p>
+      설문 {useParams().step}단계 {diagnosedAt}
+    </p>
+  );
+}
+
+function renderSubmit(
+  onResult: (v: unknown) => void,
+  draft?: Record<string, unknown>,
+) {
   return render(
-    <MemoryRouter initialEntries={["/survey"]}>
+    <MemoryRouter initialEntries={["/app/learning-diagnosis/survey"]}>
       <Routes>
-        <Route path="/survey" element={<SurveyStepShell />}>
-          <Route index element={<SubmitChild onResult={onResult} />} />
+        <Route
+          path="/app/learning-diagnosis/survey"
+          element={<SurveyStepShell />}
+        >
+          <Route
+            index
+            element={<SubmitChild onResult={onResult} draft={draft} />}
+          />
+          <Route path=":step" element={<StepStub />} />
         </Route>
         <Route path="/pricing" element={<p>결제 페이지</p>} />
         <Route
@@ -546,6 +572,26 @@ describe("SurveyStepShell v3 제출", () => {
     expect(window.alert).toHaveBeenCalledWith(
       "이용 횟수를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
     );
+  });
+
+  it("자정을 넘겨 제출하면 그날 기준으로 다시 검사해 소진 전에 일정 화면으로 보낸다", async () => {
+    // 23:50 KST on 2026-11-09: the schedule row is Day 1 (16 r30)
+    vi.setSystemTime(new Date("2026-11-09T14:50:00Z"));
+    const draft = {
+      ...CALC_DRAFT,
+      q13: [{ kind: "PERF", date: "2026-11-09", subject: "" }],
+    };
+    renderSubmit(vi.fn(), draft);
+    fireEvent.click(await screen.findByRole("button", { name: "모두 답하기" }));
+    // 00:05 KST on 2026-11-10: the row is now a past date
+    vi.setSystemTime(new Date("2026-11-09T15:05:00Z"));
+    fireEvent.click(screen.getByRole("button", { name: "제출" }));
+    // 13 B24: q13 is on screen 4
+    expect(
+      await screen.findByText("설문 4단계 2026-11-10"),
+    ).toBeInTheDocument();
+    expect(consumeMock).not.toHaveBeenCalled();
+    expect(submitMock).not.toHaveBeenCalled();
   });
 
   it("목표 대학 입결 키를 확인하지 못하면 소진하지 않고 다시 시도 안내를 보인다", async () => {

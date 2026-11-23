@@ -23,6 +23,7 @@ import {
   EVENT_WINDOW_DAYS,
   isHidden,
   Q3_TARGET_ORDINALS,
+  type ValidationError,
   validateAnswers,
 } from "@/lib/diagnosis-v3/validate";
 
@@ -340,6 +341,20 @@ export function screenProblems(
       .map((error) => (error.question === "q3Target" ? "q3" : error.question)),
   );
   return visibleQuestionIds(page, draft).filter((id) => blocked.has(id));
+}
+
+/**
+ * Screen (13 B) of the earliest question validateAnswers rejected; the q3
+ * target inputs sit on the q3 card.
+ */
+export function firstErrorScreen(errors: readonly ValidationError[]): number {
+  const pages = errors.map((error) => {
+    const id = error.question === "q3Target" ? "q3" : error.question;
+    const question = SURVEY_V3_QUESTIONS.find((q) => q.id === id);
+    if (!question) throw new Error(`v3 survey has no question ${id}`);
+    return question.page;
+  });
+  return Math.min(...pages);
 }
 
 const DAY_MS = 86_400_000;

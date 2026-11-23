@@ -8,7 +8,11 @@ import {
   type CascadeValue,
   useAdmissionCascade,
 } from "@/hooks/useAdmissionCascade";
-import { type AdmissionTarget, validateAnswers } from "@/lib/diagnosis-v3";
+import {
+  type AdmissionTarget,
+  type ValidationError,
+  validateAnswers,
+} from "@/lib/diagnosis-v3";
 // 학습진단 유료 게이팅(20260821, 이용 요금 구조 최종본 20260806) — 진입 판정(마운트 시
 // 1회)과 제출 소진(마지막 스텝 CTA) 둘 다 이 모듈을 거친다. 판정 정본은 서버이고,
 // 여기서는 호출·fail-open 흡수·리다이렉트만 한다.
@@ -33,6 +37,7 @@ import { kstYMD } from "@/lib/goal/calc/virtualDate";
 import { markProgramEntry } from "@/lib/programEntry";
 import {
   applyAnswer,
+  firstErrorScreen,
   getStepPath,
   isCascadeComplete,
   reportPathFor,
@@ -64,9 +69,9 @@ export default function SurveyStepShell() {
   // q23 shuffle seed (기능요구명세서 row 31): one per survey, kept in the draft
   // so a resumed survey shows the same order.
   const [seed, setSeed] = useState<string>(() => crypto.randomUUID());
-  // KST calendar date the survey runs on: q4 default, q13 date bounds and the
-  // final validateAnswers check. The server sets its own diagnosis date.
-  const [diagnosedAt] = useState(() => kstYMD());
+  // KST calendar date the survey runs on: q4 default and q13 date bounds.
+  // Submit moves it to the submit day, the date the server scores with.
+  const [diagnosedAt, setDiagnosedAt] = useState(() => kstYMD());
   const [surveyCopyOverrides, setSurveyCopyOverrides] = useState<
     Map<string, unknown>
   >(() => new Map());
@@ -181,6 +186,14 @@ export default function SurveyStepShell() {
    * idempotent attemptId contract: a failed submit retried in the same flow
    * reuses the attemptId, and the server returns the stored report for it.
    */
+  const showAnswerProblem = useCallback(
+    (errors: readonly ValidationError[]) => {
+      window.alert("응답하지 않은 문항이 있어요. 문항을 다시 확인해 주세요.");
+      navigate(getStepPath(firstErrorScreen(errors)));
+    },
+    [navigate],
+  );
+
   const submitDiagnosis = useCallback(async () => {
     let target: AdmissionTarget | null = null;
     if (isCascadeComplete(answers.q15)) {
@@ -196,8 +209,13 @@ export default function SurveyStepShell() {
       target = resolved.target;
     }
     const submitAnswers = toSubmitAnswers(answers, target);
-    if (!validateAnswers(submitAnswers, diagnosedAt).ok) {
-      window.alert("응답하지 않은 문항이 있어요. 문항을 다시 확인해 주세요.");
+    // The server checks the answers against the submit day (KST), so a survey
+    // that crossed midnight is checked again before consume (16 r30 dates).
+    const today = kstYMD();
+    setDiagnosedAt(today);
+    const checked = validateAnswers(submitAnswers, today);
+    if (!checked.ok) {
+      showAnswerProblem(checked.errors);
       return null;
     }
 
@@ -263,7 +281,7 @@ export default function SurveyStepShell() {
       state: { fromSubmit: true },
     });
     return result.payload;
-  }, [answers, diagnosedAt, navigate, userId, resumeEnabled]);
+  }, [answers, navigate, userId, resumeEnabled, showAnswerProblem]);
 
   if (accessFailed) {
     return (
