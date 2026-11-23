@@ -9,3 +9,8 @@ insert into public.profile_login_slots (profile_id, slot_start)
 select d.profile_id, date_bin('15 minutes', d.first_seen_at, timestamptz '2000-01-01 00:00:00+00')
   from public.profile_login_days d
 on conflict (profile_id, slot_start) do nothing;
+
+-- 실행 기록 (UTC)
+-- 2026-11-23 dev gjowqdiopinhixfivnkx: profile_login_days 3행, slots 실행 전 0행, 실행 후 3행. 재실행 변경 없음.
+-- 2026-11-23 Winning prod ykrpjcsubmbenfcnwlzd: profile_login_days 5행, slots 실행 전 0행, 실행 후 5행. 재실행 변경 없음.
+-- 2026-11-23 Schoolmentor prod aalujumpwlnwlemnqrus: profile_login_days 1행, slots 실행 전 0행, 실행 후 1행. 재실행 변경 없음.
