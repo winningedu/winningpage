@@ -541,6 +541,22 @@ select pg_temp.expect_bool('빈 p_targets 는 아무도 지우지 않고 후보 
      from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_tz'), pg_temp.fx('m_t1'), 'hq@example.com', '{}'))
   and pg_temp.pname('z_a') = '홍길동z_a', true);
 
+-- 기관 시간대: 오늘은 기관의 time_zone 날짜다. 두 기관의 시간대가 24시간보다 더 벌어져(+14, -12) 어느 순간에도 날짜가 다르다.
+-- 유예 종료일을 서쪽 기관의 오늘로 두면 동쪽 기관은 지났고(지운다) 서쪽 기관은 아직이다(not_yet). 서울 날짜로만 세면 둘이 같은 결과가 난다.
+select pg_temp.mk_tenant('zeast', 'RPZEASTE', pg_temp.today() - 50, public.fn_local_date(now(), 'Etc/GMT+12'));
+select pg_temp.mk_tenant('zwest', 'RPZWESTW', pg_temp.today() - 50, public.fn_local_date(now(), 'Etc/GMT+12'));
+update public.tenants set time_zone = 'Pacific/Kiritimati' where id = pg_temp.fx('ten_zeast');
+update public.tenants set time_zone = 'Etc/GMT+12' where id = pg_temp.fx('ten_zwest');
+select pg_temp.mk_member('ze1', 'zeast', 'student', 31);
+select pg_temp.mk_member('zw1', 'zwest', 'student', 32);
+select pg_temp.expect_bool('동쪽 시간대 기관은 그 기관의 오늘이 유예 종료일을 넘어 익명화된다',
+  (select members_anonymized = 1 and not not_yet
+     from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_zeast'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_ze1')])), true);
+select pg_temp.expect_bool('서쪽 시간대 기관은 그 기관의 오늘이 유예 종료일이라 아직이다',
+  (select members_anonymized = 0 and not_yet
+     from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_zwest'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_zw1')]))
+  and pg_temp.pname('zw1') = '홍길동zw1', true);
+
 -- 3개 인자 함수는 더 이상 없다(오버로드가 모호해지지 않는다).
 select pg_temp.expect_int('옛 3개 인자 시그니처는 없다',
   (select count(*) from pg_proc p where p.proname = 'fn_anonymize_expired_b2b_members' and p.pronargs = 3), 0);

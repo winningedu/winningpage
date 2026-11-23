@@ -101,3 +101,122 @@ $$;
 
 revoke all on function public.fn_purge_b2b_retention() from public, anon, authenticated;
 grant execute on function public.fn_purge_b2b_retention() to service_role;
+
+-- 계약 종료 회원 익명화. 본문은 20261106084702_b2b_member_purge_targets.sql 과 같고 오늘만 기관 시간대로 센다.
+create or replace function public.fn_anonymize_expired_b2b_members(
+  p_tenant uuid default null,
+  p_actor_profile uuid default null,
+  p_actor_email text default null,
+  p_targets uuid[] default null
+)
+returns table (
+  tenants_processed bigint,
+  members_anonymized bigint,
+  members_protected bigint,
+  grace_end date,
+  not_yet boolean,
+  members_skipped bigint,
+  not_processed bigint
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  c_name constant text := '삭제된 학생';
+  v_default_days integer;
+  v_today date;
+  v_tenant record;
+  v_ids uuid[];
+  v_protected bigint;
+  v_tenants bigint := 0;
+  v_members bigint := 0;
+  v_excluded bigint := 0;
+  v_skipped_total bigint := 0;
+  v_skipped bigint;
+  v_not_processed bigint;
+  v_not_processed_total bigint := 0;
+  v_grace date;
+  v_not_yet boolean := false;
+begin
+  if p_tenant is null or p_targets is null then
+    raise exception 'tenant_and_targets_required' using errcode = 'WC101';
+  end if;
+
+  select case when jsonb_typeof(a.value) = 'number' then (a.value #>> '{}')::integer end
+    into v_default_days
+    from public.app_settings a where a.key = 'contract_grace_days';
+
+  for v_tenant in
+    select t.id, t.contract_end_date,
+           coalesce(t.grace_ends_on, t.contract_end_date + v_default_days) as grace_end
+      from public.tenants t
+     where t.id = p_tenant
+       and t.contract_end_date is not null
+       and public.fn_local_date(now(), t.time_zone) > coalesce(t.grace_ends_on, t.contract_end_date + v_default_days)
+     order by t.id
+  loop
+    with cand as (
+      select p.id,
+             exists (
+               select 1 from public.program_access_grants g
+                where g.profile_id = p.id and g.paid_amount > 0
+                  and g.revoked_at is null and (g.expires_at is null or g.expires_at > now())
+             ) as protected
+        from public.profiles p
+       where p.tenant_id = v_tenant.id and p.member_type = 'student' and p.name is distinct from c_name
+       order by p.id
+         for update of p skip locked
+    ), done as (
+      update public.profiles p
+         set name = c_name, phone = null, email = null, username = null, birth_date = null, gender = null,
+             landline = null, address = null, address_detail = null, memo = null, guardian_phone = null,
+             payment_terminal_id = null, is_active = false
+       where p.id in (select c.id from cand c where not c.protected and c.id = any (p_targets))
+      returning p.id
+    ), ban as (
+      update auth.users u set banned_until = now() + interval '100 years'
+       where u.id in (select d.id from done d)
+    )
+    select coalesce((select array_agg(d.id order by d.id) from done d), '{}'),
+           (select count(*) from cand c where c.protected),
+           (select count(*) from cand c where not c.protected and c.id <> all (p_targets)),
+           (select count(*) from public.profiles p
+             where p.id = any (p_targets) and p.tenant_id = v_tenant.id and p.member_type = 'student'
+               and p.name is distinct from c_name and p.id not in (select c.id from cand c))
+      into v_ids, v_protected, v_skipped, v_not_processed;
+
+    v_skipped_total := v_skipped_total + v_skipped;
+    v_not_processed_total := v_not_processed_total + v_not_processed;
+
+    -- 유예가 지난 기관이면 지운 학생이 0명이어도 실행 기록을 남긴다.
+    insert into public.admin_access_logs (profile_id, actor_email, actor_login_id, actor_kind, action, resource_key, tenant_id, row_count, meta)
+    values (p_actor_profile, p_actor_email,
+      case when p_actor_profile is null then 'system:b2b-retention-purge' end,
+      'hq', 'member_purge', 'tenants', v_tenant.id, cardinality(v_ids),
+      jsonb_build_object(
+        'contract_end_date', v_tenant.contract_end_date,
+        'grace_ends_on', v_tenant.grace_end,
+        'deleted_count', cardinality(v_ids),
+        'excluded_count', v_protected,
+        'skipped_count', v_skipped,
+        'not_processed', v_not_processed,
+        'member_ids', to_jsonb(v_ids)));
+    v_tenants := v_tenants + 1;
+    v_members := v_members + cardinality(v_ids);
+    v_excluded := v_excluded + v_protected;
+  end loop;
+
+  if p_tenant is not null then
+    select coalesce(t.grace_ends_on, t.contract_end_date + v_default_days),
+           public.fn_local_date(now(), t.time_zone)
+      into v_grace, v_today from public.tenants t where t.id = p_tenant and t.contract_end_date is not null;
+    v_not_yet := v_grace is null or v_today <= v_grace;
+  end if;
+
+  return query select v_tenants, v_members, v_excluded, v_grace, v_not_yet, v_skipped_total, v_not_processed_total;
+end;
+$$;
+
+revoke all on function public.fn_anonymize_expired_b2b_members(uuid, uuid, text, uuid[]) from public, anon, authenticated;
+grant execute on function public.fn_anonymize_expired_b2b_members(uuid, uuid, text, uuid[]) to service_role;
