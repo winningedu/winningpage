@@ -195,6 +195,12 @@ describe("entryBody", () => {
     ).toBe(2025);
   });
 
+  it("회원 시간대를 응답에 실어 화면이 같은 날짜 기준을 쓰게 한다", () => {
+    expect(entryBody({ ...base, timeZone: "America/Chicago" }).timeZone).toBe(
+      "America/Chicago",
+    );
+  });
+
   it("열린 세션이 없으면 openSession null 과 학년도 기본값", () => {
     const body = entryBody(base);
     expect(body).toMatchObject({

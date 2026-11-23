@@ -97,7 +97,7 @@ export type EntryInput = {
   now: Date;
   profile: StudentProfileRow | null;
   replyResent: number;
-  /** 보는 회원의 시간대(X-Time-Zone). 학년도와 오래됨 판정의 날짜 기준이다. */
+  /** 회원(세션 주인)의 시간대(profiles.time_zone). 학년도와 오래됨 판정의 날짜 기준이다. */
   timeZone: string;
 };
 
@@ -150,6 +150,7 @@ export function entryBody(input: EntryInput) {
     profile,
     replyResent: input.replyResent,
     academicYearDefault: currentAcademicYear(input.now, input.timeZone),
+    timeZone: input.timeZone,
   };
 }
 

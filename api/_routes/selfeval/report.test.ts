@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   claimOk: true,
   loadedForUser: [] as string[],
   zones: [] as string[],
+  memberZone: "Asia/Seoul" as string | null,
   model: null as unknown,
 }));
 
@@ -32,6 +33,10 @@ vi.mock("../../_lib/selfeval/db.js", async (importOriginal) => ({
     state.loadedForUser.push(userId);
     const s = state.session as { id: string; profile_id: string } | null;
     return s !== null && s.id === id && s.profile_id === userId ? s : null;
+  },
+  loadMemberTimeZone: async () => {
+    if (state.memberZone === null) throw new Error("profiles 조회 실패");
+    return state.memberZone;
   },
 }));
 vi.mock("../../_lib/selfeval/report/load.js", () => ({
@@ -66,11 +71,7 @@ type Res = { status: number; body: Record<string, unknown> };
 
 async function call(
   method: "GET" | "POST",
-  input: {
-    body?: unknown;
-    query?: Record<string, string>;
-    zone?: string | null;
-  } = {},
+  input: { body?: unknown; query?: Record<string, string> } = {},
 ): Promise<Res> {
   const out: Res = { status: 0, body: {} };
   const res = {
@@ -88,12 +89,7 @@ async function call(
     method,
     body: input.body,
     query: input.query ?? {},
-    headers: {
-      authorization: "Bearer t",
-      ...(input.zone === null
-        ? {}
-        : { "x-time-zone": input.zone ?? "Asia/Seoul" }),
-    },
+    headers: { authorization: "Bearer t" },
     socket: {},
   };
   await (handler as unknown as (a: unknown, b: unknown) => Promise<void>)(
@@ -131,6 +127,7 @@ beforeEach(() => {
   state.claimOk = true;
   state.loadedForUser = [];
   state.zones = [];
+  state.memberZone = "Asia/Seoul";
   state.model = modelEcho();
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -176,18 +173,17 @@ describe("POST /api/selfeval/report", () => {
     });
   });
 
-  test("passes the viewer time zone to the input loader and requires the header", async () => {
-    await call("POST", {
-      body: { sessionId: SESSION },
-      zone: "America/Chicago",
-    });
+  test("passes the session owner's time zone to the input loader, whatever the viewer header says", async () => {
+    state.memberZone = "America/Chicago";
+    await call("POST", { body: { sessionId: SESSION } });
     expect(state.zones).toEqual(["America/Chicago"]);
-    const none = await call("POST", {
-      body: { sessionId: SESSION },
-      zone: null,
-    });
-    expect(none.status).toBe(400);
-    expect(none.body).toMatchObject({ error: { code: "TIME_ZONE_REQUIRED" } });
+  });
+
+  test("fails without a profile time zone instead of guessing one", async () => {
+    state.memberZone = null;
+    const res = await call("POST", { body: { sessionId: SESSION } });
+    expect(res.status).toBe(500);
+    expect(state.zones).toEqual([]);
   });
 
   test("answers 409 FINAL_REPORT_MISSING without a final body and 409 REPORT_BUSY when another request holds it", async () => {

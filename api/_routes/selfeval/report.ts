@@ -23,13 +23,9 @@ import type { VercelResponse } from "@vercel/node";
 import type { ReportView } from "../../../src/lib/selfeval/reportTypes.js";
 import { callStructured } from "../../_lib/ai/gemini.js";
 import { createAiTrace } from "../../_lib/ai/telemetry/trace.js";
-import {
-  defineHandler,
-  requireTimeZone,
-  requireUserId,
-} from "../../_lib/handler.js";
+import { defineHandler, requireUserId } from "../../_lib/handler.js";
 import { fail } from "../../_lib/selfeval/access.js";
-import { loadSession } from "../../_lib/selfeval/db.js";
+import { loadMemberTimeZone, loadSession } from "../../_lib/selfeval/db.js";
 import { loadReportInput } from "../../_lib/selfeval/report/load.js";
 import {
   runReport,
@@ -116,7 +112,6 @@ export default defineHandler({
     }
     const gate = await openSession(res, db, userId, sessionId);
     if (!gate.ok) return;
-    const timeZone = requireTimeZone(ctx);
 
     const trace = createAiTrace({
       service: "selfeval",
@@ -129,7 +124,13 @@ export default defineHandler({
     try {
       outcome = await runReport({
         sessionId,
-        load: () => loadReportInput(db, userId, gate.session, timeZone),
+        load: async () =>
+          loadReportInput(
+            db,
+            userId,
+            gate.session,
+            await loadMemberTimeZone(db, userId),
+          ),
         store: createReportStore(db, sessionId),
         callStructured,
         now: () => new Date().toISOString(),

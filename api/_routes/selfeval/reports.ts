@@ -25,11 +25,7 @@
 
 import type { VercelResponse } from "@vercel/node";
 import { completePlanItemFromProgram } from "../../_lib/growth/plan/complete.js";
-import {
-  defineHandler,
-  requireTimeZone,
-  requireUserId,
-} from "../../_lib/handler.js";
+import { defineHandler, requireUserId } from "../../_lib/handler.js";
 import {
   fail,
   readSelfevalAccess,
@@ -41,6 +37,7 @@ import {
   listSessions,
   loadGrowthSnapshot,
   loadLatestReportsByType,
+  loadMemberTimeZone,
   loadReports,
   loadSession,
   loadSessionActivities,
@@ -76,15 +73,10 @@ async function resendReplies(
   }
 }
 
-async function handleList(
-  res: VercelResponse,
-  db: Db,
-  userId: string,
-  timeZone: string,
-) {
+async function handleList(res: VercelResponse, db: Db, userId: string) {
   const now = new Date();
   const replyResent = await resendReplies(db, userId, now);
-  const [quota, access, activityCount, sessions, growth, profile] =
+  const [quota, access, activityCount, sessions, growth, profile, timeZone] =
     await Promise.all([
       readSelfevalQuota(db, userId),
       readSelfevalAccess(db, userId),
@@ -92,6 +84,7 @@ async function handleList(
       listSessions(db, userId),
       loadGrowthSnapshot(db, userId),
       loadStudentProfile(db, userId),
+      loadMemberTimeZone(db, userId),
     ]);
   const scores = latestScores(
     await loadLatestReportsByType(
@@ -163,7 +156,7 @@ export default defineHandler({
       return;
     }
     if (query.sessionId === undefined) {
-      await handleList(res, ctx.supabaseAdmin, userId, requireTimeZone(ctx));
+      await handleList(res, ctx.supabaseAdmin, userId);
       return;
     }
     await handleDetail(res, ctx.supabaseAdmin, userId, query.sessionId);
