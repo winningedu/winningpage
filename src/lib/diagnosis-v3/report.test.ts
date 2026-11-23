@@ -12,11 +12,21 @@ import type { DiagnosisV3Answers } from "./types.js";
 const run = (answers: DiagnosisV3Answers = CALC_EXAMPLE) =>
   scoreDiagnosisV3(answers, CALC_EXAMPLE_CONTEXT);
 
+/** The answers without the given optional questions (exactOptionalPropertyTypes). */
+const omit = (
+  answers: DiagnosisV3Answers,
+  ...keys: (keyof DiagnosisV3Answers)[]
+): DiagnosisV3Answers =>
+  Object.fromEntries(
+    Object.entries(answers).filter(
+      ([key]) => !keys.includes(key as keyof DiagnosisV3Answers),
+    ),
+  ) as DiagnosisV3Answers;
+
 /** 8번 all 보통 and no q10 pick: F5, 응답 단순 (17 r11, r14). */
 const SIMPLE: DiagnosisV3Answers = {
-  ...CALC_EXAMPLE,
+  ...omit(CALC_EXAMPLE, "q10"),
   q9: { items: Array(15).fill(2), verify: 1 },
-  q10: undefined,
 };
 
 /** V1 and V2 매우 그렇다: F1 + F2, 응답 단순 with the q10 picks kept (17 r6, r7, r14). */
@@ -168,9 +178,8 @@ describe("2p 목표 (22 r30-r36)", () => {
       items: [3, 0, ...CALC_EXAMPLE.q9.items.slice(2)],
     };
     const { p2 } = run({
-      ...CALC_EXAMPLE,
+      ...omit(CALC_EXAMPLE, "q3Target"),
       q3: 6,
-      q3Target: undefined,
       q9,
     } as DiagnosisV3Answers).pages;
     expect(p2.reasons).toBeUndefined();
@@ -180,9 +189,8 @@ describe("2p 목표 (22 r30-r36)", () => {
 
   test("picked reasons highlight the cell and fill the chips", () => {
     const { p2 } = run({
-      ...CALC_EXAMPLE,
+      ...omit(CALC_EXAMPLE, "q3Target"),
       q3: 5,
-      q3Target: undefined,
       q3r: [1, 3],
     }).pages;
     expect(p2.matrix.highlighted).toBe("E_MIX");
@@ -422,7 +430,7 @@ describe("6p 학교생활 \u00b7 입시 준비도 (22 r63-r69)", () => {
   });
 
   test("no pick, a pick off the bottom two, a partial overlap", () => {
-    const none = run({ ...CALC_EXAMPLE, q12: undefined }).pages.p6;
+    const none = run(omit(CALC_EXAMPLE, "q12")).pages.p6;
     expect(none.title).toBe(
       COPY_TEXT.SCH_HEAD_NONE?.replace("{low}", "탐구 심화"),
     );
@@ -450,7 +458,7 @@ describe("6p 학교생활 \u00b7 입시 준비도 (22 r63-r69)", () => {
       items: Array(12).fill(1),
       verify: 1,
     } as DiagnosisV3Answers["q11"];
-    const { p6 } = run({ ...CALC_EXAMPLE, q11, q12: undefined }).pages;
+    const { p6 } = run({ ...omit(CALC_EXAMPLE, "q12"), q11 }).pages;
     expect(p6.strengths).toEqual([]);
     expect(p6.strengthNote).toBe(COPY_TEXT.STR_NONE);
     expect(p6.weaknesses).toHaveLength(4);
@@ -716,8 +724,39 @@ describe("16p 서비스 \u00b7 안내 (22 r115-r121)", () => {
         COPY_TEXT["SVC_" + card.code + "_" + band + "@고3\u00b7N수"],
       );
     }
-    expect(run({ ...CALC_EXAMPLE, q15: undefined }).pages.p16.agenda[2]).toBe(
+    expect(run(omit(CALC_EXAMPLE, "q15")).pages.p16.agenda[2]).toBe(
       COPY_TEXT.AGENDA_ADM_SKIP,
     );
+  });
+});
+
+describe("표지 (22 r6-r7, judge-report R6)", () => {
+  test("계산 예시 cover: inputs, 16-page toc from the 22 section rows, 1p headline", () => {
+    const { cover, p1 } = run().pages;
+    expect(cover.studentName).toBeUndefined();
+    expect(cover).toMatchObject({
+      gradeLabel: "고등학교 1학년",
+      schoolTypeLabel: "자율형 사립고",
+      diagnosedAt: "2026-11-09",
+      headline: p1.title,
+      stages: p1.radar.stages,
+      basis: COPY_TEXT.REPORT_BASIS,
+    });
+    expect(cover.toc.map((t) => t.page)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+    ]);
+    expect(cover.toc[0]?.title).toBe("요약");
+    expect(cover.toc[6]?.title).toBe("입결");
+    expect(cover.toc[11]?.title).toBe(cover.toc[14]?.title);
+  });
+
+  test("M3 drops page 7 from the toc; a profile name is shown", () => {
+    const m3 = scoreDiagnosisV3(validAnswers("M3"), {
+      ...CALC_EXAMPLE_CONTEXT,
+      studentName: "김위닝",
+    }).pages.cover;
+    expect(m3.toc.map((t) => t.page)).not.toContain(7);
+    expect(m3.toc).toHaveLength(15);
+    expect(m3.studentName).toBe("김위닝");
   });
 });

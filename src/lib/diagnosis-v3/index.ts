@@ -5,7 +5,6 @@ import { buildPages, scoreEngine } from "./report.js";
 import {
   type DiagnosisV3Answers,
   type DiagnosisV3Context,
-  type DiagnosisV3Pages,
   type DiagnosisV3Payload,
   SCHEMA_VERSION,
 } from "./types.js";
@@ -25,6 +24,6 @@ export function scoreDiagnosisV3(
   return {
     version: SCHEMA_VERSION,
     scores: engine.scores,
-    pages: buildPages(engine) as DiagnosisV3Pages,
+    pages: buildPages(engine),
   };
 }

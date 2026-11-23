@@ -6,6 +6,7 @@ import type { AreaCode } from "./codes.js";
 import { P1_CODES, P2_CODES } from "./codes.js";
 import { judgeExamOps } from "./examOps.js";
 import { mbtiPage8, scoreMbti } from "./mbti.js";
+import { buildCover } from "./pages/cover.js";
 import { buildPage1 } from "./pages/p1.js";
 import { buildPage2, goalOf } from "./pages/p2.js";
 import { buildPage3 } from "./pages/p3.js";
@@ -150,15 +151,16 @@ export function scoreEngine(
   return { answers, context, scores, temperament, admission, services };
 }
 
-/** 22_리포트요소 pages; filled page by page. */
-export function buildPages(engine: Engine): Partial<DiagnosisV3Pages> {
+/** 22_리포트요소 pages in report order; 7p is absent for M3 (22 r70). */
+export function buildPages(engine: Engine): DiagnosisV3Pages {
+  const { scores, answers, context } = engine;
   const p9 = temperamentPage9(
     engine.temperament,
-    engine.scores.reliability.temperament,
+    scores.reliability.temperament,
   );
-  const p7 = buildPage7(engine);
-  const { scores, answers, context } = engine;
   const p10 = temperamentPage10(engine.temperament, scores.reliability);
+  const p1 = buildPage1(engine, p9.hero.name);
+  const p7 = buildPage7(engine);
   const [p12, p13, p14, p15] = buildPlannerPages(
     scores.plan,
     context.diagnosedAt,
@@ -166,7 +168,8 @@ export function buildPages(engine: Engine): Partial<DiagnosisV3Pages> {
   );
   if (!p12 || !p13 || !p14 || !p15) throw new Error("need 4 planner pages");
   return {
-    p1: buildPage1(engine, p9.hero.name),
+    cover: buildCover(engine, p1),
+    p1,
     p2: buildPage2(engine),
     p3: buildPage3(engine),
     p4: buildPage4(engine),
