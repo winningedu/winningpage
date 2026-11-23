@@ -6,6 +6,7 @@ import { formatCoverPeriod } from "@/components/report/formatCoverDate";
 import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { site } from "@/config/site";
+import { trackEvent } from "@/lib/analytics";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
   downloadReportPdf,
@@ -190,6 +191,7 @@ export default function GrowthReportBody({
   const handlePdfButtonClick = () => {
     if (!shouldUseServerPdf(window.navigator.userAgent)) {
       print();
+      trackEvent("report_export", { service: "goal", method: "print" });
       return;
     }
     if (!contentRef.current) return;
@@ -207,6 +209,7 @@ export default function GrowthReportBody({
         extraCss: REPORT_PRINT_PAGE_BASE_STYLE,
       });
       downloadReportPdf({ html, filename: reportFileName, accessToken });
+      trackEvent("report_export", { service: "goal", method: "pdf" });
     })();
   };
 
