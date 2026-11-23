@@ -171,7 +171,7 @@ describe("check-time-zone-literals", () => {
 
   test("기준 시각과 같은 마이그레이션도 건너뛴다", () => {
     put(
-      "supabase/migrations/20261123111847_x.sql",
+      "supabase/migrations/20261123153447_x.sql",
       "select now() at time zone 'Asia/Seoul';\n",
     );
     expect(run().code).toBe(0);

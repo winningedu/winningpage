@@ -41,7 +41,7 @@ const EXEMPT = [
 
 // dev와 운영에 이미 적용된 마이그레이션은 고칠 수 없는 기록이라 세지 않는다.
 // 파일명 앞 14자리 시각이 이 값 이하면 건너뛰고, 이후 마이그레이션만 검사한다.
-const APPLIED_MIGRATION_CUTOFF = "20261123111847";
+const APPLIED_MIGRATION_CUTOFF = "20261123153447";
 
 function isAppliedMigration(file) {
   const m = /^supabase\/migrations\/(\d{14})/.exec(file);
