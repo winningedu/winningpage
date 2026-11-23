@@ -1,4 +1,6 @@
 import { supabase } from "@/lib/supabase";
+import { formatDate } from "@/lib/time/format";
+import { browserTimeZone, isValidTimeZone } from "@/lib/time/zone";
 
 /**
  * 게시판(회사소식/공지사항) 공통 데이터 레이어.
@@ -31,10 +33,6 @@ const BOARD_TABLE_NAMES = Object.freeze(Object.values(BOARD_SOURCES));
 
 /** 페이지당 행 수 (설계 결정 D5). */
 export const BOARD_PAGE_SIZE = 10;
-
-// KST(UTC+9) 기준 날짜 표기 — NewsSection.jsx:46-60 / Home.jsx:50-54 todayKstYmd 와 동일한
-// +9h 시프트 방식. toISOString() 단독 사용 시 KST 00:00~08:59 생성 글이 전날로 표시된다.
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 export type BoardRow = {
   id?: string | number;
@@ -107,10 +105,10 @@ export function getViewCount(row: BoardRow): number | null {
 }
 
 /**
- * KST 기준 'YYYY-MM-DD'.
+ * 보는 사람의 브라우저 시간대 기준 'YYYY-MM-DD'(tz 로 바꿀 수 있다).
  * 파싱 불가 값은 원문 앞 10자 반환(기존 formatDate 7벌의 공통 폴백 관행 유지).
  */
-export function formatBoardDate(value: unknown): string {
+export function formatBoardDate(value: unknown, tz?: string): string {
   if (!value) return "";
 
   const date = new Date(value as string | number | Date);
@@ -119,7 +117,7 @@ export function formatBoardDate(value: unknown): string {
     return String(value).slice(0, 10);
   }
 
-  return new Date(date.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
+  return formatDate(date, tz);
 }
 
 /**
@@ -223,12 +221,20 @@ export async function incrementBoardView(
     return;
   }
 
+  // 하루 1회 집계의 하루는 보는 사람의 시간대 기준이다. 시간대를 못 얻으면 DB 가 거절하므로 호출하지 않는다.
+  const timeZone = browserTimeZone();
+  if (!isValidTimeZone(timeZone)) {
+    console.warn("조회수 증가 건너뜀: 잘못된 시간대", { timeZone });
+    return;
+  }
+
   try {
     const { error } = await supabase.rpc("increment_board_view", {
       p_source: table,
       // p_id는 text 인자다 — 게시판마다 id 컬럼 타입(uuid/bigint)이 달라
       // 이 함수 시그니처가 string | number를 받는다.
       p_id: String(id),
+      p_tz: timeZone,
     });
 
     if (error) {

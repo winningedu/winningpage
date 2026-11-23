@@ -10097,7 +10097,7 @@ export type Database = {
         Returns: string;
       };
       increment_board_view: {
-        Args: { p_id: string; p_source: string };
+        Args: { p_id: string; p_source: string; p_tz: string };
         Returns: number;
       };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
