@@ -109,6 +109,38 @@ describe("POST /api/enrollment/join-tenant", () => {
     expect(join).not.toHaveBeenCalled();
   });
 
+  test.each(["A", "B반", "3학년 2반", "1-2", "3 반", "0"])(
+    "class name '%s' is a 400 CLASS_INVALID before any DB call",
+    async (className) => {
+      const join = vi.fn();
+      kit.state.rpc.fn_catch_all_join_tenant = join;
+
+      expect(await post({ ...BODY, className })).toMatchObject({
+        status: 400,
+        body: {
+          error: { code: "CLASS_INVALID", message: "반은 숫자만 적어요" },
+        },
+      });
+      expect(join).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each([
+    ["3반", "3"],
+    [" 03 ", "3"],
+    ["12반", "12"],
+  ])("class name '%s' goes to the DB as '%s'", async (className, want) => {
+    const calls: Record<string, unknown>[] = [];
+    kit.state.rpc.fn_catch_all_join_tenant = (args) => {
+      calls.push(args);
+      return JOINED;
+    };
+
+    await post({ ...BODY, className });
+
+    expect(calls[0]).toMatchObject({ p_class_name: want });
+  });
+
   test("a code that matches no institution is 404 TENANT_NOT_FOUND", async () => {
     kit.state.rpc.fn_catch_all_join_tenant = () => ({ data: [], error: null });
 
