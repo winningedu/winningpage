@@ -190,4 +190,75 @@ begin
     format('select public.fn_grant_signup_coupons_for_user(%L)', gen_random_uuid()), 'P0002');
 end $$;
 
+-- ---------------------------------------------------------------------
+-- fn_usable_coupons / fn_coupon_by_code: 쿠폰 사용자(학생) 현지 오늘로 만료를 판정한다
+-- ---------------------------------------------------------------------
+insert into fx
+select 'par-seoul', pg_temp.mk_user('cz-par-seoul@t.local', 'user', 'parent', 'Asia/Seoul')::text
+union all select 'par-pago', pg_temp.mk_user('cz-par-pago@t.local', 'user', 'parent', 'Pacific/Pago_Pago')::text
+union all select 'par-kiri', pg_temp.mk_user('cz-par-kiri@t.local', 'user', 'parent', 'Pacific/Kiritimati')::text;
+
+insert into public.parent_child_links (parent_id, student_id, status, responded_at)
+select (select v::uuid from fx where k = 'par-' || s.k), (select v::uuid from fx where k = s.k), 'approved', now()
+  from (values ('seoul'), ('pago'), ('kiri')) as s(k);
+
+do $$
+declare
+  v_pago_today  date := public.fn_local_date(now(), 'Pacific/Pago_Pago');
+  v_seoul_today date := public.fn_local_date(now(), 'Asia/Seoul');
+  v_c_pago  uuid;
+  v_c_seoul uuid;
+  v_c_seoul_old uuid;
+  r record;
+begin
+  -- 사모아 오늘이 마지막 날인 쿠폰 / 서울 오늘이 마지막 날인 쿠폰 / 서울 어제가 마지막 날인 쿠폰
+  insert into public.coupons (title, discount_amount, slug, code, grant_type, valid_until)
+  values ('cz-u-pago', 1000, 'cz-u-pago', 'czupago', 'auto', v_pago_today) returning id into v_c_pago;
+  insert into public.coupons (title, discount_amount, slug, code, grant_type, valid_until)
+  values ('cz-u-seoul', 1000, 'cz-u-seoul', 'czuseoul', 'auto', v_seoul_today) returning id into v_c_seoul;
+  insert into public.coupons (title, discount_amount, slug, code, grant_type, valid_until)
+  values ('cz-u-seoul-old', 1000, 'cz-u-seoul-old', 'czuseoulold', 'auto', v_seoul_today - 1) returning id into v_c_seoul_old;
+
+  -- 사모아 학생: 사모아 마지막 날 쿠폰이 유효
+  perform pg_temp.as_user((select v::uuid from fx where k = 'pago'));
+  select * into r from public.fn_usable_coupons(0, null, null) u where u.id = v_c_pago;
+  perform pg_temp.expect_bool('usable 사모아 학생 사모아 마지막 날 eligible', r.eligible, true);
+  select * into r from public.fn_coupon_by_code('czupago', 0, null, null);
+  perform pg_temp.expect_bool('by_code 사모아 학생 사모아 마지막 날 eligible', r.eligible, true);
+
+  -- 키리바시 학생: 같은 쿠폰이 이미 만료
+  perform pg_temp.as_user((select v::uuid from fx where k = 'kiri'));
+  select * into r from public.fn_usable_coupons(0, null, null) u where u.id = v_c_pago;
+  perform pg_temp.expect_text('usable 키리바시 학생 expired', r.reason, 'expired');
+  perform pg_temp.expect_bool('usable 키리바시 학생 not eligible', r.eligible, false);
+  select * into r from public.fn_coupon_by_code('czupago', 0, null, null);
+  perform pg_temp.expect_text('by_code 키리바시 학생 expired', r.reason, 'expired');
+
+  -- 서울 학생: 기존 결과 불변
+  perform pg_temp.as_user((select v::uuid from fx where k = 'seoul'));
+  select * into r from public.fn_usable_coupons(0, null, null) u where u.id = v_c_seoul;
+  perform pg_temp.expect_bool('usable 서울 학생 서울 마지막 날 eligible', r.eligible, true);
+  select * into r from public.fn_usable_coupons(0, null, null) u where u.id = v_c_seoul_old;
+  perform pg_temp.expect_text('usable 서울 학생 어제 기한 expired', r.reason, 'expired');
+  select * into r from public.fn_coupon_by_code('czuseoul', 0, null, null);
+  perform pg_temp.expect_bool('by_code 서울 학생 서울 마지막 날 eligible', r.eligible, true);
+  select * into r from public.fn_coupon_by_code('czuseoulold', 0, null, null);
+  perform pg_temp.expect_text('by_code 서울 학생 어제 기한 expired', r.reason, 'expired');
+end $$;
+
+-- 인자 기본값 때문에 직접 호출이 모호한 옛 오버로드까지 포함해, 쿠폰 함수 본문에
+-- 서울 시간대 하드코딩이 남지 않았는지 본다.
+do $$
+begin
+  perform pg_temp.expect_text('쿠폰 함수 본문에 Asia/Seoul 없음',
+    coalesce((
+      select string_agg(p.oid::regprocedure::text, ', ')
+        from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
+       where p.proname in ('fn_coupon_by_code', 'fn_coupon_is_granted', 'fn_usable_coupons',
+                           'fn_grant_coupon', 'fn_grant_signup_coupons_for_user')
+         and p.prosrc like '%Asia/Seoul%'
+    ), ''), '');
+end $$;
+
 rollback;
