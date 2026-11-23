@@ -195,7 +195,7 @@ select pg_temp.expect_text('반 없는 학적 행이 생긴다',
 
 -- 학원은 그룹을 받고 school_name 을 비운다
 select pg_temp.mk_stu('s3', '010-8000-0004');
-select pg_temp.expect_ok('학원으로 그룹을 주고 옮긴다', pg_temp.mv('s3', 'acad', '고1', '심화반', '81반', null));
+select pg_temp.expect_ok('학원으로 그룹을 주고 옮긴다', pg_temp.mv('s3', 'acad', '고1', '심화반', 'A반', null));
 select pg_temp.expect_text('학원은 school_name 을 비운다',
   (select coalesce(school_name, '-') from public.profiles where id = pg_temp.fx('s3')), '-');
 select pg_temp.expect_text('학원 학적은 그룹 학급이다',

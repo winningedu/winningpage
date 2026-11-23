@@ -72,45 +72,64 @@ insert into fx values
   ('other', pg_temp.mk_tenant('T3THRRRR', '학교'));
 create function pg_temp.fx(p_k text) returns uuid language sql as $$ select v from fx where k = p_k $$;
 
--- 이름 정규화: 학교와 학원 모두 숫자만(바깥 공백 제거, 끝의 반 한 번 제거, 앞의 0 제거), 아니면 빈 문자열
-select pg_temp.expect_text('학교 [3] 은 3', public.fn_normalize_class_name('학교', '3'), '3');
-select pg_temp.expect_text('학교 [03] 은 3', public.fn_normalize_class_name('학교', '03'), '3');
-select pg_temp.expect_text('학교 [3반] 은 3', public.fn_normalize_class_name('학교', '3반'), '3');
-select pg_temp.expect_text('학교 [ 12반 ] 은 12', public.fn_normalize_class_name('학교', ' 12반 '), '12');
-select pg_temp.expect_text('학교 [10] 은 10', public.fn_normalize_class_name('학교', '10'), '10');
-select pg_temp.expect_text('학교 [010] 은 10', public.fn_normalize_class_name('학교', '010'), '10');
-select pg_temp.expect_text('사기업 [3] 은 3', public.fn_normalize_class_name('사기업', '3'), '3');
-select pg_temp.expect_text('사기업 [03] 은 3', public.fn_normalize_class_name('사기업', '03'), '3');
-select pg_temp.expect_text('사기업 [3반] 은 3', public.fn_normalize_class_name('사기업', '3반'), '3');
-select pg_temp.expect_text('사기업 [ 12반 ] 은 12', public.fn_normalize_class_name('사기업', ' 12반 '), '12');
-select pg_temp.expect_text('사기업 [10] 은 10', public.fn_normalize_class_name('사기업', '10'), '10');
-select pg_temp.expect_text('사기업 [010] 은 10', public.fn_normalize_class_name('사기업', '010'), '10');
-select pg_temp.expect_text('기타 [3] 은 3', public.fn_normalize_class_name('기타', '3'), '3');
-select pg_temp.expect_text('기타 [03] 은 3', public.fn_normalize_class_name('기타', '03'), '3');
-select pg_temp.expect_text('기타 [3반] 은 3', public.fn_normalize_class_name('기타', '3반'), '3');
-select pg_temp.expect_text('기타 [ 12반 ] 은 12', public.fn_normalize_class_name('기타', ' 12반 '), '12');
-select pg_temp.expect_text('기타 [10] 은 10', public.fn_normalize_class_name('기타', '10'), '10');
-select pg_temp.expect_text('기타 [010] 은 10', public.fn_normalize_class_name('기타', '010'), '10');
-select pg_temp.expect_text('학교 [0] 은 빈 문자열', public.fn_normalize_class_name('학교', '0'), '');
-select pg_temp.expect_text('학교 [] 은 빈 문자열', public.fn_normalize_class_name('학교', ''), '');
-select pg_temp.expect_text('학교 [반] 은 빈 문자열', public.fn_normalize_class_name('학교', '반'), '');
-select pg_temp.expect_text('학교 [A] 은 빈 문자열', public.fn_normalize_class_name('학교', 'A'), '');
-select pg_temp.expect_text('학교 [B반] 은 빈 문자열', public.fn_normalize_class_name('학교', 'B반'), '');
-select pg_temp.expect_text('학교 [3학년 2반] 은 빈 문자열', public.fn_normalize_class_name('학교', '3학년 2반'), '');
-select pg_temp.expect_text('학교 [1-2] 은 빈 문자열', public.fn_normalize_class_name('학교', '1-2'), '');
-select pg_temp.expect_text('학교 [3 반] 은 빈 문자열', public.fn_normalize_class_name('학교', '3 반'), '');
-select pg_temp.expect_text('학교 [00반] 은 빈 문자열', public.fn_normalize_class_name('학교', '00반'), '');
-select pg_temp.expect_text('학교 [3반반] 은 빈 문자열', public.fn_normalize_class_name('학교', '3반반'), '');
-select pg_temp.expect_text('사기업 [0] 은 빈 문자열', public.fn_normalize_class_name('사기업', '0'), '');
-select pg_temp.expect_text('사기업 [] 은 빈 문자열', public.fn_normalize_class_name('사기업', ''), '');
-select pg_temp.expect_text('사기업 [반] 은 빈 문자열', public.fn_normalize_class_name('사기업', '반'), '');
-select pg_temp.expect_text('사기업 [A] 은 빈 문자열', public.fn_normalize_class_name('사기업', 'A'), '');
-select pg_temp.expect_text('사기업 [B반] 은 빈 문자열', public.fn_normalize_class_name('사기업', 'B반'), '');
-select pg_temp.expect_text('사기업 [3학년 2반] 은 빈 문자열', public.fn_normalize_class_name('사기업', '3학년 2반'), '');
-select pg_temp.expect_text('사기업 [1-2] 은 빈 문자열', public.fn_normalize_class_name('사기업', '1-2'), '');
-select pg_temp.expect_text('사기업 [3 반] 은 빈 문자열', public.fn_normalize_class_name('사기업', '3 반'), '');
-select pg_temp.expect_text('사기업 [00반] 은 빈 문자열', public.fn_normalize_class_name('사기업', '00반'), '');
-select pg_temp.expect_text('사기업 [3반반] 은 빈 문자열', public.fn_normalize_class_name('사기업', '3반반'), '');
+-- 이름 정규화: 학교와 학원 모두 글자와 숫자(모든 공백 제거, 끝의 반 한 번 제거, 숫자뿐이면 앞의 0 제거), 비면 빈 문자열
+select pg_temp.expect_text('학교 [01반] 은 [1]', public.fn_normalize_class_name('학교', '01반'), '1');
+select pg_temp.expect_text('학교 [01] 은 [1]', public.fn_normalize_class_name('학교', '01'), '1');
+select pg_temp.expect_text('학교 [1] 은 [1]', public.fn_normalize_class_name('학교', '1'), '1');
+select pg_temp.expect_text('학교 [1반] 은 [1]', public.fn_normalize_class_name('학교', '1반'), '1');
+select pg_temp.expect_text('학교 [ 1 반] 은 [1]', public.fn_normalize_class_name('학교', ' 1 반'), '1');
+select pg_temp.expect_text('학교 [10반] 은 [10]', public.fn_normalize_class_name('학교', '10반'), '10');
+select pg_temp.expect_text('학교 [010] 은 [10]', public.fn_normalize_class_name('학교', '010'), '10');
+select pg_temp.expect_text('학교 [A] 은 [A]', public.fn_normalize_class_name('학교', 'A'), 'A');
+select pg_temp.expect_text('학교 [A반] 은 [A]', public.fn_normalize_class_name('학교', 'A반'), 'A');
+select pg_temp.expect_text('학교 [B 반] 은 [B]', public.fn_normalize_class_name('학교', 'B 반'), 'B');
+select pg_temp.expect_text('학교 [starter] 은 [starter]', public.fn_normalize_class_name('학교', 'starter'), 'starter');
+select pg_temp.expect_text('학교 [3학년 2반] 은 [3학년2]', public.fn_normalize_class_name('학교', '3학년 2반'), '3학년2');
+select pg_temp.expect_text('학교 [3반반] 은 [3반]', public.fn_normalize_class_name('학교', '3반반'), '3반');
+select pg_temp.expect_text('학교 [1-2] 은 [1-2]', public.fn_normalize_class_name('학교', '1-2'), '1-2');
+select pg_temp.expect_text('학교 [반] 은 []', public.fn_normalize_class_name('학교', '반'), '');
+select pg_temp.expect_text('학교 [0] 은 []', public.fn_normalize_class_name('학교', '0'), '');
+select pg_temp.expect_text('학교 [00반] 은 []', public.fn_normalize_class_name('학교', '00반'), '');
+select pg_temp.expect_text('학교 [] 은 []', public.fn_normalize_class_name('학교', ''), '');
+select pg_temp.expect_text('학교 [  ] 은 []', public.fn_normalize_class_name('학교', '  '), '');
+select pg_temp.expect_text('사기업 [01반] 은 [1]', public.fn_normalize_class_name('사기업', '01반'), '1');
+select pg_temp.expect_text('사기업 [01] 은 [1]', public.fn_normalize_class_name('사기업', '01'), '1');
+select pg_temp.expect_text('사기업 [1] 은 [1]', public.fn_normalize_class_name('사기업', '1'), '1');
+select pg_temp.expect_text('사기업 [1반] 은 [1]', public.fn_normalize_class_name('사기업', '1반'), '1');
+select pg_temp.expect_text('사기업 [ 1 반] 은 [1]', public.fn_normalize_class_name('사기업', ' 1 반'), '1');
+select pg_temp.expect_text('사기업 [10반] 은 [10]', public.fn_normalize_class_name('사기업', '10반'), '10');
+select pg_temp.expect_text('사기업 [010] 은 [10]', public.fn_normalize_class_name('사기업', '010'), '10');
+select pg_temp.expect_text('사기업 [A] 은 [A]', public.fn_normalize_class_name('사기업', 'A'), 'A');
+select pg_temp.expect_text('사기업 [A반] 은 [A]', public.fn_normalize_class_name('사기업', 'A반'), 'A');
+select pg_temp.expect_text('사기업 [B 반] 은 [B]', public.fn_normalize_class_name('사기업', 'B 반'), 'B');
+select pg_temp.expect_text('사기업 [starter] 은 [starter]', public.fn_normalize_class_name('사기업', 'starter'), 'starter');
+select pg_temp.expect_text('사기업 [3학년 2반] 은 [3학년2]', public.fn_normalize_class_name('사기업', '3학년 2반'), '3학년2');
+select pg_temp.expect_text('사기업 [3반반] 은 [3반]', public.fn_normalize_class_name('사기업', '3반반'), '3반');
+select pg_temp.expect_text('사기업 [1-2] 은 [1-2]', public.fn_normalize_class_name('사기업', '1-2'), '1-2');
+select pg_temp.expect_text('사기업 [반] 은 []', public.fn_normalize_class_name('사기업', '반'), '');
+select pg_temp.expect_text('사기업 [0] 은 []', public.fn_normalize_class_name('사기업', '0'), '');
+select pg_temp.expect_text('사기업 [00반] 은 []', public.fn_normalize_class_name('사기업', '00반'), '');
+select pg_temp.expect_text('사기업 [] 은 []', public.fn_normalize_class_name('사기업', ''), '');
+select pg_temp.expect_text('사기업 [  ] 은 []', public.fn_normalize_class_name('사기업', '  '), '');
+select pg_temp.expect_text('기타 [01반] 은 [1]', public.fn_normalize_class_name('기타', '01반'), '1');
+select pg_temp.expect_text('기타 [01] 은 [1]', public.fn_normalize_class_name('기타', '01'), '1');
+select pg_temp.expect_text('기타 [1] 은 [1]', public.fn_normalize_class_name('기타', '1'), '1');
+select pg_temp.expect_text('기타 [1반] 은 [1]', public.fn_normalize_class_name('기타', '1반'), '1');
+select pg_temp.expect_text('기타 [ 1 반] 은 [1]', public.fn_normalize_class_name('기타', ' 1 반'), '1');
+select pg_temp.expect_text('기타 [10반] 은 [10]', public.fn_normalize_class_name('기타', '10반'), '10');
+select pg_temp.expect_text('기타 [010] 은 [10]', public.fn_normalize_class_name('기타', '010'), '10');
+select pg_temp.expect_text('기타 [A] 은 [A]', public.fn_normalize_class_name('기타', 'A'), 'A');
+select pg_temp.expect_text('기타 [A반] 은 [A]', public.fn_normalize_class_name('기타', 'A반'), 'A');
+select pg_temp.expect_text('기타 [B 반] 은 [B]', public.fn_normalize_class_name('기타', 'B 반'), 'B');
+select pg_temp.expect_text('기타 [starter] 은 [starter]', public.fn_normalize_class_name('기타', 'starter'), 'starter');
+select pg_temp.expect_text('기타 [3학년 2반] 은 [3학년2]', public.fn_normalize_class_name('기타', '3학년 2반'), '3학년2');
+select pg_temp.expect_text('기타 [3반반] 은 [3반]', public.fn_normalize_class_name('기타', '3반반'), '3반');
+select pg_temp.expect_text('기타 [1-2] 은 [1-2]', public.fn_normalize_class_name('기타', '1-2'), '1-2');
+select pg_temp.expect_text('기타 [반] 은 []', public.fn_normalize_class_name('기타', '반'), '');
+select pg_temp.expect_text('기타 [0] 은 []', public.fn_normalize_class_name('기타', '0'), '');
+select pg_temp.expect_text('기타 [00반] 은 []', public.fn_normalize_class_name('기타', '00반'), '');
+select pg_temp.expect_text('기타 [] 은 []', public.fn_normalize_class_name('기타', ''), '');
+select pg_temp.expect_text('기타 [  ] 은 []', public.fn_normalize_class_name('기타', '  '), '');
 select pg_temp.expect_text('null 은 빈 문자열', public.fn_normalize_class_name('사기업', null), '');
 
 -- fn_class_ensure: 같은 입력이면 같은 id
@@ -126,14 +145,26 @@ select pg_temp.expect_bool('다른 학년이면 다른 학급',
   public.fn_class_ensure(pg_temp.fx('school'), 2026, '고2', null, '3') <> (select v from ids where k = 's1'), true);
 
 insert into ids values
-  ('a1', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고1', null, ' 21반 ')),
-  ('a2', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고1', null, '021'));
+  ('a1', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고1', null, ' A 1 ')),
+  ('a2', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고1', null, 'a1'));
 select pg_temp.expect_text('학원 학급 이름 공백 제거',
-  (select name from public.classes where id = (select v from ids where k = 'a1')), '21');
+  (select name from public.classes where id = (select v from ids where k = 'a1')), 'A1');
 select pg_temp.expect_bool('학원 학급은 대소문자 무시로 같은 학급',
   (select v from ids where k = 'a1') = (select v from ids where k = 'a2'), true);
-select pg_temp.expect_error('숫자가 없는 학교 학급 이름 거부',
-  $$select public.fn_class_ensure(pg_temp.fx('school'), 2026, '고1', null, '가')$$, '22023');
+select pg_temp.expect_error('정규화하면 빈 학급 이름 거부(반)',
+  $$select public.fn_class_ensure(pg_temp.fx('school'), 2026, '고1', null, '반')$$, '22023');
+select pg_temp.expect_error('정규화하면 빈 학급 이름 거부(00반)',
+  $$select public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고1', null, '00반')$$, '22023');
+insert into ids values
+  ('l1', public.fn_class_ensure(pg_temp.fx('school'), 2026, '고1', null, 'A반')),
+  ('l2', public.fn_class_ensure(pg_temp.fx('school'), 2026, '고1', null, ' a ')),
+  ('l3', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고1', null, 'B 반'));
+select pg_temp.expect_text('학교도 글자 반을 받고 이름은 대소문자를 그대로 둔다',
+  (select name from public.classes where id = (select v from ids where k = 'l1')), 'A');
+select pg_temp.expect_bool('A반 과 a 는 대소문자 무시로 같은 학급',
+  (select v from ids where k = 'l1') = (select v from ids where k = 'l2'), true);
+select pg_temp.expect_text('학원 B 반 은 B',
+  (select name from public.classes where id = (select v from ids where k = 'l3')), 'B');
 
 -- 그룹: 학원만, 같은 테넌트 안에서 이름 유일(삭제된 그룹 이름은 재사용 가능)
 insert into public.class_groups (tenant_id, name) values (pg_temp.fx('academy'), '심화반');
@@ -152,8 +183,8 @@ select pg_temp.expect_ok('삭제된 그룹 이름은 재사용 가능',
 insert into ids values ('g1', (select id from public.class_groups
   where tenant_id = pg_temp.fx('academy') and deleted_at is null));
 insert into ids values
-  ('ag1', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고1', (select v from ids where k = 'g1'), '21')),
-  ('ag2', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고1', (select v from ids where k = 'g1'), '021'));
+  ('ag1', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고1', (select v from ids where k = 'g1'), 'A1')),
+  ('ag2', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고1', (select v from ids where k = 'g1'), 'a1'));
 select pg_temp.expect_bool('그룹이 같으면 같은 학급',
   (select v from ids where k = 'ag1') = (select v from ids where k = 'ag2'), true);
 select pg_temp.expect_bool('그룹이 있으면 그룹 없는 같은 이름과 다른 학급',
@@ -174,18 +205,18 @@ select pg_temp.expect_error('다른 테넌트 그룹을 쓰는 학급 거부',
 
 -- 다학년 학급(grade null): 학원만, 같은 입력이면 같은 학급(NULLS NOT DISTINCT 인덱스의 ON CONFLICT)
 insert into ids values
-  ('m1', public.fn_class_ensure(pg_temp.fx('academy'), 2026, null, null, ' 17반 ')),
-  ('m2', public.fn_class_ensure(pg_temp.fx('academy'), 2026, null, null, '017'));
+  ('m1', public.fn_class_ensure(pg_temp.fx('academy'), 2026, null, null, ' M 7 ')),
+  ('m2', public.fn_class_ensure(pg_temp.fx('academy'), 2026, null, null, 'm7'));
 select pg_temp.expect_bool('다학년: 같은 입력이면 같은 학급(멱등)',
   (select v from ids where k = 'm1') = (select v from ids where k = 'm2'), true);
 select pg_temp.expect_bool('다학년: grade 가 null 로 저장된다',
-  (select grade is null and name = '17' from public.classes where id = (select v from ids where k = 'm1')), true);
+  (select grade is null and name = 'M7' from public.classes where id = (select v from ids where k = 'm1')), true);
 select pg_temp.expect_bool('다학년: 한 기관, 학년도, 그룹, 이름에 한 학급뿐',
   (select count(*) from public.classes where tenant_id = pg_temp.fx('academy') and school_year = 2026
-     and grade is null and group_id is null and name = '17') = 1, true);
+     and grade is null and group_id is null and name = 'M7') = 1, true);
 select pg_temp.expect_error('다학년: 같은 다학년 학급 직접 insert 거부(null 도 같은 값)',
   $$insert into public.classes (tenant_id, school_year, grade, group_id, name)
-    values (pg_temp.fx('academy'), 2026, null, null, '17')$$, '23505');
+    values (pg_temp.fx('academy'), 2026, null, null, 'M7')$$, '23505');
 select pg_temp.expect_error('다학년: 학교는 학년 없는 학급을 ensure 할 수 없다',
   $$select public.fn_class_ensure(pg_temp.fx('school'), 2026, null, null, '5')$$, '22023');
 select pg_temp.expect_error('다학년: 학교는 학년 없는 학급을 직접 insert 할 수 없다',
@@ -193,16 +224,16 @@ select pg_temp.expect_error('다학년: 학교는 학년 없는 학급을 직접
 
 -- 이름 우선: 학원에서 학생이 실제 학년과 학급 이름을 보내면, 같은 기관, 학년도, 그룹, 이름의 다학년 학급이 먼저다
 select pg_temp.expect_bool('우선: 실제 학년으로 불러도 같은 이름의 다학년 학급을 돌려준다',
-  public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고2', null, '17') = (select v from ids where k = 'm1'), true);
+  public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고2', null, 'M7') = (select v from ids where k = 'm1'), true);
 select pg_temp.expect_bool('우선: 대소문자와 공백을 무시한다',
-  public.fn_class_ensure(pg_temp.fx('academy'), 2026, '중1', null, ' 17반') = (select v from ids where k = 'm1'), true);
+  public.fn_class_ensure(pg_temp.fx('academy'), 2026, '중1', null, ' m 7') = (select v from ids where k = 'm1'), true);
 select pg_temp.expect_bool('우선: 학년 있는 M7 학급은 그룹 없는 올해에는 만들어지지 않는다',
   not exists (select 1 from public.classes where tenant_id = pg_temp.fx('academy') and school_year = 2026
-     and group_id is null and name = '17' and grade is not null), true);
+     and group_id is null and name = 'M7' and grade is not null), true);
 insert into ids values
-  ('pg', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고2', (select v from ids where k = 'g1'), '17')),
-  ('py', public.fn_class_ensure(pg_temp.fx('academy'), 2027, '고2', null, '17')),
-  ('p8', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고2', null, '18'));
+  ('pg', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고2', (select v from ids where k = 'g1'), 'M7')),
+  ('py', public.fn_class_ensure(pg_temp.fx('academy'), 2027, '고2', null, 'M7')),
+  ('p8', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고2', null, 'M8'));
 select pg_temp.expect_bool('우선: 그룹이 다르면 다학년 학급이 아니라 새 학년 학급이다',
   (select grade = '고2' and id <> (select v from ids where k = 'm1') from public.classes where id = (select v from ids where k = 'pg')), true);
 select pg_temp.expect_bool('우선: 학년도가 다르면 다학년 학급이 아니라 새 학년 학급이다',
@@ -210,11 +241,11 @@ select pg_temp.expect_bool('우선: 학년도가 다르면 다학년 학급이 �
 select pg_temp.expect_bool('우선: 다른 이름은 학년 학급을 만든다',
   (select grade = '고2' from public.classes where id = (select v from ids where k = 'p8')), true);
 select pg_temp.expect_error('같은 이름의 학년 학급이 이미 있으면 다학년 학급을 만들 수 없다(WC105)',
-  $$select public.fn_class_ensure(pg_temp.fx('academy'), 2026, null, null, ' 18반')$$, 'WC105');
+  $$select public.fn_class_ensure(pg_temp.fx('academy'), 2026, null, null, ' m 8')$$, 'WC105');
 select pg_temp.expect_bool('거부된 다학년 학급은 남지 않고 M8 은 학년 학급 하나뿐이다',
   (select count(*) from public.classes where tenant_id = pg_temp.fx('academy') and school_year = 2026
-     and group_id is null and name = '18') = 1, true);
-insert into ids values ('m8g', public.fn_class_ensure(pg_temp.fx('academy'), 2026, null, (select v from ids where k = 'g1'), '18'));
+     and group_id is null and lower(name) = 'm8') = 1, true);
+insert into ids values ('m8g', public.fn_class_ensure(pg_temp.fx('academy'), 2026, null, (select v from ids where k = 'g1'), 'M8'));
 select pg_temp.expect_bool('같은 이름이어도 그룹이 다르면 다학년 학급을 만들 수 있다',
   (select grade is null from public.classes where id = (select v from ids where k = 'm8g')), true);
 select pg_temp.expect_text('우선: 학교는 영향이 없다(학년 학급)',
@@ -222,7 +253,7 @@ select pg_temp.expect_text('우선: 학교는 영향이 없다(학년 학급)',
 
 -- 학년이 아닌 값은 이름 우선 규칙이 다학년 학급을 돌려주기 전에 테이블 CHECK 와 같은 오류로 막는다
 select pg_temp.expect_error('학년 목록 밖 값은 다학년 학급이 있어도 거부(23514)',
-  $$select public.fn_class_ensure(pg_temp.fx('academy'), 2026, '초6', null, '17')$$, '23514');
+  $$select public.fn_class_ensure(pg_temp.fx('academy'), 2026, '초6', null, 'M7')$$, '23514');
 
 -- 학급 find-or-create 는 이름마다가 아니라 (기관, 학년도) 당 자문 잠금 하나만 잡는다(명단 적용의 잠금과 같은 키)
 create function pg_temp.adv_locks() returns bigint language sql as $$
@@ -234,15 +265,15 @@ declare
   v_n bigint;
   v_base bigint := pg_temp.adv_locks();
 begin
-  perform public.fn_class_ensure(v_t, 2030, '고1', null, '41');
-  perform public.fn_class_ensure(v_t, 2030, '고2', null, '42');
-  perform public.fn_class_ensure(v_t, 2030, '고3', null, '43');
+  perform public.fn_class_ensure(v_t, 2030, '고1', null, 'LK1');
+  perform public.fn_class_ensure(v_t, 2030, '고2', null, 'LK2');
+  perform public.fn_class_ensure(v_t, 2030, '고3', null, 'LK3');
   select pg_temp.adv_locks() - v_base into v_n;
   if v_n <> 1 then raise exception '[FAIL] 잠금: 이름이 달라도 같은 기관, 학년도는 잠금 하나, got %', v_n; end if;
   perform public.fn_roster_pending_lock(v_t, 2030);
   select pg_temp.adv_locks() - v_base into v_n;
   if v_n <> 1 then raise exception '[FAIL] 잠금: 명단 적용의 잠금과 같은 키라 다시 잡아도 늘지 않는다, got %', v_n; end if;
-  perform public.fn_class_ensure(v_t, 2031, '고1', null, '41');
+  perform public.fn_class_ensure(v_t, 2031, '고1', null, 'LK1');
   select pg_temp.adv_locks() - v_base into v_n;
   if v_n <> 2 then raise exception '[FAIL] 잠금: 다른 학년도는 잠금이 하나 더, got %', v_n; end if;
   raise notice '[PASS] 잠금: 학급 find-or-create 는 (기관, 학년도) 당 하나이고 명단 적용의 잠금과 같다';

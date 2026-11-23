@@ -263,7 +263,7 @@ select pg_temp.expect_text('join: 거절한 신청에 결정자로 학생 본인
 -- 학원: 그룹을 받고 번호는 선택, school_name 은 비운다
 select pg_temp.mk_cj('cj2', '010-7000-0002');
 select pg_temp.expect_ok('join: 학원은 그룹을 주고 번호 없이 옮긴다', $$
-  select * from public.fn_catch_all_join_tenant(pg_temp.fx('cj2'), 'TGGGGGGG', '고1', '심화반', '81반', null)
+  select * from public.fn_catch_all_join_tenant(pg_temp.fx('cj2'), 'TGGGGGGG', '고1', '심화반', 'A반', null)
 $$);
 select pg_temp.expect_text('join: 학원은 school_name 을 비운다',
   (select coalesce(school_name, '-') from public.profiles where id = pg_temp.fx('cj2')), '-');
@@ -333,13 +333,13 @@ update public.profiles set phone = '01070000003' where id = :'samephone'::uuid;
 select pg_temp.expect_error('join: 대상 기관에 같은 번호가 있으면 WC096', pg_temp.join_call('cj3', 'TGFFFFFF', null, '4반', 9::smallint), 'WC096');
 select pg_temp.expect_text('join: WC096 이면 아무것도 바뀌지 않는다', pg_temp.untouched('cj3'), 'true:1:1');
 
-select pg_temp.expect_error('join: 등록되지 않은 그룹이면 WC080', pg_temp.join_call('cj3', 'TGGGGGGG', '없는그룹', '81반', null), 'WC080');
+select pg_temp.expect_error('join: 등록되지 않은 그룹이면 WC080', pg_temp.join_call('cj3', 'TGGGGGGG', '없는그룹', 'A반', null), 'WC080');
 select pg_temp.expect_text('join: WC080 이면 아무것도 바뀌지 않는다', pg_temp.untouched('cj3'), 'true:1:1');
 
 select pg_temp.expect_error('join: 기타가 아닌 학생은 WC098', pg_temp.join_call('real', 'TGFFFFFF', null, '3반', 1::smallint), 'WC098');
 select pg_temp.expect_text('join: WC098 이면 소속이 그대로',
   (select (tenant_id = pg_temp.fx('t_real'))::text from public.profiles where id = pg_temp.fx('real')), 'true');
-select pg_temp.expect_error('join: 한 번 옮긴 학생은 다시 WC098', pg_temp.join_call('cj1', 'TGGGGGGG', null, '81반', null), 'WC098');
+select pg_temp.expect_error('join: 한 번 옮긴 학생은 다시 WC098', pg_temp.join_call('cj1', 'TGGGGGGG', null, 'A반', null), 'WC098');
 
 -- 못 찾는 코드와 기타 자신의 코드는 0행, 실패 기록은 남고 10회째 뒤에는 WC068
 select pg_temp.expect_int('join: 없는 코드는 0행',
