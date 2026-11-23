@@ -20,6 +20,7 @@ const gateState = vi.hoisted(() => ({ on: false, resume: false }));
 const authState = vi.hoisted(() => ({ userId: "u1" as string | null }));
 const accessMock = vi.hoisted(() => vi.fn());
 const consumeMock = vi.hoisted(() => vi.fn());
+const trackMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/config/site", async (orig) => {
   const actual = await orig<typeof import("@/config/site")>();
@@ -42,6 +43,7 @@ vi.mock("@/config/site", async (orig) => {
 vi.mock("@/context/AuthProvider", () => ({
   useAuthOptional: () => ({ userId: authState.userId }),
 }));
+vi.mock("@/lib/analytics", () => ({ trackEvent: trackMock }));
 vi.mock("@/lib/diagnosisAccess", () => ({
   checkDiagnosisAccess: accessMock,
   consumeDiagnosisAttempt: consumeMock,
@@ -119,6 +121,7 @@ beforeEach(() => {
   authState.userId = "u1";
   accessMock.mockReset();
   consumeMock.mockReset();
+  trackMock.mockReset();
   vi.spyOn(window, "alert").mockImplementation(() => {});
 });
 afterEach(() => {
@@ -294,6 +297,25 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
     await waitFor(() => expect(onResult).toHaveBeenCalled());
     expect(onResult).not.toHaveBeenCalledWith(null);
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("제출에 성공하면 diagnosis_complete 이벤트를 한 번 보낸다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "allowed" });
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await waitFor(() => expect(onResult).toHaveBeenCalled());
+    expect(trackMock).toHaveBeenCalledTimes(1);
+    expect(trackMock).toHaveBeenCalledWith("diagnosis_complete");
+  });
+
+  it("제출이 거부되면 diagnosis_complete 이벤트를 보내지 않는다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "check-failed" });
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+    expect(trackMock).not.toHaveBeenCalled();
   });
 
   it("제출이 거부되면 초안을 남긴다", async () => {

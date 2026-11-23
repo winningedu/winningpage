@@ -10,6 +10,7 @@ import {
   type CascadeValue,
   useAdmissionCascade,
 } from "@/hooks/useAdmissionCascade";
+import { trackEvent } from "@/lib/analytics";
 // 학습진단 유료 게이팅(20260821, 이용 요금 구조 최종본 20260806) — 진입 판정(마운트 시
 // 1회)과 제출 소진(마지막 스텝 CTA) 둘 다 이 모듈을 거친다. 판정 정본은 서버이고,
 // 여기서는 호출·fail-open 흡수·리다이렉트만 한다.
@@ -278,6 +279,7 @@ export default function SurveyStepShell() {
       }
     }
 
+    trackEvent("diagnosis_complete");
     return payload;
     // awaitCuts 는 훅 안에서 useCallback(빈 deps)로 안정된 참조라 이 콜백도 answers 가 바뀔 때만
     // 재생성된다 — admissionCascade 객체 전체를 deps 에 넣으면 매 렌더 재생성되어 의미가 없다.
