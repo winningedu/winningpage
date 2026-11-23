@@ -112,4 +112,16 @@ describe("buildPlan", () => {
       },
     ]);
   });
+
+  test("calc example A33: 수행평가 week 3 is reduced, column 3 done becomes DONE_REDUCED", () => {
+    const plan = calcPlan();
+    expect(plan.reducedWeeks).toEqual([3]);
+    const column3 = plan.tasks.filter((t) => t.column === 3);
+    expect(column3.map((t) => t.doneId)).toEqual([
+      "DONE_H12_DEEP_1",
+      "DONE_H12_DEEP_2",
+      "DONE_REDUCED",
+      "DONE_H12_DEEP_4",
+    ]);
+  });
 });

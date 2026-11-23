@@ -92,6 +92,12 @@ const EVENT_TASKS: Readonly<
   ]),
 ) as Record<EventKind, readonly { before: number; taskId: string }[]>;
 
+// 21 B27: event kinds whose day reduces its week, "일정(EXAM, PERF, APPLY)"
+const REDUCING_KINDS = match(
+  textCell(planRow(27), 1),
+  /\(([A-Z\u00b7]+)\)/,
+)[1]?.split("\u00b7") as readonly EventKind[];
+
 const DAY_MS = 86_400_000;
 
 /** Day number of a date, Day 1 = diagnosedAt. */
@@ -113,7 +119,9 @@ const first = <T>(list: readonly T[], index: number, what: string): T => {
   return value;
 };
 
-export function buildPlan(input: PlanInput): Pick<Plan, "columns" | "tasks"> {
+export function buildPlan(
+  input: PlanInput,
+): Pick<Plan, "columns" | "tasks" | "reducedWeeks"> {
   // 21 C9: columns 1-2 = two lowest PAGE1 stages; 21 C10: column 3 = lowest PAGE2 area
   const columns: Plan["columns"] = [
     first(input.page1Order, 0, "PAGE1 stage"),
@@ -128,13 +136,34 @@ export function buildPlan(input: PlanInput): Pick<Plan, "columns" | "tasks"> {
     if (!week) throw new Error(`day ${day} is outside the plan`);
     return { date: dateOfDay(input.diagnosedAt, day), day, week, ...rest };
   };
+  const lastDay = first(WEEKS, WEEKS.length - 1, "week").to;
+  const events = Array.isArray(input.schedule) ? input.schedule : [];
+  const within = events.filter((e) => {
+    const day = dayOfDate(input.diagnosedAt, e.date);
+    return day >= 1 && day <= lastDay;
+  });
+  // 21 B27: weeks holding an EXAM, PERF or APPLY day
+  const reducedWeeks = WEEKS.map((w) => w.week).filter((week) =>
+    within.some(
+      (e) =>
+        REDUCING_KINDS.includes(e.kind) &&
+        task(dayOfDate(input.diagnosedAt, e.date), { taskId: "" }).week ===
+          week,
+    ),
+  );
   const areaTasks = WEEKS.flatMap(({ week, from }) =>
     columns.map((area, index) => {
       // 21 C11: task AREA_{code}_ACTn, done DONE_{code}_{n} else DONE_GENERIC
       const doneId = `DONE_${area}_${week}`;
+      // 21 D27: a reduced week's column 3 done is DONE_REDUCED
+      const reduced = index === 2 && reducedWeeks.includes(week);
       return task(from + first(COLUMN_OFFSETS, index, "column offset"), {
         taskId: `AREA_${area}_ACT${week}`,
-        doneId: doneId in COPY_TEXT ? doneId : "DONE_GENERIC",
+        doneId: reduced
+          ? "DONE_REDUCED"
+          : doneId in COPY_TEXT
+            ? doneId
+            : "DONE_GENERIC",
         column: (index + 1) as 1 | 2 | 3,
         area,
       });
@@ -147,12 +176,6 @@ export function buildPlan(input: PlanInput): Pick<Plan, "columns" | "tasks"> {
       task(from + CHECK_OFFSET, { taskId: `FIX_CHECK_${week}` }),
     ),
   ];
-  const lastDay = first(WEEKS, WEEKS.length - 1, "week").to;
-  const events = Array.isArray(input.schedule) ? input.schedule : [];
-  const within = events.filter((e) => {
-    const day = dayOfDate(input.diagnosedAt, e.date);
-    return day >= 1 && day <= lastDay;
-  });
   // 21 r21-r25 offsets; 21 C26: a task that lands before Day 1 is dropped
   const eventTasks = within.flatMap((event) =>
     EVENT_TASKS[event.kind]
@@ -166,5 +189,5 @@ export function buildPlan(input: PlanInput): Pick<Plan, "columns" | "tasks"> {
   const tasks = [...areaTasks, ...fixedTasks, ...eventTasks].sort(
     (a, b) => a.day - b.day || rank(a.taskId) - rank(b.taskId),
   );
-  return { columns, tasks };
+  return { columns, tasks, reducedWeeks };
 }
