@@ -1228,3 +1228,21 @@ test("게이지 통합: 매일 목표를 정확히 채우면 D-day 에 100% 에 
     `게이지 ${gauge} 가 100 근처가 아니다`,
   ).toBeTruthy();
 });
+
+test("calcStudentBonusRates: 기준일은 넘겨준 시간대의 오늘이고 실행 환경 TZ와 무관하다", () => {
+  // 2026-09-10T15:30Z = 서울 9/11(수시 기준일 9/12까지 1일), 로스앤젤레스 9/10(2일).
+  // process.env.TZ 는 Asia/Seoul 로 고정돼 있어, 시간대 인자를 무시하면 서울 값이 둘 다 나온다.
+  const instant = new Date("2026-09-10T15:30:00Z");
+  const seoul = calcStudentBonusRates("고3", 0, 0, 0, 0, instant, "Asia/Seoul");
+  const la = calcStudentBonusRates(
+    "고3",
+    0,
+    0,
+    0,
+    0,
+    instant,
+    "America/Los_Angeles",
+  );
+  assertClose(seoul.idealSusiBonus, 100, "서울 D-1");
+  assertClose(la.idealSusiBonus, 50, "LA D-2");
+});
