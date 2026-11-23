@@ -15,8 +15,9 @@ export default mergeConfig(
       env: {
         VITE_SUPABASE_URL:
           process.env.VITE_SUPABASE_URL ?? "http://127.0.0.1:54321",
-        VITE_SUPABASE_ANON_KEY:
-          process.env.VITE_SUPABASE_ANON_KEY ?? "sb_publishable_vitest_dummy",
+        VITE_SUPABASE_PUBLISHABLE_KEY:
+          process.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+          "sb_publishable_vitest_dummy",
         // src/config/site.ts가 모듈 로드 시점에 이 값을 요구한다(없으면 throw) —
         // Header/SiteFooter 등 대다수 컴포넌트 테스트가 site.ts를 간접 import하므로
         // CI(.env.local 없음)에서도 기본값(winning)을 깔아 둔다. 사이트별 분기를
