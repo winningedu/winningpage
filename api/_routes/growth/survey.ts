@@ -38,6 +38,7 @@ import {
   stripNullKeys,
   validateSurveyPostBody,
 } from "../../_lib/growth/intake/surveyBootstrap.js";
+import { loadMemberTimeZone } from "../../_lib/growth/memberZone.js";
 import { defineHandler, requireUserId } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import {
@@ -209,6 +210,7 @@ async function handleGet(res: VercelResponse, db: Db, userId: string) {
     thresholds,
     previousSurveyAnswers: growthRes.data?.survey_answers ?? null,
     nowIso,
+    timeZone: await loadMemberTimeZone(db, userId),
   });
   await archiveExpired(db, userId, expiredIds, nowIso);
   res.status(200).json(body);

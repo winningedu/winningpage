@@ -94,6 +94,8 @@ export type SurveyBootstrapInput = {
   /** growth_profiles.survey_answers. 다음 회차 프리필 재료. */
   previousSurveyAnswers: unknown;
   nowIso: string;
+  /** 회원 시간대(profiles.time_zone). 학년도 판정에 쓴다. */
+  timeZone: string;
 };
 
 export type SurveyOpenReport = {
@@ -137,7 +139,11 @@ function nonEmptyObject(v: unknown): Record<string, unknown> | null {
 const GRADE_NUMBER = { 고1: 1, 고2: 2, 고3: 3 } as const;
 
 // 학년(고1~고3)과 학기가 모두 있을 때만 판정한다. 값을 지어내지 않는다.
-function promotionOf(profile: Record<string, unknown> | null, nowIso: string) {
+function promotionOf(
+  profile: Record<string, unknown> | null,
+  nowIso: string,
+  tz: string,
+) {
   if (!profile) return null;
   const { grade, semester, updated_at: updatedAt } = profile;
   if (typeof grade !== "string" || !Object.hasOwn(GRADE_NUMBER, grade))
@@ -151,6 +157,7 @@ function promotionOf(profile: Record<string, unknown> | null, nowIso: string) {
       updatedAt,
     },
     nowIso,
+    tz,
   );
 }
 
@@ -232,7 +239,7 @@ export function buildSurveyBootstrap(input: SurveyBootstrapInput): {
         ? null
         : nonEmptyObject(input.previousSurveyAnswers),
     },
-    promotion: promotionOf(input.profile, input.nowIso),
+    promotion: promotionOf(input.profile, input.nowIso, input.timeZone),
   };
   return { body, expiredIds };
 }

@@ -83,13 +83,21 @@ describe("shouldProposePromotion (No.21)", () => {
       updatedAt: "2026-01-10T00:00:00+09:00",
     } as const;
     expect(
-      shouldProposePromotion(profile, "2026-02-28T23:59:59+09:00"),
+      shouldProposePromotion(
+        profile,
+        "2026-02-28T23:59:59+09:00",
+        "Asia/Seoul",
+      ),
     ).toEqual({
       propose: false,
       next: null,
     });
     expect(
-      shouldProposePromotion(profile, "2026-03-01T00:00:00+09:00"),
+      shouldProposePromotion(
+        profile,
+        "2026-03-01T00:00:00+09:00",
+        "Asia/Seoul",
+      ),
     ).toEqual({
       propose: true,
       next: { grade: 2, semester: 1 },
@@ -103,7 +111,8 @@ describe("shouldProposePromotion (No.21)", () => {
       updatedAt: "2026-03-02T00:00:00+09:00",
     } as const;
     expect(
-      shouldProposePromotion(profile, "2027-02-28T00:00:00+09:00").propose,
+      shouldProposePromotion(profile, "2027-02-28T00:00:00+09:00", "Asia/Seoul")
+        .propose,
     ).toBe(false);
   });
 
@@ -113,13 +122,30 @@ describe("shouldProposePromotion (No.21)", () => {
       shouldProposePromotion(
         { grade: 2, semester: 2, updatedAt: old },
         "2027-03-05T00:00:00+09:00",
+        "Asia/Seoul",
       ).next,
     ).toEqual({ grade: 3, semester: 1 });
     expect(
       shouldProposePromotion(
         { grade: 3, semester: 2, updatedAt: old },
         "2027-03-05T00:00:00+09:00",
+        "Asia/Seoul",
       ),
     ).toEqual({ propose: false, next: null });
+  });
+
+  test("같은 순간이라도 회원 시간대의 3월 1일 여부로 학년도가 갈린다", () => {
+    const profile = {
+      grade: 1,
+      semester: 2,
+      updatedAt: "2026-01-10T00:00:00Z",
+    } as const;
+    const now = "2026-02-28T16:00:00Z";
+    expect(shouldProposePromotion(profile, now, "Asia/Seoul").propose).toBe(
+      true,
+    );
+    expect(
+      shouldProposePromotion(profile, now, "America/Los_Angeles").propose,
+    ).toBe(false);
   });
 });
