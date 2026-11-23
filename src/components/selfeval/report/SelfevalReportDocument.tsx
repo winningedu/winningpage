@@ -3,9 +3,14 @@
 // 04장은 확인한 수기 메모가 없으면 그리지 않고 목차에 해당 없음을 적는다(No.162, 198).
 import { REPORT_COVER_PRESETS } from "@/components/report/coverPresets";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { Button } from "@/components/ui/button";
+import { site } from "@/config/site";
 import type { ReportPayload } from "@/lib/selfeval/reportTypes";
 import ReportCh01 from "./ReportCh01";
 import ReportCh02 from "./ReportCh02";
+import ReportCh03 from "./ReportCh03";
+import ReportCh04 from "./ReportCh04";
+import ReportCh05 from "./ReportCh05";
 import ReportChapterFrame from "./ReportChapterFrame";
 import {
   ch01Intro,
@@ -14,7 +19,7 @@ import {
   filledSteps,
 } from "./reportFormat";
 
-const TITLES = REPORT_COVER_PRESETS.selfevalReport.areas;
+const TITLES = REPORT_COVER_PRESETS.selfevalReport.areas as readonly string[];
 const NOT_APPLICABLE = "해당 없음";
 
 type Props = {
@@ -30,8 +35,7 @@ export default function SelfevalReportDocument({
   studentName,
   onRebuild,
 }: Props) {
-  const { cover } = payload;
-  const hasMemos = payload.ch04 !== null;
+  const { cover, ch04 } = payload;
   const footer = [studentName, cover.subjectTitle].filter(Boolean).join(", ");
   // 쪽수는 표지가 1쪽이고 그려진 장 순서대로 이어진다.
   let page = 1;
@@ -42,13 +46,24 @@ export default function SelfevalReportDocument({
 
   return (
     <div className="flex flex-col gap-6 print:gap-0">
+      {payload.composeMissing && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-surface-info px-4 py-3 text-app-label text-ink-strong print:hidden"
+        >
+          <p>설명 문장을 만들지 못해 비워 두었어요.</p>
+          <Button type="button" variant="outline" onClick={onRebuild}>
+            다시 만들기
+          </Button>
+        </div>
+      )}
       <ReportCoverPage
         kind="selfevalReport"
         variant="screen"
         title={cover.subjectTitle}
         tagline="근거 연계 리포트 포함"
         infoItems={coverInfoItems(cover, studentName)}
-        areaNotes={hasMemos ? undefined : { 3: NOT_APPLICABLE }}
+        areaNotes={ch04 ? {} : { 3: NOT_APPLICABLE }}
         filledSteps={filledSteps(cover)}
       />
       <ReportChapterFrame
@@ -76,31 +91,31 @@ export default function SelfevalReportDocument({
       <ReportChapterFrame
         no="03"
         title={TITLES[2] as string}
-        intro=""
+        intro="이미 제출한 보고서의 내용이 자기평가에서 어떻게 이어지고(계승), 깊어지고(심화), 새로 더해졌는지(보완) 정리했습니다."
         page={nextPage()}
         footer={footer}
       >
-        {null}
+        <ReportCh03 ch={payload.ch03} />
       </ReportChapterFrame>
-      {hasMemos && (
+      {ch04 && (
         <ReportChapterFrame
           no="04"
           title={TITLES[3] as string}
-          intro=""
+          intro="자기평가 작성 시 학생이 직접 올린 수행 과정 메모(손글씨는 글자 인식 후 학생 확인)가 자기평가의 어느 문장과 이어지는지 1~2줄로 설명합니다."
           page={nextPage()}
           footer={footer}
         >
-          {null}
+          <ReportCh04 ch={ch04} />
         </ReportChapterFrame>
       )}
       <ReportChapterFrame
         no="05"
         title={TITLES[4] as string}
-        intro=""
+        intro={`이번 자기평가가 ${site.brandName} 6단계 과정 안에서 어떻게 쌓여 왔는지 한눈에 정리했습니다.`}
         page={nextPage()}
         footer={footer}
       >
-        {onRebuild && null}
+        <ReportCh05 ch={payload.ch05} />
       </ReportChapterFrame>
     </div>
   );

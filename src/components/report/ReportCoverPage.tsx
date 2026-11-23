@@ -55,6 +55,9 @@ const STEPS = [
   { label: "자기평가", bg: "#7b6cf0", fg: "#ffffff", height: 22.85 },
 ] as const;
 
+// 자기평가서 리포트 05장 단계 카드가 같은 색을 쓴다.
+export { STEPS as REPORT_COVER_STEPS };
+
 const A4_SHEET_CLASS =
   "fd-report-sheet fd-report-cover-a4 w-full shrink-0 rounded-2xl shadow-[0_0_1.25rem_rgba(0,0,0,0.06)] lg:w-280";
 const FLOW_SHEET_CLASS = "fd-report-cover-flow hidden print:block";
