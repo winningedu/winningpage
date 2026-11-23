@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { searchColumnsFor } from "./searchColumns";
+import { searchColumnsFor } from "./columns";
 
 describe("searchColumnsFor", () => {
   it("벡터 결과는 뜻 검색 열만 7개를 둔다", () => {

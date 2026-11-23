@@ -117,7 +117,7 @@ import {
   isStaleReview,
   REVIEW_STALE_MONTH_OPTIONS,
   type ReviewStaleMonths,
-} from "./admin/knowledge/review/reviewCycle";
+} from "./admin/knowledge/review/cycle";
 import SearchPreview from "./admin/knowledge/search/SearchPreview";
 import SectionCopyPanel from "./admin/landing/SectionCopyPanel";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";

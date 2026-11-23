@@ -3,7 +3,7 @@ import {
   buildInquirySessionsSearch,
   initialInquirySessionsQuery,
   inquirySessionsQueryReducer,
-} from "./inquirySessionsQuery";
+} from "./query";
 
 const init = initialInquirySessionsQuery;
 

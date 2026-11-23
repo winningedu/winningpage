@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ORG_TYPE_OPTIONS } from "./tenantOptions";
+import { ORG_TYPE_OPTIONS } from "./options";
 
 describe("ORG_TYPE_OPTIONS", () => {
   test("학원은 학교 바로 뒤에 있다", () => {

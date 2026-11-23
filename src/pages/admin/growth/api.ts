@@ -1,5 +1,5 @@
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
-import type { GrowthReportItem } from "./growthReportsRow";
+import type { GrowthReportItem } from "./row";
 
 export type GrowthReportsPage = {
   items: GrowthReportItem[];

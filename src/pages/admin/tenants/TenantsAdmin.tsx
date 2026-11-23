@@ -29,18 +29,18 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
-import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
-import TenantDetail from "@/pages/admin/tenants/TenantDetail";
 import {
   deletionDdayText,
   mouLabel,
   todayKst,
-} from "@/pages/admin/tenants/tenantContract";
+} from "@/pages/admin/tenants/contract";
+import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import {
   ORG_TYPE_OPTIONS,
   REGION_OPTIONS,
   TIER_OPTIONS,
-} from "@/pages/admin/tenants/tenantOptions";
+} from "@/pages/admin/tenants/options";
+import TenantDetail from "@/pages/admin/tenants/TenantDetail";
 
 // ---------------------------------------------------------------------------
 // 기관 관리(tenants, 2026-09-22) — 목록 + 발급.

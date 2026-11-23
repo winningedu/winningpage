@@ -24,21 +24,21 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import {
-  buildGrantBody,
-  type InquiryGrantFormValues,
-  validateGrantForm,
-} from "./inquiryGrantForm";
-import {
   fetchInquirySessions,
   type InquirySessionsPage,
   postInquiryGrant,
   postInquiryRecover,
-} from "./inquirySessionsApi";
+} from "./api";
+import {
+  buildGrantBody,
+  type InquiryGrantFormValues,
+  validateGrantForm,
+} from "./grantForm";
 import {
   buildInquirySessionsSearch,
   initialInquirySessionsQuery,
   inquirySessionsQueryReducer,
-} from "./inquirySessionsQuery";
+} from "./query";
 import {
   canRecover,
   INQUIRY_STATUS_OPTIONS,
@@ -48,7 +48,7 @@ import {
   statusLabel,
   stepLabel,
   terminalLabel,
-} from "./inquirySessionsRow";
+} from "./row";
 
 const STUDENT_SEARCH_LIMIT = 20;
 

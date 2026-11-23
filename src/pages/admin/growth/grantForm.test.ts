@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildGrantBody, validateGrantForm } from "./growthGrantForm";
+import { buildGrantBody, validateGrantForm } from "./grantForm";
 
 const ok = { profileId: "p1", sessionQuota: "3", months: "6" };
 

@@ -3,7 +3,7 @@ import {
   buildSelfevalSessionsSearch,
   initialSelfevalSessionsQuery,
   selfevalSessionsQueryReducer,
-} from "./selfevalSessionsQuery";
+} from "./query";
 
 describe("selfevalSessionsQuery", () => {
   test("초기 검색 문자열은 page 와 pageSize 만", () => {

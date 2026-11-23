@@ -6,7 +6,7 @@ import {
   statusLabel,
   stepLabel,
   terminalLabel,
-} from "./growthReportsRow";
+} from "./row";
 
 const base: GrowthReportItem = {
   id: "r1",

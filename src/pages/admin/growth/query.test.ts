@@ -4,7 +4,7 @@ import {
   GROWTH_REPORTS_PAGE_SIZE,
   growthReportsQueryReducer,
   initialGrowthReportsQuery,
-} from "./growthReportsQuery";
+} from "./query";
 
 describe("growthReportsQueryReducer", () => {
   test("초기 상태는 전체 상태, 빈 검색어, 1페이지다", () => {

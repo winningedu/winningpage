@@ -14,7 +14,7 @@ vi.mock("./xlsx", () => ({
     errors: [],
   })),
 }));
-vi.mock("./bulkRun", () => ({
+vi.mock("./run", () => ({
   // 검사는 바로 끝나고, 반영은 끝나지 않는 서버 호출로 둔다.
   runDedupe: vi.fn(async ({ dispatch }) => {
     dispatch({ type: "dedupeStarted", progress: "검사 중" });

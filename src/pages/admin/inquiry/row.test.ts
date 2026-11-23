@@ -7,7 +7,7 @@ import {
   statusLabel,
   stepLabel,
   terminalLabel,
-} from "./inquirySessionsRow";
+} from "./row";
 
 const mode = {
   status: "pending",

@@ -6,7 +6,7 @@ import {
   bulkReducer,
   INITIAL_BULK_STATE,
   isBulkBusy,
-} from "./bulkFlow";
+} from "./flow";
 import type { KnowledgeParseResult } from "./xlsx";
 
 const parse: KnowledgeParseResult = {

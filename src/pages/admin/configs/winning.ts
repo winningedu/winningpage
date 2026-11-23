@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import { contentLengthHelp } from "@/pages/admin/knowledge/guide/contentLength";
 import WritingGuide from "@/pages/admin/knowledge/guide/WritingGuide";
-import { formatLastReviewed } from "@/pages/admin/knowledge/review/reviewCycle";
+import { formatLastReviewed } from "@/pages/admin/knowledge/review/cycle";
 import type { FieldOption } from "@/pages/admin/shared/csvExport";
 
 interface WinningColumn {

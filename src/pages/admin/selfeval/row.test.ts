@@ -6,7 +6,7 @@ import {
   statusLabel,
   stepLabel,
   terminalLabel,
-} from "./selfevalSessionsRow";
+} from "./row";
 
 describe("selfevalSessionsRow", () => {
   test("상태와 영역 라벨", () => {

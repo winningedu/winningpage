@@ -1,11 +1,8 @@
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
-import type {
-  SelfevalSessionDetail,
-  SelfevalSessionItem,
-} from "./selfevalSessionsRow";
+import type { InquirySessionItem } from "./row";
 
-export type SelfevalSessionsPage = {
-  items: SelfevalSessionItem[];
+export type InquirySessionsPage = {
+  items: InquirySessionItem[];
   total: number;
   page: number;
   pageSize: number;
@@ -39,28 +36,21 @@ async function call<T>(
   return { ok: true, data: result as T };
 }
 
-export function fetchSelfevalSessions(search: string) {
-  return call<SelfevalSessionsPage>(`/api/admin/selfeval-sessions?${search}`, {
+export function fetchInquirySessions(search: string) {
+  return call<InquirySessionsPage>(`/api/admin/inquiry-sessions?${search}`, {
     method: "GET",
   });
 }
 
-export function fetchSelfevalSessionDetail(sessionId: string) {
-  return call<SelfevalSessionDetail>(
-    `/api/admin/selfeval-sessions?sessionId=${encodeURIComponent(sessionId)}`,
-    { method: "GET" },
-  );
+export function postInquiryGrant(body: unknown) {
+  return call<{ grantId: string; quota: unknown }>("/api/admin/inquiry-grant", {
+    method: "POST",
+    body,
+  });
 }
 
-export function postSelfevalGrant(body: unknown) {
-  return call<{ grantId: string; quota: unknown }>(
-    "/api/admin/selfeval-grant",
-    { method: "POST", body },
-  );
-}
-
-export function postSelfevalRecover(sessionId: string) {
-  return call<{ newSessionId: string }>("/api/admin/selfeval-recover", {
+export function postInquiryRecover(sessionId: string) {
+  return call<{ newSessionId: string }>("/api/admin/inquiry-recover", {
     method: "POST",
     body: { sessionId },
   });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { deletionDdayText, mouLabel, todayKst } from "./tenantContract";
+import { deletionDdayText, mouLabel, todayKst } from "./contract";
 
 describe("mouLabel", () => {
   test("pending, signed, ended 를 협약 전, 협약 중, 협약 종료로 보인다", () => {

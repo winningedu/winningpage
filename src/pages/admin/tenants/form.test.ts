@@ -5,7 +5,7 @@ import {
   tenantFormFromRow,
   tenantPayload,
   validateTenantForm,
-} from "./tenantForm";
+} from "./form";
 
 function form(over: Partial<TenantFormValues> = {}): TenantFormValues {
   return { ...emptyTenantForm(), name: "한빛고", ...over };

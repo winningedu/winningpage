@@ -11,8 +11,8 @@ import {
   postKnowledgeBulk,
   postKnowledgeDedupe,
 } from "../api";
-import type { BulkAction } from "./bulkFlow";
-import { runApply, runDedupe } from "./bulkRun";
+import type { BulkAction } from "./flow";
+import { runApply, runDedupe } from "./run";
 import type { KnowledgeParseResult } from "./xlsx";
 
 const parse = {

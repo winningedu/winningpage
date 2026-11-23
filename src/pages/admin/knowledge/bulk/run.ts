@@ -9,7 +9,7 @@ import {
   postKnowledgeDedupe,
 } from "../api";
 import { runBackfillUntilDone } from "./backfillLoop";
-import type { BulkAction } from "./bulkFlow";
+import type { BulkAction } from "./flow";
 import {
   buildBulkRequests,
   buildDedupeItems,

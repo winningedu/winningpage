@@ -1,7 +1,7 @@
-// reviewCycle.ts(지식 DB 자료 관리 주기)의 순수 함수 테스트.
+// cycle.ts(지식 DB 자료 관리 주기)의 순수 함수 테스트.
 import { describe, expect, it } from "vitest";
 
-import { formatLastReviewed, isStaleReview } from "./reviewCycle";
+import { formatLastReviewed, isStaleReview } from "./cycle";
 
 const NOW = new Date("2026-10-07T12:00:00+09:00");
 

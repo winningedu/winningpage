@@ -3,7 +3,7 @@ import {
   buildGrantBody,
   type InquiryGrantFormValues,
   validateGrantForm,
-} from "./inquiryGrantForm";
+} from "./grantForm";
 
 const ok: InquiryGrantFormValues = {
   profileId: "p1",
