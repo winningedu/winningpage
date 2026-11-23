@@ -87,17 +87,24 @@ const rank = (taskId: string): number => {
 };
 
 // 21 r21-r25: per event kind, tasks "n일 전 EVT_*" (ETC has none)
+const eventTasksAt = (r: number, kind: EventKind) => {
+  if (textCell(planRow(r), 1) !== `EVENT:${kind}`) {
+    throw new Error(`21_4주플랜 r${r} is not EVENT:${kind}`);
+  }
+  return [...planCell(r).matchAll(/(\d+)일 전 (EVT_\w+)/g)].map((m) => ({
+    before: Number(m[1]),
+    taskId: String(m[2]),
+  }));
+};
 const EVENT_TASKS: Readonly<
   Record<EventKind, readonly { before: number; taskId: string }[]>
-> = Object.fromEntries(
-  [21, 22, 23, 24, 25].map((r) => [
-    textCell(planRow(r), 1).slice("EVENT:".length),
-    [...planCell(r).matchAll(/(\d+)일 전 (EVT_\w+)/g)].map((m) => ({
-      before: Number(m[1]),
-      taskId: String(m[2]),
-    })),
-  ]),
-) as Record<EventKind, readonly { before: number; taskId: string }[]>;
+> = {
+  EXAM: eventTasksAt(21, "EXAM"),
+  PERF: eventTasksAt(22, "PERF"),
+  MOCK: eventTasksAt(23, "MOCK"),
+  APPLY: eventTasksAt(24, "APPLY"),
+  ETC: eventTasksAt(25, "ETC"),
+};
 
 // 21 B27: event kinds whose day reduces its week, "일정(EXAM, PERF, APPLY)"
 const REDUCING_KINDS = match(
