@@ -10,6 +10,10 @@
 -- =====================================================================
 begin;
 
+-- 로컬 DB 에 남은 데이터(기본 유예 일수, 기타 소속 기관)가 판정을 바꾸지 않도록 이 트랜잭션 안에서만 치운다.
+delete from public.app_settings where key = 'contract_grace_days';
+update public.tenants set is_catch_all = false where is_catch_all;
+
 create function pg_temp.expect_ok(t text, p_sql text) returns void
 language plpgsql as $$
 begin
