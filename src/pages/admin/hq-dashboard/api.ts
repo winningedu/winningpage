@@ -54,6 +54,28 @@ export interface HqTenants {
   tenants: HqTenantRow[];
 }
 
+/** 기관 한 곳, 서비스 하나(목표관리 제외 5개)의 사용량. 한도는 학생 단위라 기관 전체 % 는 없다(Q6). */
+export interface HqUsageRow {
+  tenantId: string;
+  programKey: string;
+  /** 기관 설정 행이 있고 켜져 있다. */
+  provided: boolean;
+  /** 기관 설정 한도(학생별 조정 전). null 은 그 한도 없음. */
+  monthLimit: number | null;
+  termLimit: number | null;
+  monthUsed: number;
+  monthCappedStudents: number;
+  termUsed: number;
+  termCappedStudents: number;
+  /** 이번 학기가 끝나는 날(다음 학기 첫날). 학기 개월 수가 없으면 null. */
+  termResetsOn: string | null;
+}
+
+export interface HqUsage {
+  asOf: string;
+  usage: HqUsageRow[];
+}
+
 async function getJson<T>(path: string, includeInternal: boolean): Promise<T> {
   const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
   const response = await fetch(
@@ -155,4 +177,8 @@ export function fetchLoginStats(search: string) {
 
 export function fetchLoginLog(search: string) {
   return getLogins<LoginLogResponse>(search);
+}
+
+export function fetchHqUsage(includeInternal: boolean): Promise<HqUsage> {
+  return getJson<HqUsage>("/api/admin/hq-dashboard/usage", includeInternal);
 }

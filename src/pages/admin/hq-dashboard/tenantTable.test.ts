@@ -1,10 +1,11 @@
 import { describe, expect, test } from "vitest";
-import type { HqTenantRow } from "./api";
+import type { HqTenantRow, HqUsageRow } from "./api";
 import {
   applyTenantTable,
   readTenantTableParams,
   TENANT_PAGE_SIZE,
   tenantExportRow,
+  usageExportColumns,
 } from "./tenantTable";
 
 function row(overrides: Partial<HqTenantRow> = {}): HqTenantRow {
@@ -209,5 +210,68 @@ test("엑셀 행은 화면 표와 같은 열 이름과 한국어 상태를 쓴�
     마지막활동일: "-",
     "목표 실행률 평균(%)": "-",
     목표관리학생수: 4,
+  });
+});
+
+function usage(overrides: Partial<HqUsageRow> = {}): HqUsageRow {
+  return {
+    tenantId: "t",
+    programKey: "diagnose",
+    provided: true,
+    monthLimit: 2,
+    termLimit: 3,
+    monthUsed: 4,
+    monthCappedStudents: 2,
+    termUsed: 5,
+    termCappedStudents: 1,
+    termResetsOn: "2027-02-15",
+    ...overrides,
+  };
+}
+
+describe("usageExportColumns", () => {
+  test("5개 서비스마다 한도, 이번 달과 이번 학기 쓴 횟수, 한도 다 쓴 학생 수 열을 만든다", () => {
+    const columns = usageExportColumns([
+      usage(),
+      usage({ programKey: "growth", monthLimit: null, termLimit: 1 }),
+      usage({
+        programKey: "suhaeng",
+        provided: false,
+        monthLimit: null,
+        termLimit: null,
+        monthUsed: 0,
+        monthCappedStudents: 0,
+        termUsed: 0,
+        termCappedStudents: 0,
+      }),
+    ]);
+    expect(columns).toMatchObject({
+      "학습진단 한도": "월 2회, 학기 3회",
+      "학습진단 이번 달 쓴 횟수": 4,
+      "학습진단 이번 달 한도 다 쓴 학생": 2,
+      "학습진단 이번 학기 쓴 횟수": 5,
+      "학습진단 이번 학기 한도 다 쓴 학생": 1,
+      "성장설계 한도": "학기 1회",
+      "수행평가 한도": "제공 안 함",
+      "수행평가 이번 달 쓴 횟수": 0,
+    });
+    // 행이 없는 서비스(심화탐구, 자기평가)도 열은 있고 값은 "-" 다.
+    expect(columns["심화탐구 한도"]).toBe("-");
+    expect(columns["자기평가 이번 학기 한도 다 쓴 학생"]).toBe("-");
+    expect(Object.keys(columns)).toHaveLength(25);
+  });
+
+  test("사용량을 못 읽었으면(undefined) 모든 열이 -", () => {
+    const columns = usageExportColumns(undefined);
+    expect(Object.keys(columns)).toHaveLength(25);
+    expect(new Set(Object.values(columns))).toEqual(new Set(["-"]));
+  });
+
+  test("제공하지만 한도가 없으면 무제한", () => {
+    expect(
+      usageExportColumns([usage({ monthLimit: null, termLimit: null })])[
+        "학습진단 한도"
+      ],
+    ).toBe("무제한");
   });
 });

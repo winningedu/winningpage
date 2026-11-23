@@ -1,7 +1,7 @@
 // 기관 현황 표의 검색, 필터, 정렬, 쪽 나누기(계획 4번 A8)와 엑셀 행(A9). 상태는 모두 URL 검색 파라미터에 둔다.
 // 대시보드의 다른 표와 겹치지 않게 키에 tenant 를 붙인다.
 
-import type { ContractStatus, HqTenantRow } from "./api";
+import type { ContractStatus, HqTenantRow, HqUsageRow } from "./api";
 
 export const TENANT_PAGE_SIZE = 20;
 
@@ -137,4 +137,41 @@ export function tenantExportRow(
     "목표 실행률 평균(%)": row.goalRateAverage ?? "-",
     목표관리학생수: row.goalUserCount,
   };
+}
+
+/** 사용량 표와 엑셀의 서비스 순서와 이름(목표관리 제외 5개, Q6). */
+export const USAGE_PROGRAMS: { programKey: string; label: string }[] = [
+  { programKey: "diagnose", label: "학습진단" },
+  { programKey: "growth", label: "성장설계" },
+  { programKey: "suhaeng", label: "수행평가" },
+  { programKey: "inquiry", label: "심화탐구" },
+  { programKey: "selfeval", label: "자기평가" },
+];
+
+/** 기관 설정 한도 글. 꺼져 있거나 설정이 없으면 "제공 안 함", 한도가 둘 다 없으면 "무제한". */
+export function usageLimitLabel(row: HqUsageRow): string {
+  if (!row.provided) return "제공 안 함";
+  const parts = [
+    row.monthLimit === null ? null : `월 ${row.monthLimit}회`,
+    row.termLimit === null ? null : `학기 ${row.termLimit}회`,
+  ].filter((part) => part !== null);
+  return parts.length === 0 ? "무제한" : parts.join(", ");
+}
+
+/** 엑셀에 붙일 서비스별 사용량 열. 사용량을 못 읽었거나 그 서비스 행이 없으면 "-". */
+export function usageExportColumns(
+  usage: HqUsageRow[] | undefined,
+): Record<string, string | number> {
+  const columns: Record<string, string | number> = {};
+  for (const { programKey, label } of USAGE_PROGRAMS) {
+    const row = usage?.find((u) => u.programKey === programKey);
+    columns[`${label} 한도`] = row ? usageLimitLabel(row) : "-";
+    columns[`${label} 이번 달 쓴 횟수`] = row?.monthUsed ?? "-";
+    columns[`${label} 이번 달 한도 다 쓴 학생`] =
+      row?.monthCappedStudents ?? "-";
+    columns[`${label} 이번 학기 쓴 횟수`] = row?.termUsed ?? "-";
+    columns[`${label} 이번 학기 한도 다 쓴 학생`] =
+      row?.termCappedStudents ?? "-";
+  }
+  return columns;
 }

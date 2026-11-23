@@ -11,7 +11,11 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const gate = vi.hoisted(() => ({ requests: [] as Record<string, unknown>[] }));
 
-vi.mock("./api", () => ({ fetchHqSummary: vi.fn(), fetchHqTenants: vi.fn() }));
+vi.mock("./api", () => ({
+  fetchHqSummary: vi.fn(),
+  fetchHqTenants: vi.fn(),
+  fetchHqUsage: vi.fn(),
+}));
 vi.mock("@/pages/admin/shared/xlsxDownload", () => ({
   triggerXlsxDownload: vi.fn(),
 }));
@@ -29,7 +33,7 @@ vi.mock("@/pages/admin/shared/SensitiveActionGate", () => ({
 
 import * as XLSX from "xlsx";
 import { triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";
-import type { HqTenantRow } from "./api";
+import type { HqTenantRow, HqUsageRow } from "./api";
 import * as api from "./api";
 import TenantOverview from "./TenantOverview";
 
@@ -66,6 +70,37 @@ const ROWS = [
     studentWithoutEnrollmentCount: 4,
   }),
   row({ tenantId: "t-3", name: "다온고", studentCount: 12 }),
+];
+
+function usageRow(overrides: Partial<HqUsageRow> = {}): HqUsageRow {
+  return {
+    tenantId: "t-1",
+    programKey: "diagnose",
+    provided: true,
+    monthLimit: 2,
+    termLimit: 3,
+    monthUsed: 7,
+    monthCappedStudents: 2,
+    termUsed: 11,
+    termCappedStudents: 1,
+    termResetsOn: "2027-02-15",
+    ...overrides,
+  };
+}
+
+const USAGE = [
+  usageRow(),
+  usageRow({
+    programKey: "growth",
+    provided: false,
+    monthLimit: null,
+    termLimit: null,
+    monthUsed: 0,
+    monthCappedStudents: 0,
+    termUsed: 0,
+    termCappedStudents: 0,
+    termResetsOn: null,
+  }),
 ];
 
 function Location() {
@@ -129,6 +164,10 @@ beforeEach(() => {
   vi.mocked(api.fetchHqTenants).mockResolvedValue({
     asOf: "2026-11-23",
     tenants: ROWS,
+  });
+  vi.mocked(api.fetchHqUsage).mockResolvedValue({
+    asOf: "2026-11-23",
+    usage: USAGE,
   });
 });
 
@@ -358,5 +397,88 @@ describe("엑셀 다운로드", () => {
     await screen.findByText("조건에 맞는 기관이 없습니다.");
     fireEvent.click(screen.getByRole("button", { name: "엑셀 다운로드" }));
     expect(gate.requests).toHaveLength(0);
+  });
+});
+
+describe("서비스 사용량과 한도(Q6)", () => {
+  test("기관 행의 사용량 보기를 누르면 서비스별 쓴 횟수와 한도 다 쓴 학생 수를 펼친다(대행으로 넘어가지 않는다)", async () => {
+    const { onSelectTenant } = renderAt("/admin/hqDashboard");
+    await screen.findByText("가람중");
+    const toggle = screen.getByRole("button", {
+      name: "가람중 서비스 사용량 보기",
+    });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(toggle);
+    expect(onSelectTenant).not.toHaveBeenCalled();
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    const detail = await screen.findByRole("table", {
+      name: "가람중 서비스 사용량",
+    });
+    const diagnose = within(detail).getByRole("row", { name: /학습진단/ });
+    expect(
+      within(diagnose)
+        .getAllByRole("cell")
+        .map((c) => c.textContent),
+    ).toEqual([
+      "학습진단",
+      "월 2회, 학기 3회",
+      "7",
+      "2명",
+      "11",
+      "1명",
+      "2027-02-15",
+    ]);
+    const growth = within(detail).getByRole("row", { name: /성장설계/ });
+    expect(within(growth).getAllByRole("cell")[1]?.textContent).toBe(
+      "제공 안 함",
+    );
+    // 행이 없는 서비스도 5개 모두 보인다.
+    expect(within(detail).getAllByRole("row")).toHaveLength(6);
+    expect(within(detail).getByText(/2027-02-15/)).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(
+      screen.queryByRole("table", { name: "가람중 서비스 사용량" }),
+    ).toBeNull();
+  });
+
+  test("사용량도 포함 스위치를 따라 읽는다", async () => {
+    renderAt("/admin/hqDashboard?includeInternal=1");
+    await screen.findByText("가람중");
+    expect(api.fetchHqUsage).toHaveBeenLastCalledWith(true);
+  });
+
+  test("사용량을 불러오지 못하면 오류를 보이고 기관 표는 그대로 보인다", async () => {
+    vi.mocked(api.fetchHqUsage).mockRejectedValue(new Error("boom"));
+    renderAt("/admin/hqDashboard");
+    expect(
+      await screen.findByText(/서비스 사용량을 불러오지 못했습니다/),
+    ).toBeTruthy();
+    expect(tableNames()).toContain("가람중");
+  });
+
+  test("엑셀에 서비스별 사용량 열이 들어간다", async () => {
+    renderAt("/admin/hqDashboard");
+    await screen.findByText("가람중");
+    // 사용량을 받은 뒤 내보낸다(펼친 표가 보이면 받은 것이다).
+    fireEvent.click(
+      screen.getByRole("button", { name: "가람중 서비스 사용량 보기" }),
+    );
+    await screen.findByRole("table", { name: "가람중 서비스 사용량" });
+    fireEvent.click(screen.getByRole("button", { name: "엑셀 다운로드" }));
+    const [workbook] = vi.mocked(triggerXlsxDownload).mock.calls[0] as [
+      XLSX.WorkBook,
+      string,
+    ];
+    const sheet = workbook.Sheets[
+      workbook.SheetNames[0] as string
+    ] as XLSX.WorkSheet;
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
+    expect(rows[0]).toMatchObject({
+      기관명: "가람중",
+      "학습진단 이번 달 쓴 횟수": 7,
+      "학습진단 이번 학기 한도 다 쓴 학생": 1,
+      "성장설계 한도": "제공 안 함",
+    });
+    expect(rows[1]?.["학습진단 한도"]).toBe("-");
   });
 });

@@ -1,11 +1,12 @@
 // 본사 대시보드 기관 현황(계획 4번 A1, A2, A3, A4, A6, A8, A9). 합계 카드와 기관 표.
 // 검색, 필터, 정렬, 쪽, "QA, 관리자 계정 포함" 스위치는 모두 URL 검색 파라미터에 둔다.
 // 기관을 고르면 onSelectTenant 로 넘긴다(읽기 전용 대행 시작은 부르는 쪽이 정한다).
-// 시범기간(결정 117)은 카드, 상태 필터, 표의 시범기간 열에 있다. 사용량과 한도 열은 나중에 더한다.
+// 시범기간(결정 117)은 카드, 상태 필터, 표의 시범기간 열에 있다.
+// 서비스 사용량과 한도(A5, Q6)는 /usage 를 따로 읽어 tenantId 로 합치고, 행을 펼치면 서비스별로 보인다.
 
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
-import { useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,13 @@ import AdminPagination from "@/pages/admin/shared/AdminPagination";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
 import { triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";
-import { type ContractStatus, fetchHqSummary, fetchHqTenants } from "./api";
+import {
+  type ContractStatus,
+  fetchHqSummary,
+  fetchHqTenants,
+  fetchHqUsage,
+  type HqUsageRow,
+} from "./api";
 import {
   applyTenantTable,
   CONTRACT_LABELS,
@@ -37,6 +44,9 @@ import {
   type SortKey,
   tenantExportRow,
   trialPeriod,
+  USAGE_PROGRAMS,
+  usageExportColumns,
+  usageLimitLabel,
 } from "./tenantTable";
 
 const INCLUDE_PARAM = "includeInternal";
@@ -57,7 +67,67 @@ const COLUMNS: { label: string; sort?: SortKey; className?: string }[] = [
     sort: "goalRateAverage",
     className: "text-right",
   },
+  { label: "서비스 사용량" },
 ];
+
+const USAGE_HEAD = [
+  "서비스",
+  "기관 한도",
+  "이번 달 쓴 횟수",
+  "이번 달 한도 다 쓴 학생",
+  "이번 학기 쓴 횟수",
+  "이번 학기 한도 다 쓴 학생",
+  "다음 학기 시작",
+];
+
+/** 기관 한 곳의 서비스별 사용량. 한도는 학생 단위라 기관 전체 % 대신 쓴 횟수와 한도 다 쓴 학생 수를 보인다(Q6). */
+function UsageDetail({
+  name,
+  usage,
+}: {
+  name: string;
+  usage: HqUsageRow[] | undefined;
+}) {
+  return (
+    <Table aria-label={`${name} 서비스 사용량`} className="bg-white">
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          {USAGE_HEAD.map((label) => (
+            <TableHead key={label} scope="col" className="px-3 font-semibold">
+              {label}
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {USAGE_PROGRAMS.map(({ programKey, label }) => {
+          const row = usage?.find((u) => u.programKey === programKey);
+          return (
+            <TableRow key={programKey} className="hover:bg-transparent">
+              <TableCell className="px-3 font-medium">{label}</TableCell>
+              <TableCell className="px-3">
+                {row ? usageLimitLabel(row) : "-"}
+              </TableCell>
+              <TableCell className="px-3">
+                {row ? row.monthUsed.toLocaleString() : "-"}
+              </TableCell>
+              <TableCell className="px-3">
+                {row ? `${row.monthCappedStudents.toLocaleString()}명` : "-"}
+              </TableCell>
+              <TableCell className="px-3">
+                {row ? row.termUsed.toLocaleString() : "-"}
+              </TableCell>
+              <TableCell className="px-3">
+                {row ? `${row.termCappedStudents.toLocaleString()}명` : "-"}
+              </TableCell>
+              <TableCell className="px-3">{row?.termResetsOn ?? "-"}</TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
+}
 
 function StatCard({
   label,
@@ -96,7 +166,19 @@ export default function TenantOverview({
     queryFn: () => fetchHqTenants(includeInternal),
   });
 
+  const usage = useQuery({
+    queryKey: ["hqDashboard", "usage", includeInternal],
+    queryFn: () => fetchHqUsage(includeInternal),
+  });
+  const [openTenantId, setOpenTenantId] = useState<string | null>(null);
+
   const rows = tenants.data?.tenants ?? [];
+  const usageByTenant = useMemo(() => {
+    const map = new Map<string, HqUsageRow[]>();
+    for (const u of usage.data?.usage ?? [])
+      map.set(u.tenantId, [...(map.get(u.tenantId) ?? []), u]);
+    return map;
+  }, [usage.data]);
   const orgTypes = useMemo(
     () =>
       [...new Set(rows.map((r) => r.orgType))].sort((a, b) =>
@@ -144,7 +226,12 @@ export default function TenantOverview({
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(
           workbook,
-          XLSX.utils.json_to_sheet(exported.map(tenantExportRow)),
+          XLSX.utils.json_to_sheet(
+            exported.map((row) => ({
+              ...tenantExportRow(row),
+              ...usageExportColumns(usageByTenant.get(row.tenantId)),
+            })),
+          ),
           "기관현황",
         );
         triggerXlsxDownload(workbook, `기관현황_${asOf}.xlsx`);
@@ -264,6 +351,14 @@ export default function TenantOverview({
             기관 현황을 불러오지 못했습니다: {tenants.error.message}
           </p>
         )}
+        {usage.isError && (
+          <p
+            role="alert"
+            className="px-6 pb-4 text-sm font-medium text-destructive"
+          >
+            서비스 사용량을 불러오지 못했습니다: {usage.error.message}
+          </p>
+        )}
         {tenants.isPending ? (
           <div
             role="status"
@@ -319,54 +414,98 @@ export default function TenantOverview({
                 </TableRow>
               ) : (
                 table.pageRows.map((row) => (
-                  <TableRow
-                    key={row.tenantId}
-                    className="cursor-pointer"
-                    onClick={() => onSelectTenant(row.tenantId)}
-                  >
-                    <TableCell className="whitespace-normal px-4 py-3 font-medium">
-                      <button
-                        type="button"
-                        aria-label={`${row.name} 읽기 전용으로 보기`}
-                        className="text-left hover:underline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectTenant(row.tenantId);
-                        }}
-                      >
-                        {row.name}
-                      </button>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">{row.orgType}</TableCell>
-                    <TableCell className="px-4 py-3">
-                      {CONTRACT_LABELS[row.contractStatus]}
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      {contractPeriod(row)}
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      {trialPeriod(row)}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-right">
-                      {row.studentCount.toLocaleString()}
-                      {row.studentWithoutEnrollmentCount > 0 && (
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          (학년, 반 미상 {row.studentWithoutEnrollmentCount})
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-right">
-                      {row.teacherCount.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      {row.lastActivityOn ?? "-"}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-right">
-                      {row.goalRateAverage === null
-                        ? "-"
-                        : `${row.goalRateAverage}%`}
-                    </TableCell>
-                  </TableRow>
+                  <Fragment key={row.tenantId}>
+                    <TableRow
+                      className="cursor-pointer"
+                      onClick={() => onSelectTenant(row.tenantId)}
+                    >
+                      <TableCell className="whitespace-normal px-4 py-3 font-medium">
+                        <button
+                          type="button"
+                          aria-label={`${row.name} 읽기 전용으로 보기`}
+                          className="text-left hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectTenant(row.tenantId);
+                          }}
+                        >
+                          {row.name}
+                        </button>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">{row.orgType}</TableCell>
+                      <TableCell className="px-4 py-3">
+                        {CONTRACT_LABELS[row.contractStatus]}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        {contractPeriod(row)}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        {trialPeriod(row)}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
+                        {row.studentCount.toLocaleString()}
+                        {row.studentWithoutEnrollmentCount > 0 && (
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            (학년, 반 미상 {row.studentWithoutEnrollmentCount})
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
+                        {row.teacherCount.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        {row.lastActivityOn ?? "-"}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
+                        {row.goalRateAverage === null
+                          ? "-"
+                          : `${row.goalRateAverage}%`}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          aria-label={`${row.name} 서비스 사용량 보기`}
+                          aria-expanded={openTenantId === row.tenantId}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenTenantId((open) =>
+                              open === row.tenantId ? null : row.tenantId,
+                            );
+                          }}
+                        >
+                          {openTenantId === row.tenantId ? "접기" : "보기"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    {openTenantId === row.tenantId && (
+                      <TableRow className="bg-muted hover:bg-muted">
+                        <TableCell
+                          colSpan={COLUMNS.length}
+                          className="px-4 py-3"
+                        >
+                          {usage.isPending ? (
+                            <div
+                              role="status"
+                              className="text-sm text-muted-foreground"
+                            >
+                              서비스 사용량을 불러오는 중입니다.
+                            </div>
+                          ) : (
+                            <UsageDetail
+                              name={row.name}
+                              usage={usageByTenant.get(row.tenantId)}
+                            />
+                          )}
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            한도는 학생마다 적용됩니다(학생별 조정 포함). 쓴
+                            횟수는 지금 센 학생의 합입니다.
+                          </p>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
                 ))
               )}
             </TableBody>
