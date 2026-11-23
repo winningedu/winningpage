@@ -114,7 +114,8 @@ export function createKitState(): KitState {
     user: { id: "profile-1", email: "admin@example.com" },
     actor: schoolAdminActor(),
     rpc: {},
-    rows: {},
+    // 대행 행위자는 공통 처리부가 세션 사유를 읽는다. 기본은 쓰기가 되는 사유다.
+    rows: { proxy_sessions: () => ({ reason: "roster_proxy" }) },
     inserts: [],
     upserts: [],
     insertError: null,

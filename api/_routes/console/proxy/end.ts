@@ -43,7 +43,7 @@ export default defineHandler({
 
     const { data: session, error: sessionError } = await db
       .from("proxy_sessions")
-      .select("tenant_id")
+      .select("tenant_id, reason")
       .eq("id", sessionId)
       .maybeSingle();
     if (sessionError || !session)
@@ -62,6 +62,7 @@ export default defineHandler({
           proxySessionId: sessionId,
           mustChangePassword: false,
           loginId: null,
+          readOnly: session.reason === "read_only",
         },
       },
       { action: "proxy_end", resourceKey: PROXY_RESOURCE_KEY },

@@ -91,6 +91,7 @@ export default defineHandler({
           proxySessionId: sessionId,
           mustChangePassword: false,
           loginId: null,
+          readOnly: false,
         },
       },
       {

@@ -17,6 +17,8 @@ export interface ConsoleActor {
   mustChangePassword: boolean;
   /** 교사 로그인 아이디. 본사 대행이면 null. */
   loginId: string | null;
+  /** 읽기 전용 사유(read_only)의 본사 대행. 공통 처리부가 쓰기 요청을 403 으로 막는다(결정 116). */
+  readOnly: boolean;
 }
 
 interface ConsoleActorRow {
@@ -55,6 +57,17 @@ export async function resolveConsoleActor(
     loginId = teacher?.login_id ?? null;
   }
 
+  let readOnly = false;
+  if (row.proxy_session_id) {
+    const { data: session, error: sessionError } = await admin
+      .from("proxy_sessions")
+      .select("reason")
+      .eq("id", row.proxy_session_id)
+      .maybeSingle();
+    if (sessionError || !session) throw new Error("console actor lookup failed");
+    readOnly = session.reason === "read_only";
+  }
+
   return {
     kind: row.kind as ConsoleActorKind,
     tenantId: row.tenant_id,
@@ -63,5 +76,6 @@ export async function resolveConsoleActor(
     proxySessionId: row.proxy_session_id,
     mustChangePassword: row.must_change_password ?? false,
     loginId,
+    readOnly,
   };
 }

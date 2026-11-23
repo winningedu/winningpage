@@ -13,6 +13,7 @@ const HOMEROOM: ConsoleActor = {
   proxySessionId: null,
   mustChangePassword: false,
   loginId: "kim01",
+  readOnly: false,
 };
 const ADMIN: ConsoleActor = { ...HOMEROOM, kind: "school_admin", classIds: [] };
 
