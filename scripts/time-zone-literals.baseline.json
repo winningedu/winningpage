@@ -1,6 +1,5 @@
 {
   "api/_lib/console/coachingBuild.ts": 1,
-  "api/_lib/goal/reportNotify.ts": 3,
   "api/_lib/hq-dashboard/period.ts": 1,
   "api/_lib/selfeval/manualLogs.ts": 1,
   "api/_lib/selfeval/report/date.ts": 4,
