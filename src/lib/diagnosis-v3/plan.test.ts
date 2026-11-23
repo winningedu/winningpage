@@ -60,7 +60,8 @@ const pdfInput = (): PlanInput => ({
 });
 
 describe("buildPlannerPages (22 r109-r113)", () => {
-  const pages = () => buildPlannerPages(buildPlan(pdfInput()));
+  const pages = () =>
+    buildPlannerPages(buildPlan(pdfInput()), "2026-11-10", pdfInput().schedule);
 
   test("PDF p12 head: WEEK_GOAL_1, plan.week_badge, plan.redx", () => {
     const [week1] = pages();
@@ -82,6 +83,37 @@ describe("buildPlannerPages (22 r109-r113)", () => {
       "실행률 70% 이상",
       "다음 주 우선순위 3개",
     ]);
+  });
+
+  test("PDF p12, p15 day cells: 7 dates, due tasks, diagnosis and event days highlighted", () => {
+    const all = pages();
+    const week1 = all[0]?.days ?? [];
+    expect(week1).toHaveLength(7);
+    expect(week1[0]).toEqual({
+      date: "11/10(화)",
+      tasks: [COPY_TEXT.FIX_START],
+      highlight: true,
+    });
+    expect(week1[2]).toEqual({
+      date: "11/12(목)",
+      tasks: [],
+      highlight: false,
+    });
+    expect(all[3]?.days[6]).toEqual({
+      date: "12/7(월)",
+      tasks: [COPY_TEXT.FIX_NEXT, COPY_TEXT.FIX_CHECK_4],
+      highlight: true,
+    });
+  });
+
+  test("22 r113: slip rules PLAN_SLIP_1..3 on every page", () => {
+    for (const page of pages()) {
+      expect(page.slip).toEqual([
+        COPY_TEXT.PLAN_SLIP_1,
+        COPY_TEXT.PLAN_SLIP_2,
+        COPY_TEXT.PLAN_SLIP_3,
+      ]);
+    }
   });
 
   test("PDF p12 task table: FIX_LOG row first, then due tasks with area, due, done", () => {

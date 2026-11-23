@@ -328,7 +328,14 @@ const tableRow = (
 });
 
 /** 22 r109-r113: one planner page per week. */
-export function buildPlannerPages(plan: Plan): PlannerPage[] {
+export function buildPlannerPages(
+  plan: Plan,
+  diagnosedAt: IsoDate,
+  schedule: DiagnosisV3Answers["q13"],
+): PlannerPage[] {
+  const eventDates = new Set(
+    Array.isArray(schedule) ? schedule.map((e) => e.date) : [],
+  );
   const log = taskRow("FIX_LOG");
   const logDone = log.done;
   // 15 r7: FIX_LOG is due every day, its 15 B label stands in the due column
@@ -357,8 +364,19 @@ export function buildPlannerPages(plan: Plan): PlannerPage[] {
         ...(columnDone === undefined ? [] : [columnDone]),
       ],
       tasks: [logRow, ...weekTasks.map((t) => tableRow(plan, t))],
-      days: [],
-      slip: [],
+      // 22 r112: 7 day cells, tasks due that day, diagnosis day and event days stand out
+      days: Array.from({ length: to - from + 1 }, (_, i) => {
+        const date = dateOfDay(diagnosedAt, from + i);
+        return {
+          date: formatDue(date),
+          tasks: weekTasks
+            .filter((t) => t.date === date)
+            .map((t) => taskText(plan, t)),
+          highlight: from + i === START_DAY || eventDates.has(date),
+        };
+      }),
+      // 22 r113
+      slip: [1, 2, 3].map((n) => copy(`PLAN_SLIP_${n}`)),
     };
   });
 }
