@@ -4,8 +4,8 @@
 import { AREAS, type AreaCode } from "./codes.js";
 import { roundHalfUp1 } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
-import { COPY_SHEETS } from "./source/copyText.js";
-import type { DiagnosisV3Scores, MbtiType } from "./types.js";
+import { COPY_SHEETS, COPY_TEXT } from "./source/copyText.js";
+import type { DiagnosisV3Scores, MbtiType, Page8 } from "./types.js";
 
 const mbtiSheet = sheetRows("19_MBTI데이터");
 const mbtiRow = (r: number) => {
@@ -96,4 +96,78 @@ export function mbtiLinks(
       score,
     };
   });
+}
+
+const copy = (id: string): string => {
+  const text = COPY_TEXT[id];
+  if (text === undefined) throw new Error(`missing copy ${id}`);
+  return text;
+};
+
+const fill = (template: string, values: Record<string, string | number>) =>
+  template.replace(/\{(\w+)\}/g, (_, key: string) => {
+    const value = values[key];
+    if (value === undefined) throw new Error(`no value for {${key}}`);
+    return String(value);
+  });
+
+// 19 r4 C-G: factor names, factor number n is MBTI_HABIT_n.
+const FACTOR_NAMES = [2, 3, 4, 5, 6].map((col) => {
+  const row = mbtiSheet.find((candidate) => candidate.r === 4);
+  if (!row) throw new Error("missing 19_MBTI데이터 r4");
+  return textCell(row, col);
+});
+
+const habitsOf = (numbers: readonly number[]) =>
+  numbers.map((n) => copy(`MBTI_HABIT_${n}`));
+
+/** 22 r79-r84: the whole MBTI page 8 from the answer and the link scores. */
+export function mbtiPage8(
+  type: MbtiType | "NONE" | undefined,
+  areaScores: Readonly<Partial<Record<AreaCode, number>>>,
+): Page8 {
+  const disclaimer = copy("MBTI_DISCLAIMER");
+  const score = scoreMbti(type);
+  if (!score) {
+    return {
+      mbti: {
+        kind: "none",
+        text: copy("MBTI_NONE"),
+        habits: habitsOf([1, 2, 3, 4, 5]),
+      },
+      disclaimer,
+    };
+  }
+  return {
+    mbti: {
+      kind: "type",
+      card: {
+        type: score.type,
+        nick: copy(`MBTI_${score.type}_NICK`),
+        style: copy(`MBTI_${score.type}_STYLE`),
+        share: fill(copy("mbti.share"), {
+          n: score.sampleN,
+          pct: score.sharePct.toFixed(1),
+        }),
+      },
+      poles: [...score.type].map((letter) => ({
+        letter,
+        name: copy(`MBTI_POLE_${letter}_NAME`),
+        habit: copy(`MBTI_POLE_${letter}_HABIT`),
+        tip: copy(`MBTI_POLE_${letter}_TIP`),
+      })),
+      factors: {
+        text: fill(copy("mbti.top"), {
+          type: score.type,
+          factors: score.topFactors.map((n) => FACTOR_NAMES[n - 1]).join(", "),
+        }),
+        habits: habitsOf(score.topFactors),
+        ...(score.smallSample ? { smallSample: copy("MBTI_SMALLN") } : {}),
+      },
+      links: mbtiLinks(score.type, areaScores).map((link) =>
+        fill(copy(link.id), { score: link.score }),
+      ),
+    },
+    disclaimer,
+  };
 }
