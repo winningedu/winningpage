@@ -85,9 +85,20 @@ describe("validateSessionCreateBody", () => {
     expect(r.ok && r.input.activityName).toBe("로봇부");
   });
 
-  it("학교 문항이 공백이면 PROMPT_REQUIRED", () => {
+  it("학교 문항이 공백이면 null 로 저장하고 통과한다", () => {
     const r = validateSessionCreateBody({ ...valid, schoolPrompt: "   " });
-    expect(r).toMatchObject({ ok: false, code: "PROMPT_REQUIRED" });
+    expect(r.ok && r.input.schoolPrompt).toBeNull();
+  });
+
+  it("학교 문항을 생략해도 생성할 수 있다", () => {
+    const { schoolPrompt: _omit, ...rest } = valid;
+    const r = validateSessionCreateBody(rest);
+    expect(r.ok && r.input.schoolPrompt).toBeNull();
+  });
+
+  it("학교 문항이 문자열도 null 도 아니면 거절", () => {
+    const r = validateSessionCreateBody({ ...valid, schoolPrompt: 3 });
+    expect(r).toMatchObject({ ok: false, code: "INVALID_BODY" });
   });
 
   it.each([99, 3001, 500.5, "500"])("목표 글자 수 %s 는 거절", (v) => {
@@ -159,10 +170,15 @@ describe("validateSessionUpdateBody", () => {
     });
   });
 
-  it("보낸 필드의 규칙 위반은 같은 코드로 거절", () => {
+  it("수정에서 학교 문항을 비우면 patch 에 null 을 담는다", () => {
     expect(
       validateSessionUpdateBody({ sessionId: "s1", schoolPrompt: " " }),
-    ).toMatchObject({ ok: false, code: "PROMPT_REQUIRED" });
+    ).toEqual({ ok: true, sessionId: "s1", patch: { schoolPrompt: null } });
+  });
+
+  it("수정에서 학교 문항을 보내지 않으면 patch 에 담지 않는다", () => {
+    const r = validateSessionUpdateBody({ sessionId: "s1", targetChars: 800 });
+    expect(r.ok && "schoolPrompt" in r.patch).toBe(false);
   });
 });
 
@@ -198,6 +214,17 @@ function sessionRow(over: Partial<SessionRow> = {}): SessionRow {
     ...over,
   };
 }
+
+describe("학교 문항 없음 왕복", () => {
+  it("school_prompt null 이 sessionToInput 에서 null 로 남고 재검증을 통과한다", () => {
+    const current = sessionToInput(sessionRow({ school_prompt: null }));
+    expect(current.schoolPrompt).toBeNull();
+    const r = applySessionPatch(current, { targetChars: 900 });
+    expect(r.ok && r.input.schoolPrompt).toBeNull();
+    const row = r.ok ? buildSessionPatch(r.input, sessionRow()) : null;
+    expect(row?.school_prompt).toBeNull();
+  });
+});
 
 describe("applySessionPatch", () => {
   it("기존 값에 patch 를 덮고 영역 규칙을 다시 검증한다", () => {
