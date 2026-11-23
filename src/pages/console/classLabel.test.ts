@@ -59,6 +59,17 @@ describe("classLabel", () => {
       "A 다학년 3반",
     );
   });
+
+  test("반 이름 5 는 5반으로 보인다", () => {
+    expect(classLabel(cls({ name: "5" }), school)).toBe("2학년 5반");
+    expect(classLabel(cls({ name: "5" }), academy)).toBe("고2 5반");
+  });
+
+  test("학원의 그룹과 다학년 반 5 는 그룹 다학년 5반이다", () => {
+    expect(
+      classLabel(cls({ grade: null, group: "ACE1", name: "5" }), academy),
+    ).toBe("ACE1 다학년 5반");
+  });
 });
 
 describe("sortClasses", () => {
