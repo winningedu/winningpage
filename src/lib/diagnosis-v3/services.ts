@@ -7,6 +7,7 @@ import {
   MIND_CODES,
   P1_CODES,
   P2_CODES,
+  SERVICE_CODES,
   type ServiceCode,
   TRACK_NAMES,
   type TrackCode,
@@ -119,7 +120,18 @@ export type ServicesResult = {
 const bandOf = (tenths: number): ServiceFit["band"] =>
   tenths >= S1_FROM * 10 ? "S1" : tenths >= S2_FROM * 10 ? "S2" : "S3";
 
-type Scored = ServiceFit & { readonly tenths: number };
+type Scored = ServiceFit & {
+  readonly tenths: number;
+  readonly sumScore: number;
+  readonly count: number;
+};
+
+/** 23 r17-r20: fit, then hope, then lower related mean, then code order. */
+const compareFit = (a: Scored, b: Scored): number =>
+  b.tenths - a.tenths ||
+  b.hope - a.hope ||
+  a.sumScore * b.count - b.sumScore * a.count ||
+  SERVICE_CODES.indexOf(a.code) - SERVICE_CODES.indexOf(b.code);
 
 const scoreService = (
   track: TrackCode,
@@ -165,6 +177,8 @@ const scoreService = (
     relatedMean: roundHalfUp1(sumScore, count),
     band: bandOf(tenths),
     tenths,
+    sumScore,
+    count,
   };
 };
 
@@ -173,10 +187,15 @@ export function recommendServices(input: ServiceInput): ServicesResult {
   const scored = serviceRows(track).map((row) =>
     scoreService(track, row, input),
   );
-  scored.sort((a, b) => b.tenths - a.tenths);
+  scored.sort(compareFit);
   const [first, second] = scored;
   if (!first || !second) throw new Error("fewer than 2 service candidates");
   return { ranked: [strip(first), strip(second)] };
 }
 
-const strip = ({ tenths: _tenths, ...fit }: Scored): ServiceFit => fit;
+const strip = ({
+  tenths: _tenths,
+  sumScore: _sumScore,
+  count: _count,
+  ...fit
+}: Scored): ServiceFit => fit;

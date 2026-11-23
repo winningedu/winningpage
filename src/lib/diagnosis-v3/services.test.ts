@@ -115,4 +115,37 @@ describe("service fit (07_서비스)", () => {
     expect(tier(25)).toMatchObject({ code: "GOAL", fit: 65, band: "S2" });
     expect(tier(26)).toMatchObject({ code: "GOAL", fit: 64.4, band: "S3" });
   });
+
+  test("tie: larger hope first (23 r18), then lower related mean (23 r19), then code order (23 r20)", () => {
+    // GOAL: difficulty 50. PERF: hope 20 + deficit 30. Both 50, PERF has hope.
+    const byHope = recommendServices(
+      input({
+        areaScores: scoresOf("H12", 90, { H12_PERF: 0 }),
+        q10: [3, 7],
+        q14: [5],
+      }),
+    );
+    expect(byHope.ranked.map((fit) => [fit.code, fit.fit])).toEqual([
+      ["PERF", 50],
+      ["GOAL", 50],
+    ]);
+
+    // every fit is 0 (all areas at 50 or above), lowest related mean first
+    const byMean = recommendServices(
+      input({
+        areaScores: scoresOf("H12", 90, {
+          MIND_RECV: 50,
+          H12_DEEP: 51,
+          H12_LINK: 51,
+          H12_REC: 52,
+        }),
+      }),
+    );
+    expect(codes(byMean)).toEqual(["CALL", "DEEP"]);
+
+    const byCode = recommendServices(
+      input({ areaScores: scoresOf("H12", 100) }),
+    );
+    expect(codes(byCode)).toEqual(["GOAL", "PERF"]);
+  });
 });
