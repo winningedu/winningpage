@@ -89,6 +89,32 @@ const delta = (
   ordinal: number | undefined,
 ) => (ordinal === undefined ? 0 : (table.get(ordinal) ?? 0));
 
+/** 08 r38-r41: "N대 1 미만" rows in order, the last row ("상한 없음") has no bound. */
+const COMPETITION = SHEET_08.filter((row) => row.c[0] === "경쟁률").map(
+  (row) => ({
+    below: Number(/^(\d+)대 1 미만$/.exec(textCell(row, 1))?.[1] ?? Number.NaN),
+    delta: percentPoints(textCell(row, 2)),
+  }),
+);
+
+/** null (no data) is 0; otherwise the first row whose bound exceeds the rate. */
+const competitionDelta = (rate: number | null) => {
+  if (rate === null) return 0;
+  const hit = COMPETITION.find((row) => rate < row.below) ?? COMPETITION.at(-1);
+  return hit?.delta ?? 0;
+};
+
+/** 08 r43: 충원율 is 0 for every row until the data exists. */
+const FILL_RATE_DELTA = percentPoints(textCell(rowAt(43), 2));
+
+/** 16 r11-r17: %p the stored range widens per q5 ordinal. */
+const Q5_WIDEN = new Map(
+  OPTIONS.q5.map((option) => [
+    option.ordinal,
+    percentPoints(option.code ?? ""),
+  ]),
+);
+
 const toMilli = (grade: number) => Math.round(grade * 1000);
 
 /** 0.01 grid, half-up, sign kept; both inputs are thousandths. */
@@ -136,11 +162,15 @@ export function computeAdmission(
     (BASE_MIDPOINT[baseBand - 1] as number) +
     delta(Q16_DELTA, answers.q16) +
     delta(Q17_DELTA, answers.q17) +
-    delta(Q18_DELTA, answers.q18);
+    delta(Q18_DELTA, answers.q18) +
+    competitionDelta(context.admission?.competitionRate ?? null) +
+    FILL_RATE_DELTA;
   const probability = Math.min(
     CLAMP_HIGH as number,
     Math.max(CLAMP_LOW as number, raw),
   );
+  const widen = Q5_WIDEN.get(answers.q5);
+  if (widen === undefined) throw new Error(`unknown q5 ${answers.q5}`);
   const relabel = RELABEL_MIN.findIndex((min) => probability >= min);
   const band = (relabel === -1 ? 4 : relabel + 1) as AdmissionBand;
   return {
@@ -150,8 +180,8 @@ export function computeAdmission(
     grade9,
     baseBand,
     probability,
-    probabilityLow: probability,
-    probabilityHigh: probability,
+    probabilityLow: probability - widen,
+    probabilityHigh: probability + widen,
     band,
     comparison: {
       ...(cut50 === null

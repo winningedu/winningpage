@@ -115,4 +115,67 @@ describe("computeAdmission", () => {
       computeAdmission({ ...CALC_EXAMPLE, q1: 2 }, CALC_EXAMPLE_CONTEXT),
     ).toEqual({ status: "HIDDEN" });
   });
+
+  // 안정 base 80, q16/q17/q18 all 0: grade 1.0 vs 70% cut 2.0
+  const flat = { ...CALC_EXAMPLE, q4: 1, q6: 1, q16: 4, q17: 7, q18: 5 };
+  const withRate = (competitionRate: number | null): DiagnosisV3Context => ({
+    ...CALC_EXAMPLE_CONTEXT,
+    admission: {
+      ...(CALC_EXAMPLE_CONTEXT.admission as object),
+      cut70: 2,
+      competitionRate,
+    } as DiagnosisV3Context["admission"],
+  });
+
+  test("competition rate shifts the probability (08 r38-r41, null is 0)", () => {
+    const prob = (rate: number | null) =>
+      (computeAdmission(flat, withRate(rate)) as { probability: number })
+        .probability;
+    expect(prob(4.99)).toBe(85);
+    expect(prob(5)).toBe(80);
+    expect(prob(9.99)).toBe(80);
+    expect(prob(10)).toBe(75);
+    expect(prob(19.99)).toBe(75);
+    expect(prob(20)).toBe(70);
+    expect(prob(null)).toBe(80);
+  });
+
+  test("probability is clamped to 10..90 and relabelled (08 r13-r14)", () => {
+    const high = computeAdmission(
+      { ...flat, q16: 1, q17: 1, q18: 1 },
+      withRate(1),
+    );
+    expect(high).toMatchObject({ probability: 90, band: 1 });
+    const low = computeAdmission(
+      { ...flat, q6: 9, q16: 3, q17: 5, q18: 4 },
+      withRate(30),
+    );
+    expect(low).toMatchObject({ baseBand: 4, probability: 10, band: 4 });
+  });
+
+  test("relabel can cross a band edge in either direction (08 r14)", () => {
+    // base 소신 40 + 경계 -5 + 탐구 부족 -5 = 30 stays 소신, one more -5 drops
+    const answers = { ...flat, q6: 2.1, q16: 2, q17: 3, q18: 5 };
+    expect(computeAdmission(answers, withRate(null))).toMatchObject({
+      baseBand: 3,
+      probability: 30,
+      band: 3,
+    });
+    expect(
+      computeAdmission({ ...answers, q18: 3 }, withRate(null)),
+    ).toMatchObject({ baseBand: 3, probability: 25, band: 4 });
+  });
+
+  test("q5 other than 대학별 or 학교 제공 widens the stored range by 5%p (16 r11-r17)", () => {
+    const range = (q5: number) => {
+      const r = computeAdmission({ ...flat, q5 }, withRate(null)) as {
+        probabilityLow: number;
+        probabilityHigh: number;
+      };
+      return [r.probabilityLow, r.probabilityHigh];
+    };
+    expect(range(1)).toEqual([80, 80]);
+    expect(range(2)).toEqual([80, 80]);
+    for (const q5 of [3, 4, 5, 6, 7]) expect(range(q5)).toEqual([75, 85]);
+  });
 });
