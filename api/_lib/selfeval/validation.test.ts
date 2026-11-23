@@ -199,18 +199,18 @@ function body3(over: Record<string, unknown>[] = []) {
       {
         role: "process",
         sentences: [
-          sent("그래프 프로그램으로 계수를 바꿔 관찰했다."),
-          sent("관찰 결과를 표로 정리했다."),
+          sent("그래프 프로그램으로 계수를 바꿔 관찰함."),
+          sent("관찰 결과를 표로 정리함."),
         ],
       },
       {
         role: "judgment",
         sentences: [
-          sent("계수가 커질수록 폭이 좁아진다고 판단했다.", {
+          sent("계수가 커질수록 폭이 좁아진다고 판단함.", {
             activityId: "core1",
             field: "result",
           }),
-          sent("정수 계수만 확인한 점이 한계였다.", {
+          sent("정수 계수만 확인한 점이 한계임.", {
             activityId: "core1",
             field: "limitation",
           }),
@@ -219,8 +219,8 @@ function body3(over: Record<string, unknown>[] = []) {
       {
         role: "wrap",
         sentences: [
-          sent("다음에는 소수 계수를 확인하고 싶다.", null, true),
-          sent("이 과정에서 방법을 고쳤다."),
+          sent("다음에는 소수 계수를 확인하고 싶음.", null, true),
+          sent("이 과정에서 방법을 고침."),
         ],
       },
     ],
@@ -273,15 +273,15 @@ describe("validateWriteResponse", () => {
   it("빈 문장, 모르는 활동, 비운 항목, 잘못된 모양 evidence 를 막는다", () => {
     const b = body3();
     para(b, 0).sentences[0] = sent("  ");
-    para(b, 0).sentences[1] = sent("가나다 라마바.", {
+    para(b, 0).sentences[1] = sent("가나다 라마함.", {
       activityId: "zzz",
       field: "method",
     });
-    para(b, 1).sentences[0] = sent("가나다 라마바.", {
+    para(b, 1).sentences[0] = sent("가나다 라마함.", {
       activityId: "core1",
       field: "role",
     });
-    para(b, 1).sentences[1] = sent("가나다 라마바.", { student: true });
+    para(b, 1).sentences[1] = sent("가나다 라마함.", { student: true });
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(false);
     if (r.ok) return;
@@ -293,7 +293,7 @@ describe("validateWriteResponse", () => {
 
   it("보조 활동 id 는 허용된다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("보조 활동에서 나온 방법을 이었다.", {
+    para(b, 0).sentences[0] = sent("보조 활동에서 나온 방법을 이음.", {
       activityId: "sup1",
       field: "method",
     });
@@ -302,7 +302,7 @@ describe("validateWriteResponse", () => {
 
   it("보조 활동 evidence 는 핵심 활동의 allowedFields 로 막지 않는다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("보조 활동의 진로 연결을 이었다.", {
+    para(b, 0).sentences[0] = sent("보조 활동의 진로 연결을 이음.", {
       activityId: "sup1",
       field: "career",
     });
@@ -311,7 +311,7 @@ describe("validateWriteResponse", () => {
 
   it("보조 활동 evidence 도 field 가 11항목 밖이면 막는다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("보조 활동 근거를 썼다.", {
+    para(b, 0).sentences[0] = sent("보조 활동 근거를 씀.", {
       activityId: "sup1",
       field: "nonsense",
     });
@@ -321,13 +321,15 @@ describe("validateWriteResponse", () => {
       expect(r.issues.map((i) => i.code)).toContain("empty_field_used");
   });
 
-  it("했습니다, 해요 같은 존댓말 종결은 sentence_style 로 막는다", () => {
+  it("했습니다, 해요, 했다 같은 종결은 sentence_style 로 막는다", () => {
     for (const bad of [
       "탐구 활동을 시작했습니다.",
       "결과를 정리합니다",
       "그래프를 그렸어요.",
       "표를 만들었죠?",
       "값이 컸네요 예요.",
+      "상관계수를 계산했다.",
+      "결과를 정리한다.",
     ]) {
       const b = body3();
       para(b, 0).sentences[1] = sent(bad);
@@ -336,23 +338,32 @@ describe("validateWriteResponse", () => {
       if (!r.ok) {
         const issue = r.issues.find((i) => i.code === "sentence_style");
         expect(issue?.path, bad).toBe("p1-s2");
-        expect(issue?.message).toContain("했다");
+        expect(issue?.message).toContain("~함");
       }
     }
   });
 
-  it("했다 체 평서문은 sentence_style 에 걸리지 않는다", () => {
-    const b = body3();
-    para(b, 0).sentences[1] = sent('상관계수를 계산했다."');
-    expect(validateWriteResponse(b, wctx).ok).toBe(true);
+  it("함, 세움, 깨달음 같은 명사형 종결은 sentence_style 에 걸리지 않는다", () => {
+    for (const good of [
+      '상관계수를 계산함."',
+      "기준을 세움.",
+      "한계를 깨달음",
+      "오차가 없음.",
+      "한계가 있음.",
+      "표본 수가 12명임.",
+    ]) {
+      const b = body3();
+      para(b, 0).sentences[1] = sent(good);
+      expect(validateWriteResponse(b, wctx).ok, good).toBe(true);
+    }
   });
 
   it("대학명, 학교명, 마크다운, 금지 표현을 막는다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("한국대 진학을 목표로 했다.");
-    para(b, 0).sentences[1] = sent("한빛고등학교 수업에서 시작했다.");
-    para(b, 1).sentences[0] = sent("**굵게** 썼다.");
-    para(b, 1).sentences[1] = sent("합격 가능성이 보인다.");
+    para(b, 0).sentences[0] = sent("한국대 진학을 목표로 함.");
+    para(b, 0).sentences[1] = sent("한빛고등학교 수업에서 시작함.");
+    para(b, 1).sentences[0] = sent("**굵게** 씀.");
+    para(b, 1).sentences[1] = sent("합격 가능성이 보임.");
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(false);
     if (r.ok) return;
@@ -368,7 +379,7 @@ describe("validateWriteResponse", () => {
 
   it("shortMode 에서 문단당 문장 3개 이상이면 short_mode_overflow 다", () => {
     const b = body3();
-    para(b, 0).sentences.push(sent("하나 더 썼다."));
+    para(b, 0).sentences.push(sent("하나 더 씀."));
     const r = validateWriteResponse(b, { ...wctx, shortMode: true });
     expect(r.ok).toBe(false);
     if (!r.ok)
@@ -377,7 +388,7 @@ describe("validateWriteResponse", () => {
 
   it("evidence 가 없고 feeling 도 false 면 feeling true 로 올린다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("그냥 쓴 문장이다.", null, false);
+    para(b, 0).sentences[0] = sent("그냥 쓴 문장임.", null, false);
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(true);
     if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
@@ -385,19 +396,22 @@ describe("validateWriteResponse", () => {
 
   it("느낌 표현 패턴이 걸리면 evidence 가 있어도 feeling true 다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("계수를 바꾸며 뿌듯했다.");
+    para(b, 0).sentences[0] = sent("계수를 바꾸며 뿌듯함.");
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(true);
     if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
   });
 
-  it("명사형 종결은 고쳐 저장한다", () => {
+  it("하였음, 했음 종결은 함으로 고쳐 저장한다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("계수 변화를 확인함.");
+    para(b, 0).sentences[0] = sent("계수 변화를 확인하였음.");
+    para(b, 0).sentences[1] = sent("변수를 통제하지 못하였음.");
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(true);
-    if (r.ok)
-      expect(sentenceAt(r.sections, 0, 0).text).toBe("계수 변화를 확인한 점.");
+    if (r.ok) {
+      expect(sentenceAt(r.sections, 0, 0).text).toBe("계수 변화를 확인함.");
+      expect(sentenceAt(r.sections, 0, 1).text).toBe("변수를 통제하지 못함.");
+    }
   });
 
   it("글자 수가 목표 ±5% 밖이면 hard 가 아닌 softIssues 로 length_off_target 을 낸다", () => {

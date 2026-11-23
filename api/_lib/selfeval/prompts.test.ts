@@ -166,14 +166,16 @@ describe("buildWritePrompt", () => {
     expect(four.user).toContain("보조탐구");
   });
 
-  it("문체 규칙을 했다 체 예시와 함께 분명히 적는다", () => {
+  it("문체 규칙을 ~함 체 예시와 함께 분명히 적는다", () => {
     const sys = buildWritePrompt(writeInput()).system;
-    expect(sys).toContain("모든 문장은 '~했다'");
+    expect(sys).toContain("모든 문장은 '~함' 처럼 명사형으로 끝낸다");
+    expect(sys).toContain("확인함, 세움, 깨달음");
     expect(sys).toContain(
-      "'~했습니다', '~합니다', '~해요', '~했어요' 는 쓰지 않는다",
+      "'~했다', '~한다', '~합니다', '~해요' 는 쓰지 않는다",
     );
-    expect(sys).toContain("상관계수를 계산했다(맞음)");
-    expect(sys).toContain("상관계수를 계산했습니다(틀림)");
+    expect(sys).toContain("한 문장 안에서 어미를 섞어 쓰지 않는다");
+    expect(sys).toContain("상관계수를 계산함(맞음)");
+    expect(sys).toContain("상관계수를 계산했다(틀림)");
   });
 
   it("값이 있는 항목만 싣고 비운 항목은 싣지 않으며 student 출처를 표시한다", () => {

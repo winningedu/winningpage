@@ -189,40 +189,10 @@ export function hasMarkdown(text: string): boolean {
   return MARKDOWN_PATTERNS.some((p) => p.test(text));
 }
 
-// 한글 음절의 받침 번호(0 이면 받침 없음). ㄹ 은 8, ㅆ 은 20.
-function finalConsonant(ch: string): number | null {
-  const code = ch.charCodeAt(0) - 0xac00;
-  if (code < 0 || code > 11171) return null;
-  return code % 28;
-}
-
-const JONG_RIEUL = 8;
-const JONG_SS = 20;
-
 /**
- * 개발참고 시트의 명사형 종결 규칙. 못함 은 못한 점, 함 은 한 점, 음 은 은 점.
- * 어절 끝에서만 바꾼다. "음" 은 동사나 형용사 어간의 명사형 어미일 때만 바꾸려고
- * 직전 글자가 받침 없음, ㅆ, ㄹ 이면 건드리지 않는다. 마음, 처음, 걸음, 있음 이 그 경우다.
- * 없음 은 없은 점 이 비문이라 없는 점 으로 따로 바꾼다. 포함 은 명사라 함 규칙에서 뺀다.
+ * 본문 문체는 "~함" 한 가지다(명세 No.11, No.52). 기록의 "하였음", "했음" 서술을 "함"으로
+ * 맞춘다. 예: "통제하지 못하였음" 은 "통제하지 못함". 어절 끝에서만 바꾼다.
  */
-export function fixNominalEndings(text: string): string {
-  return text.replace(/[가-힣]+(?=[\s.,!?;:)\]"'」』]|$)/g, (word) => {
-    if (word.endsWith("못함")) return `${word.slice(0, -2)}못한 점`;
-    if (word.length >= 2 && word.endsWith("함") && !word.endsWith("포함")) {
-      return `${word.slice(0, -1)}한 점`;
-    }
-    if (word.length >= 2 && word.endsWith("음")) {
-      if (word.endsWith("없음")) return `${word.slice(0, -2)}없는 점`;
-      const jong = finalConsonant(word.charAt(word.length - 2));
-      if (
-        jong !== null &&
-        jong !== 0 &&
-        jong !== JONG_RIEUL &&
-        jong !== JONG_SS
-      ) {
-        return `${word.slice(0, -1)}은 점`;
-      }
-    }
-    return word;
-  });
+export function normalizeNominalEndings(text: string): string {
+  return text.replace(/(?:하였음|했음)(?=[\s.,!?;:)\]"'」』]|$)/g, "함");
 }

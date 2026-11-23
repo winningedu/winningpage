@@ -259,8 +259,9 @@ function writeSystem(input: WritePromptInput): string {
     ...roles.map(
       (r, i) => `- ${i + 1}문단 role=${r}: ${PARAGRAPH_ROLE_LABELS[r]}`,
     ),
-    `- 모든 문장은 '~${SENTENCE_STYLE}', '~이었다', '~였다' 처럼 평서문 '${SENTENCE_STYLE}' 체로 끝낸다. '~${SENTENCE_STYLE.replace(/다$/, "습니다")}', '~합니다', '~해요', '~${SENTENCE_STYLE.replace(/다$/, "어요")}' 는 쓰지 않는다.`,
-    `- 예: '상관계수를 계산${SENTENCE_STYLE}(맞음)', '상관계수를 계산${SENTENCE_STYLE.replace(/다$/, "습니다")}(틀림)'`,
+    `- 모든 문장은 '~${SENTENCE_STYLE}' 처럼 명사형으로 끝낸다(예: 확인함, 세움, 깨달음, 있음, 없음). '~했다', '~한다', '~합니다', '~해요' 는 쓰지 않는다.`,
+    "- 한 문장 안에서 어미를 섞어 쓰지 않는다. 앞 절은 연결형으로 이어 쓰고 문장 끝만 명사형으로 맺는다(예: '표를 만들고 값을 비교함').",
+    `- 예: '상관계수를 계산${SENTENCE_STYLE}(맞음)', '상관계수를 계산했다(틀림)'`,
   ];
   const evidence = [
     "근거 표시",

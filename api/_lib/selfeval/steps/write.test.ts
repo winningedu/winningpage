@@ -120,13 +120,13 @@ const modelJson = () =>
     paragraphs: [
       {
         role: "process",
-        sentences: [sentence("센서로 미세먼지를 측정하였다.")],
+        sentences: [sentence("센서로 미세먼지를 측정함.")],
       },
       {
         role: "judgment",
-        sentences: [sentence("평균 35 마이크로그램이었다.")],
+        sentences: [sentence("평균 35 마이크로그램임.")],
       },
-      { role: "wrap", sentences: [sentence("표본을 늘려 보겠다.")] },
+      { role: "wrap", sentences: [sentence("표본을 늘림.")] },
     ],
   });
 

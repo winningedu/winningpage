@@ -208,5 +208,5 @@ export const NOTICE_LINES: readonly string[] = [
   "생성에 실패하면 차감된 이용 횟수는 자동으로 복구돼요",
 ];
 
-/** 문장 어미 규칙(명세 No.11). 고객사 의견으로 바뀔 수 있어 상수로 둔다. */
-export const SENTENCE_STYLE = "했다";
+/** 문장 어미 규칙(명세 No.11, No.52). 본문은 "~함" 명사형 종결 한 가지다. */
+export const SENTENCE_STYLE = "함";
