@@ -150,3 +150,206 @@ grant select on table public.selfeval_report_views to authenticated;
 grant all on table public.selfeval_manual_logs to service_role;
 grant all on table public.selfeval_record_links to service_role;
 grant all on table public.selfeval_report_views to service_role;
+
+-- ---------------------------------------------------------------------
+-- fn_selfeval_claim_step: link 단계 추가(No.174, 17). 나머지는 20261021014317 정의와 같다.
+-- 권한은 CREATE OR REPLACE 가 그대로 이어받는다.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION "public"."fn_selfeval_claim_step"("p_session_id" "uuid", "p_profile_id" "uuid", "p_step" "text", "p_stale_seconds" integer DEFAULT 120) RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+declare
+  c_max_attempts constant integer := 10;
+
+  v_session  public.selfeval_sessions;
+  v_rec      jsonb;
+  v_min_step integer;
+  v_attempts integer;
+  v_started  timestamptz;
+  v_now_iso  text := to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+begin
+  if p_step is null or p_step not in ('link', 'analyze', 'write', 'verify') then
+    raise exception 'selfeval_step_unknown' using errcode = '22023';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(p_profile_id::text, 101));
+
+  select * into v_session
+    from public.selfeval_sessions s
+   where s.id = p_session_id and s.profile_id = p_profile_id
+     for update;
+
+  if not found then
+    return jsonb_build_object('kind', 'locked');
+  end if;
+
+  if v_session.status not in ('draft', 'in_progress') then
+    return jsonb_build_object('kind', 'locked');
+  end if;
+
+  if (v_session.step_state -> 'terminal') is not null
+     and jsonb_typeof(v_session.step_state -> 'terminal') <> 'null' then
+    return jsonb_build_object('kind', 'locked');
+  end if;
+
+  -- 순서 가드(명세 No.65): 분석은 활동 선택 확정 뒤, 생성은 분석 뒤, 검증은 생성 뒤에만 한다.
+  -- 연결(link, 명세 No.174)은 활동 선택 단계(기본 입력 저장 뒤, 선택 확정 전)에서 부른다.
+  v_min_step := case p_step when 'link' then 1 when 'analyze' then 2 when 'write' then 3 else 4 end;
+  if v_session.current_step < v_min_step then
+    return jsonb_build_object('kind', 'order', 'currentStep', v_session.current_step);
+  end if;
+
+  v_rec := v_session.step_state -> 'steps' -> p_step;
+
+  -- 신선한 running 이면 다른 요청이 처리 중이다. startedAt 이 없거나 오래됐으면 선점 가능.
+  if v_rec ->> 'status' = 'running' and v_rec ->> 'startedAt' is not null then
+    v_started := (v_rec ->> 'startedAt')::timestamptz;
+    if v_started > now() - make_interval(secs => p_stale_seconds) then
+      return jsonb_build_object('kind', 'running');
+    end if;
+  end if;
+
+  v_attempts := coalesce((v_rec ->> 'attempts')::integer, 0);
+  if v_attempts >= c_max_attempts then
+    return jsonb_build_object('kind', 'exhausted', 'attempts', v_attempts);
+  end if;
+
+  update public.selfeval_sessions s
+     set step_state = jsonb_set(
+           coalesce(s.step_state, '{}'::jsonb),
+           '{steps}',
+           coalesce(s.step_state -> 'steps', '{}'::jsonb)
+             || jsonb_build_object(
+                  p_step,
+                  jsonb_build_object(
+                    'status', 'running',
+                    'attempts', v_attempts + 1,
+                    'startedAt', v_now_iso,
+                    'finishedAt', null,
+                    'issues', coalesce(v_rec -> 'issues', '[]'::jsonb)
+                  )
+                ),
+           true
+         ),
+         status = case when s.status = 'draft' then 'in_progress' else s.status end,
+         last_activity_at = now(),
+         updated_at = now()
+   where s.id = p_session_id;
+
+  return jsonb_build_object('kind', 'claimed', 'attempts', v_attempts + 1);
+end;
+$$;
+
+comment on function public.fn_selfeval_claim_step(uuid, uuid, text, integer) is '자기평가서 단계 선점. 프로필 advisory 잠금(101) 뒤 세션 행을 for update 로 읽어 단계를 running 으로 표시한다. 반환 kind 어휘: claimed(attempts)/locked/order(currentStep)/running/exhausted(attempts). 순서 가드는 current_step 기준으로 link 1 이상, analyze 2 이상, write 3 이상, verify 4 이상이다(명세 No.65, 174). link 는 활동 선택 단계의 기록 연결 모델 호출이다. 이미 ok 인 단계도 다시 선점할 수 있다(재분석, 재생성, 재검증). 시도 상한은 단계당 10(No.89). startedAt 이 p_stale_seconds 보다 오래된 running 은 서버리스 중단으로 보고 다시 선점한다. draft 세션은 in_progress 로 올린다. p_step 이 link, analyze, write, verify 밖이면 예외(selfeval_step_unknown). 리포트 생성 시도는 selfeval_report_views.attempts 가 센다.';
+
+-- ---------------------------------------------------------------------
+-- fn_delete_account: 새 표 3개를 세션 삭제 앞에서 지운다(No.95). 나머지는 20261021014317 정의와 같다.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION "public"."fn_delete_account"("p_user_id" "uuid") RETURNS "text"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+declare
+  v_has_retained_records boolean;
+begin
+  if p_user_id is null then
+    raise exception 'user_id_required' using errcode = '22004';
+  end if;
+
+  select exists (
+    select 1 from public.orders
+     where user_id = p_user_id
+        or parent_profile_id = p_user_id
+        or student_profile_id = p_user_id
+    union all
+    select 1 from public.refund_requests
+     where user_id = p_user_id
+        or parent_profile_id = p_user_id
+        or student_profile_id = p_user_id
+        or requested_by = p_user_id
+    union all
+    select 1 from public.coupon_redemptions where user_id = p_user_id
+  ) into v_has_retained_records;
+
+  -- AI 호출 계기판. 운영 통계는 보존하고 개인 식별만 끊는다.
+  update public.ai_model_calls set profile_id = null where profile_id = p_user_id;
+  update public.ai_retrieval_events set profile_id = null where profile_id = p_user_id;
+
+  -- 자기평가서(FK 역순). selfeval_sessions.ledger_id 가 원장을 참조하고 selfeval_session_activities 가
+  -- activity_records 를 restrict 로 참조하므로 둘보다 앞에서 지운다. 20261006111050 의 블록을
+  -- 이 파일이 함수 본문을 다시 쓰면서 그대로 가져온다.
+  delete from public.selfeval_manual_logs
+   where session_id in (select id from public.selfeval_sessions where profile_id = p_user_id);
+  delete from public.selfeval_record_links
+   where session_id in (select id from public.selfeval_sessions where profile_id = p_user_id);
+  delete from public.selfeval_report_views
+   where session_id in (select id from public.selfeval_sessions where profile_id = p_user_id);
+  delete from public.selfeval_reports where profile_id = p_user_id;
+  delete from public.selfeval_session_activities where profile_id = p_user_id;
+  delete from public.selfeval_sessions where profile_id = p_user_id;
+
+  -- 심화탐구(FK 역순). inquiry_sessions.ledger_id 가 원장을 참조하므로 원장 삭제보다 먼저.
+  -- inquiry_assets 가 activity_records 를 참조하므로 활동 기록 삭제보다도 앞이다.
+  delete from public.inquiry_reports where profile_id = p_user_id;
+  delete from public.inquiry_submissions where profile_id = p_user_id;
+  delete from public.inquiry_topics where profile_id = p_user_id;
+  delete from public.inquiry_assets where profile_id = p_user_id;
+  delete from public.inquiry_sessions where profile_id = p_user_id;
+
+  -- 성장설계(FK 역순). growth_reports.ledger_id 가 원장을 참조하므로 원장 삭제보다 먼저.
+  delete from public.growth_plan_items where profile_id = p_user_id;
+  delete from public.growth_uploads where profile_id = p_user_id;
+  delete from public.growth_reports where profile_id = p_user_id;
+  delete from public.growth_profiles where profile_id = p_user_id;
+  delete from public.activity_records where profile_id = p_user_id;
+  delete from public.student_profiles where profile_id = p_user_id;
+  delete from public.goal_students where profile_id = p_user_id;
+  delete from public.performance_sessions where profile_id = p_user_id;
+  delete from public.diagnosis_attempts where profile_id = p_user_id;
+  delete from public.performance_credit_ledger where profile_id = p_user_id;
+  delete from public.performance_session_vectors where profile_id = p_user_id;
+  delete from public.program_access_grants where profile_id = p_user_id;
+  delete from public.program_access where id = p_user_id;
+  delete from public.payments where id = p_user_id;
+  delete from public.identity_verifications where user_id = p_user_id;
+  delete from public.mentor_applications where user_id = p_user_id;
+  delete from public.phone_verifications where user_id = p_user_id;
+  delete from public.student_link_codes where student_id = p_user_id;
+  delete from public.parent_child_links where parent_id = p_user_id or student_id = p_user_id;
+  delete from public.coupon_grants where user_id = p_user_id;
+  delete from public.link_code_lookups where actor_id = p_user_id;
+  delete from public.user_term_agreements where user_id = p_user_id;
+  update public.enrollments set profile_id = null where profile_id = p_user_id;
+
+  if v_has_retained_records then
+    update public.profiles
+       set name = null,
+           phone = null,
+           email = null,
+           username = null,
+           school_type = null,
+           school_name = null,
+           birth_date = null,
+           gender = null,
+           landline = null,
+           address = null,
+           address_detail = null,
+           guardian_phone = null,
+           memo = null,
+           region = null,
+           payment_terminal_id = null,
+           marketing_agreed = false,
+           ads_agreed = false,
+           sms_agreed = false,
+           guardian_consent = false,
+           is_active = false,
+           updated_at = now()
+     where id = p_user_id;
+    return 'anonymized';
+  end if;
+
+  delete from public.profiles where id = p_user_id;
+  return 'deleted';
+end;
+$$;

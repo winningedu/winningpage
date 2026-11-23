@@ -170,6 +170,81 @@ select pg_temp.expect_ok('service_tier standard 허용',
 select pg_temp.expect_error('service_tier 허용 밖 값 거부',
   $$update public.student_profiles set service_tier = 'premium' where profile_id = '00000000-0000-0000-0000-0000000042a1'$$, '23514');
 
+-- ---------------------------------------------------------------------
+-- F. RLS: 세션 소유자만 읽고 쓰기는 service_role 만(명세 No.159-194)
+-- ---------------------------------------------------------------------
+create function pg_temp.visible_count() returns text
+language sql as $$
+  select (select count(*) from public.selfeval_manual_logs)::text || '/'
+      || (select count(*) from public.selfeval_record_links)::text || '/'
+      || (select count(*) from public.selfeval_report_views)::text
+$$;
+grant execute on function pg_temp.expect_ok(text, text) to authenticated, anon;
+grant execute on function pg_temp.expect_error(text, text, text) to authenticated, anon;
+grant execute on function pg_temp.expect_text(text, text, text) to authenticated, anon;
+grant execute on function pg_temp.visible_count() to authenticated, anon;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000042a1', true);
+select pg_temp.expect_text('소유자는 세션의 세 표를 읽는다', pg_temp.visible_count(), '2/2/1');
+select pg_temp.expect_error('소유자도 manual_logs 를 쓸 수 없다',
+  $$insert into public.selfeval_manual_logs (session_id, text) values ('00000000-0000-0000-0000-0000000042b1', 'x')$$, '42501');
+select pg_temp.expect_error('소유자도 record_links 를 지울 수 없다',
+  $$delete from public.selfeval_record_links$$, '42501');
+select pg_temp.expect_error('소유자도 report_views 를 고칠 수 없다',
+  $$update public.selfeval_report_views set attempts = 9$$, '42501');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000042a2', true);
+select pg_temp.expect_text('다른 학생은 아무것도 읽지 못한다', pg_temp.visible_count(), '0/0/0');
+reset role;
+
+set local role anon;
+select pg_temp.expect_error('anon 은 manual_logs 를 읽을 수 없다',
+  $$select count(*) from public.selfeval_manual_logs$$, '42501');
+reset role;
+
+-- ---------------------------------------------------------------------
+-- G. fn_selfeval_claim_step 의 link 단계(명세 No.174, 17)
+-- ---------------------------------------------------------------------
+select pg_temp.expect_text('link: 기본 입력 전(current_step 0)은 순서 거부',
+  public.fn_selfeval_claim_step('00000000-0000-0000-0000-0000000042b1', '00000000-0000-0000-0000-0000000042a1', 'link')::text,
+  '{"kind": "order", "currentStep": 0}');
+update public.selfeval_sessions set current_step = 1 where id = '00000000-0000-0000-0000-0000000042b1';
+select pg_temp.expect_text('link: 활동 선택 단계(current_step 1)에서 선점',
+  public.fn_selfeval_claim_step('00000000-0000-0000-0000-0000000042b1', '00000000-0000-0000-0000-0000000042a1', 'link')::text,
+  '{"kind": "claimed", "attempts": 1}');
+select pg_temp.expect_text('link: 선점 중이면 running',
+  public.fn_selfeval_claim_step('00000000-0000-0000-0000-0000000042b1', '00000000-0000-0000-0000-0000000042a1', 'link')::text,
+  '{"kind": "running"}');
+select pg_temp.expect_text('link: 단계 상태에 attempts 가 쌓인다',
+  (select step_state -> 'steps' -> 'link' ->> 'attempts' from public.selfeval_sessions
+    where id = '00000000-0000-0000-0000-0000000042b1'), '1');
+update public.selfeval_sessions
+   set step_state = jsonb_set(step_state, '{steps,link,attempts}', '10')
+ where id = '00000000-0000-0000-0000-0000000042b1';
+update public.selfeval_sessions
+   set step_state = jsonb_set(step_state, '{steps,link,status}', '"failed"')
+ where id = '00000000-0000-0000-0000-0000000042b1';
+select pg_temp.expect_text('link: 시도 상한 10 에서 exhausted',
+  public.fn_selfeval_claim_step('00000000-0000-0000-0000-0000000042b1', '00000000-0000-0000-0000-0000000042a1', 'link')::text,
+  '{"kind": "exhausted", "attempts": 10}');
+select pg_temp.expect_error('report 단계는 아직 허용하지 않는다',
+  $$select public.fn_selfeval_claim_step('00000000-0000-0000-0000-0000000042b1', '00000000-0000-0000-0000-0000000042a1', 'report')$$, '22023');
+select pg_temp.expect_text('analyze 순서 가드는 그대로(current_step 1 이면 order)',
+  public.fn_selfeval_claim_step('00000000-0000-0000-0000-0000000042b1', '00000000-0000-0000-0000-0000000042a1', 'analyze')::text,
+  '{"kind": "order", "currentStep": 1}');
+
+-- ---------------------------------------------------------------------
+-- H. fn_delete_account 가 새 표를 지운다(명세 No.95)
+-- ---------------------------------------------------------------------
+select pg_temp.expect_text('회원탈퇴: 주문 이력이 없으면 deleted',
+  public.fn_delete_account('00000000-0000-0000-0000-0000000042a1'), 'deleted');
+select pg_temp.expect_text('회원탈퇴: 새 표 3개와 세션이 남지 않는다',
+  (select (select count(*) from public.selfeval_manual_logs)::text || '/'
+       || (select count(*) from public.selfeval_record_links)::text || '/'
+       || (select count(*) from public.selfeval_report_views)::text || '/'
+       || (select count(*) from public.selfeval_sessions
+            where profile_id = '00000000-0000-0000-0000-0000000042a1')::text), '0/0/0/0');
+
 do $$ begin raise notice '=== selfeval-v42-foundation.spec: 전체 통과 ==='; end $$;
 
 rollback;
