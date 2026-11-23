@@ -89,37 +89,34 @@ const goalPoints = (ordinal: number): number => {
   return numberCell(row, 2);
 };
 
-type Scale = {
-  readonly sum: number;
-  readonly count: number;
-};
-
-const scaleOf = <A extends string>(
+/** 0..100 values of the area's scale items, reversed for 역문항 (01 F). */
+const scaleValues = <A extends string>(
   items: readonly { no: number; area: A; reverse: boolean }[],
   answers: readonly Likert[],
   area: A,
-): Scale => {
-  const values = items
+): number[] =>
+  items
     .filter((item) => item.area === area)
     .map((item) => {
       const answer = answers[item.no - 1];
       if (answer === undefined) throw new Error(`missing item ${item.no}`);
       return scaleValue(items, item.no, answer);
     });
-  return { sum: values.reduce((a, b) => a + b, 0), count: values.length };
-};
 
 /**
  * 05 B6 / spec No 32: scale mean x 0.7 + aux x 0.3, rounded once on the exact
- * fraction (judge-report 3-1).
+ * fraction (judge-report 3-1). Aux 없음 keeps the scale mean.
  */
-const combine = (scale: Scale, aux: number | null) =>
-  aux === null
-    ? roundHalfUpInt(scale.sum, scale.count)
+const combine = (values: readonly number[], aux: number | null) => {
+  const sum = values.reduce((a, b) => a + b, 0);
+  const count = values.length;
+  return aux === null
+    ? roundHalfUpInt(sum, count)
     : roundHalfUpInt(
-        SCALE_PERCENT * scale.sum + AUX_PERCENT * aux * scale.count,
-        100 * scale.count,
+        SCALE_PERCENT * sum + AUX_PERCENT * aux * count,
+        100 * count,
       );
+};
 
 // 06 C9-C11 (어려움 0개 / 1개 / 2개): 2 or more checks score the 2개 value (00 B7).
 const CHECK_POINTS = [
@@ -130,75 +127,75 @@ const CHECK_POINTS = [
 const checkPoints = (checks: number) =>
   CHECK_POINTS[Math.min(checks, CHECK_POINTS.length - 1)] as number;
 
+// 06 C8 목표 점수.
+export const TARGET_SCORE = numberCell(thresholdRow("목표 점수"), 2);
+
+type Picks = {
+  readonly options: readonly { ordinal: number; area?: AreaCode }[];
+  readonly picked: readonly number[] | undefined;
+};
+
 /** Picks mapped to the area; EXCLUSIVE rows carry no area, so they never count (16 r24). */
-const checksOf = (
-  options: readonly { ordinal: number; area?: string }[],
-  picked: readonly number[] | undefined,
-  area: string,
-) =>
+const checksOf = ({ options, picked }: Picks, area: AreaCode) =>
   (picked ?? []).filter(
     (ordinal) => options.find((o) => o.ordinal === ordinal)?.area === area,
   ).length;
 
-// 05 D: Q03_goal, Q10, Q12 or 없음 (scale mean as is, spec No 32).
+// 05 D: Q03_goal, Q10 / Q12 (check points) or 없음.
 const auxOf = (
   answers: DiagnosisV3Answers,
-  track: TrackCode,
   code: AreaCode,
+  checks: number,
 ): number | null => {
   const aux = AREAS[code].aux;
   if (aux === "Q03_goal") return goalPoints(answers.q3);
-  if (aux === "Q10")
-    return checkPoints(checksOf(OPTIONS.q10, answers.q10, code));
-  if (aux === "Q12")
-    return checkPoints(checksOf(OPTIONS.q12[track], answers.q12, code));
+  if (aux === "Q10" || aux === "Q12") return checkPoints(checks);
   if (aux === "없음") return null;
   throw new Error(`aux ${aux} not handled for ${code}`);
 };
-
-const areaScore = (score: number) => ({
-  score,
-  state: areaState(score),
-  level: gradeLevel(score),
-});
 
 const scoresOf = <C extends AreaCode>(
   codes: readonly C[],
   items: readonly { no: number; area: C; reverse: boolean }[],
   block: readonly Likert[],
+  picks: Picks,
   answers: DiagnosisV3Answers,
-  track: TrackCode,
 ) =>
   Object.fromEntries(
-    codes.map((code) => [
-      code,
-      areaScore(
-        combine(scaleOf(items, block, code), auxOf(answers, track, code)),
-      ),
-    ]),
+    codes.map((code) => {
+      const values = scaleValues(items, block, code);
+      const checks = checksOf(picks, code);
+      const score = combine(values, auxOf(answers, code, checks));
+      const area: AreaScore = {
+        score,
+        state: areaState(score),
+        level: gradeLevel(score),
+        gapToTarget: Math.max(0, TARGET_SCORE - score),
+        checks,
+        minItem: Math.min(...values),
+      };
+      return [code, area];
+    }),
   ) as Record<C, AreaScore>;
 
 export function scoreAreas(answers: DiagnosisV3Answers) {
   const track = trackOf(answers.q1);
+  // 23 r7: q10 for the seven stages and MIND_RECV, q12 for the track areas.
+  const q10: Picks = { options: OPTIONS.q10, picked: answers.q10 };
+  const q12: Picks = { options: OPTIONS.q12[track], picked: answers.q12 };
   return {
     track,
     grade: answers.q1,
     page1: {
-      areas: scoresOf(
-        P1_CODES,
-        SCALE_ITEMS.q9,
-        answers.q9.items,
-        answers,
-        track,
-      ),
+      areas: scoresOf(P1_CODES, SCALE_ITEMS.q9, answers.q9.items, q10, answers),
     },
     mind: {
       areas: scoresOf<MindCode>(
         MIND_CODES,
         SCALE_ITEMS.q20,
         answers.q20.items,
+        q10,
         answers,
-        track,
       ),
     },
     page2: {
@@ -206,8 +203,8 @@ export function scoreAreas(answers: DiagnosisV3Answers) {
         P2_CODES[track],
         SCALE_ITEMS.q11[track],
         answers.q11.items,
+        q12,
         answers,
-        track,
       ),
     },
   };

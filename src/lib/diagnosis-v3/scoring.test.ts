@@ -156,3 +156,31 @@ describe("area state and grade level (06 r14-r23, spec No 40-41)", () => {
     });
   });
 });
+
+describe("tie inputs and gap (23 r7-r8, 06 C8)", () => {
+  test("checks count the q10 / q12 picks mapped to the area", () => {
+    const { page1, page2, mind } = scoreAreas(CALC_EXAMPLE);
+    expect(page1.areas.P1_LOG.checks).toBe(1);
+    expect(page1.areas.P1_GOAL.checks).toBe(0);
+    expect(page2.areas.H12_DEEP?.checks).toBe(2);
+    expect(mind.areas.MIND_RECV.checks).toBe(1);
+    expect(mind.areas.MIND_EFF.checks).toBe(0);
+  });
+
+  test("minItem is the lowest scale value after reversal", () => {
+    const { page1, mind } = scoreAreas(CALC_EXAMPLE);
+    expect(page1.areas.P1_LOG.minItem).toBe(25);
+    expect(page1.areas.P1_EXEC.minItem).toBe(50);
+    // 9-3 별로 reversed to 75, 9-4 보통 50
+    expect(mind.areas.MIND_GROW.minItem).toBe(50);
+    // 9-5 대체로 reversed to 25
+    expect(mind.areas.MIND_RECV.minItem).toBe(25);
+  });
+
+  test("gapToTarget = max(0, 75 - score)", () => {
+    const areas = p1(CALC_EXAMPLE);
+    expect(areas.P1_LOG.gapToTarget).toBe(34);
+    expect(areas.P1_PATT.gapToTarget).toBe(1);
+    expect(areas.P1_GOAL.gapToTarget).toBe(0);
+  });
+});
