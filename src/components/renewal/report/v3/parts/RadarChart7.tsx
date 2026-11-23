@@ -96,6 +96,19 @@ export default function RadarChart7({ axes, target }: RadarChart7Props) {
             data-broken={axis.broken ? "true" : undefined}
           >
             <circle cx={dot.x} cy={dot.y} r="4" fill={color} />
+            {/* spec row 61: red dashed ring and the 「여기서 끊김」 label under 45 */}
+            {axis.broken && (
+              <circle
+                data-break-marker
+                cx={dot.x}
+                cy={dot.y}
+                r="10"
+                fill="none"
+                stroke={color}
+                strokeWidth="1.5"
+                strokeDasharray="3 3"
+              />
+            )}
             <text x={label.x} y={label.y} textAnchor="middle" fontSize="13">
               <tspan x={label.x} fill={axis.broken ? color : "#6b6b6b"}>
                 {axis.label}
@@ -103,6 +116,11 @@ export default function RadarChart7({ axes, target }: RadarChart7Props) {
               <tspan x={label.x} dy="16" fontWeight="700" fill={color}>
                 {axis.score}
               </tspan>
+              {axis.broken && (
+                <tspan x={label.x} dy="15" fontSize="11" fill={color}>
+                  {REPORT_LABELS.broken}
+                </tspan>
+              )}
             </text>
           </g>
         );

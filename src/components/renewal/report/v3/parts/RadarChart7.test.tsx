@@ -23,6 +23,16 @@ describe("RadarChart7", () => {
     );
   });
 
+  it("draws a visible red dashed marker and the break label on broken axes only (spec row 61)", () => {
+    const { container } = render(<RadarChart7 axes={stages} />);
+    const broken = container.querySelector('[data-axis][data-broken="true"]');
+    const marker = broken?.querySelector("[data-break-marker]");
+    expect(marker).toHaveAttribute("stroke-dasharray");
+    expect(marker).toHaveAttribute("stroke", "#991e1e");
+    expect(broken).toHaveTextContent("여기서 끊김");
+    expect(container.querySelectorAll("[data-break-marker]")).toHaveLength(1);
+  });
+
   it("marks broken axes and says so in the accessible name", () => {
     const { container } = render(<RadarChart7 axes={stages} />);
     const broken = container.querySelectorAll(
