@@ -325,11 +325,42 @@ describe("완료 처리", () => {
     expect(r.body).toMatchObject({ code: "WC039", detail: "환불 완료된 주문" });
   });
 
-  test("RPC 오류에 코드가 없으면 REFUND_COMPLETE_FAILED", async () => {
-    kit.rpc.mockResolvedValue({ data: null, error: { message: "실패" } });
+  test("RPC 오류에 코드가 없으면 REFUND_COMPLETE_FAILED 와 고정 안내문이고 원문은 로그에만 남는다", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    kit.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "내부 스택 raw" },
+    });
 
     const r = await call({ refundRequestId: 7 });
 
-    expect(r.body).toMatchObject({ code: "REFUND_COMPLETE_FAILED" });
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({
+      code: "REFUND_COMPLETE_FAILED",
+      detail: "환불 완료 처리에 실패했습니다. 잠시 뒤 다시 눌러 주세요.",
+    });
+    expect(JSON.stringify(r.body)).not.toContain("내부 스택 raw");
+    expect(logged).toHaveBeenCalledWith(
+      expect.any(String),
+      7,
+      expect.objectContaining({ message: "내부 스택 raw" }),
+    );
+    logged.mockRestore();
+  });
+
+  test("WC 코드가 아닌 DB 오류 코드는 원문과 코드를 응답에 싣지 않는다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    kit.rpc.mockResolvedValue({
+      data: null,
+      error: { message: 'relation "x" does not exist', code: "42P01" },
+    });
+
+    const r = await call({ refundRequestId: 7 });
+
+    expect(r.body).toMatchObject({
+      code: "REFUND_COMPLETE_FAILED",
+      detail: "환불 완료 처리에 실패했습니다. 잠시 뒤 다시 눌러 주세요.",
+    });
+    expect(JSON.stringify(r.body)).not.toContain("42P01");
   });
 });

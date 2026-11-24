@@ -157,6 +157,92 @@ describe("promoteTempUploads", () => {
   });
 });
 
+describe("promoteTempUploads URL 경계", () => {
+  test("마크다운에 붙어 있는 임시 URL 두 개를 모두 옮기고 닫는 괄호는 남긴다", async () => {
+    const first = `${U1}.image_urls.b.png`;
+    fake.put("admin-uploads-tmp", first);
+    const u1 = `${SUPA}/sign/admin-uploads-tmp/${first}`;
+    const u2 = `${SUPA}/sign/admin-uploads-tmp/${U2}.image_urls.a_b.jpg`;
+    const out = (await promoteTempUploads(admin(), SECTIONS.notices, {
+      image_urls: [],
+      attachments: [],
+      content: `![](${u1}?token=a)![](${u2}?token=b)`,
+    })) as { content: string };
+
+    expect(out.content).toBe(
+      `![](${pub(`admin/${U1}-b.png`)})![](${pub(`admin/${U2}-a_b.jpg`)})`,
+    );
+    expect(out.content).not.toContain("token=");
+    expect(fake.calls.filter((c) => c.op === "move")).toHaveLength(2);
+  });
+});
+
+describe("promoteTempUploads 저장된 객체 검증", () => {
+  const moves = () => fake.calls.filter((c) => c.op === "move");
+
+  test("필드 한도(2MB)보다 큰 본문은 400 으로 막고 아무것도 옮기지 않는다", async () => {
+    fake.put("admin-uploads-tmp", {
+      name: HERO,
+      size: 3 * 1024 * 1024,
+      contentType: "image/png",
+    });
+    await expect(
+      promoteTempUploads(admin(), SECTIONS.banners, {
+        image_url: tmpUrl(HERO),
+      }),
+    ).rejects.toMatchObject({
+      name: "RouteParamError",
+      message: "최대 2MB까지 업로드할 수 있습니다.",
+    });
+    expect(moves()).toHaveLength(0);
+  });
+
+  test("png 이름인데 svg 본문이면 400 으로 막고 아무것도 옮기지 않는다", async () => {
+    fake.put("admin-uploads-tmp", {
+      name: HERO,
+      size: 10,
+      contentType: "image/svg+xml",
+    });
+    await expect(
+      promoteTempUploads(admin(), SECTIONS.banners, {
+        image_url: tmpUrl(HERO),
+      }),
+    ).rejects.toMatchObject({
+      name: "RouteParamError",
+      message: "올릴 수 없는 파일 형식입니다.",
+    });
+    expect(moves()).toHaveLength(0);
+  });
+
+  test("한 파일이 어긋나면 같이 저장하려던 정상 파일도 옮기지 않는다", async () => {
+    fake.put("admin-uploads-tmp", {
+      name: `${U2}.image_urls.a_b.jpg`,
+      size: 10,
+      contentType: "image/svg+xml",
+    });
+    await expect(
+      promoteTempUploads(admin(), SECTIONS.notices, {
+        image_urls: [tmpUrl(`${U2}.image_urls.a_b.jpg`)],
+        attachments: [{ url: tmpUrl(`${U1}.attachments.doc.pdf`) }],
+      }),
+    ).rejects.toBeInstanceOf(RouteParamError);
+    expect(moves()).toHaveLength(0);
+  });
+
+  test("규칙에 맞는 크기와 형식이면 옮긴다", async () => {
+    fake.put("admin-uploads-tmp", {
+      name: HERO,
+      size: 2 * 1024 * 1024,
+      contentType: "image/png",
+    });
+    const out = await promoteTempUploads(admin(), SECTIONS.banners, {
+      image_url: tmpUrl(HERO),
+    });
+    expect(out).toEqual({ image_url: pub(`landing/hero/${U1}-hero.png`) });
+    expect(moves()).toHaveLength(1);
+  });
+});
+
 describe("메타 편집 섹션", () => {
   test("메타 경로는 업로드를 옮기지 않으므로 meta 섹션에는 업로드 필드가 없어야 한다", () => {
     const withBoth = Object.entries(SECTIONS).filter(
