@@ -60,6 +60,8 @@ type AdmissionBlock = {
 export type GrowthReport = {
   heading?: string;
   periodLabel?: string;
+  periodOptions?: ReportPeriodOption[];
+  activePeriod?: string;
   hero: {
     narrative?: string;
     kpis: Array<{ label: string; value: ReactNode }>;

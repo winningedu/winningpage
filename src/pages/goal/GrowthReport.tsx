@@ -45,8 +45,8 @@ type GoalReportResult =
 
 // 성장 리포트 라우트(#33 주간 / #34 월간) — fetch 훅을 여기서 소유한다(GrowthReportBody는
 // 순수 프레젠테이션으로 mock을 뗐다). 쿼리 파라미터 `period`는 이 페이지의 탭 상태(주간/월간)만
-// 담는다 — API의 `period`(그 주/달을 특정하는 YMD/YYYY-MM) 인자와는 별개다. 이번 범위엔
-// 특정 과거 주·달을 골라 보는 UI가 없어(GoalTabs 2탭뿐) 항상 "이번 주/이번 달"만 조회한다
+// 담는다 — API의 `period`(그 주/달을 특정하는 YMD/YYYY-MM) 인자와는 별개다. 그 주/달은
+// `at` 쿼리가 담고, 툴바의 기간 선택 드롭다운이 바꾼다. `at`이 없으면 이번 주/이번 달이다
 // (api/_routes/goal/report.js가 period 인자 생략 시 X-Time-Zone(브라우저 시간대) 기준 오늘로 기본값을 잡는다).
 export default function GrowthReport() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -101,6 +101,14 @@ export default function GrowthReport() {
     });
   }
 
+  function handlePeriodKeyChange(key: string) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("at", key);
+      return params;
+    });
+  }
+
   if (result === null || result.kind !== "success") {
     const message =
       result === null
@@ -125,6 +133,9 @@ export default function GrowthReport() {
       report={result.report}
       studentName={studentName}
       studentGrade={studentGrade}
+      periodOptions={result.report.periodOptions}
+      activePeriod={result.report.activePeriod}
+      onPeriodKeyChange={handlePeriodKeyChange}
     />
   );
 }
