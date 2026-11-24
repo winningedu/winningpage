@@ -154,7 +154,7 @@ const items = (r: { body: unknown }) => (r.body as { items: Item[] }).items;
 const ids = (r: { body: unknown }) => items(r).map((i) => i.studentId);
 
 describe("GET /api/console/students", () => {
-  test("school admin gets the tenant's current students by grade, class and number (no class last) with masked names and read-only rows", async () => {
+  test("school admin gets the tenant's current students by grade, class and number (no class last) with masked names and every joined student editable", async () => {
     const r = await get();
 
     expect(r.status).toBe(200);
@@ -172,9 +172,26 @@ describe("GET /api/console/students", () => {
       pageSize: 50,
       orgType: "학원",
     });
-    expect(items(r).some((i) => (i as { canEdit?: boolean }).canEdit)).toBe(
-      false,
-    );
+    expect(
+      items(r).every((i) => (i as { canEdit?: boolean }).canEdit === true),
+    ).toBe(true);
+  });
+
+  test("an HQ proxy can edit every joined student, unless the session is read-only", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "hq_proxy",
+      teacher_id: null,
+      proxy_session_id: "proxy-1",
+    });
+    kit.state.rows.proxy_sessions = () => ({ reason: "support" });
+    const editable = await get();
+    kit.state.rows.proxy_sessions = () => ({ reason: "read_only" });
+    const readOnly = await get();
+
+    const flags = (r: { body: unknown }) =>
+      items(r).map((i) => (i as { canEdit?: boolean }).canEdit);
+    expect(flags(editable).every((f) => f === true)).toBe(true);
+    expect(flags(readOnly).every((f) => f === false)).toBe(true);
   });
 
   test("a row carries the join date, the used services in order with their count, and the enrollment slot", async () => {
@@ -205,7 +222,7 @@ describe("GET /api/console/students", () => {
       weeklyGoalRate: null,
       weeklyGoalLevel: null,
       specialReasons: [],
-      canEdit: false,
+      canEdit: true,
       enrollmentVersion: 3,
     });
     expect(s3).toMatchObject({

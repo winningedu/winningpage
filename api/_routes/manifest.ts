@@ -50,6 +50,7 @@ export const routes: Record<string, RouteLoader> = {
   "console/change-password": () => import("./console/change-password.js"),
   "console/classes": () => import("./console/classes.js"),
   "console/classes/capacity": () => import("./console/classes/capacity.js"),
+  "console/classes/delete": () => import("./console/classes/delete.js"),
   "console/coaching": () => import("./console/coaching.js"),
   "console/coaching/print-log": () => import("./console/coaching/print-log.js"),
   "console/coaching/report": () => import("./console/coaching/report.js"),

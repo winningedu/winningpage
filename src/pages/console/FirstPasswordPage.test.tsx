@@ -3,9 +3,14 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  getSession: vi.fn(),
+  setSession: vi.fn(),
+}));
 vi.mock("@/lib/supabase", () => ({
-  supabase: { auth: { getSession: mocks.getSession } },
+  supabase: {
+    auth: { getSession: mocks.getSession, setSession: mocks.setSession },
+  },
 }));
 
 const pwned = vi.hoisted(() => ({ check: vi.fn() }));
@@ -28,6 +33,15 @@ const routes = [
     ],
   },
 ];
+
+const OK_BODY = {
+  ok: true,
+  session: {
+    access_token: "new-access",
+    refresh_token: "new-refresh",
+    expires_at: 1790000000,
+  },
+};
 
 const PWNED_MESSAGE =
   "유출된 적 있는 비밀번호예요. 다른 비밀번호를 입력해 주세요.";
@@ -58,6 +72,7 @@ async function fill(newPw: string, confirm = newPw) {
 
 beforeEach(() => {
   pwned.check.mockResolvedValue("ok");
+  mocks.setSession.mockResolvedValue({ error: null });
   mocks.getSession.mockResolvedValue({
     data: { session: { user: { id: "u" }, access_token: "tok" } },
   });
@@ -69,7 +84,7 @@ afterEach(() => {
 
 describe("FirstPasswordPage", () => {
   it("제목, 안내, 가린 읽기 전용 임시 비밀번호 칸과 입력 칸을 보여 준다", async () => {
-    stubFirstPassword({ body: { ok: true } });
+    stubFirstPassword({ body: OK_BODY });
 
     renderRoutes(routes, "/teacher/first-password");
 
@@ -101,7 +116,7 @@ describe("FirstPasswordPage", () => {
   ])(
     "규칙에 맞지 않으면(%s) 오류를 보이고 서버로 보내지 않는다",
     async (_n, pw) => {
-      const calls = stubFirstPassword({ body: { ok: true } });
+      const calls = stubFirstPassword({ body: OK_BODY });
       renderRoutes(routes, "/teacher/first-password");
       await fill(pw);
 
@@ -116,7 +131,7 @@ describe("FirstPasswordPage", () => {
   );
 
   it("확인 칸이 다르면 새 비밀번호가 서로 다르다고 알린다", async () => {
-    const calls = stubFirstPassword({ body: { ok: true } });
+    const calls = stubFirstPassword({ body: OK_BODY });
     renderRoutes(routes, "/teacher/first-password");
     await fill("NewPass123", "NewPass124");
 
@@ -129,7 +144,7 @@ describe("FirstPasswordPage", () => {
   });
 
   it("저장하면 새 비밀번호만 보내고 대시보드로 이동한다", async () => {
-    const calls = stubFirstPassword({ body: { ok: true } });
+    const calls = stubFirstPassword({ body: OK_BODY });
     const { router } = renderRoutes(routes, "/teacher/first-password");
     await fill("NewPass123");
 
@@ -140,6 +155,35 @@ describe("FirstPasswordPage", () => {
     expect(calls.find((c) => c.key.startsWith("POST"))?.body).toEqual({
       password: "NewPass123",
     });
+  });
+
+  it("200 응답의 새 세션을 setSession 으로 넣은 뒤 대시보드로 이동한다", async () => {
+    stubFirstPassword({ body: OK_BODY });
+    const { router } = renderRoutes(routes, "/teacher/first-password");
+    await fill("NewPass123");
+
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    expect(await screen.findByText("대시보드 화면")).toBeTruthy();
+    expect(mocks.setSession).toHaveBeenCalledWith({
+      access_token: "new-access",
+      refresh_token: "new-refresh",
+    });
+    expect(router.state.location.pathname).toBe("/teacher");
+  });
+
+  it("setSession 이 실패하면 오류 토스트를 보이고 화면에 머문다", async () => {
+    mocks.setSession.mockResolvedValue({ error: new Error("x") });
+    stubFirstPassword({ body: OK_BODY });
+    const { router } = renderRoutes(routes, "/teacher/first-password");
+    await fill("NewPass123");
+
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    expect((await screen.findByRole("status")).textContent).toBe(
+      "저장하지 못했어요. 잠시 뒤 다시 시도해 주세요",
+    );
+    expect(router.state.location.pathname).toBe("/teacher/first-password");
   });
 
   it("임시 비밀번호와 같다는 응답이면 새 비밀번호 칸에 오류를 보인다", async () => {
@@ -200,7 +244,7 @@ describe("FirstPasswordPage", () => {
 
   it("새 비밀번호 칸을 벗어날 때 유출된 비밀번호면 칸 아래에 안내를 보이고 저장을 막는다", async () => {
     pwned.check.mockResolvedValue("pwned");
-    const calls = stubFirstPassword({ body: { ok: true } });
+    const calls = stubFirstPassword({ body: OK_BODY });
     renderRoutes(routes, "/teacher/first-password");
     await fill("NewPass123");
 
@@ -214,7 +258,7 @@ describe("FirstPasswordPage", () => {
 
   it("칸을 벗어나지 않고 바로 저장해도 유출된 비밀번호면 안내를 보이고 보내지 않는다", async () => {
     pwned.check.mockResolvedValue("pwned");
-    const calls = stubFirstPassword({ body: { ok: true } });
+    const calls = stubFirstPassword({ body: OK_BODY });
     renderRoutes(routes, "/teacher/first-password");
     await fill("NewPass123");
 
@@ -231,7 +275,7 @@ describe("FirstPasswordPage", () => {
         finishLookup = resolve;
       }),
     );
-    const calls = stubFirstPassword({ body: { ok: true } });
+    const calls = stubFirstPassword({ body: OK_BODY });
     renderRoutes(routes, "/teacher/first-password");
     await fill("NewPass123");
 
@@ -246,7 +290,7 @@ describe("FirstPasswordPage", () => {
 
   it("확인에 실패해도(unknown) 저장을 막지 않는다", async () => {
     pwned.check.mockResolvedValue("unknown");
-    stubFirstPassword({ body: { ok: true } });
+    stubFirstPassword({ body: OK_BODY });
     renderRoutes(routes, "/teacher/first-password");
     await fill("NewPass123");
 

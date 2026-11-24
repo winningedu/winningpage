@@ -9,6 +9,7 @@ import {
   PASSWORD_PWNED_CODE,
   PWNED_PASSWORD_MESSAGE,
 } from "@/lib/pwnedPassword";
+import { supabase } from "@/lib/supabase";
 import { consoleRequest, errorCode } from "./api";
 import {
   isPasswordRuleCode,
@@ -61,10 +62,22 @@ export default function FirstPasswordPage() {
         body: { password: newPassword },
       });
       const code = errorCode(res.body);
-      if (
-        res.status === 200 ||
-        (res.status === 409 && code === "NOT_REQUIRED")
-      ) {
+      if (res.status === 200) {
+        // 서버가 비밀번호를 바꾸면서 기존 세션을 모두 끝냈으므로 응답의 새 세션으로 바꿔 끼운다.
+        const session = (
+          res.body as {
+            session: { access_token: string; refresh_token: string };
+          }
+        ).session;
+        const { error } = await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+        if (error) throw error;
+        await leave();
+        return;
+      }
+      if (res.status === 409 && code === "NOT_REQUIRED") {
         await leave();
         return;
       }

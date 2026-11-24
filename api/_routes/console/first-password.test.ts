@@ -11,17 +11,34 @@ import { hashTempPassword } from "../../_lib/console/teacherAccounts.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
+  signIn: vi.fn(),
   signOut: vi.fn(),
 }));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "env-value",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
+}));
+
+vi.mock("../../_lib/phoneCode.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../_lib/phoneCode.js")>()),
+  getClientIp: () => "7.7.7.7",
+}));
+
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: () => ({ auth: { signInWithPassword: kit.signIn } }),
 }));
 
 import handler from "./first-password.js";
 
 const post = (body: unknown) => callHandler(handler, body);
+
+const SESSION = {
+  access_token: "new-access",
+  refresh_token: "new-refresh",
+  expires_at: 1790000000,
+};
 
 beforeEach(async () => {
   kit.state = createKitState();
@@ -33,6 +50,11 @@ beforeEach(async () => {
     proxy_session_id: null,
     must_change_password: true,
   };
+  kit.signIn.mockReset();
+  kit.signIn.mockResolvedValue({
+    data: { user: { id: "profile-1" }, session: SESSION },
+    error: null,
+  });
   kit.signOut = vi.fn(async () => {
     kit.state.events.push("auth:signOut");
     return { error: null };
@@ -74,7 +96,7 @@ describe("POST /api/console/first-password", () => {
     const r = await post({ password: "NewPass123" });
 
     expect(r.status).toBe(200);
-    expect(r.body).toEqual({ ok: true });
+    expect(r.body).toEqual({ ok: true, session: SESSION });
     expect(kit.state.auth.updateUserById).toHaveBeenCalledWith("profile-1", {
       password: "NewPass123",
     });
@@ -96,10 +118,30 @@ describe("POST /api/console/first-password", () => {
     }
   });
 
-  test("임시 비밀번호로 연 현재 세션만 남기고 다른 세션은 로그아웃시킨다", async () => {
+  test("비밀번호 교체가 기존 세션을 모두 끝내므로 새 비밀번호로 다시 로그인한 세션만 남기고 나머지를 로그아웃시킨다", async () => {
     await post({ password: "NewPass123" });
 
-    expect(kit.signOut).toHaveBeenCalledWith("token", "others");
+    expect(kit.signIn).toHaveBeenCalledWith({
+      email: expect.any(String),
+      password: "NewPass123",
+    });
+    expect(kit.signOut).toHaveBeenCalledTimes(1);
+    expect(kit.signOut).toHaveBeenCalledWith(SESSION.access_token, "others");
+    expect(kit.signOut).not.toHaveBeenCalledWith("token", "others");
+  });
+
+  test("새 비밀번호로 다시 로그인하지 못하면 502 이고 임시 상태를 풀지 않아 같은 요청을 다시 보낼 수 있다", async () => {
+    kit.signIn.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: "x" },
+    });
+
+    const r = await post({ password: "NewPass123" });
+
+    expect(r.status).toBe(502);
+    expect(r.body).toMatchObject({ error: { code: "AUTH_SYNC_FAILED" } });
+    expect(kit.signOut).not.toHaveBeenCalled();
+    expect(kit.state.events).not.toContain("rpc:fn_teacher_password_set");
   });
 
   test("다른 세션 로그아웃에 실패하면 502 이고 임시 상태를 풀지 않아 같은 요청을 다시 보낼 수 있다", async () => {
