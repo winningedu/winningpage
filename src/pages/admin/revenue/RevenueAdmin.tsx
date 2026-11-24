@@ -276,7 +276,7 @@ export default function RevenueAdmin() {
         <Tabs value={activeService} onValueChange={selectService}>
           <TabsList
             variant="line"
-            className="mb-5 h-auto w-full flex-wrap justify-start border-b border-border"
+            className="mb-5 group-data-horizontal/tabs:h-auto w-full flex-wrap justify-start border-b border-border"
           >
             {tabs.map((tab) => (
               <TabsTrigger
