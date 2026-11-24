@@ -12,6 +12,7 @@ export const routes: Record<string, RouteLoader> = {
   "admin/coupons/grant-revoke": () => import("./admin/coupons/grant-revoke.js"),
   "admin/coupons/redemption-void": () =>
     import("./admin/coupons/redemption-void.js"),
+  "admin/coupons/user-search": () => import("./admin/coupons/user-search.js"),
   "admin/growth-grant": () => import("./admin/growth-grant.js"),
   "admin/hq-dashboard/summary": () => import("./admin/hq-dashboard/summary.js"),
   "admin/hq-dashboard/tenants": () => import("./admin/hq-dashboard/tenants.js"),
