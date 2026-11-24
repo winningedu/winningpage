@@ -16,6 +16,7 @@ export interface CutsCall {
   range?: [from: number, to: number];
   head: boolean;
   count: boolean;
+  columns?: string;
   values?: Row | Row[];
   onConflict?: string;
 }
@@ -63,8 +64,9 @@ class Builder {
     db.calls.push(this.call);
   }
 
-  select(_columns?: string, options?: { count?: string; head?: boolean }) {
+  select(columns?: string, options?: { count?: string; head?: boolean }) {
     if (this.call.op === "select") {
+      if (columns) this.call.columns = columns;
       this.call.count = options?.count === "exact";
       this.call.head = options?.head === true;
     } else this.returning = true;
