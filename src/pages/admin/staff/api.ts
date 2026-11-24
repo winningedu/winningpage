@@ -117,3 +117,43 @@ export type InviteResult = z.infer<typeof inviteResultSchema>;
 
 export const postInvite = (body: InviteBody) =>
   api.post("admin/invite-member", { json: body }).json(inviteResultSchema);
+
+// ---------------------------------------------------------------------------
+// 권한 묶음(adminRoles)
+// ---------------------------------------------------------------------------
+
+const roleSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: text,
+  is_super: z.boolean(),
+  is_system: z.boolean(),
+  created_at: text,
+  updated_at: text,
+});
+
+const roleWithPermissionsSchema = roleSchema.extend({
+  permissions: z.array(permissionItemSchema),
+});
+
+const rolesListSchema = z.object({
+  items: z.array(roleWithPermissionsSchema),
+  resources: z.array(resourceSchema),
+});
+
+export type Role = z.infer<typeof roleSchema>;
+export type RoleWithPermissions = z.infer<typeof roleWithPermissionsSchema>;
+export type RolesList = z.infer<typeof rolesListSchema>;
+
+export const roleKeys = {
+  all: ["admin", "roles"] as const,
+  list: ["admin", "roles", "list"] as const,
+  detail: (id: string) => ["admin", "roles", "detail", id] as const,
+};
+
+const roleUrl = (id: string) => `admin/roles/${encodeURIComponent(id)}`;
+
+export const fetchRoles = (signal?: AbortSignal) =>
+  api.get("admin/roles", opts(signal)).json(rolesListSchema);
+
+export const deleteRole = (id: string) => api.delete(roleUrl(id));
