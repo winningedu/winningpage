@@ -35,6 +35,13 @@ function AdminChunkLoadingFallback() {
 // AdminLayout과 AdminSectionRoute는 같은 모듈(../pages/Admin)의 named export라
 // import() specifier가 같으면 번들러가 청크 하나로 묶는다 — 섹션 46개 각각
 // 자신의 lazy()에서 다시 import해도 중복 다운로드가 없다(모듈 캐시로 즉시 resolve).
+// 하위 주소를 화면 안의 descendant <Routes> 가 읽는 섹션. 같은 라우트가 /admin/<key> 와 그 아래를 모두 받아
+// 목록에서 상세로 옮겨도 섹션이 다시 마운트되지 않는다.
+const SPLAT_SECTION_KEYS: ReadonlySet<string> = new Set([
+  "tenants",
+  "memberPurge",
+]);
+
 const adminRoutes: RouteObject[] = [
   {
     path: "/admin",
@@ -53,7 +60,7 @@ const adminRoutes: RouteObject[] = [
         ),
       },
       ...ADMIN_SECTION_KEYS.map((key) => ({
-        path: key,
+        path: SPLAT_SECTION_KEYS.has(key) ? `${key}/*` : key,
         lazy: async () => {
           const { AdminSectionRoute } = await import("@/pages/Admin");
           // biome-ignore lint/correctness/noComponentHookFactories: 라우트 정의는 모듈 로드 때 한 번만 만들어져 렌더마다 새 컴포넌트가 생기지 않는다
