@@ -42,28 +42,3 @@ export async function getAdmissionActiveYear(
     return DEFAULT_ADMISSION_ACTIVE_YEAR;
   }
 }
-
-/**
- * 공개 노출 연도를 지정한다(어드민 전용 — RLS가 is_winning_admin()만
- * 쓰기를 허용하므로, 권한 없는 호출은 DB에서 거부된다). 이 함수는
- * 그 판정을 재구현하지 않고 그대로 supabase 에러로 전파한다.
- */
-export async function setAdmissionActiveYear(
-  supabaseClient: SupabaseClient,
-  year: number,
-): Promise<{ ok: boolean; error?: string }> {
-  const numericYear = Number(year);
-  if (!Number.isFinite(numericYear) || numericYear <= 0) {
-    return { ok: false, error: `유효하지 않은 연도: ${year}` };
-  }
-  const { error } = await supabaseClient.from(TABLE).upsert(
-    {
-      key: ADMISSION_ACTIVE_YEAR_KEY,
-      value: numericYear,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "key" },
-  );
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
-}
