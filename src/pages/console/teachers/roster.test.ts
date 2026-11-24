@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { gradeLabel } from "../classLabel";
-import { classText, gradeGroupLabel } from "./roster";
+import { classText, gradeGroupLabel, registeredDateText } from "./roster";
 
 const school = (g: string | null) => gradeLabel(g, false);
 const academy = (g: string | null) => gradeLabel(g, true);
@@ -32,5 +32,12 @@ describe("classText", () => {
     expect(
       classText({ grade: null, groupName: null, name: "3" }, academy),
     ).toBe("다학년 3반");
+  });
+});
+
+describe("registeredDateText", () => {
+  test("reads the instant as a date in the device zone, 2026.02.20 shape", () => {
+    const noon = new Date(2026, 1, 20, 12).toISOString();
+    expect(registeredDateText(noon)).toBe("2026.02.20");
   });
 });

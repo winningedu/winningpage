@@ -42,9 +42,7 @@ export default function DeleteClassDialog({
   return (
     <TeacherDialog title={`${label}을 삭제할까요?`} onClose={onClose}>
       <div className="flex flex-col gap-3 text-app-body text-ink">
-        <p>
-          비어 있는 반이라 삭제하면 선생님 목록과 가입할 때 반 선택에서 사라져요
-        </p>
+        <p>비어 있는 반이라 삭제하면 선생님 목록에서 사라져요</p>
         {remove.isError && (
           <Notice tone="Danger">{remove.error.message}</Notice>
         )}

@@ -1,4 +1,4 @@
-// 발급 완료 본문(W14b, W16b success). 아이디만 보이고 임시 비밀번호는 안내 파일로 한 번만 내려받는다(교 #125).
+// 발급 결과 창 본문(W14b success, W16b success와 admin-success, W16c 재발급). 선생님마다 "이름 선생님, 아이디" 한 줄. 아이디만 보이고 임시 비밀번호는 안내 파일로 한 번만 내려받는다(교 #125).
 // 내려받은 뒤에는 메모리에서도 비밀번호를 지워 다시 받을 수 없게 한다.
 
 import { useState } from "react";
@@ -32,9 +32,10 @@ export default function IssuedPanel({ rows, onClose }: IssuedPanelProps) {
         {rows.map((r) => (
           <li
             key={r.loginId}
-            className="flex items-center justify-between gap-3 rounded-lg bg-surface-muted px-4 py-3 text-app-label text-ink"
+            className="rounded-lg bg-surface-muted px-4 py-3 text-app-label text-ink"
           >
-            <span className="font-semibold text-ink-strong">{r.name}</span>
+            <strong className="font-semibold text-ink-strong">{`${r.name} 선생님`}</strong>
+            {", 아이디 "}
             <span>{r.loginId}</span>
           </li>
         ))}
