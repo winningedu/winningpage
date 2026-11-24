@@ -34,6 +34,8 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { deletionDdayText, tenantToday } from "./contract";
 import {
   type ContractTenant,
@@ -50,6 +52,9 @@ import {
 
 const errorText = (error: unknown, fallback: string) =>
   error instanceof ApiError ? error.detail : fallback;
+
+// 미리보기 학생 표의 열 수(선택, 이름, 학년, 반, 번호, 구분). 스켈레톤 열 수가 된다.
+const PREVIEW_COLUMN_COUNT = 6;
 
 // 고른 기관은 주소(:tenantId)에 둔다. 없으면 기관만 고르는 화면이다.
 export default function MemberPurgeAdmin() {
@@ -82,14 +87,21 @@ function PurgeScreen({ base }: { base: string }) {
       <h1 className="mb-6 text-2xl font-semibold">계약 종료 회원 삭제</h1>
       <div className="mb-6 max-w-sm bg-white p-6 shadow-sm">
         <Field label="기관">
-          <Select value={tenantId} onChange={choose}>
-            <option value="">기관을 고르세요</option>
-            {tenants.map((tenant) => (
-              <option key={tenant.id} value={tenant.id}>
-                {tenant.name} ({tenant.code})
-              </option>
-            ))}
-          </Select>
+          {tenantsQuery.isPending ? (
+            <AdminLineSkeleton
+              className="h-10 w-64"
+              label="기관 목록을 불러오는 중입니다."
+            />
+          ) : (
+            <Select value={tenantId} onChange={choose}>
+              <option value="">기관을 고르세요</option>
+              {tenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.name} ({tenant.code})
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
       </div>
       {tenantsQuery.error && (
@@ -248,6 +260,13 @@ function PurgePanel({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+      {previewQuery.isPending && (
+        <AdminTableSkeleton
+          columns={PREVIEW_COLUMN_COUNT}
+          rows={5}
+          label="삭제 대상 미리보기를 불러오는 중입니다."
+        />
       )}
       {preview && (
         <div className="bg-white p-6 shadow-sm">

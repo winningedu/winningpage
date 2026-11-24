@@ -104,19 +104,27 @@ const db = {
     isSuper: false,
   },
   previewFor: (_tenantId: string): unknown => preview(-36),
+  /** 기관 목록 응답이 이 약속이 풀릴 때까지 기다린다. */
+  tenantsReady: Promise.resolve() as Promise<void>,
 };
 
 beforeEach(() => {
   vi.resetAllMocks();
   db.tenants = [TENANT];
   db.previewFor = () => preview(-36);
+  db.tenantsReady = Promise.resolve();
   db.permissions = { permissions: { tenants: "edit" }, isSuper: false };
   http.get.mockImplementation(
     (url: string, options?: { searchParams?: { tenantId: string } }) =>
       url === "admin/me/permissions"
         ? reply(db.permissions)
         : url === "admin/tenants"
-          ? reply({ items: db.tenants, graceDays: null })
+          ? reply(
+              db.tenantsReady.then(() => ({
+                items: db.tenants,
+                graceDays: null,
+              })),
+            )
           : reply(db.previewFor(options?.searchParams?.tenantId ?? "")),
   );
 });
@@ -157,6 +165,82 @@ async function openTenant() {
   fireEvent.change(select, { target: { value: "tenant-7" } });
   await screen.findByText("김*늘");
 }
+
+describe("MemberPurgeAdmin 스켈레톤", () => {
+  test("기관 목록을 기다리는 동안 고르는 칸 자리에 스켈레톤을 보이고 오면 고르는 칸으로 바뀐다", async () => {
+    let release: () => void = () => {};
+    db.tenantsReady = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    renderAt("/admin/memberPurge");
+
+    expect(
+      screen.getByRole("status", { name: "기관 목록을 불러오는 중입니다." }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("combobox")).toBeNull();
+
+    release();
+    expect(await screen.findByLabelText("기관")).toBeTruthy();
+    expect(
+      screen.queryByRole("status", { name: "기관 목록을 불러오는 중입니다." }),
+    ).toBeNull();
+  });
+
+  test("기관을 고른 뒤 미리보기를 기다리는 동안 표 스켈레톤을 보이고 오면 학생 목록으로 바뀐다", async () => {
+    let release: (value: Preview) => void = () => {};
+    db.previewFor = () =>
+      new Promise<Preview>((resolve) => {
+        release = resolve;
+      });
+    renderAt("/admin/memberPurge/tenant-7");
+
+    expect(
+      await screen.findByRole("status", {
+        name: "삭제 대상 미리보기를 불러오는 중입니다.",
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText("김*늘")).toBeNull();
+
+    release(preview(-36));
+    expect(await screen.findByText("김*늘")).toBeTruthy();
+    expect(
+      screen.queryByRole("status", {
+        name: "삭제 대상 미리보기를 불러오는 중입니다.",
+      }),
+    ).toBeNull();
+  });
+
+  test("삭제를 실행하면 미리보기가 스켈레톤을 거쳐 새로 받은 학생 목록으로 바뀐다", async () => {
+    http.post.mockReturnValue(
+      reply({ deleted: 1, excluded: 1, skipped: 1, notProcessed: 0 }),
+    );
+    await openTenant();
+    let release: (value: Preview) => void = () => {};
+    db.previewFor = () =>
+      new Promise<Preview>((resolve) => {
+        release = resolve;
+      });
+    fireEvent.click(screen.getByRole("button", { name: "삭제 실행" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.change(within(dialog).getByLabelText("기관 이름 입력"), {
+      target: { value: "한빛고" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "삭제" }));
+
+    // 확인창이 열린 채 다시 읽으므로 뒤쪽 화면도 hidden 으로 함께 찾는다.
+    expect(
+      await screen.findByRole("status", {
+        name: "삭제 대상 미리보기를 불러오는 중입니다.",
+        hidden: true,
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText("김*늘")).toBeNull();
+
+    release(preview(-36, [STUDENTS[2] as (typeof STUDENTS)[number]]));
+    expect(await screen.findByText("박*준")).toBeTruthy();
+    expect(screen.queryByText("김*늘")).toBeNull();
+  });
+});
 
 describe("MemberPurgeAdmin", () => {
   test("계약 종료일이 있는 기관만 이름순으로 고르는 칸에 보인다", async () => {
