@@ -9,12 +9,7 @@ vi.mock("@/lib/http/client", async (importOriginal) => ({
   api: http,
 }));
 
-vi.mock("@/pages/admin/service-credit/api", () => ({
-  searchStudents: vi.fn(),
-}));
-
 import { ApiError } from "@/lib/http/client";
-import { searchStudents } from "@/pages/admin/service-credit/api";
 import StudentUsageAdmin from "./StudentUsageAdmin";
 
 const KEYS = ["diagnose", "target", "growth", "suhaeng", "inquiry", "selfeval"];
@@ -83,14 +78,16 @@ const sentRows = () =>
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(searchStudents).mockResolvedValue({
-    ok: true,
-    data: [
-      { id: "s-1", name: "김하늘", email: "a@x.kr" },
-      { id: "s-2", name: "이바다", email: "b@x.kr" },
-    ],
-  });
-  http.get.mockImplementation(() => reply(usage()));
+  http.get.mockImplementation((path: string) =>
+    path === "admin/students/search"
+      ? reply({
+          items: [
+            { id: "s-1", name: "김하늘", email: "a@x.kr", isAdmin: false },
+            { id: "s-2", name: "이바다", email: "b@x.kr", isAdmin: false },
+          ],
+        })
+      : reply(usage()),
+  );
   http.put.mockImplementation(saved);
 });
 
@@ -103,6 +100,34 @@ async function search() {
 }
 
 describe("StudentUsageAdmin", () => {
+  test("학생 검색이 실패하면 서버가 준 안내를 보여 준다", async () => {
+    http.get.mockImplementation((path: string) =>
+      path === "admin/students/search"
+        ? failure("학생 검색 권한이 없어요.")
+        : reply(usage()),
+    );
+    renderAt();
+    fireEvent.change(screen.getByLabelText("학생 검색"), {
+      target: { value: "김" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+
+    expect(await screen.findByText("학생 검색 권한이 없어요.")).toBeTruthy();
+  });
+
+  test("학생 검색은 서비스이용횟수조정 권한 구분으로 학생 검색 API 를 부른다", async () => {
+    renderAt();
+    await search();
+
+    expect(http.get).toHaveBeenCalledWith(
+      "admin/students/search",
+      expect.objectContaining({
+        searchParams: { q: "김", section: "serviceCreditAdjust" },
+        signal: expect.any(AbortSignal),
+      }),
+    );
+  });
+
   test("학생을 보면 주소에 ?student 가 들어가고 그 학생의 사용 현황을 읽는다", async () => {
     renderAt();
     await search();
@@ -160,8 +185,14 @@ describe("StudentUsageAdmin", () => {
   });
 
   test("막힌 서비스는 사유 문구를 보인다", async () => {
-    http.get.mockImplementation(() =>
-      reply(usage({ allowed: false, denyReason: "month_cap" })),
+    http.get.mockImplementation((path: string) =>
+      path === "admin/students/search"
+        ? reply({
+            items: [
+              { id: "s-1", name: "김하늘", email: "a@x.kr", isAdmin: false },
+            ],
+          })
+        : reply(usage({ allowed: false, denyReason: "month_cap" })),
     );
     renderAt();
     await search();
