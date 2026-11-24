@@ -24,12 +24,15 @@ import {
 } from "@/pages/admin/shared/formFields";
 import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import {
-  fetchSchoolAdmins,
   type IssuedSchoolAdmin,
   type IssueSchoolAdminBody,
   issueSchoolAdmin,
 } from "./api";
-import { errorDetail, tenantKeys } from "./tenantQueries";
+import {
+  errorDetail,
+  schoolAdminsQueryOptions,
+  tenantKeys,
+} from "./tenantQueries";
 
 // ---------------------------------------------------------------------------
 // 기관 상세의 전체 관리자 탭(사 #159, 결정 102.6). 목록은 읽기만 하고(주소, 발급일, 등록취소일),
@@ -74,10 +77,7 @@ export default function SchoolAdminPanel({
   const [formError, setFormError] = useState("");
   const [issued, setIssued] = useState<IssuedSchoolAdmin | null>(null);
 
-  const listQuery = useQuery({
-    queryKey: tenantKeys.schoolAdmins(tenantId),
-    queryFn: ({ signal }) => fetchSchoolAdmins(tenantId, signal),
-  });
+  const listQuery = useQuery(schoolAdminsQueryOptions(tenantId));
   const list = listQuery.data;
   const loadError = listQuery.isError ? errorDetail(listQuery.error) : "";
 

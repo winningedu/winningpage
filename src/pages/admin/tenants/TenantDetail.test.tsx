@@ -19,6 +19,10 @@ const db = vi.hoisted(() => ({
     values: Record<string, unknown>;
   }[],
   fetches: [] as { id: string; signal: AbortSignal | undefined }[],
+  /** 전체 관리자 목록 요청이 받은 기관 id. */
+  adminFetches: [] as string[],
+  /** 값이 있으면 상세와 전체 관리자 응답이 이 약속이 풀릴 때까지 기다린다. */
+  hold: null as Promise<void> | null,
   /** 저장 응답이 돌려줄 새 updated_at. */
   nextUpdatedAt: "2026-11-06T01:00:00Z",
 }));
@@ -26,8 +30,14 @@ const db = vi.hoisted(() => ({
 vi.mock("./api", () => ({
   fetchTenantDetail: vi.fn(async (id: string, signal?: AbortSignal) => {
     db.fetches.push({ id, signal });
+    await db.hold;
     if (db.loadError) throw db.loadError;
     return db.row;
+  }),
+  fetchSchoolAdmins: vi.fn(async (id: string) => {
+    db.adminFetches.push(id);
+    await db.hold;
+    return { items: [], address: null };
   }),
   patchTenant: vi.fn(
     async (body: {
@@ -104,6 +114,8 @@ beforeEach(() => {
   db.patchError = null;
   db.patches = [];
   db.fetches = [];
+  db.adminFetches = [];
+  db.hold = null;
   db.nextUpdatedAt = "2026-11-06T01:00:00Z";
 });
 
@@ -448,6 +460,21 @@ describe("TenantDetail 이동과 불러오기 실패", () => {
     expect(await screen.findByText("기관을 찾을 수 없어요.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "목록으로" }));
     expect(await screen.findByText("기관 목록 화면")).toBeTruthy();
+  });
+
+  test("기관 상세 응답을 기다리는 동안 전체 관리자 목록 요청도 함께 나간다", async () => {
+    let release: () => void = () => {};
+    db.hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    renderDetail();
+
+    await waitFor(() => expect(db.fetches).toHaveLength(1));
+    expect(db.adminFetches).toEqual(["tenant-7"]);
+
+    release();
+    expect(await screen.findByDisplayValue("한빛고")).toBeTruthy();
+    expect(db.adminFetches).toEqual(["tenant-7"]);
   });
 
   test("불러오는 중에도 목록으로 버튼이 목록으로 이동한다", async () => {

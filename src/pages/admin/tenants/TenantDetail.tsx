@@ -27,6 +27,7 @@ import SchoolAdminPanel from "./SchoolAdminPanel";
 import ServiceSettingsPanel from "./ServiceSettingsPanel";
 import {
   errorDetail,
+  schoolAdminsQueryOptions,
   type TenantTab,
   tenantKeys,
   tenantPaths,
@@ -91,6 +92,12 @@ export default function TenantDetail() {
     // 폼 상태가 이 결과로 한 번 만들어지므로 캐시를 남기지 않고 매번 새로 받는다.
     gcTime: 0,
     refetchOnWindowFocus: false,
+  });
+  // 전체 관리자 목록은 기관 id 만 있으면 받을 수 있어, 상세 응답을 기다리지 않고 함께 시작한다.
+  // 결과는 SchoolAdminPanel 이 같은 쿼리로 읽는다.
+  useQuery({
+    ...schoolAdminsQueryOptions(tenantId ?? ""),
+    enabled: Boolean(tenantId),
   });
 
   if (!tenantId || tab === null) {
