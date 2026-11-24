@@ -1,16 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../api", () => ({
-  postKnowledgeDedupe: vi.fn(),
-  postKnowledgeBulk: vi.fn(),
-  postEmbedBackfill: vi.fn(),
-}));
-
-import {
-  postEmbedBackfill,
-  postKnowledgeBulk,
-  postKnowledgeDedupe,
-} from "../api";
+import type { DedupeResult } from "../../../../../api/_lib/knowledge/dedupe.js";
 import type { BulkAction } from "./flow";
 import { runApply, runDedupe } from "./run";
 import type { KnowledgeParseResult } from "./xlsx";
@@ -21,6 +11,13 @@ const parse = {
   errors: [],
 } as unknown as KnowledgeParseResult;
 
+const postKnowledgeDedupe =
+  vi.fn<(...args: unknown[]) => Promise<DedupeResult[]>>();
+const postKnowledgeBulk =
+  vi.fn<() => Promise<{ inserted: number; updated: number; ids: string[] }>>();
+const postEmbedBackfill =
+  vi.fn<() => Promise<{ embedded: number; failed: number }>>();
+
 function lastAction(dispatch: ReturnType<typeof vi.fn>): BulkAction {
   return dispatch.mock.calls.at(-1)?.[0] as BulkAction;
 }
@@ -29,15 +26,20 @@ beforeEach(() => {
   vi.resetAllMocks();
 });
 
+const dedupeDeps = { dedupe: postKnowledgeDedupe };
+const applyDeps = { bulk: postKnowledgeBulk, backfill: postEmbedBackfill };
+
 describe("runDedupe", () => {
-  it("검사 호출이 ok:false 면 이전과 같은 접두어를 붙여 dedupeFailed 를 보낸다", async () => {
-    vi.mocked(postKnowledgeDedupe).mockResolvedValue({
-      ok: false,
-      message: "Failed to fetch",
-    });
+  it("검사 호출이 실패하면 이전과 같은 접두어를 붙여 dedupeFailed 를 보낸다", async () => {
+    postKnowledgeDedupe.mockRejectedValue(new Error("Failed to fetch"));
     const dispatch = vi.fn();
 
-    await runDedupe({ knowledgeType: "topic_pattern", parse, dispatch });
+    await runDedupe({
+      knowledgeType: "topic_pattern",
+      parse,
+      dispatch,
+      ...dedupeDeps,
+    });
 
     expect(dispatch).toHaveBeenCalledWith({
       type: "dedupeStarted",
@@ -53,13 +55,15 @@ describe("runDedupe", () => {
 describe("runDedupe 성공", () => {
   it("결과를 행 번호로 모으고 정확 일치 행을 뺀 기본 선택으로 dedupeSucceeded 를 보낸다", async () => {
     const exact = { rowNo: 2, exact: [{ id: "x", title: "가" }], near: [] };
-    vi.mocked(postKnowledgeDedupe).mockResolvedValue({
-      ok: true,
-      data: [exact],
-    });
+    postKnowledgeDedupe.mockResolvedValue([exact]);
     const dispatch = vi.fn();
 
-    await runDedupe({ knowledgeType: "topic_pattern", parse, dispatch });
+    await runDedupe({
+      knowledgeType: "topic_pattern",
+      parse,
+      dispatch,
+      ...dedupeDeps,
+    });
 
     expect(lastAction(dispatch)).toEqual({
       type: "dedupeSucceeded",
@@ -72,15 +76,13 @@ describe("runDedupe 성공", () => {
 describe("runApply", () => {
   const selected = new Set([2]);
 
-  it("임베딩 호출이 ok:false 면 목록을 다시 읽고 반영 건수를 담은 이전 문구로 applyFailed 를 보낸다", async () => {
-    vi.mocked(postKnowledgeBulk).mockResolvedValue({
-      ok: true,
-      data: { inserted: 1, updated: 0, ids: ["a"] },
+  it("임베딩 호출이 실패하면 목록을 다시 읽고 반영 건수를 담은 이전 문구로 applyFailed 를 보낸다", async () => {
+    postKnowledgeBulk.mockResolvedValue({
+      inserted: 1,
+      updated: 0,
+      ids: ["a"],
     });
-    vi.mocked(postEmbedBackfill).mockResolvedValue({
-      ok: false,
-      message: "임베딩 키가 없습니다.",
-    });
+    postEmbedBackfill.mockRejectedValue(new Error("임베딩 키가 없습니다."));
     const dispatch = vi.fn();
     const onReload = vi.fn();
 
@@ -90,6 +92,7 @@ describe("runApply", () => {
       selected,
       dispatch,
       onReload,
+      ...applyDeps,
     });
 
     expect(onReload).toHaveBeenCalledTimes(1);
@@ -100,11 +103,10 @@ describe("runApply", () => {
     });
   });
 
-  it("반영 호출이 ok:false 면 임베딩을 부르지 않고 applyFailed 를 보낸다", async () => {
-    vi.mocked(postKnowledgeBulk).mockResolvedValue({
-      ok: false,
-      message: "요청에 실패했습니다. (HTTP 500)",
-    });
+  it("반영 호출이 실패하면 임베딩을 부르지 않고 applyFailed 를 보낸다", async () => {
+    postKnowledgeBulk.mockRejectedValue(
+      new Error("요청에 실패했습니다. (HTTP 500)"),
+    );
     const dispatch = vi.fn();
     const onReload = vi.fn();
 
@@ -114,6 +116,7 @@ describe("runApply", () => {
       selected,
       dispatch,
       onReload,
+      ...applyDeps,
     });
 
     expect(postEmbedBackfill).not.toHaveBeenCalled();
@@ -126,13 +129,14 @@ describe("runApply", () => {
   });
 
   it("끝까지 성공하면 진행 문구를 차례로 알리고 임베딩 실패 안내를 붙인 완료 문구로 applySucceeded 를 보낸다", async () => {
-    vi.mocked(postKnowledgeBulk).mockResolvedValue({
-      ok: true,
-      data: { inserted: 1, updated: 0, ids: ["a"] },
+    postKnowledgeBulk.mockResolvedValue({
+      inserted: 1,
+      updated: 0,
+      ids: ["a"],
     });
-    vi.mocked(postEmbedBackfill)
-      .mockResolvedValueOnce({ ok: true, data: { embedded: 1, failed: 0 } })
-      .mockResolvedValueOnce({ ok: true, data: { embedded: 0, failed: 2 } });
+    postEmbedBackfill
+      .mockResolvedValueOnce({ embedded: 1, failed: 0 })
+      .mockResolvedValueOnce({ embedded: 0, failed: 2 });
     const dispatch = vi.fn();
     const onReload = vi.fn();
 
@@ -142,6 +146,7 @@ describe("runApply", () => {
       selected,
       dispatch,
       onReload,
+      ...applyDeps,
     });
 
     expect(dispatch.mock.calls.map(([action]) => action)).toEqual([

@@ -50,7 +50,7 @@ describe("postKnowledgeDedupe", () => {
   it("api 로 admin/knowledge-dedupe 를 60초보다 긴 timeout 으로 부른다", async () => {
     respondWith({ items: [] });
 
-    await postKnowledgeDedupe("topic_pattern", []);
+    await postKnowledgeDedupe({ knowledgeType: "topic_pattern", items: [] });
 
     const [path, options] = http.post.mock.calls[0] as [
       string,
@@ -61,32 +61,29 @@ describe("postKnowledgeDedupe", () => {
     expect(options.timeout).toBeGreaterThan(60_000);
   });
 
-  it("ApiError 를 던지지 않고 detail 을 ok:false 로 돌려준다", async () => {
+  it("서버 오류는 detail 을 message 로 가진 ApiError 를 그대로 던진다", async () => {
     rejectWith(new http.FakeApiError("항목이 비었습니다."));
 
-    await expect(postKnowledgeDedupe("topic_pattern", [])).resolves.toEqual({
-      ok: false,
-      message: "항목이 비었습니다.",
-    });
+    await expect(
+      postKnowledgeDedupe({ knowledgeType: "topic_pattern", items: [] }),
+    ).rejects.toThrow("항목이 비었습니다.");
   });
 
-  it("그 밖의 예외는 예외 메시지를 ok:false 로 돌려준다", async () => {
+  it("응답이 스키마와 다르면 스키마 예외를 던진다", async () => {
     rejectWith(new Error("스키마가 맞지 않습니다."));
 
-    await expect(postKnowledgeDedupe("topic_pattern", [])).resolves.toEqual({
-      ok: false,
-      message: "스키마가 맞지 않습니다.",
-    });
+    await expect(
+      postKnowledgeDedupe({ knowledgeType: "topic_pattern", items: [] }),
+    ).rejects.toThrow("스키마가 맞지 않습니다.");
   });
 
-  it("성공하면 items 를 data 로 돌려준다", async () => {
+  it("성공하면 items 를 돌려준다", async () => {
     const items = [{ rowNo: 2, exact: [], near: [] }];
     respondWith({ items });
 
-    await expect(postKnowledgeDedupe("topic_pattern", [])).resolves.toEqual({
-      ok: true,
-      data: items,
-    });
+    await expect(
+      postKnowledgeDedupe({ knowledgeType: "topic_pattern", items: [] }),
+    ).resolves.toEqual(items);
   });
 });
 
@@ -111,21 +108,21 @@ describe("postKnowledgeBulk", () => {
     expect(options.timeout).toBeUndefined();
   });
 
-  it("실패하면 서버 detail 을 ok:false 로 돌려준다", async () => {
+  it("실패하면 서버 detail 을 던진다", async () => {
     rejectWith(new http.FakeApiError("이 메뉴에 없는 id 가 있습니다: a"));
 
-    await expect(postKnowledgeBulk(request)).resolves.toEqual({
-      ok: false,
-      message: "이 메뉴에 없는 id 가 있습니다: a",
-    });
+    await expect(postKnowledgeBulk(request)).rejects.toThrow(
+      "이 메뉴에 없는 id 가 있습니다: a",
+    );
   });
 
-  it("성공하면 반영 건수와 id 를 data 로 돌려준다", async () => {
+  it("성공하면 반영 건수와 id 를 돌려준다", async () => {
     respondWith({ inserted: 1, updated: 2, ids: ["a"] });
 
     await expect(postKnowledgeBulk(request)).resolves.toEqual({
-      ok: true,
-      data: { inserted: 1, updated: 2, ids: ["a"] },
+      inserted: 1,
+      updated: 2,
+      ids: ["a"],
     });
   });
 });
@@ -145,21 +142,18 @@ describe("postEmbedBackfill", () => {
     expect(options.timeout).toBeGreaterThan(60_000);
   });
 
-  it("실패하면 detail 을 ok:false 로 돌려준다", async () => {
+  it("실패하면 detail 을 던진다", async () => {
     rejectWith(new http.FakeApiError("임베딩 키가 없습니다."));
 
-    await expect(postEmbedBackfill()).resolves.toEqual({
-      ok: false,
-      message: "임베딩 키가 없습니다.",
-    });
+    await expect(postEmbedBackfill()).rejects.toThrow("임베딩 키가 없습니다.");
   });
 
   it("성공하면 회차 결과를 돌려준다", async () => {
     respondWith({ embedded: 5, failed: 1 });
 
     await expect(postEmbedBackfill()).resolves.toEqual({
-      ok: true,
-      data: { embedded: 5, failed: 1 },
+      embedded: 5,
+      failed: 1,
     });
   });
 });
@@ -194,16 +188,13 @@ describe("postSearchPreview", () => {
     expect(options.timeout).toBeGreaterThan(30_000);
   });
 
-  it("서버 오류 detail 을 ok:false 로 돌려준다", async () => {
+  it("서버 오류 detail 을 던진다", async () => {
     rejectWith(new http.FakeApiError("주제를 입력하세요."));
 
-    await expect(postSearchPreview(body)).resolves.toEqual({
-      ok: false,
-      message: "주제를 입력하세요.",
-    });
+    await expect(postSearchPreview(body)).rejects.toThrow("주제를 입력하세요.");
   });
 
-  it("성공하면 모드, 임계값, 단어 질의를 data 로 돌려준다", async () => {
+  it("성공하면 모드, 임계값, 단어 질의를 돌려준다", async () => {
     const item = {
       rank: 1,
       id: "k1",
@@ -224,14 +215,11 @@ describe("postSearchPreview", () => {
     });
 
     await expect(postSearchPreview(body)).resolves.toEqual({
-      ok: true,
-      data: {
-        mode: "vector",
-        threshold: 0.5,
-        queryText: "마찰력",
-        keywordQuery: null,
-        items: [item],
-      },
+      mode: "vector",
+      threshold: 0.5,
+      queryText: "마찰력",
+      keywordQuery: null,
+      items: [item],
     });
   });
 });

@@ -1,9 +1,9 @@
 // 지식 DB 관리 화면(엑셀 일괄 등록, 검색 테스트)이 부르는 서버 API 4종.
-// 모든 함수는 예외를 던지지 않는다. 실패도 ApiResult(apiResult.ts)로 돌려준다.
-// 실패 메시지는 서버가 준 problem 의 detail(ApiError)이다. 응답이 스키마와 다르면 그 예외 메시지다.
+// react-query 의 mutationFn 으로 쓴다. 실패는 ApiError(message 가 서버 problem 의 detail)를 던지고,
+// 응답이 스키마와 다르면 ky SchemaValidationError 를 던진다.
 
 import { z } from "zod";
-import { ApiError, api } from "@/lib/http/client";
+import { api } from "@/lib/http/client";
 import type {
   DedupeItem,
   DedupeResult,
@@ -13,7 +13,6 @@ import type {
   SearchPreviewItem,
   SearchPreviewMode,
 } from "../../../../api/_lib/knowledge/preview.js";
-import type { ApiResult } from "./apiResult";
 import type { BackfillRound } from "./bulk/backfillLoop";
 import type { BulkRequest } from "./bulk/plan";
 
@@ -21,18 +20,6 @@ import type { BulkRequest } from "./bulk/plan";
 const DEDUPE_TIMEOUT_MS = 65_000;
 const EMBED_TIMEOUT_MS = 65_000;
 const SEARCH_TIMEOUT_MS = 35_000;
-
-async function settle<T>(request: () => Promise<T>): Promise<ApiResult<T>> {
-  try {
-    return { ok: true, data: await request() };
-  } catch (error) {
-    if (error instanceof ApiError) return { ok: false, message: error.detail };
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
 
 const dedupeSchema = z.object({
   items: z.array(
@@ -50,19 +37,17 @@ const dedupeSchema = z.object({
   ),
 });
 
-export async function postKnowledgeDedupe(
-  knowledgeType: string,
-  items: DedupeItem[],
-): Promise<ApiResult<DedupeResult[]>> {
-  return settle(async () => {
-    const reply = await api
-      .post("admin/knowledge-dedupe", {
-        json: { knowledgeType, items },
-        timeout: DEDUPE_TIMEOUT_MS,
-      })
-      .json(dedupeSchema);
-    return reply.items;
-  });
+export async function postKnowledgeDedupe(request: {
+  knowledgeType: string;
+  items: DedupeItem[];
+}): Promise<DedupeResult[]> {
+  const reply = await api
+    .post("admin/knowledge-dedupe", {
+      json: request,
+      timeout: DEDUPE_TIMEOUT_MS,
+    })
+    .json(dedupeSchema);
+  return reply.items;
 }
 
 const bulkSchema = z.object({
@@ -73,28 +58,20 @@ const bulkSchema = z.object({
 
 export async function postKnowledgeBulk(
   request: BulkRequest,
-): Promise<ApiResult<z.infer<typeof bulkSchema>>> {
-  return settle(async () => {
-    const { inserted, updated, ids } = await api
-      .post("admin/knowledge-bulk", { json: request })
-      .json(bulkSchema);
-    return { inserted, updated, ids };
-  });
+): Promise<z.infer<typeof bulkSchema>> {
+  return api.post("admin/knowledge-bulk", { json: request }).json(bulkSchema);
 }
 
 // admin-embed 는 batch B4 가 바꾸지만 embedded, failed 두 필드는 그대로 둔다.
 const backfillSchema = z.object({ embedded: z.number(), failed: z.number() });
 
-export async function postEmbedBackfill(): Promise<ApiResult<BackfillRound>> {
-  return settle(async () => {
-    const { embedded, failed } = await api
-      .post("performance/admin-embed", {
-        json: { action: "backfill" },
-        timeout: EMBED_TIMEOUT_MS,
-      })
-      .json(backfillSchema);
-    return { embedded, failed };
-  });
+export async function postEmbedBackfill(): Promise<BackfillRound> {
+  return api
+    .post("performance/admin-embed", {
+      json: { action: "backfill" },
+      timeout: EMBED_TIMEOUT_MS,
+    })
+    .json(backfillSchema);
 }
 
 export type SearchPreviewResult = {
@@ -132,14 +109,12 @@ const searchSchema = z.object({
 export async function postSearchPreview(
   body: Omit<SearchPreviewBody, "includeOtherSubjects" | "limit" | "mode"> &
     Partial<Pick<SearchPreviewBody, "includeOtherSubjects" | "limit" | "mode">>,
-): Promise<ApiResult<SearchPreviewResult>> {
-  return settle(async () => {
-    const reply = await api
-      .post("admin/knowledge-search", {
-        json: body,
-        timeout: SEARCH_TIMEOUT_MS,
-      })
-      .json(searchSchema);
-    return reply as SearchPreviewResult;
-  });
+): Promise<SearchPreviewResult> {
+  const reply = await api
+    .post("admin/knowledge-search", {
+      json: body,
+      timeout: SEARCH_TIMEOUT_MS,
+    })
+    .json(searchSchema);
+  return reply as SearchPreviewResult;
 }
