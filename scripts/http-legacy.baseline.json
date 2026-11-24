@@ -959,18 +959,9 @@
     "browserDb": 6,
     "legacyFetch": 1
   },
-  "src/pages/admin/learning-diagnosis/LearningDiagnosisAdmin.tsx": {
-    "browserDb": 12
-  },
   "src/pages/admin/members/MembersAdmin.tsx": {
     "browserDb": 10,
     "legacyFetch": 1
-  },
-  "src/pages/admin/mentor/MentorApplicationsAdmin.tsx": {
-    "browserDb": 3
-  },
-  "src/pages/admin/premium-book/PremiumBookAdmin.tsx": {
-    "browserDb": 11
   },
   "src/pages/admin/selfeval/SelfevalSessionsAdmin.tsx": {
     "browserDb": 1
@@ -981,9 +972,6 @@
   "src/pages/admin/service-credit/api.ts": {
     "browserDb": 1,
     "legacyFetch": 1
-  },
-  "src/pages/admin/shared/AdminEngine.tsx": {
-    "browserDb": 3
   },
   "src/pages/admin/staff/AdminMembersAdmin.tsx": {
     "browserDb": 8,
