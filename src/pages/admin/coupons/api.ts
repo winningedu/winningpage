@@ -169,12 +169,13 @@ export function useVoidRedemption(couponId: string) {
           json: reason.trim() ? { reason: reason.trim() } : {},
         })
         .json(z.looseObject({})),
+    // 내가 무효화했으니 이력과 목록의 사용 건수를 비우고 스켈레톤 뒤에 새로 받는다.
     onSuccess: () =>
       Promise.all([
-        queryClient.invalidateQueries({
+        queryClient.resetQueries({
           queryKey: couponKeys.redemptions(couponId),
         }),
-        queryClient.invalidateQueries({ queryKey: couponKeys.list() }),
+        queryClient.resetQueries({ queryKey: couponKeys.list() }),
       ]),
   });
 }
