@@ -12,7 +12,11 @@ export interface GoalCall {
   columns?: string | undefined;
   filters: [column: string, kind: Kind, value: unknown][];
   or?: string;
-  orders: [column: string, ascending: boolean, nullsFirst?: boolean][];
+  orders: [
+    column: string,
+    ascending: boolean,
+    nullsFirst?: boolean | undefined,
+  ][];
   range?: [from: number, to: number];
   limit?: number;
   count: boolean;
@@ -180,7 +184,7 @@ export function createGoalAdmin(state: KitState, db: GoalDb) {
             // 관리자 판정이 profiles.role 을 읽는다. 그 한 가지 읽기만 권한 가짜로 보낸다.
             select: (columns?: string, options?: { count?: string }) =>
               table === "profiles" && columns === "role"
-                ? base.from(table).select()
+                ? (base.from(table) as { select: () => unknown }).select()
                 : new Builder(db, table, "select").select(columns, options),
             insert: () => new Builder(db, table, "write"),
             update: () => new Builder(db, table, "write"),
