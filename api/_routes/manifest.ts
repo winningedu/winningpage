@@ -24,12 +24,15 @@ export const routes: Record<string, RouteLoader> = {
   "admin/hq-dashboard/usage": () => import("./admin/hq-dashboard/usage.js"),
   "admin/growth-recover": () => import("./admin/growth-recover.js"),
   "admin/growth-reports": () => import("./admin/growth-reports.js"),
+  "admin/growth-reports/[id]": () => import("./admin/growth-reports/[id].js"),
   "admin/hq-dashboard/logins": () => import("./admin/hq-dashboard/logins.js"),
   "admin/hq-dashboard/b2c": () => import("./admin/hq-dashboard/b2c.js"),
   "admin/hq-dashboard/trends": () => import("./admin/hq-dashboard/trends.js"),
   "admin/inquiry-grant": () => import("./admin/inquiry-grant.js"),
   "admin/inquiry-recover": () => import("./admin/inquiry-recover.js"),
   "admin/inquiry-sessions": () => import("./admin/inquiry-sessions.js"),
+  "admin/inquiry-sessions/[id]": () =>
+    import("./admin/inquiry-sessions/[id].js"),
   "admin/invite-member": () => import("./admin/invite-member.js"),
   "admin/me/permissions": () => import("./admin/me/permissions.js"),
   "admin/knowledge-bulk": () => import("./admin/knowledge-bulk.js"),
@@ -52,6 +55,7 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/service-credit-adjust.js"),
   "admin/service-credit-summary": () =>
     import("./admin/service-credit-summary.js"),
+  "admin/students/search": () => import("./admin/students/search.js"),
   "admin/tenant-options": () => import("./admin/tenant-options.js"),
   "admin/tenants": () => import("./admin/tenants.js"),
   "admin/tenants/[id]": () => import("./admin/tenants/[id].js"),

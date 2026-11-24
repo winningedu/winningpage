@@ -5,12 +5,14 @@
 // fn_sync_program_access_cache 로 program_access 캐시를 맞춘 뒤 현재 이용 현황을 돌려준다.
 // 컬럼 규칙은 api/_lib/inquiry/ops/grant.ts 상단 주석 참고.
 //
-// 응답 200 { ok, grantId, quota: { quotaTotal, quotaUsed, quotaRemaining, planEndsAt, planLabel } }
-// 오류(coded): 400 INVALID_BODY, 400 NOT_STUDENT, 404 PROFILE_NOT_FOUND,
-//   401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL
+// 응답 200 { grantId, quota: { quotaTotal, quotaUsed, quotaRemaining, planEndsAt, planLabel } }
+// 오류(problem): 400 VALIDATION_FAILED(모양, 정의되지 않은 키), 400 INVALID_BODY(값 규칙),
+//   400 NOT_STUDENT, 404 PROFILE_NOT_FOUND, 401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL_ERROR
+// 권한: 메뉴 inquirySessions edit.
 //
-// 핸들러 본문은 테스트하지 않는다. 판단과 조립은 api/_lib/inquiry/ops/grant.ts.
+// 판단과 조립은 api/_lib/inquiry/ops/grant.ts.
 
+import { z } from "zod";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import {
@@ -27,21 +29,26 @@ import {
 export default defineHandler({
   methods: ["POST"],
   auth: "admin",
-  errorShape: "coded",
+  errorShape: "problem",
+  permission: { key: "inquirySessions" },
   methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  authFailureExtra: { ok: false },
   unhandledMessage: "심화탐구 이용권 부여에 실패했습니다.",
-  unhandledCode: "INTERNAL",
-  unhandledExtra: { ok: false },
   logLabel: "admin/inquiry-grant",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const parsed = validateGrantBody(req.body);
+  // 모양만 거르고 값 규칙과 한국어 사유는 validateGrantBody 가 맡는다.
+  // 정의되지 않은 키는 400 으로 막아 insert 에는 buildGrantRow 의 컬럼만 간다.
+  body: z
+    .object({
+      profileId: z.string(),
+      sessionQuota: z.number().nullable(),
+      startsAt: z.string().nullish(),
+      endsAt: z.string().nullish(),
+    })
+    .strict(),
+  handler: async (_req, res, ctx) => {
+    const parsed = validateGrantBody(ctx.body);
     if (!parsed.ok) {
-      sendError(res, "coded", 400, parsed.reason, "INVALID_BODY", {
-        ok: false,
-      });
+      sendError(res, "problem", 400, parsed.reason, "INVALID_BODY");
       return;
     }
     const { body } = parsed;
@@ -59,22 +66,20 @@ export default defineHandler({
     if (!profile) {
       sendError(
         res,
-        "coded",
+        "problem",
         404,
         "회원을 찾을 수 없습니다.",
         "PROFILE_NOT_FOUND",
-        { ok: false },
       );
       return;
     }
     if (profile.member_type !== "student") {
       sendError(
         res,
-        "coded",
+        "problem",
         400,
         "학생 회원에게만 부여할 수 있습니다.",
         "NOT_STUDENT",
-        { ok: false },
       );
       return;
     }
@@ -107,7 +112,7 @@ export default defineHandler({
       await findProgramAccessRow(db, body.profileId, config),
     );
 
-    res.status(200).json({ ok: true, grantId: inserted.id, quota });
+    res.status(200).json({ grantId: inserted.id, quota });
   },
 });
 
