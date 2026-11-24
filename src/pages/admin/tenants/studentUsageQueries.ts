@@ -1,0 +1,84 @@
+// 스쿨멘토 서비스이용횟수조정의 서버 호출. 실패는 던져서 react-query 가 오류로 받는다.
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
+import { api } from "@/lib/http/client";
+
+const limitOverrideSchema = z.object({
+  monthlyLimit: z.number().nullable(),
+  termLimit: z.number().nullable(),
+});
+
+const studentUsageSchema = z.object({
+  tenant: z
+    .object({ id: z.string(), name: z.string(), isCatchAll: z.boolean() })
+    .nullable(),
+  programs: z.array(
+    z.object({
+      programKey: z.string(),
+      allowed: z.boolean(),
+      denyReason: z.string().nullable(),
+      monthUsed: z.number(),
+      monthLimit: z.number().nullable(),
+      monthRemaining: z.number().nullable(),
+      termUsed: z.number(),
+      termLimit: z.number().nullable(),
+      termRemaining: z.number().nullable(),
+      monthResetsOn: z.string().nullable(),
+      termResetsOn: z.string().nullable(),
+      setting: z
+        .object({
+          enabled: z.boolean(),
+          monthlyLimit: z.number().nullable(),
+          termLimit: z.number().nullable(),
+        })
+        .nullable(),
+      override: limitOverrideSchema.nullable(),
+    }),
+  ),
+});
+
+const savedSchema = z.object({ saved: z.number() });
+
+export type StudentUsage = z.infer<typeof studentUsageSchema>;
+
+/** 고친 칸만 담는다. 빠진 열은 서버가 건드리지 않는다. 변경자는 서버가 채운다. */
+export interface UsageRow {
+  profile_id: string;
+  program_key: string;
+  monthly_limit?: number | null;
+  term_limit?: number | null;
+}
+
+const usageKey = (profileId: string | null) => [
+  "admin",
+  "student-usage",
+  profileId,
+];
+
+export function useStudentUsage(profileId: string | null) {
+  return useQuery({
+    queryKey: usageKey(profileId),
+    queryFn: ({ signal }) =>
+      api
+        .get("admin/tenants/student-usage", {
+          searchParams: { profileId: profileId ?? "" },
+          signal,
+        })
+        .json(studentUsageSchema),
+    enabled: Boolean(profileId),
+  });
+}
+
+export function useSaveStudentUsage() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (rows: UsageRow[]) =>
+      api
+        .put("admin/tenants/student-usage", { json: { rows } })
+        .json(savedSchema),
+    // 저장한 값이 화면에 보이도록 보던 학생의 현황을 다시 읽는다.
+    onSettled: () =>
+      client.invalidateQueries({ queryKey: ["admin", "student-usage"] }),
+  });
+}
