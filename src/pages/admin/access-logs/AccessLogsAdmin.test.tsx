@@ -122,6 +122,45 @@ describe("AccessLogsAdmin", () => {
     expect(Object.fromEntries(lastParams())).toEqual({ page: "1" });
   });
 
+  test("처음 받는 동안 빈 표 대신 스켈레톤을 보이고 응답이 오면 행으로 바뀐다", async () => {
+    let release: (page: PageBody) => void = () => {};
+    http.get.mockReturnValue({
+      json: (schema: { parse: (value: unknown) => unknown }) =>
+        new Promise((resolve) => {
+          release = (page) => resolve(schema.parse(page));
+        }),
+    });
+    renderScreen();
+    expect(
+      await screen.findByRole("status", {
+        name: "접근 로그를 불러오는 중입니다.",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader")).toBeNull();
+    expect(screen.queryByText("기록이 없어요.")).toBeNull();
+    release({ items: [ENTRY], page: 1, hasNext: false });
+    expect(await screen.findByText("박교사")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("status", { name: "접근 로그를 불러오는 중입니다." }),
+    ).toBeNull();
+  });
+
+  test("쪽을 넘기면 옛 행 대신 스켈레톤을 보인다", async () => {
+    http.get.mockReturnValueOnce(
+      respondWith({ items: [ENTRY], page: 1, hasNext: true }),
+    );
+    renderScreen();
+    await screen.findByText("박교사");
+    http.get.mockReturnValue({ json: () => new Promise(() => {}) });
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    expect(
+      await screen.findByRole("status", {
+        name: "접근 로그를 불러오는 중입니다.",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("박교사")).toBeNull();
+  });
+
   test("열 머리글은 scope col 을 가진다", async () => {
     renderScreen();
     const header = await screen.findByRole("columnheader", { name: "일시" });

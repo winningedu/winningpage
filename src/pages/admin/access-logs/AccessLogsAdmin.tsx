@@ -18,6 +18,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { type AccessLogFilter, accessLogsQueryOptions } from "./api";
 
 // ---------------------------------------------------------------------------
@@ -71,7 +72,7 @@ export default function AccessLogsAdmin() {
   const setFilter = (next: AccessLogFilter) =>
     setSearchParams(paramsFromFilter(next));
   const [draft, setDraft] = useState<AccessLogFilter>(filter);
-  const { data, error } = useQuery(accessLogsQueryOptions(filter));
+  const { data, error, isPending } = useQuery(accessLogsQueryOptions(filter));
   const errorMessage = error
     ? error instanceof ApiError
       ? error.detail
@@ -137,69 +138,76 @@ export default function AccessLogsAdmin() {
           {errorMessage}
         </p>
       )}
-      <Table className="min-w-[72rem] border-collapse">
-        <TableHeader>
-          <TableRow className="border-y border-gray-300 hover:bg-transparent">
-            {COLUMNS.map((name) => (
-              <TableHead
-                key={name}
-                scope="col"
-                className="whitespace-normal px-3 py-3 text-left font-semibold"
-              >
-                {name}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {(data?.items ?? []).map((log) => (
-            <TableRow key={log.id} className="border-b border-gray-100">
-              <TableCell className="px-3 py-3">
-                {formatValue(log.createdAt, "datetime")}
-              </TableCell>
-              <TableCell className="px-3 py-3">
-                {log.tenantCode ?? "-"}
-              </TableCell>
-              <TableCell className="whitespace-normal px-3 py-3">
-                {(log.actorName ?? log.actorEmail) ? (
-                  <>
-                    {log.actorName && <div>{log.actorName}</div>}
-                    {log.actorEmail && (
-                      <div className="text-xs text-muted-foreground">
-                        {log.actorEmail}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  "-"
-                )}
-              </TableCell>
-              <TableCell className="whitespace-normal px-3 py-3">
-                {log.teacherName ?? "-"}
-              </TableCell>
-              <TableCell className="px-3 py-3">
-                {log.teacherLoginId ?? "-"}
-              </TableCell>
-              <TableCell className="px-3 py-3">
-                {log.teacherPhone ?? "-"}
-              </TableCell>
-              <TableCell className="px-3 py-3">{log.kindLabel}</TableCell>
-              <TableCell className="whitespace-normal px-3 py-3">
-                {log.targetStudentName ?? "-"}
-              </TableCell>
-              <TableCell className="whitespace-normal px-3 py-3">
-                {log.content}
-              </TableCell>
-              <TableCell className="whitespace-normal px-3 py-3">
-                {log.reason ?? "-"}
-              </TableCell>
-              <TableCell className="px-3 py-3">
-                {log.isProxy ? "대행" : "-"}
-              </TableCell>
+      {isPending ? (
+        <AdminTableSkeleton
+          columns={COLUMNS.length}
+          label="접근 로그를 불러오는 중입니다."
+        />
+      ) : (
+        <Table className="min-w-[72rem] border-collapse">
+          <TableHeader>
+            <TableRow className="border-y border-gray-300 hover:bg-transparent">
+              {COLUMNS.map((name) => (
+                <TableHead
+                  key={name}
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  {name}
+                </TableHead>
+              ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {(data?.items ?? []).map((log) => (
+              <TableRow key={log.id} className="border-b border-gray-100">
+                <TableCell className="px-3 py-3">
+                  {formatValue(log.createdAt, "datetime")}
+                </TableCell>
+                <TableCell className="px-3 py-3">
+                  {log.tenantCode ?? "-"}
+                </TableCell>
+                <TableCell className="whitespace-normal px-3 py-3">
+                  {(log.actorName ?? log.actorEmail) ? (
+                    <>
+                      {log.actorName && <div>{log.actorName}</div>}
+                      {log.actorEmail && (
+                        <div className="text-xs text-muted-foreground">
+                          {log.actorEmail}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    "-"
+                  )}
+                </TableCell>
+                <TableCell className="whitespace-normal px-3 py-3">
+                  {log.teacherName ?? "-"}
+                </TableCell>
+                <TableCell className="px-3 py-3">
+                  {log.teacherLoginId ?? "-"}
+                </TableCell>
+                <TableCell className="px-3 py-3">
+                  {log.teacherPhone ?? "-"}
+                </TableCell>
+                <TableCell className="px-3 py-3">{log.kindLabel}</TableCell>
+                <TableCell className="whitespace-normal px-3 py-3">
+                  {log.targetStudentName ?? "-"}
+                </TableCell>
+                <TableCell className="whitespace-normal px-3 py-3">
+                  {log.content}
+                </TableCell>
+                <TableCell className="whitespace-normal px-3 py-3">
+                  {log.reason ?? "-"}
+                </TableCell>
+                <TableCell className="px-3 py-3">
+                  {log.isProxy ? "대행" : "-"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
       {data?.items.length === 0 && (
         <p className="py-12 text-center text-sm text-muted-foreground">
           기록이 없어요.
