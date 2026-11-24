@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { supabase } from "@/lib/supabase";
+import { ApiError } from "@/lib/http/client";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
 import {
   ActionButton,
@@ -23,35 +33,41 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import {
-  fetchSelfevalSessionDetail,
-  fetchSelfevalSessions,
+  type StudentSearchItem,
+  studentSearchQueryOptions,
+} from "@/pages/admin/shared/studentSearch";
+import {
   postSelfevalGrant,
   postSelfevalRecover,
-  type SelfevalSessionsPage,
+  selfevalDetailQueryOptions,
+  selfevalKeys,
+  selfevalListQueryOptions,
 } from "./api";
 import {
   buildGrantBody,
   type GrantFormValues,
   validateGrantForm,
 } from "./grantForm";
+import { SELFEVAL_PATH } from "./paths";
 import {
-  buildSelfevalSessionsSearch,
-  initialSelfevalSessionsQuery,
-  selfevalSessionsQueryReducer,
+  parseSelfevalSessionsQuery,
+  patchSelfevalSessionsParams,
 } from "./query";
 import {
   areaLabel,
   canRecover,
   ledgerLabel,
   SELFEVAL_STATUS_OPTIONS,
-  type SelfevalSessionDetail,
-  type SelfevalSessionItem,
   statusLabel,
   stepLabel,
   terminalLabel,
 } from "./row";
 
-const STUDENT_SEARCH_LIMIT = 20;
+const REQUEST_ERROR = "요청에 실패했습니다.";
+const SEARCH_ERROR = "학생 조회에 실패했습니다.";
+
+const errorText = (error: unknown, fallback: string) =>
+  error instanceof ApiError ? error.detail : fallback;
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -60,44 +76,53 @@ function formatDate(value?: string | null) {
   return d.toLocaleDateString("ko-KR");
 }
 
-type StudentRow = { id: string; name: string | null; email: string | null };
-
 interface Props {
   config: { title: string; [key: string]: unknown };
 }
 
+// 섹션 라우트가 selfevalSessions/* 라 아래 Routes 가 나머지 경로를 맡는다.
+// 목록과 상세는 같은 화면이라 선택 주소(:id?)로 묶어, 상세를 열고 닫아도 목록이 그대로 남는다.
 export default function SelfevalSessionsAdmin({ config }: Props) {
-  const [query, dispatch] = useReducer(
-    selfevalSessionsQueryReducer,
-    initialSelfevalSessionsQuery,
+  return (
+    <Routes>
+      <Route
+        path=":id?"
+        element={<SelfevalSessionsScreen title={config.title} />}
+      />
+      <Route path="*" element={<Navigate to={SELFEVAL_PATH} replace />} />
+    </Routes>
   );
-  const [data, setData] = useState<SelfevalSessionsPage | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [selected, setSelected] = useState<SelfevalSessionItem | null>(null);
+}
+
+function SelfevalSessionsScreen({ title }: { title: string }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  // 상세로 갈 때 목록 조건(search)을 달고 가서 닫을 때 그대로 돌려준다.
+  const { search } = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+  const query = parseSelfevalSessionsQuery(searchParams);
+  const [draft, setDraft] = useState(query.q);
   const [grantOpen, setGrantOpen] = useState(false);
 
-  const search = buildSelfevalSessionsSearch(query);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    const result = await fetchSelfevalSessions(search);
-    setLoading(false);
-    if (!result.ok) {
-      setError(result.message);
-      setData(null);
-      return;
-    }
-    setData(result.data);
-  }, [search]);
-
+  // 뒤로가기로 q 가 바뀌면 입력칸도 맞춘다.
   useEffect(() => {
-    load();
-  }, [load]);
+    setDraft(query.q);
+  }, [query.q]);
+
+  const list = useQuery(selfevalListQueryOptions(query));
+  const data = list.data;
+  const error = list.error ? errorText(list.error, REQUEST_ERROR) : "";
 
   const total = data?.total ?? 0;
   const lastPage = Math.max(1, Math.ceil(total / query.pageSize));
+
+  const openDetail = (rowId: string) =>
+    navigate({
+      pathname: `${SELFEVAL_PATH}/${encodeURIComponent(rowId)}`,
+      search,
+    });
+  const closeDetail = () => navigate({ pathname: SELFEVAL_PATH, search });
 
   return (
     <div>
@@ -107,14 +132,20 @@ export default function SelfevalSessionsAdmin({ config }: Props) {
             className="flex flex-wrap items-end gap-3"
             onSubmit={(e) => {
               e.preventDefault();
-              dispatch({ type: "submit" });
+              setSearchParams((prev) =>
+                patchSelfevalSessionsParams(prev, { q: draft.trim() }),
+              );
             }}
           >
             <div className="w-[10rem]">
               <Field label="상태">
                 <Select
                   value={query.status}
-                  onChange={(status) => dispatch({ type: "setStatus", status })}
+                  onChange={(status) =>
+                    setSearchParams((prev) =>
+                      patchSelfevalSessionsParams(prev, { status }),
+                    )
+                  }
                 >
                   <option value="">전체</option>
                   {SELFEVAL_STATUS_OPTIONS.map((s) => (
@@ -128,8 +159,8 @@ export default function SelfevalSessionsAdmin({ config }: Props) {
             <div className="w-[15rem]">
               <Field label="검색어">
                 <TextInput
-                  value={query.draft}
-                  onChange={(draft) => dispatch({ type: "setDraft", draft })}
+                  value={draft}
+                  onChange={setDraft}
                   placeholder="이름, 이메일 또는 과목"
                 />
               </Field>
@@ -140,7 +171,7 @@ export default function SelfevalSessionsAdmin({ config }: Props) {
             이용권 부여
           </ActionButton>
         </div>
-        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
+        <h1 className="mt-4 text-xl font-semibold">{title}</h1>
       </div>
 
       {error && (
@@ -152,7 +183,7 @@ export default function SelfevalSessionsAdmin({ config }: Props) {
         </div>
       )}
 
-      {loading ? (
+      {list.isPending ? (
         <div
           role="status"
           className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
@@ -204,7 +235,7 @@ export default function SelfevalSessionsAdmin({ config }: Props) {
                 data.items.map((row) => (
                   <TableRow
                     key={row.id}
-                    onClick={() => setSelected(row)}
+                    onClick={() => openDetail(row.id)}
                     className="cursor-pointer border-b border-gray-100"
                   >
                     <TableCell className="whitespace-normal px-3 py-3">
@@ -212,7 +243,7 @@ export default function SelfevalSessionsAdmin({ config }: Props) {
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          setSelected(row);
+                          openDetail(row.id);
                         }}
                         className="text-left font-medium underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
                       >
@@ -260,18 +291,22 @@ export default function SelfevalSessionsAdmin({ config }: Props) {
           <AdminPagination
             page={query.page}
             totalPages={lastPage}
-            onPageChange={(page) => dispatch({ type: "setPage", page })}
+            onPageChange={(page) =>
+              setSearchParams((prev) =>
+                patchSelfevalSessionsParams(prev, { page }),
+              )
+            }
           />
         </div>
       )}
 
       <SessionDetailDialog
-        key={selected?.id ?? "none"}
-        row={selected}
-        onClose={() => setSelected(null)}
+        key={id ?? "none"}
+        id={id ?? null}
+        onClose={closeDetail}
         onRecovered={() => {
-          setSelected(null);
-          load();
+          queryClient.invalidateQueries({ queryKey: selfevalKeys.lists() });
+          closeDetail();
         }}
       />
       <GrantDialog open={grantOpen} onClose={() => setGrantOpen(false)} />
@@ -280,52 +315,52 @@ export default function SelfevalSessionsAdmin({ config }: Props) {
 }
 
 function SessionDetailDialog({
-  row,
+  id,
   onClose,
   onRecovered,
 }: {
-  row: SelfevalSessionItem | null;
+  id: string | null;
   onClose: () => void;
   onRecovered: () => void;
 }) {
-  const [detail, setDetail] = useState<SelfevalSessionDetail | null>(null);
+  const detailQuery = useQuery({
+    ...selfevalDetailQueryOptions(id ?? ""),
+    enabled: id !== null,
+  });
+  const recover = useMutation({ mutationFn: postSelfevalRecover });
+  const busy = recover.isPending;
   const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
-  const rowId = row?.id;
-  useEffect(() => {
-    if (!rowId) return;
-    let cancelled = false;
-    fetchSelfevalSessionDetail(rowId).then((result) => {
-      if (cancelled) return;
-      if (!result.ok) {
-        setMessage(result.message);
-        return;
-      }
-      setDetail(result.data);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [rowId]);
+  const detail = detailQuery.data;
+  const shownMessage =
+    message ||
+    (detailQuery.error ? errorText(detailQuery.error, REQUEST_ERROR) : "");
 
-  async function recover() {
-    if (!row || busy) return;
-    setBusy(true);
+  async function doRecover() {
+    if (!id || busy) return;
     setMessage("");
-    const result = await postSelfevalRecover(row.id);
-    setBusy(false);
-    if (!result.ok) {
-      setMessage(result.message);
+    try {
+      await recover.mutateAsync(id);
+    } catch (error) {
+      setMessage(errorText(error, REQUEST_ERROR));
       return;
     }
     onRecovered();
   }
 
+  const alert = shownMessage && (
+    <div
+      role="alert"
+      className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-600"
+    >
+      {shownMessage}
+    </div>
+  );
+
   return (
     <Dialog
-      open={row !== null}
+      open={id !== null}
       disablePointerDismissal
       onOpenChange={(open, eventDetails) => {
         if (open) return;
@@ -338,45 +373,50 @@ function SessionDetailDialog({
       }}
     >
       <DialogContent className="sm:max-w-[34rem]">
-        {row && (
-          <>
-            <DialogHeader>
-              <DialogTitle>
-                {row.studentName ?? "-"} ({statusLabel(row.status)})
-              </DialogTitle>
-              <DialogDescription>{row.email ?? "-"}</DialogDescription>
-            </DialogHeader>
+        {id !== null &&
+          (detail ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {detail.studentName ?? "-"} (
+                  {statusLabel(detail.session.status)})
+                </DialogTitle>
+                <DialogDescription>{detail.email ?? "-"}</DialogDescription>
+              </DialogHeader>
 
-            <div className="text-sm">
-              <span className="font-semibold text-gray-500">세션 </span>
-              {row.id} / {stepLabel(row.currentStep)} / 차감 {ledgerLabel(row)}
-            </div>
+              <div className="text-sm">
+                <span className="font-semibold text-gray-500">세션 </span>
+                {detail.session.id} / {stepLabel(detail.session.current_step)} /
+                차감{" "}
+                {ledgerLabel({
+                  ledgerId: detail.session.ledger_id,
+                  ledgerReversedAt: detail.session.ledger_reversed_at,
+                })}
+              </div>
 
-            <ul className="divide-y divide-gray-100 border border-gray-200 text-sm">
-              {row.progress.map((p) => (
-                <li
-                  key={p.step}
-                  className="flex items-center justify-between px-3 py-2"
-                >
-                  <span className="font-medium">{p.label}</span>
-                  <span className="text-gray-500">
-                    {p.status}, 시도 {p.attempts}
-                  </span>
-                </li>
-              ))}
-            </ul>
+              <ul className="divide-y divide-gray-100 border border-gray-200 text-sm">
+                {detail.progress.map((p) => (
+                  <li
+                    key={p.step}
+                    className="flex items-center justify-between px-3 py-2"
+                  >
+                    <span className="font-medium">{p.label}</span>
+                    <span className="text-gray-500">
+                      {p.status}, 시도 {p.attempts}
+                    </span>
+                  </li>
+                ))}
+              </ul>
 
-            <div className="text-sm">
-              <span className="font-semibold text-gray-500">종결 </span>
-              {terminalLabel(row.terminal)}
-              {row.terminal ? ` (${formatDate(row.terminal.at)})` : ""}
-            </div>
+              <div className="text-sm">
+                <span className="font-semibold text-gray-500">종결 </span>
+                {terminalLabel(detail.terminal)}
+                {detail.terminal ? ` (${formatDate(detail.terminal.at)})` : ""}
+              </div>
 
-            <div className="text-sm">
-              <span className="font-semibold text-gray-500">선택 활동 </span>
-              {!detail
-                ? "불러오는 중"
-                : detail.activities.length === 0
+              <div className="text-sm">
+                <span className="font-semibold text-gray-500">선택 활동 </span>
+                {detail.activities.length === 0
                   ? "없음"
                   : detail.activities
                       .map(
@@ -384,13 +424,11 @@ function SessionDetailDialog({
                           `${a.role === "core" ? "핵심" : "보조"} ${a.activityRecordId.slice(0, 8)}`,
                       )
                       .join(", ")}
-            </div>
+              </div>
 
-            <div className="text-sm">
-              <span className="font-semibold text-gray-500">리포트 </span>
-              {!detail
-                ? "불러오는 중"
-                : detail.reports.length === 0
+              <div className="text-sm">
+                <span className="font-semibold text-gray-500">리포트 </span>
+                {detail.reports.length === 0
                   ? "없음"
                   : detail.reports
                       .map(
@@ -398,44 +436,54 @@ function SessionDetailDialog({
                           `${r.type} r${r.revision}${r.score === null ? "" : ` (${r.score}점)`}`,
                       )
                       .join(", ")}
-            </div>
-
-            {message && (
-              <div
-                role="alert"
-                className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-600"
-              >
-                {message}
               </div>
-            )}
 
-            {canRecover(row) &&
-              (confirming ? (
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <span>새 세션을 만들어 복구합니다. 진행할까요?</span>
-                  <ActionButton onClick={recover} disabled={busy}>
-                    {busy ? "처리 중..." : "확인"}
-                  </ActionButton>
-                  <ActionButton
-                    variant="light"
-                    onClick={() => setConfirming(false)}
-                    disabled={busy}
-                  >
-                    취소
-                  </ActionButton>
+              {alert}
+
+              {canRecover({
+                status: detail.session.status,
+                terminal: detail.terminal,
+              }) &&
+                (confirming ? (
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <span>새 세션을 만들어 복구합니다. 진행할까요?</span>
+                    <ActionButton onClick={doRecover} disabled={busy}>
+                      {busy ? "처리 중..." : "확인"}
+                    </ActionButton>
+                    <ActionButton
+                      variant="light"
+                      onClick={() => setConfirming(false)}
+                      disabled={busy}
+                    >
+                      취소
+                    </ActionButton>
+                  </div>
+                ) : (
+                  <div>
+                    <ActionButton
+                      variant="danger"
+                      onClick={() => setConfirming(true)}
+                    >
+                      실패 세션 복구
+                    </ActionButton>
+                  </div>
+                ))}
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>세션 상세</DialogTitle>
+              </DialogHeader>
+              {alert || (
+                <div
+                  role="status"
+                  className="text-sm font-medium text-gray-500"
+                >
+                  불러오는 중...
                 </div>
-              ) : (
-                <div>
-                  <ActionButton
-                    variant="danger"
-                    onClick={() => setConfirming(true)}
-                  >
-                    실패 세션 복구
-                  </ActionButton>
-                </div>
-              ))}
-          </>
-        )}
+              )}
+            </>
+          ))}
       </DialogContent>
     </Dialog>
   );
@@ -449,47 +497,38 @@ function GrantDialog({
   onClose: () => void;
 }) {
   const [userQuery, setUserQuery] = useState("");
-  const [results, setResults] = useState<StudentRow[] | null>(null);
-  const [student, setStudent] = useState<StudentRow | null>(null);
+  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [student, setStudent] = useState<StudentSearchItem | null>(null);
   const [sessionQuota, setSessionQuota] = useState("");
   const [months, setMonths] = useState("");
   const [endsAt, setEndsAt] = useState("");
-  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [resultText, setResultText] = useState("");
+  const studentSearch = useQuery(
+    studentSearchQueryOptions("selfevalSessions", submittedQuery),
+  );
+  const grant = useMutation({ mutationFn: postSelfevalGrant });
+  const busy = grant.isPending;
+
+  // 검색어가 비어 있으면 요청하지 않아 결과도 없다(null). 실패하면 빈 목록으로 보인다.
+  const results =
+    studentSearch.data?.items ?? (studentSearch.error ? [] : null);
+  const shownMessage =
+    message ||
+    (studentSearch.error ? errorText(studentSearch.error, SEARCH_ERROR) : "");
 
   useEffect(() => {
     if (open) return;
     setUserQuery("");
-    setResults(null);
+    setSubmittedQuery("");
     setStudent(null);
     setSessionQuota("");
     setMonths("");
     setEndsAt("");
     setMessage("");
     setResultText("");
-  }, [open]);
-
-  async function searchStudents() {
-    // PostgREST or 필터는 콤마와 괄호로 절을 구분하므로 검색어에서 걷어낸다.
-    const q = userQuery.trim().replace(/[,()*"\\]/g, "");
-    if (!q) {
-      setResults(null);
-      return;
-    }
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, name, email")
-      .or(`email.ilike.%${q}%,name.ilike.%${q}%`)
-      .limit(STUDENT_SEARCH_LIMIT);
-    if (error) {
-      console.error(error);
-      setMessage("학생 조회에 실패했습니다.");
-      setResults([]);
-      return;
-    }
-    setResults(data || []);
-  }
+    grant.reset();
+  }, [open, grant.reset]);
 
   async function submit() {
     if (busy) return;
@@ -504,15 +543,13 @@ function GrantDialog({
       setMessage(invalid);
       return;
     }
-    setBusy(true);
     setMessage("");
-    const result = await postSelfevalGrant(buildGrantBody(values));
-    setBusy(false);
-    if (!result.ok) {
-      setMessage(result.message);
-      return;
+    try {
+      const result = await grant.mutateAsync(buildGrantBody(values));
+      setResultText(JSON.stringify(result.quota));
+    } catch (error) {
+      setMessage(errorText(error, REQUEST_ERROR));
     }
-    setResultText(JSON.stringify(result.data.quota));
   }
 
   return (
@@ -545,7 +582,9 @@ function GrantDialog({
               />
             </Field>
           </div>
-          <ActionButton onClick={searchStudents}>검색</ActionButton>
+          <ActionButton onClick={() => setSubmittedQuery(userQuery)}>
+            검색
+          </ActionButton>
         </div>
 
         {results && (
@@ -589,12 +628,12 @@ function GrantDialog({
           </Field>
         </div>
 
-        {message && (
+        {shownMessage && (
           <div
             role="alert"
             className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-600"
           >
-            {message}
+            {shownMessage}
           </div>
         )}
         {resultText && (
