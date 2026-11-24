@@ -88,6 +88,8 @@ export const PLAN_LABELS = {
   logCaption: "매일 밤 기록",
   arrow: "\u2192",
   percent: "%",
+  /** the q21 weekend self-study answer under the minimum load line */
+  weekendStudy: (label: string) => `평소 주말 자습: ${label} (응답 기준)`,
   rateCaption: "주차별 목표 실행률",
   /** checkpoint n of 1..4 reads "n주 점검" */
   checkSuffix: "주 점검",
