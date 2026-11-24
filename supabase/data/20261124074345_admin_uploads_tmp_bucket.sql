@@ -38,4 +38,7 @@ set public = excluded.public,
 -- 2026-11-24 dev gjowqdiopinhixfivnkx (supabase CLI 2.122.0): 실행 전 admin-uploads-tmp 0행,
 --   실행 후 1행(public false, file_size_limit 52428800, allowed_mime_types 20개).
 --   다시 실행해도 행 수 1, updated_at 2026-11-24 10:40:53.559692+00 그대로(변경 없음).
--- Winning prod, Schoolmentor prod: 아직 실행하지 않음(R2 prod 배포 때 소유자 승인 뒤).
+-- 2026-11-24 Winning prod ykrpjcsubmbenfcnwlzd (supabase CLI 2.122.0, 소유자 승인): 실행 전 0행, 실행 후 1행
+--   (public false, file_size_limit 52428800, allowed_mime_types 20개), 다시 실행해도 updated_at 2026-11-24 13:02:44.649076+00 그대로.
+-- 2026-11-24 Schoolmentor prod aalujumpwlnwlemnqrus (supabase CLI 2.122.0, 소유자 승인): 실행 전 0행, 실행 후 1행
+--   (같은 값), 다시 실행해도 updated_at 2026-11-24 13:02:56.232532+00 그대로.
