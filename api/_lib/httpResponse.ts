@@ -12,7 +12,7 @@
 //                                                          형제 키로 스프레드된다 —
 //                                                          api/performance/*.ts의
 //                                                          로컬 fail() 실제 구현 기준)
-//   problem  → RFC 9457 problem details (application/problem+json)
+//   problem: RFC 9457 problem details (application/problem+json)
 
 import { STATUS_CODES } from "node:http";
 import type { VercelResponse } from "@vercel/node";
