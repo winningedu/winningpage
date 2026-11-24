@@ -7,7 +7,8 @@ export const routes: Record<string, RouteLoader> = {
   "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
   "admin/coupons": () => import("./admin/coupons.js"),
   "admin/coupons/[id]": () => import("./admin/coupons/[id].js"),
-  "admin/coupons/redemptions": () => import("./admin/coupons/redemptions.js"),
+  "admin/coupons/[id]/redemptions": () =>
+    import("./admin/coupons/[id]/redemptions.js"),
   "admin/coupons/grants": () => import("./admin/coupons/grants.js"),
   "admin/coupons/grant-revoke": () => import("./admin/coupons/grant-revoke.js"),
   "admin/coupons/redemption-void": () =>

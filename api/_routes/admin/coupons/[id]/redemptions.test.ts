@@ -1,4 +1,4 @@
-// GET /api/admin/coupons/redemptions?couponId= 계약 검증. 쿠폰의 사용 이력에 사용자 이름을 붙여 돌려준다.
+// GET /api/admin/coupons/:id/redemptions 계약 검증. 쿠폰의 사용 이력에 사용자 이름을 붙여 돌려준다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -8,11 +8,11 @@ import {
   firstQuery,
   problemCode,
   type Respond,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
@@ -60,10 +60,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const get = (query: Record<string, string> = { couponId: COUPON_ID }) =>
+const get = (query: Record<string, string> = { id: COUPON_ID }) =>
   callRoute(handler, { query });
 
-describe("GET /api/admin/coupons/redemptions", () => {
+describe("GET /api/admin/coupons/:id/redemptions", () => {
   test("view 권한이면 행마다 사용자 이름과 이메일을 붙여 돌려준다", async () => {
     setup();
     const r = await get();
@@ -142,8 +142,8 @@ describe("GET /api/admin/coupons/redemptions", () => {
   });
 
   test.each([
-    ["couponId 없음", {}],
-    ["uuid 가 아닌 couponId", { couponId: "abc" }],
+    ["id 없음", {}],
+    ["uuid 가 아닌 id", { id: "abc" }],
   ])("%s 이면 400 VALIDATION_FAILED 다", async (_label, query) => {
     setup();
     const r = await get(query);

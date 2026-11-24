@@ -32,7 +32,7 @@ beforeEach(() => {
   rows = [redemption];
   on("GET", "admin/coupons", listBody());
   on("GET", "admin/coupons/c1", couponRow);
-  on("GET", "admin/coupons/redemptions", () => ({ items: rows }));
+  on("GET", "admin/coupons/c1/redemptions", () => ({ items: rows }));
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -66,9 +66,7 @@ test("새로고침한 이력 주소가 쿠폰 머리글과 사용 이력을 id �
   expect(screen.getByText("gift-1")).toBeVisible();
   expect(screen.getByText("order-1")).toBeVisible();
   expect(callsTo("GET", "admin/coupons/c1")).toHaveLength(1);
-  expect(
-    callsTo("GET", "admin/coupons/redemptions")[0]?.options.searchParams,
-  ).toEqual({ couponId: "c1" });
+  expect(callsTo("GET", "admin/coupons/c1/redemptions")).toHaveLength(1);
 });
 
 test("목록의 사용 이력 버튼으로 들어가고 목록으로 버튼으로 돌아온다", async () => {
@@ -102,7 +100,7 @@ test("무효화는 사유와 함께 서버를 부르고 이력과 목록을 새�
   expect(
     callsTo("POST", "admin/coupons/redemption-void")[0]?.options.json,
   ).toEqual({ redemptionId: 7, reason: "오발급" });
-  expect(callsTo("GET", "admin/coupons/redemptions")).toHaveLength(2);
+  expect(callsTo("GET", "admin/coupons/c1/redemptions")).toHaveLength(2);
   expect(await screen.findByText("오발급")).toBeVisible();
 
   // 목록으로 돌아오면 사용 건수를 다시 받는다
@@ -169,7 +167,7 @@ test("요청 중에는 확인 버튼이 잠긴다", async () => {
 });
 
 test("이력 조회에 실패하면 조회 실패 토스트가 보인다", async () => {
-  on("GET", "admin/coupons/redemptions", () => {
+  on("GET", "admin/coupons/c1/redemptions", () => {
     throw new FakeApiError(404, "NOT_FOUND");
   });
   renderCoupons("/admin/coupons/c1/history");

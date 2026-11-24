@@ -146,8 +146,7 @@ export function useRedemptions(couponId: string) {
     queryKey: couponKeys.redemptions(couponId),
     queryFn: ({ signal }) =>
       api
-        .get("admin/coupons/redemptions", {
-          searchParams: { couponId },
+        .get(`admin/coupons/${encodeURIComponent(couponId)}/redemptions`, {
           signal,
         })
         .json(redemptionListSchema),

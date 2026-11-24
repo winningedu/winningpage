@@ -1,12 +1,12 @@
-// GET /api/admin/coupons/redemptions?couponId=<uuid>
+// GET /api/admin/coupons/:id/redemptions
 //
 // 쿠폰의 사용 이력(최근 200건)에 사용자 이름과 이메일을 붙여 { items } 로 돌려준다. 없는 쿠폰은 404 NOT_FOUND.
 // 권한: 메뉴 coupons view(defineHandler permission).
 
 import { z } from "zod";
-import { sendNotFound } from "../../../_lib/coupon/notFound.js";
-import { attachUsers } from "../../../_lib/coupon/users.js";
-import { defineHandler } from "../../../_lib/handler.js";
+import { sendNotFound } from "../../../../_lib/coupon/notFound.js";
+import { attachUsers } from "../../../../_lib/coupon/users.js";
+import { defineHandler } from "../../../../_lib/handler.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -19,9 +19,9 @@ export default defineHandler({
   permission: { key: "coupons" },
   unhandledMessage: "쿠폰 사용 이력을 불러오지 못했어요.",
   logLabel: "[admin/coupons/redemptions]",
-  query: z.object({ couponId: z.uuid() }),
+  query: z.object({ id: z.uuid() }),
   handler: async (_req, res, ctx) => {
-    const { couponId } = ctx.query;
+    const { id: couponId } = ctx.query;
 
     const coupon = await ctx.supabaseAdmin
       .from("coupons")
