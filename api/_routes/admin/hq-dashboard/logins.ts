@@ -7,35 +7,40 @@
 // includeInternal=1 이면 QA, 본사 관리자 계정도 센다(기본 제외, fn_hq_stat_included).
 //
 // view=stats(기본) 쿼리 grain(day 기본, week, month), mau(calendar 기본, rolling30), scope(all 기본, b2c: 기관 없음, 기타 소속 회원만)
-//   200 { ok, from, to, grain, mauMode, scope, includeInternal, firstMeasuredAt, series[], dau, mau }
+//   200 { from, to, grain, mauMode, scope, includeInternal, firstMeasuredAt, series[], dau, mau }
 //   firstMeasuredAt: 가장 이른 로그인 기록 순간(ISO Z), 없으면 null. 화면이 보는 사람 시간대의 날짜로 바꿔 보인다.
 //   series[]: start, end, source(measured, estimated, none), members, byMemberType
 //   dau: 기간 일평균. 모든 날이 실측이면 measured, 모든 날이 기록 없음이면 none, 나머지는 estimated.
 //   mau: calendar 는 종료일이 속한 달 1일부터 종료일, rolling30 은 종료일 포함 30일.
 // view=log 쿼리 page(1 부터)
-//   200 { ok, from, to, includeInternal, page, pageSize, total, namesVisible, items[] }
+//   200 { from, to, includeInternal, page, pageSize, total, namesVisible, items[] }
 //   items[]: profileId, loginDate(보는 사람 시간대의 날), firstSeenAt(그날 처음 기록된 순간, ISO Z), name, memberType, tenantName
 //   이름은 개인정보라 members 보기 권한이 있을 때만 보낸다(없으면 null, namesVisible false).
-// 권한: 로그인 + hqDashboard 보기 권한. 오류(coded): 400 INVALID_QUERY, 401, 403 FORBIDDEN, 500 INTERNAL.
+// 권한: 메뉴 권한 hqDashboard view 이상(defineHandler permission). 이름은 members view 이상일 때만(hasSectionPermission).
+// 오류(problem): 400 VALIDATION_FAILED(기간, grain, mau, scope, view, page), 400 TIME_ZONE_REQUIRED, 401, 403 FORBIDDEN, 405, 500 INTERNAL_ERROR.
+// 읽기 전용 라우트라 쓰기 경계는 해당 없다.
 
+import { z } from "zod";
 import { addDaysYmd } from "../../../../src/lib/time/day.js";
-import { hasAdminViewPermission } from "../../../_lib/console/proxy.js";
+import { hasSectionPermission } from "../../../_lib/adminPermission.js";
 import { defineHandler, requireTimeZone } from "../../../_lib/handler.js";
 import {
-  GRAINS,
   type Grain,
-  MAU_MODES,
   type MauMode,
   parsePeriod,
-  pick,
+  statsQuery,
 } from "../../../_lib/hq-dashboard/period.js";
-import { hasHqDashboardViewPermission } from "../../../_lib/hq-dashboard/permission.js";
 import { sendError } from "../../../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
 
 const LOG_PAGE_SIZE = 50;
-const SCOPES = ["all", "b2c"] as const;
+
+const loginsQuery = statsQuery.extend({
+  view: z.enum(["stats", "log"]).default("stats"),
+  scope: z.enum(["all", "b2c"]).default("all"),
+  page: z.string().transform(Number).pipe(z.number().int().min(1)).default(1),
+});
 
 type Source = "measured" | "estimated" | "none";
 
@@ -67,38 +72,36 @@ function combineSources(sources: Source[]): Source {
 
 export default defineHandler({
   methods: ["GET"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+  auth: "admin",
+  errorShape: "problem",
+  permission: { key: "hqDashboard" },
+  query: loginsQuery,
   unhandledMessage: "로그인 지표를 불러오지 못했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "[admin/hq-dashboard/logins]",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
+  handler: async (_req, res, ctx) => {
     const db = ctx.supabaseAdmin;
     const userId = ctx.userId as string;
-    if (!(await hasHqDashboardViewPermission(db, userId))) {
-      sendError(res, "coded", 403, "대시보드 권한이 없습니다.", "FORBIDDEN");
-      return;
-    }
-    const invalid = (message: string) =>
-      sendError(res, "coded", 400, message, "INVALID_QUERY");
+    const {
+      view,
+      scope,
+      page,
+      grain,
+      mau: mauMode,
+      includeInternal,
+    } = ctx.query;
 
     const tz = requireTimeZone(ctx);
-    const period = parsePeriod(req.query, tz);
-    if (typeof period === "string") return invalid(period);
+    const period = parsePeriod(ctx.query, tz);
+    if (typeof period === "string") {
+      sendError(res, "problem", 400, period, "VALIDATION_FAILED");
+      return;
+    }
     const { from, to } = period;
 
-    const view = pick(req.query.view, ["stats", "log"] as const, "stats");
-    if (!view) return invalid("view 가 올바르지 않습니다.");
-    const includeInternal = req.query.includeInternal === "1";
-
     if (view === "log") {
-      const page = req.query.page === undefined ? 1 : Number(req.query.page);
-      if (!Number.isInteger(page) || page < 1)
-        return invalid("쪽 번호가 올바르지 않습니다.");
       const [namesVisible, log] = await Promise.all([
-        hasAdminViewPermission(db, userId, "members"),
+        hasSectionPermission(db, userId, "members", "view"),
         db.rpc("fn_hq_login_log", {
           p_from: from,
           p_to: to,
@@ -112,7 +115,6 @@ export default defineHandler({
         throw new Error(`fn_hq_login_log 실패: ${log.error.message}`);
       const rows = (log.data ?? []) as LogRow[];
       res.status(200).json({
-        ok: true,
         from,
         to,
         includeInternal,
@@ -131,13 +133,6 @@ export default defineHandler({
       });
       return;
     }
-
-    const grain = pick(req.query.grain, GRAINS, "day");
-    if (!grain) return invalid("grain 이 올바르지 않습니다.");
-    const mauMode = pick(req.query.mau, MAU_MODES, "calendar");
-    if (!mauMode) return invalid("mau 가 올바르지 않습니다.");
-    const scope = pick(req.query.scope, SCOPES, "all");
-    if (!scope) return invalid("scope 가 올바르지 않습니다.");
 
     const buckets = async (
       p_from: string,
@@ -179,7 +174,6 @@ export default defineHandler({
     const dayTotal = days.reduce((sum, row) => sum + Number(row.members), 0);
 
     res.status(200).json({
-      ok: true,
       from,
       to,
       grain,

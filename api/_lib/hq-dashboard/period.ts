@@ -44,16 +44,6 @@ function daysBetween(from: string, to: string): number {
   );
 }
 
-// 쿼리에 없으면 fallback, 허용 값이 아니면 null.
-export function pick<T extends string>(
-  value: unknown,
-  allowed: readonly T[],
-  fallback: T,
-): T | null {
-  if (value === undefined) return fallback;
-  return allowed.includes(value as T) ? (value as T) : null;
-}
-
 // 올바르면 { from, to }, 아니면 화면에 보일 오류 문구.
 export function parsePeriod(
   query: Record<string, unknown>,
