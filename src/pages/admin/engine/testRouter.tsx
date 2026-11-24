@@ -1,0 +1,51 @@
+// 엔진 섹션 화면 테스트용 데이터 라우터. useBlocker 가 데이터 라우터에서만 돌아서 MemoryRouter 로는 폼 화면을 못 그린다.
+
+import { render } from "@testing-library/react";
+import type { ReactNode } from "react";
+import {
+  createMemoryRouter,
+  Outlet,
+  type RouteObject,
+  RouterProvider,
+} from "react-router";
+import { AdminSectionRoute } from "@/pages/Admin";
+import { TestQueryProvider } from "./testQuery";
+
+export function renderSectionRoutes(
+  section: string,
+  entry: string | { pathname: string; state?: unknown },
+  options: { extras?: ReactNode; extraRoutes?: RouteObject[] } = {},
+) {
+  const element = <AdminSectionRoute section={section} />;
+  const router = createMemoryRouter(
+    [
+      {
+        element: (
+          <>
+            <Outlet />
+            {options.extras}
+          </>
+        ),
+        children: [
+          { path: `/admin/${section}`, element },
+          { path: `/admin/${section}/new`, element },
+          { path: `/admin/${section}/:id`, element },
+          ...(options.extraRoutes ?? []),
+        ],
+      },
+    ],
+    {
+      initialEntries: [
+        typeof entry === "string"
+          ? entry
+          : { pathname: entry.pathname, state: entry.state },
+      ],
+    },
+  );
+  const view = render(
+    <TestQueryProvider>
+      <RouterProvider router={router} />
+    </TestQueryProvider>,
+  );
+  return { router, ...view };
+}

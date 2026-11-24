@@ -1,18 +1,12 @@
 // 섹션 화면의 업로드, 삭제 정리, 임베딩 요청, 환불 완료 호출 배선.
 
 import "@testing-library/jest-dom/vitest";
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const engine = vi.hoisted(() => ({
   fetchSectionList: vi.fn(),
+  fetchSectionRow: vi.fn(),
   createSectionRow: vi.fn(),
   updateSectionRow: vi.fn(),
   deleteSectionRow: vi.fn(),
@@ -47,20 +41,18 @@ vi.mock("@/lib/supabase", () => ({
 
 import { Toaster } from "@/components/ui/toast";
 import { ApiError } from "@/lib/http/client";
-import { AdminSectionRoute } from "./Admin";
-import { TestQueryProvider } from "./admin/engine/testQuery";
+import { renderSectionRoutes } from "./admin/engine/testRouter";
 import { ConfirmAdminHost } from "./admin/shared/confirmAdmin";
 
 function renderSection(section: string) {
-  return render(
-    <TestQueryProvider>
-      <MemoryRouter initialEntries={[`/admin/${section}`]}>
-        <AdminSectionRoute section={section} />
+  return renderSectionRoutes(section, `/admin/${section}`, {
+    extras: (
+      <>
         <Toaster />
         <ConfirmAdminHost />
-      </MemoryRouter>
-    </TestQueryProvider>,
-  );
+      </>
+    ),
+  });
 }
 
 const listOf = (...items: Record<string, unknown>[]) => ({
@@ -141,6 +133,12 @@ describe("업로드와 삭제 정리", () => {
     engine.fetchSectionList.mockResolvedValue(
       listOf({ id: 7, title: "가을 팝업", sort_order: 1, is_active: true }),
     );
+    engine.fetchSectionRow.mockResolvedValue({
+      id: 7,
+      title: "가을 팝업",
+      sort_order: 1,
+      is_active: true,
+    });
     engine.updateSectionRow.mockRejectedValue(
       new ApiError({ status: 409, code: "UPLOAD_EXPIRED", detail }),
     );
@@ -174,6 +172,15 @@ describe("임베딩 요청", () => {
         is_active: true,
       }),
     );
+    engine.fetchSectionRow.mockResolvedValue({
+      id: "k1",
+      title: "주제 패턴",
+      knowledge_type: "topic_pattern",
+      grade: "고1",
+      subject: "국어",
+      content: "내용",
+      is_active: true,
+    });
     engine.updateSectionRow.mockResolvedValue({
       id: "k1",
       knowledge_type: "topic_pattern",

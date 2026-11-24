@@ -77,7 +77,9 @@ describe("adminRoutes 엔진 섹션 하위 주소", () => {
     const star = children.find((route) => route.path === "*");
     if (!star?.Component) throw new Error("* 라우트가 없다");
     const element = (
-      star.Component as () => { props: { to: string; replace: boolean } }
+      star.Component as unknown as () => {
+        props: { to: string; replace: boolean };
+      }
     )();
     expect(element.props.to).toBe("/admin/popups");
     expect(element.props.replace).toBe(true);
