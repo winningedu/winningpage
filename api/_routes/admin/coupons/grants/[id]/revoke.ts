@@ -1,4 +1,4 @@
-// POST /api/admin/coupons/grant-revoke  { grantId: 양의 정수, reason?: string }
+// POST /api/admin/coupons/grants/:id/revoke  { reason?: string }
 //
 // 발급 한 건을 회수한다. 이미 회수된 발급은 409 GRANT_ALREADY_REVOKED 다.
 // 대상 행이 없으면 404 NOT_FOUND. fn_revoke_coupon_grant 가 auth.uid() 로 is_admin() 을 확인하므로 관리자 토큰 클라이언트로 부른다
@@ -6,11 +6,15 @@
 // 권한: 메뉴 coupons edit(POST 기본).
 
 import { z } from "zod";
-import { sendNotFound } from "../../../_lib/coupon/notFound.js";
-import { REVOKE_ERRORS, sendRpcError } from "../../../_lib/coupon/rpcError.js";
-import { defineHandler } from "../../../_lib/handler.js";
-import { getBearerToken } from "../../../_lib/serviceAccess.js";
-import { createSupabaseUserClient } from "../../../_lib/supabaseUser.js";
+import { sendNotFound } from "../../../../../_lib/coupon/notFound.js";
+import { positiveIntPath } from "../../../../../_lib/coupon/pathId.js";
+import {
+  REVOKE_ERRORS,
+  sendRpcError,
+} from "../../../../../_lib/coupon/rpcError.js";
+import { defineHandler } from "../../../../../_lib/handler.js";
+import { getBearerToken } from "../../../../../_lib/serviceAccess.js";
+import { createSupabaseUserClient } from "../../../../../_lib/supabaseUser.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -20,13 +24,12 @@ export default defineHandler({
   errorShape: "problem",
   permission: { key: "coupons" },
   unhandledMessage: "쿠폰 발급을 회수하지 못했어요.",
-  logLabel: "[admin/coupons/grant-revoke]",
-  body: z.object({
-    grantId: z.int().positive(),
-    reason: z.string().optional(),
-  }),
+  logLabel: "[admin/coupons/grants/[id]/revoke]",
+  query: z.object({ id: positiveIntPath }),
+  body: z.object({ reason: z.string().optional() }),
   handler: async (req, res, ctx) => {
-    const { grantId, reason } = ctx.body;
+    const { id: grantId } = ctx.query;
+    const { reason } = ctx.body;
 
     const target = await ctx.supabaseAdmin
       .from("coupon_grants")

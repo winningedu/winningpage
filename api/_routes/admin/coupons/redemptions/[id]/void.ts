@@ -1,4 +1,4 @@
-// POST /api/admin/coupons/redemption-void  { redemptionId: 양의 정수, reason?: string }
+// POST /api/admin/coupons/redemptions/:id/void  { reason?: string }
 //
 // 사용 이력 한 건을 취소해 주문의 쿠폰 사용을 되돌린다. 이미 취소된 이력은 409 REDEMPTION_ALREADY_VOIDED 다.
 // 대상 행이 없으면 404 NOT_FOUND. fn_void_coupon_redemption 가 auth.uid() 로 is_admin() 을 확인하므로 관리자 토큰 클라이언트로 부른다
@@ -6,11 +6,15 @@
 // 권한: 메뉴 coupons edit(POST 기본).
 
 import { z } from "zod";
-import { sendNotFound } from "../../../_lib/coupon/notFound.js";
-import { sendRpcError, VOID_ERRORS } from "../../../_lib/coupon/rpcError.js";
-import { defineHandler } from "../../../_lib/handler.js";
-import { getBearerToken } from "../../../_lib/serviceAccess.js";
-import { createSupabaseUserClient } from "../../../_lib/supabaseUser.js";
+import { sendNotFound } from "../../../../../_lib/coupon/notFound.js";
+import { positiveIntPath } from "../../../../../_lib/coupon/pathId.js";
+import {
+  sendRpcError,
+  VOID_ERRORS,
+} from "../../../../../_lib/coupon/rpcError.js";
+import { defineHandler } from "../../../../../_lib/handler.js";
+import { getBearerToken } from "../../../../../_lib/serviceAccess.js";
+import { createSupabaseUserClient } from "../../../../../_lib/supabaseUser.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -20,13 +24,12 @@ export default defineHandler({
   errorShape: "problem",
   permission: { key: "coupons" },
   unhandledMessage: "쿠폰 사용 이력을 취소하지 못했어요.",
-  logLabel: "[admin/coupons/redemption-void]",
-  body: z.object({
-    redemptionId: z.int().positive(),
-    reason: z.string().optional(),
-  }),
+  logLabel: "[admin/coupons/redemptions/[id]/void]",
+  query: z.object({ id: positiveIntPath }),
+  body: z.object({ reason: z.string().optional() }),
   handler: async (req, res, ctx) => {
-    const { redemptionId, reason } = ctx.body;
+    const { id: redemptionId } = ctx.query;
+    const { reason } = ctx.body;
 
     const target = await ctx.supabaseAdmin
       .from("coupon_redemptions")

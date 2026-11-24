@@ -1,4 +1,4 @@
-// POST /api/admin/coupons/redemption-void 계약 검증. 사용 이력 한 건을 취소한다.
+// POST /api/admin/coupons/redemptions/:id/void 계약 검증. 사용 이력 한 건을 취소한다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -8,7 +8,7 @@ import {
   problemCode,
   type Respond,
   type Result,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../../../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({
   admin: null as unknown,
@@ -16,20 +16,20 @@ const kit = vi.hoisted(() => ({
   tokens: [] as string[],
 }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../../../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-vi.mock("../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../../../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: (token: string) => {
     kit.tokens.push(token);
     return kit.user;
   },
 }));
 
-import handler from "./redemption-void.js";
+import handler from "./void.js";
 
 const ROW = { id: 5, voided_at: "2026-11-24T00:00:00Z" };
 
@@ -47,8 +47,10 @@ function setup(level: string | null = "edit") {
   return kit.admin as ReturnType<typeof createAdminFake>;
 }
 
-const post = (body: unknown = { redemptionId: 5 }) =>
-  callRoute(handler, { method: "POST", body });
+const post = (
+  body: unknown = {},
+  query: Record<string, string> = { id: "5" },
+) => callRoute(handler, { method: "POST", query, body });
 
 beforeEach(() => {
   kit.tokens = [];
@@ -61,7 +63,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("POST /api/admin/coupons/redemption-void", () => {
+describe("POST /api/admin/coupons/redemptions/:id/void", () => {
   test("view 권한으로는 403 FORBIDDEN 이고 rpc 를 부르지 않는다", async () => {
     setup("view");
     const r = await post();
@@ -86,7 +88,7 @@ describe("POST /api/admin/coupons/redemption-void", () => {
 
   test("사유는 앞뒤 공백을 걷어 p_reason 으로 넘긴다", async () => {
     setup();
-    await post({ redemptionId: 5, reason: "  중복 처리  " });
+    await post({ reason: "  중복 처리  " });
     expect(userRecorder.rpcCalls[0]?.args).toEqual({
       p_redemption_id: 5,
       p_reason: "중복 처리",
@@ -95,7 +97,7 @@ describe("POST /api/admin/coupons/redemption-void", () => {
 
   test("사유가 공백뿐이면 p_reason 을 빼고 부른다", async () => {
     setup();
-    await post({ redemptionId: 5, reason: "   " });
+    await post({ reason: "   " });
     expect(userRecorder.rpcCalls[0]?.args).toEqual({ p_redemption_id: 5 });
   });
 
@@ -109,18 +111,20 @@ describe("POST /api/admin/coupons/redemption-void", () => {
   });
 
   test.each([
-    ["id 없음", {}],
-    ["id 가 0", { redemptionId: 0 }],
-    ["id 가 음수", { redemptionId: -1 }],
-    ["id 가 정수가 아님", { redemptionId: 1.5 }],
-    ["id 가 문자열", { redemptionId: "5" }],
-    ["reason 이 문자열이 아님", { redemptionId: 5, reason: 3 }],
-    ["본문이 null", null],
+    ["reason 이 문자열이 아님", { reason: 3 }, { id: "5" }],
+    ["본문이 null", null, { id: "5" }],
+    ["id 없음", {}, {}],
+    ["id 가 0", {}, { id: "0" }],
+    ["id 가 음수", {}, { id: "-1" }],
+    ["id 가 정수가 아님", {}, { id: "1.5" }],
+    ["id 가 숫자가 아님", {}, { id: "abc" }],
+    ["id 가 0 으로 시작", {}, { id: "05" }],
+    ["id 가 안전 정수를 넘음", {}, { id: "99999999999999999999" }],
   ])(
     "%s 이면 400 VALIDATION_FAILED 이고 rpc 를 부르지 않는다",
-    async (_label, body) => {
+    async (_label, body, query) => {
       setup();
-      const r = await post(body);
+      const r = await post(body, query);
       expect(r.status).toBe(400);
       expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
       expect(userRecorder.rpcCalls).toEqual([]);

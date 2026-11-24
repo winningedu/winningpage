@@ -161,7 +161,7 @@ test("발급 오류 코드는 예전 문구로 보인다", async () => {
 });
 
 test("회수는 사유와 함께 서버를 부르고 발급 목록을 새로 받는다", async () => {
-  on("POST", "admin/coupons/grant-revoke", () => {
+  on("POST", "admin/coupons/grants/5/revoke", () => {
     grants = [
       {
         ...grant,
@@ -180,9 +180,8 @@ test("회수는 사유와 함께 서버를 부르고 발급 목록을 새로 받
 
   await waitFor(() => expect(toastTexts().title).toBe("저장 완료"));
   expect(
-    callsTo("POST", "admin/coupons/grant-revoke")[0]?.options.json,
+    callsTo("POST", "admin/coupons/grants/5/revoke")[0]?.options.json,
   ).toEqual({
-    grantId: 5,
     reason: "잘못 줌",
   });
   expect(callsTo("GET", "admin/coupons/c1/grants")).toHaveLength(2);
@@ -193,7 +192,7 @@ test("회수 오류 코드는 예전 문구로 보이고 요청 중에는 확인
   let release: (error: unknown) => void = () => {};
   on(
     "POST",
-    "admin/coupons/grant-revoke",
+    "admin/coupons/grants/5/revoke",
     () =>
       new Promise((_resolve, reject) => {
         release = reject;

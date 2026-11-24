@@ -10,9 +10,10 @@ export const routes: Record<string, RouteLoader> = {
   "admin/coupons/[id]/redemptions": () =>
     import("./admin/coupons/[id]/redemptions.js"),
   "admin/coupons/[id]/grants": () => import("./admin/coupons/[id]/grants.js"),
-  "admin/coupons/grant-revoke": () => import("./admin/coupons/grant-revoke.js"),
-  "admin/coupons/redemption-void": () =>
-    import("./admin/coupons/redemption-void.js"),
+  "admin/coupons/grants/[id]/revoke": () =>
+    import("./admin/coupons/grants/[id]/revoke.js"),
+  "admin/coupons/redemptions/[id]/void": () =>
+    import("./admin/coupons/redemptions/[id]/void.js"),
   "admin/coupons/user-search": () => import("./admin/coupons/user-search.js"),
   "admin/growth-grant": () => import("./admin/growth-grant.js"),
   "admin/home-section-copy/[sectionKey]": () =>

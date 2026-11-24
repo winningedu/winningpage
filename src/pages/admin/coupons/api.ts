@@ -165,11 +165,8 @@ export function useVoidRedemption(couponId: string) {
       reason: string;
     }) =>
       api
-        .post("admin/coupons/redemption-void", {
-          json: {
-            redemptionId,
-            ...(reason.trim() ? { reason: reason.trim() } : {}),
-          },
+        .post(`admin/coupons/redemptions/${redemptionId}/void`, {
+          json: reason.trim() ? { reason: reason.trim() } : {},
         })
         .json(z.looseObject({})),
     onSuccess: () =>
@@ -231,11 +228,8 @@ export function useRevokeGrant(couponId: string) {
   return useMutation({
     mutationFn: ({ grantId, reason }: { grantId: number; reason: string }) =>
       api
-        .post("admin/coupons/grant-revoke", {
-          json: {
-            grantId,
-            ...(reason.trim() ? { reason: reason.trim() } : {}),
-          },
+        .post(`admin/coupons/grants/${grantId}/revoke`, {
+          json: reason.trim() ? { reason: reason.trim() } : {},
         })
         .json(z.looseObject({})),
     onSuccess: () =>

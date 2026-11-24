@@ -82,7 +82,7 @@ test("목록의 사용 이력 버튼으로 들어가고 목록으로 버튼으�
 });
 
 test("무효화는 사유와 함께 서버를 부르고 이력과 목록을 새로 받는다", async () => {
-  on("POST", "admin/coupons/redemption-void", () => {
+  on("POST", "admin/coupons/redemptions/7/void", () => {
     rows = [
       {
         ...redemption,
@@ -98,8 +98,8 @@ test("무효화는 사유와 함께 서버를 부르고 이력과 목록을 새�
 
   await waitFor(() => expect(toastTexts().title).toBe("저장 완료"));
   expect(
-    callsTo("POST", "admin/coupons/redemption-void")[0]?.options.json,
-  ).toEqual({ redemptionId: 7, reason: "오발급" });
+    callsTo("POST", "admin/coupons/redemptions/7/void")[0]?.options.json,
+  ).toEqual({ reason: "오발급" });
   expect(callsTo("GET", "admin/coupons/c1/redemptions")).toHaveLength(2);
   expect(await screen.findByText("오발급")).toBeVisible();
 
@@ -110,15 +110,13 @@ test("무효화는 사유와 함께 서버를 부르고 이력과 목록을 새�
 });
 
 test("사유를 비우면 reason 키 없이 보낸다", async () => {
-  on("POST", "admin/coupons/redemption-void", { id: 7 });
+  on("POST", "admin/coupons/redemptions/7/void", { id: 7 });
   renderCoupons("/admin/coupons/c1/history");
   await startVoid();
   await waitFor(() => expect(toastTexts().title).toBe("저장 완료"));
   expect(
-    callsTo("POST", "admin/coupons/redemption-void")[0]?.options.json,
-  ).toEqual({
-    redemptionId: 7,
-  });
+    callsTo("POST", "admin/coupons/redemptions/7/void")[0]?.options.json,
+  ).toEqual({});
 });
 
 test("무효화 오류 코드는 예전 문구로 보이고 입력은 남는다", async () => {
@@ -133,7 +131,7 @@ test("무효화 오류 코드는 예전 문구로 보이고 입력은 남는다"
   ];
   for (const [code, status, text] of cases) {
     toast.close();
-    on("POST", "admin/coupons/redemption-void", () => {
+    on("POST", "admin/coupons/redemptions/7/void", () => {
       throw new FakeApiError(status, code);
     });
     const view = renderCoupons("/admin/coupons/c1/history");
@@ -151,7 +149,7 @@ test("요청 중에는 확인 버튼이 잠긴다", async () => {
   let release: (value: unknown) => void = () => {};
   on(
     "POST",
-    "admin/coupons/redemption-void",
+    "admin/coupons/redemptions/7/void",
     () =>
       new Promise((resolve) => {
         release = resolve;
