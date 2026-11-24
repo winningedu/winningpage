@@ -99,7 +99,16 @@ async function writeOverrides(
 
   const userClient = createSupabaseUserClient(getBearerToken(req));
   for (const group of groupByColumns(
-    rows.map((row) => ({ ...row, updated_by: ctx.userId as string })),
+    rows.map((row) => ({
+      profile_id: row.profile_id,
+      program_key: row.program_key,
+      // 안 보낸 칸은 키째 빼야 기존 조정을 덮지 않는다(열 묶음도 키로 가른다).
+      ...(row.monthly_limit !== undefined && {
+        monthly_limit: row.monthly_limit,
+      }),
+      ...(row.term_limit !== undefined && { term_limit: row.term_limit }),
+      updated_by: ctx.userId as string,
+    })),
   )) {
     const { error } = await userClient
       .from("student_usage_overrides")
