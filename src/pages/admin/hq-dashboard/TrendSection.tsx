@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
+import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { fetchHqTrends } from "./api";
 import ErrorBox from "./ErrorBox";
 import { readLoginFilters, trendSearch } from "./filters";
@@ -118,12 +119,7 @@ export default function TrendSection() {
           </CardContent>
         </Card>
       ) : (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+        <AdminLineSkeleton className="h-64 w-full" label="추이를 불러오는 중" />
       )}
     </section>
   );

@@ -106,7 +106,9 @@ describe("공개 연도", () => {
         onReload={vi.fn()}
       />,
     );
-    expect(screen.getByText("공개 연도 확인 중…")).toBeTruthy();
+    expect(
+      screen.getByRole("status", { name: "공개 연도를 확인하는 중" }),
+    ).toBeTruthy();
     expect(await screen.findByText("2027학년도")).toBeTruthy();
     expect(
       (screen.getByLabelText("새 공개 연도") as HTMLInputElement).value,

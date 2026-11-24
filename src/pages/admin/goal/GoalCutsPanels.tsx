@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
   withChunkRows,
 } from "@/pages/admin/shared/adminErrors";
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
+import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { pad2, triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";
 import {
   applyBackfill,
@@ -116,7 +117,10 @@ function GoalCutsOverviewBlock({
     return (
       <div className="bg-white p-4 text-sm shadow-sm">
         <div className="font-semibold">현황 요약</div>
-        <p className="mt-2 text-xs text-gray-500">불러오는 중…</p>
+        <AdminLineSkeleton
+          className="mt-2 h-4 w-80"
+          label="현황 요약을 불러오는 중"
+        />
       </div>
     );
   }
@@ -982,10 +986,10 @@ export function GoalCutsListSummary({ onReload, mutationSeq }) {
   // 현황 요약과 엑셀 버튼의 전체 건수가 같은 조회를 쓴다. 갱신 신호가 둘이다, 이 컴포넌트 안의
   // 백필, 엑셀 적용(refreshToken)과 목록의 등록, 수정, 삭제(mutationSeq, Admin()이 내려 준다).
   // 둘 중 무엇이 바뀌어도 집계를 다시 읽어야 화면 숫자가 DB와 어긋나지 않는다.
+  // 키가 저장마다 새로 생기므로 이전 숫자를 붙들지 않고 스켈레톤 뒤 새 숫자를 보인다.
   const summary = useQuery({
     queryKey: cutsKeys.summary(refreshToken, mutationSeq),
     queryFn: ({ signal }) => fetchCutsSummary(signal),
-    placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
   });
   return (

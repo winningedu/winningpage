@@ -17,6 +17,7 @@ import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import { ActionButton } from "@/pages/admin/shared/formFields";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { useKeywordParam } from "@/pages/admin/shared/useKeywordParam";
 import {
   deleteRole,
@@ -141,11 +142,11 @@ function RoleList({ config }: AdminRolesAdminProps) {
       </div>
 
       {list.isPending ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
+        <div className="bg-white shadow-sm">
+          <AdminTableSkeleton
+            columns={4}
+            label="권한 묶음 목록을 불러오는 중"
+          />
         </div>
       ) : (
         <div className="bg-white shadow-sm">

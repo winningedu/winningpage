@@ -9,6 +9,7 @@ import { useSearchParams } from "react-router";
 import { site } from "@/config/site";
 import { ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
+import { AdminCardsSkeleton } from "@/pages/admin/shared/skeletons/AdminCardsSkeleton";
 import { fetchHqB2c, fetchLoginStats } from "./api";
 import ErrorBox from "./ErrorBox";
 import { b2cSearch, readLoginFilters, statsSearch } from "./filters";
@@ -106,12 +107,7 @@ function B2cBody() {
           />
         </div>
       ) : (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+        <AdminCardsSkeleton count={7} label="B2C 회원 현황을 불러오는 중" />
       )}
     </section>
   );

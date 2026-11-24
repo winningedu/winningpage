@@ -62,6 +62,8 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import MoveStudentForm, {
   type MoveTarget,
@@ -364,11 +366,11 @@ function MemberList({ config }: MembersAdminProps) {
       </div>
 
       {list.isPending ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
+        <div className="bg-white p-6 shadow-sm">
+          <AdminTableSkeleton
+            columns={config.columns.length}
+            label="회원 목록을 불러오는 중"
+          />
         </div>
       ) : (
         <AdminTable
@@ -388,6 +390,32 @@ function MemberList({ config }: MembersAdminProps) {
   );
 }
 
+// 탭마다 자기 데이터만 받는다. 한 탭이 실패해도 나머지 탭은 그대로 열린다.
+// 회원 응답을 기다리지 않도록 상세 라우트가 주소의 id로 회원 요청과 함께 시작한다.
+function useMemberTabQueries(memberId: string, tab: string) {
+  const links = useQuery({
+    queryKey: memberKeys.links(memberId),
+    queryFn: ({ signal }) => fetchMemberLinks(memberId, signal),
+    enabled: tab === "profile",
+  });
+  const services = useQuery({
+    queryKey: memberKeys.services(memberId),
+    queryFn: ({ signal }) => fetchMemberServices(memberId, signal),
+    enabled: tab === "services",
+  });
+  const orders = useQuery({
+    queryKey: memberKeys.orders(memberId),
+    queryFn: ({ signal }) => fetchMemberOrders(memberId, signal),
+    enabled: tab === "pay",
+  });
+  const messages = useQuery({
+    queryKey: memberKeys.messages(memberId),
+    queryFn: ({ signal }) => fetchMemberMessages(memberId, signal),
+    enabled: tab === "msg",
+  });
+  return { links, services, orders, messages };
+}
+
 function MemberDetailRoute({ config }: MembersAdminProps) {
   const { id = "", tab } = useParams();
   const location = useLocation();
@@ -395,6 +423,7 @@ function MemberDetailRoute({ config }: MembersAdminProps) {
     queryKey: memberKeys.detail(id),
     queryFn: ({ signal }) => fetchMember(id, signal),
   });
+  const tabQueries = useMemberTabQueries(id, tab ?? "profile");
 
   useEffect(() => {
     if (
@@ -411,14 +440,7 @@ function MemberDetailRoute({ config }: MembersAdminProps) {
   }
 
   if (member.isPending) {
-    return (
-      <div
-        role="status"
-        className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-      >
-        데이터를 불러오는 중입니다.
-      </div>
-    );
+    return <AdminDetailSkeleton rows={8} label="회원 정보를 불러오는 중" />;
   }
 
   if (member.isError) {
@@ -447,6 +469,7 @@ function MemberDetailRoute({ config }: MembersAdminProps) {
       config={config}
       member={member.data}
       tab={(tab ?? "profile") as TabKey}
+      tabQueries={tabQueries}
     />
   );
 }
@@ -455,7 +478,12 @@ function MemberDetail({
   config,
   member,
   tab,
-}: MembersAdminProps & { member: ProfileRow; tab: TabKey }) {
+  tabQueries,
+}: MembersAdminProps & {
+  member: ProfileRow;
+  tab: TabKey;
+  tabQueries: ReturnType<typeof useMemberTabQueries>;
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -464,27 +492,7 @@ function MemberDetail({
   // 개인정보 반출 게이트 (QA 269 마스킹 해제).
   const { requestAccess, gate } = useSensitiveActionGate();
 
-  // 탭마다 자기 데이터만 받는다. 한 탭이 실패해도 나머지 탭은 그대로 열린다.
-  const links = useQuery({
-    queryKey: memberKeys.links(member.id),
-    queryFn: ({ signal }) => fetchMemberLinks(member.id, signal),
-    enabled: tab === "profile",
-  });
-  const services = useQuery({
-    queryKey: memberKeys.services(member.id),
-    queryFn: ({ signal }) => fetchMemberServices(member.id, signal),
-    enabled: tab === "services",
-  });
-  const orders = useQuery({
-    queryKey: memberKeys.orders(member.id),
-    queryFn: ({ signal }) => fetchMemberOrders(member.id, signal),
-    enabled: tab === "pay",
-  });
-  const messages = useQuery({
-    queryKey: memberKeys.messages(member.id),
-    queryFn: ({ signal }) => fetchMemberMessages(member.id, signal),
-    enabled: tab === "msg",
-  });
+  const { links, services, orders, messages } = tabQueries;
   const activeQuery =
     tab === "profile"
       ? links
@@ -830,12 +838,7 @@ function MemberDetail({
 
         <TabsContent value={tab}>
           {detailLoading ? (
-            <div
-              role="status"
-              className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-            >
-              데이터를 불러오는 중입니다.
-            </div>
+            <AdminDetailSkeleton rows={6} label="탭 내용을 불러오는 중" />
           ) : activeTab && "pending" in activeTab && activeTab.pending ? (
             <div className="bg-white p-10 shadow-sm">
               <h2 className="text-lg font-semibold">{activeTab.label}</h2>

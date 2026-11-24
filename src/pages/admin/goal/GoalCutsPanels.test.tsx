@@ -176,6 +176,64 @@ describe("현황 요약", () => {
     });
   });
 
+  // 첫 요약은 바로 주고, 그 다음 요약은 release 를 부를 때까지 미룬다.
+  function holdNextSummary() {
+    let release: () => void = () => {};
+    const next = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const base = mocks.get.getMockImplementation();
+    let summaryCalls = 0;
+    mocks.get.mockImplementation(async (url: string, ...rest: unknown[]) => {
+      if (url !== "goal/admin/cuts/summary") return base?.(url, ...rest);
+      summaryCalls += 1;
+      if (summaryCalls === 1) return SUMMARY;
+      await next;
+      return { ...SUMMARY, total: 9 };
+    });
+    return () => release();
+  }
+
+  test("목록 저장 뒤에는 이전 숫자 대신 스켈레톤을 보이고 새 숫자로 바꾼다", async () => {
+    const release = holdNextSummary();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const view = (seq: number) => (
+      <QueryClientProvider client={client}>
+        <GoalCutsListSummary onReload={vi.fn()} mutationSeq={seq} />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(view(0));
+    await screen.findByText(/전체 4건/);
+
+    rerender(view(1));
+    expect(
+      await screen.findByRole("status", { name: "현황 요약을 불러오는 중" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/전체 4건/)).toBeNull();
+
+    release();
+    expect(await screen.findByText(/전체 9건/)).toBeInTheDocument();
+  });
+
+  test("엑셀 적용 뒤에는 이전 숫자 대신 스켈레톤을 보이고 새 숫자로 바꾼다", async () => {
+    const release = holdNextSummary();
+    renderPanels();
+    await screen.findByText(/전체 4건/);
+    await uploadAndOpenPreview([NEW_ROW, OLD_ROW]);
+    fireEvent.click(screen.getByLabelText(/영향받는 2행을 확인했습니다/));
+    fireEvent.click(screen.getByRole("button", { name: "적용" }));
+
+    expect(
+      await screen.findByRole("status", { name: "현황 요약을 불러오는 중" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/전체 4건/)).toBeNull();
+
+    release();
+    expect(await screen.findByText(/전체 9건/)).toBeInTheDocument();
+  });
+
   test("요약을 못 읽어도 화면은 막지 않고 안내만 보인다", async () => {
     routeGets({
       "goal/admin/cuts/summary": new ApiError({

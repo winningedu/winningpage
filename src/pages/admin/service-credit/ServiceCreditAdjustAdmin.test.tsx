@@ -194,9 +194,11 @@ describe("ServiceCreditAdjustAdmin 학생 화면", () => {
   test("불러오는 동안 상태를 알린다", async () => {
     on("GET", SUMMARY_PATH, () => new Promise(() => {}));
     renderCredit(STUDENT_URL);
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "불러오는 중...",
-    );
+    expect(
+      await screen.findByRole("status", {
+        name: "서비스 이용횟수를 불러오는 중",
+      }),
+    ).toBeInTheDocument();
   });
 
   test("차감 입력은 확인 단계를 거친 뒤 delta 와 사유로 API 를 호출하고 그 행만 바꾼다", async () => {
