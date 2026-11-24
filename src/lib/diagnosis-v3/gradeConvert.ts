@@ -33,6 +33,24 @@ const fiveKey = (raw: number) =>
     Math.max(FIVE_MIN, Math.round(Number((raw * 100).toPrecision(15)))),
   );
 
+/** 10 r5-r745: 원 점수 x 10 (integer key, 0.1 step) to its 9-grade value. */
+const MIDDLE_TO_NINE = new Map<number, number>(
+  sheetRows("10_환산_중학교")
+    .filter((row) => typeof row.c[0] === "number")
+    .map((row) => [Math.round(numberCell(row, 1) * 10), numberCell(row, 2)]),
+);
+
+/** Snap a 원 점수 to the 0.1 grid half-up (the table step), float-safe. */
+const tenthsOf = (raw: number) =>
+  Math.round(Number((raw * 10).toPrecision(15)));
+
+/**
+ * 중학교 원 점수 (0 to 100) as a 9-grade value from table 10; null below the
+ * table's last row or above its first (the sheet names no rule there).
+ */
+export const middleToNine = (score: number): number | null =>
+  MIDDLE_TO_NINE.get(tenthsOf(score)) ?? null;
+
 /**
  * 12 r5-r9 A to E in order: lower bound of the 원점수 interval ("90 ~ 100점")
  * and its 9-grade value. E ("60점 미만") has no lower bound and catches the rest.
