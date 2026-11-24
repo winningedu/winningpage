@@ -1,31 +1,33 @@
-// 서비스이용횟수조정 화면의 데이터 호출. 학생 검색은 관리자 RLS 로 클라이언트 Supabase 가 직접 하고,
+// 서비스이용횟수조정 화면의 서버 호출. 학생 검색은 shared/studentSearch.ts 를 쓰고,
 // 현황 조회와 조정은 /api/admin/service-credit-summary, /api/admin/service-credit-adjust 를 부른다.
 
-import { escapeIlike } from "@/components/growth/survey/surveySearch";
-import { supabase } from "@/lib/supabase";
-import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
+import { queryOptions } from "@tanstack/react-query";
+import { z } from "zod";
+import { api } from "@/lib/http/client";
 
-export type ApiResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; message: string };
+const rowSchema = z.object({
+  programKey: z.string(),
+  label: z.string(),
+  periodBased: z.boolean(),
+  liveCount: z.number(),
+  quotaTotal: z.number().nullable(),
+  quotaUsed: z.number(),
+  quotaRemaining: z.number().nullable(),
+  expiresAt: z.string().nullable(),
+});
+export type ServiceCreditRow = z.infer<typeof rowSchema>;
 
-export type StudentRow = {
-  id: string;
-  name: string | null;
-  email: string | null;
-  isAdmin?: boolean;
-};
+const summarySchema = z.object({
+  student: z.object({
+    id: z.string(),
+    name: z.string().nullable(),
+    email: z.string().nullable(),
+  }),
+  items: z.array(rowSchema),
+});
+export type ServiceCreditSummary = z.infer<typeof summarySchema>;
 
-export type ServiceCreditRow = {
-  programKey: string;
-  label: string;
-  periodBased: boolean;
-  liveCount: number;
-  quotaTotal: number | null;
-  quotaUsed: number;
-  quotaRemaining: number | null;
-  expiresAt: string | null;
-};
+const adjustSchema = z.object({ credit: rowSchema });
 
 export type AdjustBody = {
   profileId: string;
@@ -35,71 +37,28 @@ export type AdjustBody = {
   reason: string;
 };
 
-const STUDENT_SEARCH_LIMIT = 20;
+export const serviceCreditKeys = {
+  all: ["admin", "service-credit"] as const,
+  summary: (profileId: string) =>
+    [...serviceCreditKeys.all, "summary", profileId] as const,
+};
 
-export async function searchStudents(
-  term: string,
-): Promise<ApiResult<StudentRow[]>> {
-  // PostgREST or 필터는 콤마와 괄호로 절을 구분하므로 검색어에서 걷어낸다.
-  const q = escapeIlike(term.trim().replace(/[,()*"]/g, ""));
-  if (!q) return { ok: true, data: [] };
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, name, email, role")
-    .or("member_type.eq.student,role.eq.admin")
-    .or(`email.ilike.%${q}%,name.ilike.%${q}%`)
-    .limit(STUDENT_SEARCH_LIMIT);
-  if (error) return { ok: false, message: "학생 조회에 실패했습니다." };
-  return {
-    ok: true,
-    data: (data ?? []).map(({ role, ...row }) => ({
-      ...row,
-      isAdmin: role === "admin",
-    })),
-  };
-}
-
-async function call<T>(
-  url: string,
-  init: { method: "GET" | "POST"; body?: unknown },
-): Promise<ApiResult<T>> {
-  const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-  const response = await fetch(url, {
-    method: init.method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+export function serviceCreditSummaryQueryOptions(profileId: string) {
+  return queryOptions({
+    queryKey: serviceCreditKeys.summary(profileId),
+    queryFn: ({ signal }) =>
+      api
+        .get("admin/service-credit-summary", {
+          searchParams: { profileId },
+          signal,
+        })
+        .json(summarySchema),
   });
-  const result = await response.json().catch(() => null);
-  if (!response.ok || !result?.ok) {
-    const message =
-      result?.error?.message ??
-      result?.detail ??
-      result?.message ??
-      `요청에 실패했습니다. (HTTP ${response.status})`;
-    return { ok: false, message: String(message) };
-  }
-  return { ok: true, data: result as T };
 }
 
-export async function fetchServiceCredits(
-  profileId: string,
-): Promise<ApiResult<ServiceCreditRow[]>> {
-  const result = await call<{ items: ServiceCreditRow[] }>(
-    `/api/admin/service-credit-summary?profileId=${encodeURIComponent(profileId)}`,
-    { method: "GET" },
-  );
-  return result.ok ? { ok: true, data: result.data.items } : result;
-}
-
-export function postServiceCreditAdjust(body: AdjustBody) {
-  return call<{ credit: ServiceCreditRow }>(
-    "/api/admin/service-credit-adjust",
-    {
-      method: "POST",
-      body,
-    },
-  );
+export async function postServiceCreditAdjust(body: AdjustBody) {
+  const result = await api
+    .post("admin/service-credit-adjust", { json: body })
+    .json(adjustSchema);
+  return result.credit;
 }

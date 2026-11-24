@@ -1,16 +1,14 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/http/client";
 import {
-  type StudentRow,
-  searchStudents,
-} from "@/pages/admin/service-credit/api";
-import {
   ActionButton,
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { studentSearchQueryOptions } from "@/pages/admin/shared/studentSearch";
 import { SERVICE_PROGRAMS } from "./serviceSettings";
 import {
   denyReasonLabel,
@@ -35,6 +33,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const SAVE_ERROR = "저장하지 못했어요. 권한을 확인해 주세요.";
+const SEARCH_ERROR = "학생 조회에 실패했습니다.";
 const INPUT_CLASS = "h-9 w-24";
 
 const textOf = (value: number | null | undefined) =>
@@ -58,7 +57,11 @@ const withoutActor = (rows: ReturnType<typeof resetPayloads>): UsageRow[] =>
 
 export default function StudentUsageAdmin() {
   const [term, setTerm] = useState("");
-  const [students, setStudents] = useState<StudentRow[]>([]);
+  const [submittedTerm, setSubmittedTerm] = useState("");
+  const studentSearch = useQuery(
+    studentSearchQueryOptions("serviceCreditAdjust", submittedTerm),
+  );
+  const students = studentSearch.data?.items ?? [];
   const [selected, setSelected] = useState<string[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const viewedId = searchParams.get("student");
@@ -85,14 +88,10 @@ export default function StudentUsageAdmin() {
     );
   }, [viewedId]);
 
-  async function search() {
-    const result = await searchStudents(term);
-    if (!result.ok) {
-      setMessage(result.message);
-      return;
-    }
+  // 검색 결과는 useQuery 가 들고 있고, 검색을 누를 때마다 선택과 보던 학생을 비운다.
+  function search() {
     setMessage("");
-    setStudents(result.data);
+    setSubmittedTerm(term);
     setSelected([]);
     setSearchParams({});
   }
@@ -261,12 +260,16 @@ export default function StudentUsageAdmin() {
         </div>
       )}
 
-      {(message || usageQuery.error) && (
+      {(message || usageQuery.error || studentSearch.error) && (
         <p className="text-sm font-medium text-gray-700">
           {message ||
-            (usageQuery.error instanceof ApiError
-              ? usageQuery.error.detail
-              : "사용 현황을 불러오지 못했어요.")}
+            (usageQuery.error
+              ? usageQuery.error instanceof ApiError
+                ? usageQuery.error.detail
+                : "사용 현황을 불러오지 못했어요."
+              : studentSearch.error instanceof ApiError
+                ? studentSearch.error.detail
+                : SEARCH_ERROR)}
         </p>
       )}
     </div>
