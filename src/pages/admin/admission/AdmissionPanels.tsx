@@ -1,5 +1,12 @@
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,12 +19,8 @@ import {
   exportAdmissionResultRowsToXlsx,
   parseAdmissionResultRowsFromXlsx,
 } from "@/lib/admissionResultsBulkXlsx";
-import {
-  getAdmissionActiveYear,
-  setAdmissionActiveYear,
-} from "@/lib/admissionSettings";
+import { ApiError, api } from "@/lib/http/client";
 import { withDedupedKeys } from "@/lib/reactKeys";
-import { supabase } from "@/lib/supabase";
 import {
   AdminChunkError,
   reportAdminError,
@@ -26,7 +29,6 @@ import {
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import { pad2, triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";
-import type { TablesInsert } from "@/types/database.types";
 
 // 대입모집요강 공개 노출 연도 표시, 변경(admissionGuidelines의 ListSummary,
 // AcceptanceRateSummary와 같은 확장점, 목록 페이지 헤더에서만 렌더된다.
@@ -66,24 +68,43 @@ export function AdmissionListSummary({ rows, onReload }) {
   );
 }
 
+const activeYearSchema = z.object({ year: z.number() });
+
+const activeYearQuery = queryOptions({
+  queryKey: ["admin", "admission", "active-year"],
+  queryFn: ({ signal }) =>
+    api.get("admin/admission/active-year", { signal }).json(activeYearSchema),
+});
+
 function AdmissionActiveYearSummary({ rows }) {
-  const [activeYear, setActiveYear] = useState<number | null>(null);
-  const [loadingActiveYear, setLoadingActiveYear] = useState(true);
+  const queryClient = useQueryClient();
+  const yearQuery = useQuery(activeYearQuery);
+  const activeYear = yearQuery.data?.year ?? null;
+  const loadingActiveYear = yearQuery.isPending;
+  // 지정된 연도가 없는 상태는 오류가 아니라 정상 초기 상태다. 상수로 채우지 않는다.
+  const notSet =
+    yearQuery.error instanceof ApiError && yearQuery.error.code === "NOT_FOUND";
   const [draftYear, setDraftYear] = useState("");
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    getAdmissionActiveYear(supabase).then((year) => {
-      if (cancelled) return;
-      setActiveYear(year);
-      setDraftYear(String(year));
-      setLoadingActiveYear(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (activeYear !== null) setDraftYear(String(activeYear));
+  }, [activeYear]);
+
+  const save = useMutation({
+    mutationFn: async (year: number) => {
+      await api
+        .put("admin/admission/active-year", { json: { year } })
+        .json(activeYearSchema);
+      // 낙관적 표시 대신 실제 값을 재조회한다, 이 값이 고객 노출을 좌우하므로
+      // 저장이 실제로 반영됐는지 확인한다.
+      return queryClient.fetchQuery({ ...activeYearQuery, staleTime: 0 });
+    },
+    onSuccess: ({ year }) => {
+      toastSuccess(`공개 연도를 ${year}학년도로 변경했습니다.`);
+    },
+    onError: (err) => reportAdminError("공개 연도 저장 실패", err),
+  });
+  const saving = save.isPending;
 
   const activeYearCount = activeYear
     ? (rows || []).filter((row) => Number(row.admission_year) === activeYear)
@@ -111,23 +132,7 @@ function AdmissionActiveYearSummary({ rows }) {
       if (!proceed) return;
     }
 
-    setSaving(true);
-    const result = await setAdmissionActiveYear(supabase, year);
-    if (!result.ok) {
-      setSaving(false);
-      reportAdminError("공개 연도 저장 실패", {
-        message: result.error ?? "",
-      });
-      return;
-    }
-
-    // 낙관적 표시 대신 실제 값을 재조회한다, 이 값이 고객 노출을 좌우하므로
-    // 저장이 실제로 반영됐는지(RLS 등으로 조용히 무시되지 않았는지) 확인한다.
-    const confirmedYear = await getAdmissionActiveYear(supabase);
-    setActiveYear(confirmedYear);
-    setDraftYear(String(confirmedYear));
-    setSaving(false);
-    toastSuccess(`공개 연도를 ${confirmedYear}학년도로 변경했습니다.`);
+    save.mutate(year);
   }
 
   return (
@@ -135,6 +140,10 @@ function AdmissionActiveYearSummary({ rows }) {
       <div className="font-semibold">
         {loadingActiveYear ? (
           "공개 연도 확인 중…"
+        ) : notSet ? (
+          "공개 연도가 지정되지 않았습니다"
+        ) : activeYear === null ? (
+          "공개 연도를 불러오지 못했습니다"
         ) : (
           <>
             현재 공개 연도:{" "}
