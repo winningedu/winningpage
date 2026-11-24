@@ -110,9 +110,9 @@ export default function ServiceCard({ card }: ServiceCardProps) {
         </div>
       )}
 
-      {isOngoing ? (
-        // 유일한 호출부(MyServicesTab.buildServiceCard)가 isOngoing=true일 때
-        // actions를 항상 1개짜리 배열로 만든다.
+      {isOngoing && actions.length === 1 ? (
+        // 이용 중 카드는 액션이 1개면 텍스트 링크, 2개(리포트 보기 + 검사하기)면
+        // 완료 카드와 같은 버튼 행으로 그린다.
         <Link
           to={actions[0]!.href}
           className="text-[0.875rem] font-medium leading-[1.4] tracking-[-0.0175rem] text-accent transition hover:opacity-80"
