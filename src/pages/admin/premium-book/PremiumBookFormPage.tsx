@@ -8,13 +8,13 @@ import {
 } from "react-router";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/http/client";
-import { reportAdminError } from "@/pages/admin/shared/adminErrors";
-import { toastSuccess } from "@/pages/admin/shared/adminToast";
 import {
   AdminForm,
   removeSectionFiles,
   uploadSectionFiles,
 } from "@/pages/admin/shared/AdminEngine";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { toastSuccess } from "@/pages/admin/shared/adminToast";
 import { type PremiumBookPageRow, usePage, useSavePage } from "./api";
 import { Heading } from "./Heading";
 import { PREMIUM_BOOK_PATH } from "./paths";

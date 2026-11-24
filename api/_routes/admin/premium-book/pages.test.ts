@@ -1,6 +1,7 @@
 // GET, POST /api/admin/premium-book/pages 계약 검증: 책자 페이지 목록과 등록.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { createFakeStorage } from "../../../_lib/admin-uploads/storageTestKit.js";
 import {
   argsOf,
   callRoute,
@@ -9,7 +10,6 @@ import {
   problemCode,
   type Respond,
 } from "../../../_lib/adminRoute.testkit.js";
-import { createFakeStorage } from "../../../_lib/admin-uploads/storageTestKit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 

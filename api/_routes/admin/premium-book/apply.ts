@@ -16,8 +16,8 @@
 import { z } from "zod";
 import type { UploadField } from "../../../_lib/admin-sections/registry.js";
 import {
-  parseTempName,
   PUBLIC_BUCKET,
+  parseTempName,
   sendUploadExpired,
   TMP_BUCKET,
   validateUpload,

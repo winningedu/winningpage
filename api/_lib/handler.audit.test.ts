@@ -249,7 +249,10 @@ describe("조회(GET)", () => {
       method: "GET",
       url: "/api/admin/members?q=홍길동&page=2",
       query: { q: "홍길동", page: "2" },
-      headers: { "x-vercel-id": "icn1::get", "x-forwarded-for": "198.51.100.4" },
+      headers: {
+        "x-vercel-id": "icn1::get",
+        "x-forwarded-for": "198.51.100.4",
+      },
     });
     expect(r.status).toBe(200);
     expect(auditRows()).toEqual([
@@ -329,12 +332,19 @@ describe("접속지 IP", () => {
   test("meta 에는 route, method, status, requestId, ip 만 싣는다", async () => {
     await call(route(), {
       method: "GET",
-      headers: { "user-agent": "Mozilla/5.0", "x-forwarded-for": "203.0.113.9" },
+      headers: {
+        "user-agent": "Mozilla/5.0",
+        "x-forwarded-for": "203.0.113.9",
+      },
       query: { q: "홍길동" },
     });
-    expect(Object.keys(auditMeta()).sort()).toEqual(
-      ["ip", "method", "requestId", "route", "status"],
-    );
+    expect(Object.keys(auditMeta()).sort()).toEqual([
+      "ip",
+      "method",
+      "requestId",
+      "route",
+      "status",
+    ]);
   });
 });
 

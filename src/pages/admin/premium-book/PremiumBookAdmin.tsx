@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from "react-router";
-import { PREMIUM_BOOK_PATH } from "./paths";
 import { PremiumBookFormPage } from "./PremiumBookFormPage";
 import { PremiumBookList } from "./PremiumBookList";
+import { PREMIUM_BOOK_PATH } from "./paths";
 import type { PremiumBookAdminConfig } from "./types";
 
 // 어드민 "프리미엄 책자 관리". 화면마다 주소가 있어 새로고침과 뒤로가기가 그대로 동작한다.

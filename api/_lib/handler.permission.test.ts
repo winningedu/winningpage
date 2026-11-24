@@ -2,12 +2,12 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { ErrorShape } from "./httpResponse.js";
 import {
   createFakeAdmin,
   createKitState,
   type KitState,
 } from "./console/consoleTestKit.js";
+import type { ErrorShape } from "./httpResponse.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,

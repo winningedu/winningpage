@@ -1,15 +1,15 @@
 // POST /api/admin/premium-book/apply 계약 검증: 변환한 PDF 와 페이지 이미지를 한 번에 적용한다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { createFakeStorage } from "../../../_lib/admin-uploads/storageTestKit.js";
 import {
   argsOf,
   callRoute,
   createAdminFake,
-  type Query,
   problemCode,
+  type Query,
   type Respond,
 } from "../../../_lib/adminRoute.testkit.js";
-import { createFakeStorage } from "../../../_lib/admin-uploads/storageTestKit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 

@@ -188,7 +188,9 @@ describe("check-http-legacy legacyFetch", () => {
     ["fetch(url);"],
     ["async function get(url) {\n  return fetch(url, {});\n}"],
     ["const get = (u) => window.fetch(u);"],
-    ['const url = "https://example.com";\nfunction get(url) {\n  return fetch(url);\n}'],
+    [
+      'const url = "https://example.com";\nfunction get(url) {\n  return fetch(url);\n}',
+    ],
     ["const url = build();\nfetch(url);"],
   ])("레거시 /api 호출을 잡는다: %s", (code) => {
     put("src/a.ts", `${code}\n`);
