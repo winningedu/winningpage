@@ -115,14 +115,10 @@ test("경로가 바뀐 뒤에는 되감지 않는다 (사이드바 이동 취소
 
 // --- 배선 ---------------------------------------------------------------
 
-// 목록을 갈아끼우는 전체 화면 상세를 가진 custom 컴포넌트들(회원 목록은 상세가 라우트가 되어 빠졌다). 사용자 실측으로
-// 증상이 확인된 넷(회원 목록·멘토 신청 내역·쿠폰 관리·관리자 관리)에, 구조가
-// 같은 하나(관리자 권한 관리)를 더했다. 목표관리 학생 현황은 상세가 실제 라우트
-// (/admin/goalStudents/:id)라 이 훅을 쓰지 않는다.
+// 목록을 갈아끼우는 전체 화면 상세를 가진 custom 컴포넌트들. 상세가 주소를 갖게 된 화면
+// (회원, 목표관리 학생, 관리자 관리, 관리자 권한 관리)은 이 목록에서 뺐다.
 const WIRED_SCREENS: Array<[name: string, dir: string]> = [
   ["MentorApplicationsAdmin", "mentor"],
-  ["AdminMembersAdmin", "staff"],
-  ["AdminRolesAdmin", "staff"],
 ];
 
 test.each(WIRED_SCREENS)("%s 가 훅을 쓴다", (name, dir) => {

@@ -56,11 +56,19 @@ export const routes: Record<string, RouteLoader> = {
   "admin/revenue": () => import("./admin/revenue.js"),
   "admin/revenue/pending": () => import("./admin/revenue/pending.js"),
   "admin/revenue/services": () => import("./admin/revenue/services.js"),
+  "admin/roles": () => import("./admin/roles.js"),
+  "admin/roles/[id]": () => import("./admin/roles/[id].js"),
+  "admin/roles/[id]/permissions": () =>
+    import("./admin/roles/[id]/permissions.js"),
   "admin/send-message": () => import("./admin/send-message.js"),
   "admin/service-credit-adjust": () =>
     import("./admin/service-credit-adjust.js"),
   "admin/service-credit-summary": () =>
     import("./admin/service-credit-summary.js"),
+  "admin/staff": () => import("./admin/staff.js"),
+  "admin/staff/[profileId]": () => import("./admin/staff/[profileId].js"),
+  "admin/staff/[profileId]/permissions": () =>
+    import("./admin/staff/[profileId]/permissions.js"),
   "admin/tenant-options": () => import("./admin/tenant-options.js"),
   "admin/tenants": () => import("./admin/tenants.js"),
   "admin/tenants/[id]": () => import("./admin/tenants/[id].js"),

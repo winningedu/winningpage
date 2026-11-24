@@ -89,10 +89,6 @@
     "legacyError": 2,
     "okSuccess": 2
   },
-  "api/_routes/admin/invite-member.ts": {
-    "legacyError": 10,
-    "okSuccess": 1
-  },
   "api/_routes/admin/knowledge-bulk.ts": {
     "legacyError": 3,
     "okSuccess": 1
@@ -966,13 +962,6 @@
   },
   "src/pages/admin/shared/AdminEngine.tsx": {
     "browserDb": 3
-  },
-  "src/pages/admin/staff/AdminMembersAdmin.tsx": {
-    "browserDb": 8,
-    "legacyFetch": 1
-  },
-  "src/pages/admin/staff/AdminRolesAdmin.tsx": {
-    "browserDb": 8
   },
   "src/pages/admin/telemetry/api.ts": {
     "legacyFetch": 1

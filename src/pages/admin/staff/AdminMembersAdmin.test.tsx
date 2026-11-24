@@ -1,47 +1,44 @@
-// AdminMembersAdmin 조회 오류 안내. DB 원문 대신 매핑된 안내만 토스트로 보인다.
+// AdminMembersAdmin 조회 오류 안내. 서버가 쓴 안내만 토스트로 보이고 원문은 새지 않는다.
 
-import { render, waitFor } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-vi.mock("@/lib/supabase", () => {
-  // 어떤 체인이든 끝에서 await 하면 조회 오류가 나오는 가짜 쿼리 빌더.
-  type Result = { data: unknown; error: unknown };
-  const query = (result: Result): Promise<Result> =>
-    Object.assign(Promise.resolve(result), {
-      select: () => query(result),
-      order: () => query(result),
-      eq: () => query(result),
-    });
-  const failure = {
-    data: null,
-    error: { message: "permission denied for 홍길동", code: "42501" },
-  };
-  return {
-    supabase: { from: () => ({ select: () => query(failure) }) },
-  };
-});
+const http = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
+}));
 
-import { Toaster } from "@/components/ui/toast";
-import AdminMembersAdmin from "./AdminMembersAdmin";
+vi.mock("@/lib/http/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/http/client")>()),
+  api: http,
+}));
 
-const CONFIG = { title: "관리자 계정", searchPlaceholder: "검색" };
+import { toast } from "@/components/ui/toast";
+import { ApiError } from "@/lib/http/client";
+import { renderMembers, routeApi } from "./testHelpers";
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
+  toast.close();
   vi.restoreAllMocks();
+  vi.clearAllMocks();
 });
 
-test("조회에 실패하면 원문 없이 안내만 토스트로 보인다", async () => {
-  const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-  render(
-    <>
-      <AdminMembersAdmin config={CONFIG} />
-      <Toaster />
-    </>,
-  );
+test("조회에 실패하면 제목과 서버 안내만 토스트로 보인다", async () => {
+  routeApi(http.get, {
+    "admin/staff": new ApiError({
+      status: 403,
+      code: "FORBIDDEN",
+      detail: "이 메뉴를 쓸 권한이 없습니다.",
+    }),
+  });
+  renderMembers();
 
   await waitFor(() => {
     expect(
@@ -49,8 +46,6 @@ test("조회에 실패하면 원문 없이 안내만 토스트로 보인다", as
     ).toHaveTextContent("관리자 계정 조회 실패");
     expect(
       document.querySelector('[data-slot="toast-description"]'),
-    ).toHaveTextContent("코드: 42501");
+    ).toHaveTextContent("이 메뉴를 쓸 권한이 없습니다.");
   });
-  expect(document.body.textContent).not.toContain("홍길동");
-  expect(alertSpy).not.toHaveBeenCalled();
 });
