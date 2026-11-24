@@ -132,6 +132,7 @@ export const routes: Record<string, RouteLoader> = {
   "enrollment/request-change": () => import("./enrollment/request-change.js"),
   "enrollment/self-assign": () => import("./enrollment/self-assign.js"),
   "find-account-by-phone": () => import("./find-account-by-phone.js"),
+  "goal/admin/cuts/bulk": () => import("./goal/admin/cuts/bulk.js"),
   "goal/admin/cuts/jungsi-missing": () =>
     import("./goal/admin/cuts/jungsi-missing.js"),
   "goal/admin/cuts/rows": () => import("./goal/admin/cuts/rows.js"),
