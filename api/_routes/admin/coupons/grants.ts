@@ -31,9 +31,9 @@ export default defineHandler({
   logLabel: "[admin/coupons/grants]",
   handler: async (req, res, ctx) => {
     const isPost = req.method === "POST";
-    const input = isPost
-      ? parseInput(res, postBody, req.body)
-      : parseInput(res, getQuery, req.query);
+    const postInput = isPost ? parseInput(res, postBody, req.body) : null;
+    const getInput = isPost ? null : parseInput(res, getQuery, req.query);
+    const input = postInput ?? getInput;
     if (!input) return;
 
     const coupon = await ctx.supabaseAdmin
@@ -47,12 +47,12 @@ export default defineHandler({
       return;
     }
 
-    if ("userId" in input) {
+    if (postInput) {
       const { data, error } = await createSupabaseUserClient(
         getBearerToken(req),
       ).rpc("fn_grant_coupon", {
-        p_coupon_id: input.couponId,
-        p_user_id: input.userId,
+        p_coupon_id: postInput.couponId,
+        p_user_id: postInput.userId,
       });
       if (error) {
         sendRpcError(res, error, GRANT_ERRORS);

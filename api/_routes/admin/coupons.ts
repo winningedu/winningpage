@@ -62,7 +62,10 @@ export default defineHandler({
     ]);
     if (coupons.error) throw new Error("coupons read failed");
 
-    let redemptionStats = null;
+    let redemptionStats: {
+      byCoupon: Record<string, { active: number; total: number }>;
+      truncated: boolean;
+    } | null = null;
     if (redemptions.error) {
       console.warn("쿠폰 사용 통계 조회 실패:", redemptions.error.message);
     } else {
