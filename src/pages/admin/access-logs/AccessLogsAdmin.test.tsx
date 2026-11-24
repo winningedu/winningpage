@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   fireEvent,
   render,
@@ -7,12 +8,18 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("./api", () => ({ fetchAccessLogs: vi.fn() }));
+const http = vi.hoisted(() => ({ get: vi.fn() }));
 
+vi.mock("@/lib/http/client", async (importActual) => ({
+  ...(await importActual<typeof import("@/lib/http/client")>()),
+  api: { get: http.get },
+}));
+
+import { ApiError } from "@/lib/http/client";
 import AccessLogsAdmin from "./AccessLogsAdmin";
-import * as api from "./api";
+import type { AccessLogEntry } from "./api";
 
-const ENTRY: api.AccessLogEntry = {
+const ENTRY: AccessLogEntry = {
   id: "log-1",
   createdAt: "2026-11-05T10:00:00Z",
   tenantCode: "ABCD1234",
@@ -29,17 +36,53 @@ const ENTRY: api.AccessLogEntry = {
   isProxy: false,
 };
 
+type PageBody = { items: AccessLogEntry[]; page: number; hasNext: boolean };
+
+// api.get(...).json(schema) 체인을 흉내 낸다. 본문은 실제 스키마로 검증한다.
+function respondWith(page: PageBody) {
+  return {
+    json: async (schema: { parse: (value: unknown) => unknown }) =>
+      schema.parse(page),
+  };
+}
+
+function failWith(error: unknown) {
+  return {
+    json: async () => {
+      throw error;
+    },
+  };
+}
+
+function lastParams(): URLSearchParams {
+  const init = http.get.mock.lastCall?.[1] as {
+    searchParams: Record<string, string>;
+  };
+  return new URLSearchParams(init.searchParams);
+}
+
+function renderScreen() {
+  return render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <AccessLogsAdmin />
+    </QueryClientProvider>,
+  );
+}
+
 beforeEach(() => {
-  vi.resetAllMocks();
-  vi.mocked(api.fetchAccessLogs).mockResolvedValue({
-    ok: true,
-    data: { logs: [ENTRY], page: 1, hasNext: false },
-  });
+  http.get.mockReset();
+  http.get.mockReturnValue(
+    respondWith({ items: [ENTRY], page: 1, hasNext: false }),
+  );
 });
 
 describe("AccessLogsAdmin", () => {
   test("API 가 준 로그를 소속코드, 교사, 전화, 구분, 대상 학생, 내용 열로 보여 준다", async () => {
-    render(<AccessLogsAdmin />);
+    renderScreen();
 
     const row = (await screen.findByText("박교사")).closest("tr");
     expect(row).not.toBeNull();
@@ -65,25 +108,19 @@ describe("AccessLogsAdmin", () => {
         screen.getByRole("columnheader", { name: header }),
       ).toBeInTheDocument();
     }
-    await waitFor(() =>
-      expect(api.fetchAccessLogs).toHaveBeenCalledWith({
-        tenantCode: "",
-        from: "",
-        to: "",
-        kind: "",
-        page: 1,
-      }),
-    );
+    await waitFor(() => expect(http.get).toHaveBeenCalled());
+    expect(http.get.mock.calls[0]?.[0]).toBe("admin/access-logs");
+    expect(Object.fromEntries(lastParams())).toEqual({ page: "1" });
   });
 
   test("열 머리글은 scope col 을 가진다", async () => {
-    render(<AccessLogsAdmin />);
+    renderScreen();
     const header = await screen.findByRole("columnheader", { name: "일시" });
     expect(header).toHaveAttribute("scope", "col");
   });
 
   test("본사 대행 줄과 본사 다운로드 줄은 관리자 이름, 이메일, 사유를 보여 준다", async () => {
-    const proxy: api.AccessLogEntry = {
+    const proxy: AccessLogEntry = {
       ...ENTRY,
       id: "log-proxy",
       teacherName: null,
@@ -97,7 +134,7 @@ describe("AccessLogsAdmin", () => {
       content: "본사 대행",
       isProxy: true,
     };
-    const download: api.AccessLogEntry = {
+    const download: AccessLogEntry = {
       ...proxy,
       id: "log-download",
       actorName: "다운직원",
@@ -108,11 +145,10 @@ describe("AccessLogsAdmin", () => {
       content: "회원 목록",
       isProxy: false,
     };
-    vi.mocked(api.fetchAccessLogs).mockResolvedValue({
-      ok: true,
-      data: { logs: [proxy, download], page: 1, hasNext: false },
-    });
-    render(<AccessLogsAdmin />);
+    http.get.mockReturnValue(
+      respondWith({ items: [proxy, download], page: 1, hasNext: false }),
+    );
+    renderScreen();
 
     const proxyRow = (await screen.findByText("본사직원")).closest("tr");
     const proxyCells = within(proxyRow as HTMLElement);
@@ -131,17 +167,21 @@ describe("AccessLogsAdmin", () => {
   });
 
   test("쪽을 넘기다 실패하면 이전 쪽 목록을 지우고 오류만 보인다", async () => {
-    vi.mocked(api.fetchAccessLogs).mockResolvedValueOnce({
-      ok: true,
-      data: { logs: [ENTRY], page: 1, hasNext: true },
-    });
-    render(<AccessLogsAdmin />);
+    http.get.mockReturnValueOnce(
+      respondWith({ items: [ENTRY], page: 1, hasNext: true }),
+    );
+    renderScreen();
     await screen.findByText("박교사");
 
-    vi.mocked(api.fetchAccessLogs).mockResolvedValueOnce({
-      ok: false,
-      message: "불러오지 못했습니다.",
-    });
+    http.get.mockReturnValueOnce(
+      failWith(
+        new ApiError({
+          status: 500,
+          code: "INTERNAL_ERROR",
+          detail: "불러오지 못했습니다.",
+        }),
+      ),
+    );
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
 
     expect(await screen.findByText("불러오지 못했습니다.")).toBeInTheDocument();
@@ -149,7 +189,7 @@ describe("AccessLogsAdmin", () => {
   });
 
   test("소속코드, 기간, 구분을 골라 조회하면 그 조건으로 1쪽을 다시 읽는다", async () => {
-    render(<AccessLogsAdmin />);
+    renderScreen();
     await screen.findByText("박교사");
 
     fireEvent.change(screen.getByLabelText("소속코드"), {
@@ -167,55 +207,63 @@ describe("AccessLogsAdmin", () => {
     fireEvent.click(screen.getByRole("button", { name: "조회" }));
 
     await waitFor(() =>
-      expect(api.fetchAccessLogs).toHaveBeenLastCalledWith({
+      expect(Object.fromEntries(lastParams())).toMatchObject({
         tenantCode: "ABCD1234",
-        from: "2026-11-01",
-        to: "2026-11-05",
         kind: "edit",
-        page: 1,
+        page: "1",
       }),
     );
+    expect(lastParams().get("from")).not.toBeNull();
+    expect(lastParams().get("to")).not.toBeNull();
   });
 
   test("다음 쪽이 있으면 다음 버튼으로 같은 조건의 다음 쪽을 읽고 첫 쪽에서는 이전이 막힌다", async () => {
-    vi.mocked(api.fetchAccessLogs).mockResolvedValue({
-      ok: true,
-      data: { logs: [ENTRY], page: 1, hasNext: true },
-    });
-    render(<AccessLogsAdmin />);
+    http.get.mockReturnValue(
+      respondWith({ items: [ENTRY], page: 1, hasNext: true }),
+    );
+    renderScreen();
     await screen.findByText("박교사");
 
     expect(screen.getByRole("button", { name: "이전" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
 
-    await waitFor(() =>
-      expect(api.fetchAccessLogs).toHaveBeenLastCalledWith(
-        expect.objectContaining({ page: 2 }),
-      ),
-    );
+    await waitFor(() => expect(lastParams().get("page")).toBe("2"));
   });
 
   test("마지막 쪽에서는 다음이 막힌다", async () => {
-    render(<AccessLogsAdmin />);
+    renderScreen();
     await screen.findByText("박교사");
 
     expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
   });
 
+  test("ApiError 가 아닌 실패는 기본 문구를 보인다", async () => {
+    http.get.mockReturnValue(failWith(new Error("boom")));
+    renderScreen();
+
+    expect(
+      await screen.findByText("접근 로그를 불러오지 못했습니다."),
+    ).toBeInTheDocument();
+  });
+
   test("기록이 없으면 안내를 보이고, 실패하면 서버 메시지를 보인다", async () => {
-    vi.mocked(api.fetchAccessLogs).mockResolvedValueOnce({
-      ok: true,
-      data: { logs: [], page: 1, hasNext: false },
-    });
-    const { unmount } = render(<AccessLogsAdmin />);
+    http.get.mockReturnValueOnce(
+      respondWith({ items: [], page: 1, hasNext: false }),
+    );
+    const { unmount } = renderScreen();
     expect(await screen.findByText("기록이 없어요.")).toBeInTheDocument();
     unmount();
 
-    vi.mocked(api.fetchAccessLogs).mockResolvedValueOnce({
-      ok: false,
-      message: "최고 관리자만 볼 수 있습니다.",
-    });
-    render(<AccessLogsAdmin />);
+    http.get.mockReturnValueOnce(
+      failWith(
+        new ApiError({
+          status: 403,
+          code: "FORBIDDEN",
+          detail: "최고 관리자만 볼 수 있습니다.",
+        }),
+      ),
+    );
+    renderScreen();
     expect(
       await screen.findByText("최고 관리자만 볼 수 있습니다."),
     ).toBeInTheDocument();

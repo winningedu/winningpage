@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -8,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ApiError } from "@/lib/http/client";
 import { formatValue } from "@/pages/admin/shared/csvExport";
 import {
   ActionButton,
@@ -15,11 +17,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
-import {
-  type AccessLogFilter,
-  type AccessLogPage,
-  fetchAccessLogs,
-} from "./api";
+import { type AccessLogFilter, accessLogsQueryOptions } from "./api";
 
 // ---------------------------------------------------------------------------
 // 스쿨멘토 본사 개인정보 접근 로그(사 #170, 교 #66, 결정 102.5). 위닝은 제네릭 목록을 그대로 쓰고,
@@ -52,25 +50,12 @@ const COLUMNS = [
 export default function AccessLogsAdmin() {
   const [filter, setFilter] = useState<AccessLogFilter>(EMPTY_FILTER);
   const [draft, setDraft] = useState<AccessLogFilter>(EMPTY_FILTER);
-  const [result, setResult] = useState<AccessLogPage | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchAccessLogs(filter).then((next) => {
-      if (cancelled) return;
-      if (next.ok) {
-        setError(null);
-        setResult(next.data);
-      } else {
-        setResult(null);
-        setError(next.message);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [filter]);
+  const { data, error } = useQuery(accessLogsQueryOptions(filter));
+  const errorMessage = error
+    ? error instanceof ApiError
+      ? error.detail
+      : "접근 로그를 불러오지 못했습니다."
+    : null;
 
   return (
     <div className="bg-white p-6 shadow-sm">
@@ -124,9 +109,9 @@ export default function AccessLogsAdmin() {
         </Field>
         <ActionButton type="submit">조회</ActionButton>
       </form>
-      {error && (
+      {errorMessage && (
         <p role="alert" className="mb-3 text-sm font-medium text-red-600">
-          {error}
+          {errorMessage}
         </p>
       )}
       <Table className="min-w-[72rem] border-collapse">
@@ -144,7 +129,7 @@ export default function AccessLogsAdmin() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {(result?.logs ?? []).map((log) => (
+          {(data?.items ?? []).map((log) => (
             <TableRow key={log.id} className="border-b border-gray-100">
               <TableCell className="px-3 py-3">
                 {formatValue(log.createdAt, "datetime")}
@@ -192,7 +177,7 @@ export default function AccessLogsAdmin() {
           ))}
         </TableBody>
       </Table>
-      {result?.logs.length === 0 && (
+      {data?.items.length === 0 && (
         <p className="py-12 text-center text-sm text-muted-foreground">
           기록이 없어요.
         </p>
@@ -208,7 +193,7 @@ export default function AccessLogsAdmin() {
         <span className="text-sm font-medium">{filter.page}쪽</span>
         <ActionButton
           variant="light"
-          disabled={!result?.hasNext}
+          disabled={!data?.hasNext}
           onClick={() => setFilter({ ...filter, page: filter.page + 1 })}
         >
           다음
