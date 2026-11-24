@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import { ActionButton } from "@/pages/admin/shared/formFields";
+import { useKeywordParam } from "@/pages/admin/shared/useKeywordParam";
 import {
   deleteRole,
   fetchRoles,
@@ -56,7 +57,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
 function RoleList({ config }: AdminRolesAdminProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [keyword, setKeyword] = useState("");
+  const [keyword, setKeyword] = useKeywordParam();
 
   const list = useQuery({
     queryKey: roleKeys.list,

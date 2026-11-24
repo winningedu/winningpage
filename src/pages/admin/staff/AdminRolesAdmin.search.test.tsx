@@ -83,3 +83,28 @@ test("입력하는 대로 이름과 설명으로 목록이 걸러진다", async 
   });
   expect(screen.getByText("재무팀")).toBeInTheDocument();
 });
+
+test("주소의 q 로 시작하면 그 검색어로 걸러진 목록을 보인다", async () => {
+  renderRoles("/admin/adminRoles?q=재무");
+
+  expect(await screen.findByText("재무팀")).toBeInTheDocument();
+  expect(screen.queryByText("운영팀")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("권한 묶음 검색")).toHaveValue("재무");
+});
+
+test("입력한 검색어는 주소의 q 에 써지고 비우면 지워진다", async () => {
+  const { router } = renderRoles();
+  await screen.findByText("운영팀");
+
+  fireEvent.change(screen.getByLabelText("권한 묶음 검색"), {
+    target: { value: "재무" },
+  });
+  expect(new URLSearchParams(router.state.location.search).get("q")).toBe(
+    "재무",
+  );
+
+  fireEvent.change(screen.getByLabelText("권한 묶음 검색"), {
+    target: { value: "" },
+  });
+  expect(router.state.location.search).toBe("");
+});
