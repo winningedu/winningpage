@@ -1,11 +1,16 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
-  type ReactNode,
-  useEffect,
-  useEffectEvent,
-  useMemo,
-  useState,
-} from "react";
+  Link,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card as UiCard } from "@/components/ui/card";
@@ -20,10 +25,26 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { site } from "@/config/site";
+import { ApiError } from "@/lib/http/client";
 import { formatPhoneInput } from "@/lib/phoneVerification";
 import { supabase } from "@/lib/supabase";
 import { ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
+import {
+  fetchMember,
+  fetchMemberLinks,
+  fetchMemberMessages,
+  fetchMemberOrders,
+  fetchMemberServices,
+  fetchMembers,
+  fetchTenantOptions,
+  type LinkedPerson,
+  type MessageLogRow,
+  memberKeys,
+  type OrderRow,
+  type ProfileRow,
+  type ProgramAccessRow,
+} from "@/pages/admin/members/api";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import {
   AdminApiError,
@@ -43,7 +64,6 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
-import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
 import MoveStudentForm, {
   type MoveTarget,
 } from "@/pages/admin/tenants/MoveStudentForm";
@@ -73,87 +93,9 @@ import { tenantSaveErrorMessage } from "@/pages/admin/tenants/saveError";
 // parent_child_links / program_access / orders 를 함께 읽고, 개인정보 마스킹과
 // 탭 전환이 필요하다. AdminForm 은 모든 필드를 자유 편집으로 열어버려 맞지 않는다.
 // 목록만 AdminTable 을 재사용한다(MentorApplicationsAdmin 과 같은 방식).
+//
+// 목록, 상세, 탭은 각각 /admin/members 아래 주소를 가진다(새로고침과 뒤로가기가 그대로 동작).
 // ---------------------------------------------------------------------------
-
-interface ProfileRow {
-  id: string;
-  name?: string | null;
-  username?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  member_type?: string | null;
-  role?: string | null;
-  created_at?: string | null;
-  birth_date?: string | null;
-  gender?: string | null;
-  school_name?: string | null;
-  school_type?: string | null;
-  region?: string | null;
-  address?: string | null;
-  address_detail?: string | null;
-  landline?: string | null;
-  guardian_phone?: string | null;
-  memo?: string | null;
-  member_category?: string | null;
-  // 2026-09-22 — org_code(자유 입력 text, 죽은 컬럼)를 tenants FK 로 대체.
-  tenant_id?: string | null;
-  // profiles 컬럼이 아니라 loadRows()가 tenants 를 묶어 얹는 파생 필드다
-  // (service_labels 와 같은 방식).
-  tenant_name?: string;
-  // profiles 컬럼이 아니라 loadRows()가 program_access 를 묶어 얹는 파생 필드다.
-  service_labels?: string;
-  is_active?: boolean | null;
-  terms_service_agreed?: boolean | null;
-  privacy_required_agreed?: boolean | null;
-  privacy_optional_agreed?: boolean | null;
-  marketing_agreed?: boolean | null;
-  ads_agreed?: boolean | null;
-  sms_agreed?: boolean | null;
-  [key: string]: unknown;
-}
-
-interface LinkedPerson {
-  linkId: string;
-  status: string;
-  profile: ProfileRow | null;
-}
-
-interface ProgramAccessRow {
-  id: string;
-  program_key: string;
-  payment_status?: string | null;
-  access_status?: string | null;
-  paid_amount?: number | null;
-  starts_at?: string | null;
-  expires_at?: string | null;
-  access_started_at?: string | null;
-  access_expires_at?: string | null;
-}
-
-interface OrderRow {
-  id: string;
-  student_profile_id?: string | null;
-  parent_profile_id?: string | null;
-  status?: string | null;
-  order_name?: string | null;
-  amount?: number | null;
-  list_amount?: number | null;
-  discount_amount?: number | null;
-  method?: string | null;
-  paid_at?: string | null;
-  created_at?: string | null;
-}
-
-interface MessageLogRow {
-  id: number;
-  template_key: string;
-  channel: string;
-  subject?: string | null;
-  message: string;
-  status: string;
-  provider_message?: string | null;
-  sent_at: string;
-}
 
 interface MembersAdminProps {
   config: {
@@ -257,138 +199,70 @@ function maskEmail(value?: string | null) {
   return `${head}${"*".repeat(Math.max(1, local.length - head.length))}@${domain}`;
 }
 
+const MEMBERS_PATH = "/admin/members";
+
+// 목록에서 상세로 올 때 목록 주소의 검색 조건을 state 로 실어 와, 「목록으로」가 같은 필터의 목록을 연다.
+interface DetailLocationState {
+  listSearch?: string;
+}
+
+function listPathOf(state: unknown): string {
+  const search = (state as DetailLocationState | null)?.listSearch ?? "";
+  return `${MEMBERS_PATH}${search}`;
+}
+
 export default function MembersAdmin({ config }: MembersAdminProps) {
-  const [rows, setRows] = useState<ProfileRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [keyword, setKeyword] = useState("");
-  const [memberType, setMemberType] = useState("");
-  const [page, setPage] = useState(1);
-  // 소속(테넌트) 목록(2026-09-22) — 목록의 tenant_name 파생과 상세의 소속
-  // 배정 드롭다운이 함께 쓴다. RLS 는 fn_admin_can('tenants','view') 라
-  // 이 화면에 들어온 어드민이면 통과한다.
-  const [tenants, setTenants] = useState<
-    {
-      id: string;
-      name: string;
-      org_type: string | null;
-      is_catch_all: boolean;
-    }[]
-  >([]);
+  return (
+    <Routes>
+      <Route index element={<MemberList config={config} />} />
+      <Route path=":id/:tab?" element={<MemberDetailRoute config={config} />} />
+      <Route path="*" element={<Navigate to={MEMBERS_PATH} replace />} />
+    </Routes>
+  );
+}
 
-  const [selected, setSelected] = useState<ProfileRow | null>(null);
-  const [tab, setTab] = useState<TabKey>("profile");
-  const [unmasked, setUnmasked] = useState(false);
+function MemberList({ config }: MembersAdminProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // 검색어, 가입유형, 페이지는 주소에 둔다 — 상세에서 돌아와도 같은 목록이 열린다.
+  const keyword = searchParams.get("q") ?? "";
+  const memberType = searchParams.get("type") ?? "";
+  const page = Math.max(
+    1,
+    Number.parseInt(searchParams.get("page") ?? "", 10) || 1,
+  );
 
-  // QA 317 — 상세는 라우트가 아니라 state 라, 뒤로가기가 목록이 아닌 직전 메뉴로
-  // 튄다. 상세를 열 때 히스토리 항목을 하나 쌓아 뒤로가기가 그걸 소비하게 한다.
-  useAdminDetailBack(Boolean(selected), closeDetail);
-
-  // 개인정보 반출 게이트 (QA 268 다운로드 · 269 마스킹 해제).
-  const { requestAccess, gate } = useSensitiveActionGate();
-
-  const [links, setLinks] = useState<LinkedPerson[]>([]);
-  const [accesses, setAccesses] = useState<ProgramAccessRow[]>([]);
-  const [orders, setOrders] = useState<OrderRow[]>([]);
-  const [messages, setMessages] = useState<MessageLogRow[]>([]);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState("");
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-  // 회원구분(QA 186) — dev 가 제네릭 폼 필드로 추가했는데 이 화면이 custom 으로
-  // 바뀌면서 그 폼이 사라졌다. 목록에 값만 뜨고 고칠 데가 없으면 요구가 반쪽이라
-  // 여기서 인라인으로 편집한다. 고정 목록이 아니라 자유 텍스트다(DB CHECK 없음).
-  const [categoryDraft, setCategoryDraft] = useState("");
-  const [savingCategory, setSavingCategory] = useState(false);
-  // 학부모 핸드폰(guardian_phone) — 회원구분과 마찬가지로 이 화면이 custom 으로
-  // 바뀌며 제네릭 편집 폼이 없어져서 인라인으로 직접 편집한다. SMS 인증 없이
-  // 어드민이 바로 고쳐 쓰는 값이다(연락·복구 채널 승격).
-  const [guardianPhoneDraft, setGuardianPhoneDraft] = useState("");
-  const [savingGuardianPhone, setSavingGuardianPhone] = useState(false);
-  // 소속(테넌트) 배정/해제(2026-09-22, WC072) — categoryDraft 와 같은 인라인
-  // 편집 패턴. 값은 tenants.id(uuid) 또는 빈 문자열(소속 없음)이다. 쓰기는
-  // 반드시 fn_admin_set_profile_tenant RPC 전용이다 — profiles.tenant_id 를
-  // 직접 UPDATE 하면 fn_profiles_lock_tenant 트리거(WC070)가 막는다.
-  const [tenantDraft, setTenantDraft] = useState("");
-  const [savingTenant, setSavingTenant] = useState(false);
-  // 스쿨멘토 학생의 기관 이동 폼(사 결정 r4 4번). 열려 있으면 대상 기관을 담는다.
-  const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null);
-
-  async function loadRows() {
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      reportAdminError(`${config.title} 조회 실패`, error);
-      setLoading(false);
-      setRows([]);
-      return;
-    }
-
-    const profileRows = (data as ProfileRow[]) || [];
-
-    // 이용서비스(QA G4) — program_access 를 한 번에 묶어 회원별 콤마 조인
-    // 문자열로 얹는다. 목록 화면이 회원 수만큼 상세 쿼리를 날리지 않도록
-    // profiles 조회와 별개로 딱 한 번만 조회한다. access_status='active'
-    // 인 것만 "이용 중"으로 본다(inactive/expired/suspended 는 제외 —
-    // program_access_access_status_check 의 4개 값 중 active 만 실제 이용).
-    // program_key 라벨 맵이 저장소 어디에도 없어(program_key label map 미존재,
-    // 2026-08-27 조사) 원문 키를 그대로 보여준다.
-    const { data: accessRows, error: accessError } = await supabase
-      .from("program_access")
-      .select("id, program_key, access_status");
-
-    if (accessError) {
-      console.error(accessError);
-    }
-
-    const servicesById = new Map<string, string[]>();
-    for (const row of accessRows || []) {
-      if (row.access_status !== "active") continue;
-      const list = servicesById.get(row.id) || [];
-      list.push(row.program_key);
-      servicesById.set(row.id, list);
-    }
-
-    // 소속(2026-09-22, org_code 자유 입력 대체) — service_labels 와 같은
-    // 방식으로 한 번만 조회해 profiles.tenant_id → tenants.name 을 얹는다.
-    const { data: tenantRows, error: tenantError } = await supabase
-      .from("tenants")
-      .select("id, name, org_type, is_catch_all")
-      .order("name");
-
-    if (tenantError) {
-      console.error(tenantError);
-    }
-
-    const tenantList = tenantRows || [];
-    setTenants(tenantList);
-    const tenantNameById = new Map(
-      tenantList.map((tenant) => [tenant.id, tenant.name]),
+  function setParam(key: string, value: string) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        return next;
+      },
+      { replace: true },
     );
-
-    setRows(
-      profileRows.map((row) => ({
-        ...row,
-        service_labels: (servicesById.get(row.id) || []).join(", "),
-        tenant_name: row.tenant_id
-          ? tenantNameById.get(row.tenant_id) || ""
-          : "",
-      })),
-    );
-    setLoading(false);
   }
 
-  const onMountLoadRows = useEffectEvent(() => {
-    loadRows();
+  function setPage(updater: number | ((prev: number) => number)) {
+    const next = typeof updater === "function" ? updater(page) : updater;
+    setParam("page", next > 1 ? String(next) : "");
+  }
+
+  // 개인정보 반출 게이트 (QA 268 다운로드).
+  const { requestAccess, gate } = useSensitiveActionGate();
+
+  // 이용서비스(QA G4)와 소속 이름은 서버가 목록 행에 얹어 보낸다(service_labels, tenant_name).
+  const list = useQuery({
+    queryKey: memberKeys.list,
+    queryFn: ({ signal }) => fetchMembers(signal),
   });
+  const rows = list.data?.items ?? [];
 
   useEffect(() => {
-    onMountLoadRows();
-  }, []);
+    if (list.error) reportAdminError(`${config.title} 조회 실패`, list.error);
+  }, [list.error, config.title]);
 
   const filteredRows = useMemo(() => {
     const q = keyword.trim().toLowerCase();
@@ -400,110 +274,6 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       return searchable(row).includes(q);
     });
   }, [rows, keyword, memberType]);
-
-  // 상세 부수 데이터. 세 갈래(연결관계·이용권·주문)를 한 번에 받되, 하나가
-  // 실패해도 나머지는 그린다 — RLS 로 막힌 테이블이 있을 때 화면 전체가
-  // 빈 채로 죽으면 원인을 못 찾는다(권한 체계 도입 직후라 특히 그렇다).
-  async function loadDetail(profile: ProfileRow) {
-    setDetailLoading(true);
-    setDetailError("");
-
-    // 관리자 화면은 지급, 상세를 위해 저장된 member_type 원본을 그대로 본다(classifyMember 대상 아님).
-    const isParent = String(profile.member_type || "") === "parent";
-
-    const [linkRes, accessRes, orderRes, msgRes] = await Promise.all([
-      supabase
-        .from("parent_child_links")
-        .select("id, parent_id, student_id, status")
-        .eq(isParent ? "parent_id" : "student_id", profile.id)
-        .in("status", ["pending", "approved"]),
-      supabase
-        .from("program_access")
-        .select(
-          "id, program_key, payment_status, access_status, paid_amount, starts_at, expires_at, access_started_at, access_expires_at",
-        )
-        .eq("id", profile.id),
-      // ⚠️ user_id 로 조회하면 학생 상세에서 결제내역이 항상 비어 보인다 —
-      //   orders_user_id_is_parent_check(CHECK (user_id = parent_profile_id))가
-      //   말하듯 **user_id 는 결제한 학부모**이고, 그 주문이 누구를 위한 것인지는
-      //   student_profile_id 가 들고 있다. 두 축을 OR 로 걸어 학생 상세에서는
-      //   "나를 위해 결제된 주문", 학부모 상세에서는 "내가 결제한 주문"이 나오게 한다.
-      supabase
-        .from("orders")
-        .select(
-          "id, status, order_name, amount, list_amount, discount_amount, method, paid_at, created_at, student_profile_id, parent_profile_id",
-        )
-        .or(
-          `student_profile_id.eq.${profile.id},parent_profile_id.eq.${profile.id}`,
-        )
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("alimtalk_send_logs")
-        .select(
-          "id, template_key, channel, subject, message, status, provider_message, sent_at",
-        )
-        .eq("profile_id", profile.id)
-        .order("sent_at", { ascending: false })
-        .limit(100),
-    ]);
-
-    const errors = [
-      linkRes.error,
-      accessRes.error,
-      orderRes.error,
-      msgRes.error,
-    ].filter(Boolean);
-    if (errors.length > 0) {
-      // 토스트는 하나만 띄우되, 나머지 오류도 원인 추적을 위해 콘솔에 남긴다.
-      reportAdminError("일부 데이터를 불러오지 못했습니다", errors[0]);
-      for (const error of errors.slice(1)) {
-        console.error("일부 데이터를 불러오지 못했습니다", error);
-      }
-      setDetailError(
-        "일부 데이터를 불러오지 못했습니다. 아래 항목이 비어 있을 수 있습니다.",
-      );
-    }
-
-    // 연결 상대의 프로필은 이미 받아둔 목록(rows)에서 찾는다 — 회원 전체를
-    // 이미 들고 있으므로 추가 조회가 필요 없다.
-    const counterpartIds = (linkRes.data || []).map((row) =>
-      isParent ? row.student_id : row.parent_id,
-    );
-    const byId = new Map(rows.map((row) => [row.id, row]));
-
-    setLinks(
-      (linkRes.data || []).map((row, index) => ({
-        linkId: row.id,
-        status: row.status,
-        profile: byId.get(counterpartIds[index] as string) || null,
-      })),
-    );
-    setAccesses((accessRes.data as ProgramAccessRow[]) || []);
-    setOrders((orderRes.data as OrderRow[]) || []);
-    setMessages((msgRes.data as MessageLogRow[]) || []);
-    setDetailLoading(false);
-  }
-
-  function openDetail(row: ProfileRow) {
-    setSelected(row);
-    setTab("profile");
-    setUnmasked(false);
-    setLinks([]);
-    setAccesses([]);
-    setOrders([]);
-    setMessages([]);
-    setDraft("");
-    setCategoryDraft(row.member_category || "");
-    setGuardianPhoneDraft(row.guardian_phone || "");
-    setTenantDraft(row.tenant_id || "");
-    setMoveTarget(null);
-    loadDetail(row);
-  }
-
-  function closeDetail() {
-    setSelected(null);
-    setDetailError("");
-  }
 
   // QA 268 — 회원 목록 다운로드. 게이트를 통과한 뒤에만 실행된다.
   //
@@ -539,6 +309,257 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     });
   }
 
+  return (
+    <div>
+      {gate}
+
+      <div className="mb-6 bg-white px-6 py-5 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={() => list.refetch()}
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+              초기화
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={requestExport}
+            >
+              <Download size={14} aria-hidden="true" />
+              엑셀 다운로드
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Select
+              value={memberType}
+              onChange={(value) => setParam("type", value)}
+              aria-label="회원구분"
+            >
+              {MEMBER_TYPE_FILTERS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+
+            <div className="flex items-center">
+              <Input
+                value={keyword}
+                onChange={(e) => setParam("q", e.target.value)}
+                placeholder={config.searchPlaceholder}
+                aria-label="회원 검색"
+                className="h-9 w-80 font-medium"
+              />
+            </div>
+          </div>
+        </div>
+
+        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
+      </div>
+
+      {list.isPending ? (
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+        >
+          데이터를 불러오는 중입니다.
+        </div>
+      ) : (
+        <AdminTable
+          config={config}
+          rows={filteredRows}
+          page={page}
+          setPage={setPage}
+          onEdit={(row: ProfileRow) =>
+            navigate(`${MEMBERS_PATH}/${row.id}`, {
+              state: { listSearch: location.search },
+            })
+          }
+          onDelete={() => {}}
+        />
+      )}
+    </div>
+  );
+}
+
+function MemberDetailRoute({ config }: MembersAdminProps) {
+  const { id = "", tab } = useParams();
+  const location = useLocation();
+  const member = useQuery({
+    queryKey: memberKeys.detail(id),
+    queryFn: ({ signal }) => fetchMember(id, signal),
+  });
+
+  useEffect(() => {
+    if (
+      member.error &&
+      !(member.error instanceof ApiError && member.error.status === 404)
+    )
+      reportAdminError(`${config.title} 조회 실패`, member.error);
+  }, [member.error, config.title]);
+
+  if (tab && !TABS.some((item) => item.key === tab)) {
+    return (
+      <Navigate to={`${MEMBERS_PATH}/${id}`} replace state={location.state} />
+    );
+  }
+
+  if (member.isPending) {
+    return (
+      <div
+        role="status"
+        className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+      >
+        데이터를 불러오는 중입니다.
+      </div>
+    );
+  }
+
+  if (member.isError) {
+    const notFound =
+      member.error instanceof ApiError && member.error.status === 404;
+    return (
+      <div className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm">
+        <p>
+          {notFound
+            ? "회원을 찾을 수 없습니다."
+            : "회원 정보를 불러오지 못했습니다."}
+        </p>
+        <Link
+          to={listPathOf(location.state)}
+          className="mt-4 inline-block font-semibold text-foreground underline"
+        >
+          목록으로
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <MemberDetail
+      key={member.data.id}
+      config={config}
+      member={member.data}
+      tab={(tab ?? "profile") as TabKey}
+    />
+  );
+}
+
+function MemberDetail({
+  config,
+  member,
+  tab,
+}: MembersAdminProps & { member: ProfileRow; tab: TabKey }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  const [unmasked, setUnmasked] = useState(false);
+
+  // 개인정보 반출 게이트 (QA 269 마스킹 해제).
+  const { requestAccess, gate } = useSensitiveActionGate();
+
+  // 탭마다 자기 데이터만 받는다. 한 탭이 실패해도 나머지 탭은 그대로 열린다.
+  const links = useQuery({
+    queryKey: memberKeys.links(member.id),
+    queryFn: ({ signal }) => fetchMemberLinks(member.id, signal),
+    enabled: tab === "profile",
+  });
+  const services = useQuery({
+    queryKey: memberKeys.services(member.id),
+    queryFn: ({ signal }) => fetchMemberServices(member.id, signal),
+    enabled: tab === "services",
+  });
+  const orders = useQuery({
+    queryKey: memberKeys.orders(member.id),
+    queryFn: ({ signal }) => fetchMemberOrders(member.id, signal),
+    enabled: tab === "pay",
+  });
+  const messages = useQuery({
+    queryKey: memberKeys.messages(member.id),
+    queryFn: ({ signal }) => fetchMemberMessages(member.id, signal),
+    enabled: tab === "msg",
+  });
+  const activeQuery =
+    tab === "profile"
+      ? links
+      : tab === "services"
+        ? services
+        : tab === "pay"
+          ? orders
+          : tab === "msg"
+            ? messages
+            : null;
+  const detailLoading = activeQuery?.isPending ?? false;
+  const activeError = activeQuery?.error ?? null;
+  const detailError = activeError
+    ? "일부 데이터를 불러오지 못했습니다. 아래 항목이 비어 있을 수 있습니다."
+    : "";
+
+  useEffect(() => {
+    if (activeError)
+      reportAdminError("일부 데이터를 불러오지 못했습니다", activeError);
+  }, [activeError]);
+
+  // 소속(테넌트) 목록 — 상세의 소속 배정 드롭다운이 쓴다. 실패하면 소속 없음만 남는다.
+  const tenantOptions = useQuery({
+    queryKey: memberKeys.tenantOptions,
+    queryFn: ({ signal }) => fetchTenantOptions(signal),
+  });
+  const tenants = tenantOptions.data?.items ?? [];
+
+  useEffect(() => {
+    if (tenantOptions.error)
+      reportAdminError("소속 목록 조회 실패", tenantOptions.error);
+  }, [tenantOptions.error]);
+
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  // 회원구분(QA 186) — dev 가 제네릭 폼 필드로 추가했는데 이 화면이 custom 으로
+  // 바뀌면서 그 폼이 사라졌다. 목록에 값만 뜨고 고칠 데가 없으면 요구가 반쪽이라
+  // 여기서 인라인으로 편집한다. 고정 목록이 아니라 자유 텍스트다(DB CHECK 없음).
+  const [categoryDraft, setCategoryDraft] = useState(
+    member.member_category || "",
+  );
+  const [savingCategory, setSavingCategory] = useState(false);
+  // 학부모 핸드폰(guardian_phone) — 회원구분과 마찬가지로 이 화면이 custom 으로
+  // 바뀌며 제네릭 편집 폼이 없어져서 인라인으로 직접 편집한다. SMS 인증 없이
+  // 어드민이 바로 고쳐 쓰는 값이다(연락·복구 채널 승격).
+  const [guardianPhoneDraft, setGuardianPhoneDraft] = useState(
+    member.guardian_phone || "",
+  );
+  const [savingGuardianPhone, setSavingGuardianPhone] = useState(false);
+  // 소속(테넌트) 배정/해제(2026-09-22, WC072) — categoryDraft 와 같은 인라인
+  // 편집 패턴. 값은 tenants.id(uuid) 또는 빈 문자열(소속 없음)이다.
+  const [tenantDraft, setTenantDraft] = useState(member.tenant_id || "");
+  const [savingTenant, setSavingTenant] = useState(false);
+  // 스쿨멘토 학생의 기관 이동 폼(사 결정 r4 4번). 열려 있으면 대상 기관을 담는다.
+  const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null);
+
+  // 저장 결과를 상세와 목록 캐시에 바로 반영한다(재조회 없이).
+  function syncMember(updated: ProfileRow) {
+    queryClient.setQueryData<ProfileRow>(
+      memberKeys.detail(updated.id),
+      (old) => (old ? { ...old, ...updated } : updated),
+    );
+    queryClient.setQueryData<{ items: ProfileRow[] }>(memberKeys.list, (old) =>
+      old
+        ? {
+            items: old.items.map((row) =>
+              row.id === updated.id ? { ...row, ...updated } : row,
+            ),
+          }
+        : old,
+    );
+  }
+
   // QA 269 — 마스킹 해제도 같은 게이트를 탄다. 다시 가리는 방향(해제 → 마스킹)은
   // 개인정보가 나가는 동작이 아니라 그냥 통과시킨다.
   function toggleMasking() {
@@ -551,8 +572,8 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       action: "unmask",
       resourceKey: "members",
       title: "개인정보 마스킹 해제",
-      description: `${selected?.name || "이 회원"}의 연락처·이메일 원본이 화면에 표시됩니다.`,
-      targetId: selected?.id,
+      description: `${member.name || "이 회원"}의 연락처·이메일 원본이 화면에 표시됩니다.`,
+      targetId: member.id,
       onGranted: () => setUnmasked(true),
     });
   }
@@ -561,12 +582,11 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     unmasked ? row?.phone || "-" : maskPhone(row?.phone);
   const emailOf = (row?: ProfileRow | null) =>
     unmasked ? row?.email || "-" : maskEmail(row?.email);
-
   // 자유 문구 발송 — 알림톡이 아니라 SMS/LMS 다(알림톡은 승인 템플릿 본문만
   // 보낼 수 있다). 90바이트를 넘으면 서버가 LMS 로 올려 보내고 단가가 3배
   // 이상이라, 아래 폼이 바이트 수를 실시간으로 보여준다.
   async function sendMessage() {
-    if (!selected || sending) return;
+    if (sending) return;
 
     const text = draft.trim();
     if (!text) {
@@ -586,7 +606,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
         },
         // phone 은 넘기지 않는다 — 마스킹 상태면 화면이 원문을 모른다.
         // 서버가 profileId 로 직접 읽는다.
-        body: JSON.stringify({ profileId: selected.id, text }),
+        body: JSON.stringify({ profileId: member.id, text }),
       });
 
       // 우리 JSON 이 아닌 본문(HTML 등)은 detail 없이 빈 객체로 둔다.
@@ -599,7 +619,9 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       }
 
       setDraft("");
-      await loadDetail(selected);
+      await queryClient.invalidateQueries({
+        queryKey: memberKeys.messages(member.id),
+      });
       toastSuccess(`발송했습니다 (${result.channel}).`);
     } catch (error) {
       reportAdminError("발송 실패", error as Error);
@@ -609,14 +631,14 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
   }
 
   async function saveMemberCategory() {
-    if (!selected || savingCategory) return;
+    if (savingCategory) return;
     setSavingCategory(true);
 
     const next = categoryDraft.trim() || null;
     const { error } = await supabase
       .from("profiles")
       .update({ member_category: next })
-      .eq("id", selected.id);
+      .eq("id", member.id);
 
     setSavingCategory(false);
 
@@ -625,25 +647,19 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       return;
     }
 
-    // 목록과 상세가 같은 값을 보게 맞춰둔다(재조회 없이).
-    setSelected({ ...selected, member_category: next });
-    setRows((prev) =>
-      prev.map((row) =>
-        row.id === selected.id ? { ...row, member_category: next } : row,
-      ),
-    );
+    syncMember({ ...member, member_category: next });
     toastSuccess("회원구분을 저장했습니다.");
   }
 
   async function saveGuardianPhone() {
-    if (!selected || savingGuardianPhone) return;
+    if (savingGuardianPhone) return;
     setSavingGuardianPhone(true);
 
     const next = guardianPhoneDraft.trim() || null;
     const { error } = await supabase
       .from("profiles")
       .update({ guardian_phone: next })
-      .eq("id", selected.id);
+      .eq("id", member.id);
 
     setSavingGuardianPhone(false);
 
@@ -652,30 +668,22 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       return;
     }
 
-    // 목록과 상세가 같은 값을 보게 맞춰둔다(재조회 없이).
-    setSelected({ ...selected, guardian_phone: next });
-    setRows((prev) =>
-      prev.map((row) =>
-        row.id === selected.id ? { ...row, guardian_phone: next } : row,
-      ),
-    );
+    syncMember({ ...member, guardian_phone: next });
     toastSuccess("학부모 핸드폰을 저장했습니다.");
   }
 
   // 소속 배정/해제(2026-09-22, WC072) — categoryDraft/guardianPhoneDraft 와
   // 같은 인라인 저장 패턴이지만, profiles.tenant_id 는 직접 update 할 수
-  // 없어(fn_profiles_lock_tenant 트리거, WC070) RPC 를 부른다. p_tenant_id
-  // 는 NULL 이면 해제다 — 생성 타입(database.types.ts)이 인자를 string 으로
-  // 좁혀놔서(실제 SQL 시그니처는 nullable uuid) 그대로 두면 컴파일이 막힌다.
+  // 없어(fn_profiles_lock_tenant 트리거, WC070) RPC 를 부른다.
   async function saveTenant() {
-    if (!selected || savingTenant) return;
+    if (savingTenant) return;
 
     const nextId = tenantDraft || null;
 
-    // 저장된 member_type 원본 기준이다(위 loadDetail과 같다).
+    // 저장된 member_type 원본 기준이다.
     const isEnrollmentStudent =
       site.features.studentEnrollment &&
-      String(selected.member_type || "") === "student";
+      String(member.member_type || "") === "student";
     // 스쿨멘토의 학생은 소속만 비우면 학적이 옛 기관에 남는다. 기타 기관으로 옮겨 학적을 정리한다.
     // 위닝은 소속 없음이 개인 회원이라, RPC 가 올해 학적을 같이 지운다(아래 RPC 그대로).
     if (isEnrollmentStudent && site.key === "schoolmentor" && !nextId) {
@@ -690,7 +698,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     const target = nextId
       ? tenants.find((tenant) => tenant.id === nextId)
       : undefined;
-    if (isEnrollmentStudent && target && nextId !== selected.tenant_id) {
+    if (isEnrollmentStudent && target && nextId !== member.tenant_id) {
       setMoveTarget({
         id: target.id,
         name: target.name,
@@ -702,7 +710,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
 
     setSavingTenant(true);
     const { error } = await supabase.rpc("fn_admin_set_profile_tenant", {
-      p_profile_id: selected.id,
+      p_profile_id: member.id,
       p_tenant_id: nextId as unknown as string,
     });
 
@@ -717,41 +725,29 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       ? tenants.find((tenant) => tenant.id === nextId)?.name || ""
       : "";
 
-    // 목록과 상세가 같은 값을 보게 맞춰둔다(재조회 없이).
-    setSelected({ ...selected, tenant_id: nextId, tenant_name: nextName });
-    setRows((prev) =>
-      prev.map((row) =>
-        row.id === selected.id
-          ? { ...row, tenant_id: nextId, tenant_name: nextName }
-          : row,
-      ),
-    );
+    syncMember({ ...member, tenant_id: nextId, tenant_name: nextName });
     toastSuccess("소속을 저장했습니다.");
   }
 
-  // 이동 API 가 학적까지 옮긴 뒤 화면의 소속을 맞춘다. school_name 은 서버가 정하므로 목록을 다시 읽는다.
-  function onStudentMoved(target: MoveTarget) {
-    if (!selected) return;
+  // 이동 API 가 학적까지 옮긴 뒤 상세와 목록을 다시 읽는다. school_name 은 서버가 정한다.
+  function onStudentMoved() {
     setMoveTarget(null);
-    setSelected({
-      ...selected,
-      tenant_id: target.id,
-      tenant_name: target.name,
-    });
-    loadRows();
+    queryClient.invalidateQueries({ queryKey: memberKeys.detail(member.id) });
+    queryClient.invalidateQueries({ queryKey: memberKeys.list });
     toastSuccess("학생을 옮겼습니다.");
   }
 
   // 결제 요약 3종 — 참조 HTML 의 "이번 달 결제 / 미납액 / 누적 결제액".
   // 미납액은 아직 결제가 끝나지 않은 주문(pending·waiting_deposit)의 합으로
   // 잡는다. 취소·실패·환불은 받을 돈이 아니므로 제외한다.
+  const orderRows = orders.data?.items ?? [];
   const paySummary = useMemo(() => {
     const now = new Date();
     let thisMonth = 0;
     let unpaid = 0;
     let total = 0;
 
-    for (const order of orders) {
+    for (const order of orderRows) {
       const amount = Number(order.amount || 0);
       if (order.status === "paid") {
         total += amount;
@@ -772,230 +768,164 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     }
 
     return { thisMonth, unpaid, total };
-  }, [orders]);
+  }, [orderRows]);
 
-  if (selected) {
-    // 저장된 member_type 원본 기준이다(위 loadDetail과 같다).
-    const isParent = String(selected.member_type || "") === "parent";
-    const activeTab = TABS.find((t) => t.key === tab);
-
-    return (
-      <div>
-        {gate}
-
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-foreground">
-            {config.title} 상세
-          </h1>
-          <div className="flex items-center gap-2">
-            <ActionButton variant="light" onClick={toggleMasking}>
-              {unmasked ? (
-                <EyeOff size={14} aria-hidden="true" />
-              ) : (
-                <Eye size={14} aria-hidden="true" />
-              )}
-              {unmasked ? "개인정보 마스킹" : "마스킹 해제"}
-            </ActionButton>
-            <ActionButton variant="light" onClick={closeDetail}>
-              목록으로
-            </ActionButton>
-          </div>
-        </div>
-
-        {/* 요약 헤더 — 참조 HTML 의 상단 프로필 블록 */}
-        <div className="mb-4 flex flex-wrap items-center gap-x-8 gap-y-2 bg-white px-6 py-5 shadow-sm">
-          <div>
-            <div className="text-lg font-semibold">{selected.name || "-"}</div>
-            <div className="text-xs font-medium text-muted-foreground">
-              {selected.username || "-"}
-            </div>
-          </div>
-          <div className="text-sm">
-            <span className="font-medium text-muted-foreground">유형 </span>
-            {MEMBER_TYPE_LABEL[String(selected.member_type || "")] ||
-              selected.member_type ||
-              "-"}
-          </div>
-          <div className="text-sm">
-            <span className="font-medium text-muted-foreground">학교 </span>
-            {selected.school_name || "-"}
-          </div>
-          <div className="text-sm">
-            <span className="font-medium text-muted-foreground">연락처 </span>
-            {phoneOf(selected)}
-          </div>
-          <div className="text-sm">
-            <span className="font-medium text-muted-foreground">가입일 </span>
-            {formatDate(selected.created_at)}
-          </div>
-        </div>
-
-        {/* 탭 */}
-        <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)}>
-          <TabsList variant="line" className="mb-2 h-auto flex-wrap">
-            {TABS.map((item) => (
-              <TabsTrigger key={item.key} value={item.key} className="px-4">
-                {item.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {detailError && (
-            <div
-              role="alert"
-              className="mb-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-medium text-[#7A4A12]"
-            >
-              {detailError}
-            </div>
-          )}
-
-          <TabsContent value={tab}>
-            {detailLoading ? (
-              <div
-                role="status"
-                className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-              >
-                데이터를 불러오는 중입니다.
-              </div>
-            ) : activeTab && "pending" in activeTab && activeTab.pending ? (
-              <div className="bg-white p-10 shadow-sm">
-                <h2 className="text-lg font-semibold">{activeTab.label}</h2>
-                <div className="mt-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-medium text-[#7A4A12]">
-                  {activeTab.pending}
-                </div>
-              </div>
-            ) : tab === "profile" ? (
-              <ProfilePane
-                profile={selected}
-                isParent={isParent}
-                links={links}
-                unmasked={unmasked}
-                phoneOf={phoneOf}
-                emailOf={emailOf}
-                categoryDraft={categoryDraft}
-                setCategoryDraft={setCategoryDraft}
-                onSaveCategory={saveMemberCategory}
-                savingCategory={savingCategory}
-                guardianPhoneDraft={guardianPhoneDraft}
-                setGuardianPhoneDraft={setGuardianPhoneDraft}
-                onSaveGuardianPhone={saveGuardianPhone}
-                savingGuardianPhone={savingGuardianPhone}
-                tenants={tenants}
-                tenantDraft={tenantDraft}
-                setTenantDraft={setTenantDraft}
-                onSaveTenant={saveTenant}
-                savingTenant={savingTenant}
-                moveForm={
-                  moveTarget ? (
-                    <MoveStudentForm
-                      key={moveTarget.id}
-                      profileId={selected.id}
-                      tenant={moveTarget}
-                      onMoved={() => onStudentMoved(moveTarget)}
-                      onCancel={() => {
-                        setMoveTarget(null);
-                        setTenantDraft(selected.tenant_id || "");
-                      }}
-                    />
-                  ) : null
-                }
-              />
-            ) : tab === "services" ? (
-              <ServicesPane accesses={accesses} />
-            ) : tab === "msg" ? (
-              <MessagePane
-                messages={messages}
-                draft={draft}
-                setDraft={setDraft}
-                onSend={sendMessage}
-                sending={sending}
-              />
-            ) : (
-              <PayPane
-                orders={orders}
-                summary={paySummary}
-                viewerId={selected.id}
-              />
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
-    );
-  }
+  const base = `${MEMBERS_PATH}/${member.id}`;
+  const activeTab = TABS.find((t) => t.key === tab);
+  // 저장된 member_type 원본 기준이다.
+  const isParent = String(member.member_type || "") === "parent";
 
   return (
     <div>
       {gate}
 
-      <div className="mb-6 bg-white px-6 py-5 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              onClick={loadRows}
-            >
-              <RefreshCw size={14} aria-hidden="true" />
-              초기화
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              onClick={requestExport}
-            >
-              <Download size={14} aria-hidden="true" />
-              엑셀 다운로드
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Select
-              value={memberType}
-              onChange={setMemberType}
-              aria-label="회원구분"
-            >
-              {MEMBER_TYPE_FILTERS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-
-            <div className="flex items-center">
-              <Input
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                placeholder={config.searchPlaceholder}
-                aria-label="회원 검색"
-                className="h-9 w-80 font-medium"
-              />
-            </div>
-          </div>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-foreground">
+          {config.title} 상세
+        </h1>
+        <div className="flex items-center gap-2">
+          <ActionButton variant="light" onClick={toggleMasking}>
+            {unmasked ? (
+              <EyeOff size={14} aria-hidden="true" />
+            ) : (
+              <Eye size={14} aria-hidden="true" />
+            )}
+            {unmasked ? "개인정보 마스킹" : "마스킹 해제"}
+          </ActionButton>
+          <ActionButton
+            variant="light"
+            onClick={() => navigate(listPathOf(location.state))}
+          >
+            목록으로
+          </ActionButton>
         </div>
-
-        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
 
-      {loading ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
+      {/* 요약 헤더 — 참조 HTML 의 상단 프로필 블록 */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-8 gap-y-2 bg-white px-6 py-5 shadow-sm">
+        <div>
+          <div className="text-lg font-semibold">{member.name || "-"}</div>
+          <div className="text-xs font-medium text-muted-foreground">
+            {member.username || "-"}
+          </div>
         </div>
-      ) : (
-        <AdminTable
-          config={config}
-          rows={filteredRows}
-          page={page}
-          setPage={setPage}
-          onEdit={openDetail}
-          onDelete={() => {}}
-        />
-      )}
+        <div className="text-sm">
+          <span className="font-medium text-muted-foreground">유형 </span>
+          {MEMBER_TYPE_LABEL[String(member.member_type || "")] ||
+            member.member_type ||
+            "-"}
+        </div>
+        <div className="text-sm">
+          <span className="font-medium text-muted-foreground">학교 </span>
+          {member.school_name || "-"}
+        </div>
+        <div className="text-sm">
+          <span className="font-medium text-muted-foreground">연락처 </span>
+          {phoneOf(member)}
+        </div>
+        <div className="text-sm">
+          <span className="font-medium text-muted-foreground">가입일 </span>
+          {formatDate(member.created_at)}
+        </div>
+      </div>
+
+      {/* 탭 */}
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          navigate(value === "profile" ? base : `${base}/${value}`, {
+            replace: true,
+            state: location.state,
+          })
+        }
+      >
+        <TabsList variant="line" className="mb-2 h-auto flex-wrap">
+          {TABS.map((item) => (
+            <TabsTrigger key={item.key} value={item.key} className="px-4">
+              {item.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {detailError && (
+          <div
+            role="alert"
+            className="mb-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-medium text-[#7A4A12]"
+          >
+            {detailError}
+          </div>
+        )}
+
+        <TabsContent value={tab}>
+          {detailLoading ? (
+            <div
+              role="status"
+              className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+            >
+              데이터를 불러오는 중입니다.
+            </div>
+          ) : activeTab && "pending" in activeTab && activeTab.pending ? (
+            <div className="bg-white p-10 shadow-sm">
+              <h2 className="text-lg font-semibold">{activeTab.label}</h2>
+              <div className="mt-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-medium text-[#7A4A12]">
+                {activeTab.pending}
+              </div>
+            </div>
+          ) : tab === "profile" ? (
+            <ProfilePane
+              profile={member}
+              isParent={isParent}
+              links={links.data?.items ?? []}
+              unmasked={unmasked}
+              phoneOf={phoneOf}
+              emailOf={emailOf}
+              categoryDraft={categoryDraft}
+              setCategoryDraft={setCategoryDraft}
+              onSaveCategory={saveMemberCategory}
+              savingCategory={savingCategory}
+              guardianPhoneDraft={guardianPhoneDraft}
+              setGuardianPhoneDraft={setGuardianPhoneDraft}
+              onSaveGuardianPhone={saveGuardianPhone}
+              savingGuardianPhone={savingGuardianPhone}
+              tenants={tenants}
+              tenantDraft={tenantDraft}
+              setTenantDraft={setTenantDraft}
+              onSaveTenant={saveTenant}
+              savingTenant={savingTenant}
+              moveForm={
+                moveTarget ? (
+                  <MoveStudentForm
+                    key={moveTarget.id}
+                    profileId={member.id}
+                    tenant={moveTarget}
+                    onMoved={onStudentMoved}
+                    onCancel={() => {
+                      setMoveTarget(null);
+                      setTenantDraft(member.tenant_id || "");
+                    }}
+                  />
+                ) : null
+              }
+            />
+          ) : tab === "services" ? (
+            <ServicesPane accesses={services.data?.items ?? []} />
+          ) : tab === "msg" ? (
+            <MessagePane
+              messages={messages.data?.items ?? []}
+              draft={draft}
+              setDraft={setDraft}
+              onSend={sendMessage}
+              sending={sending}
+            />
+          ) : (
+            <PayPane
+              orders={orderRows}
+              summary={paySummary}
+              viewerId={member.id}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

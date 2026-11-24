@@ -2,43 +2,23 @@
 // 우리 JSON 이 아닌 응답 원문(HTTP 상태, HTML 등)은 일반 안내로 대체된다.
 
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 vi.mock("@/config/site", () => ({
   site: { key: "winning", features: { studentEnrollment: true } },
 }));
 
-const PROFILES = [
-  {
-    id: "p-student",
-    name: "김학생",
-    member_type: "student",
-    created_at: "2026-01-01T00:00:00Z",
-  },
-];
+const http = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+  put: vi.fn(),
+}));
 
-function chain(result: unknown) {
-  const proxy: unknown = new Proxy(
-    {},
-    {
-      get(_t, prop) {
-        if (prop === "then") {
-          return (resolve: (v: unknown) => void) => resolve(result);
-        }
-        return () => proxy;
-      },
-    },
-  );
-  return proxy;
-}
-
-vi.mock("@/lib/supabase", () => ({
-  supabase: {
-    from: (table: string) =>
-      chain({ data: table === "profiles" ? PROFILES : [], error: null }),
-    rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
-  },
+vi.mock("@/lib/http/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/http/client")>()),
+  api: http,
 }));
 
 vi.mock("@/pages/admin/shared/adminSession", () => ({
@@ -63,13 +43,24 @@ vi.mock("@/pages/admin/shared/AdminEngine", () => ({
   ),
 }));
 
-import { Toaster } from "@/components/ui/toast";
-import MembersAdmin from "./MembersAdmin";
+import { renderMembers, routeApi } from "./testHelpers";
 
-const CONFIG = { title: "회원", searchPlaceholder: "검색", columns: [] };
+const KIM = {
+  id: "p-student",
+  name: "김학생",
+  member_type: "student",
+  created_at: "2026-01-01T00:00:00Z",
+};
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
+  routeApi(http.get, {
+    "admin/members": { items: [KIM] },
+    "admin/members/p-student": KIM,
+    "admin/members/p-student/links": { items: [] },
+    "admin/members/p-student/messages": { items: [] },
+    "admin/tenant-options": { items: [] },
+  });
 });
 
 afterEach(() => {
@@ -79,12 +70,7 @@ afterEach(() => {
 
 async function sendWith(response: Response) {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
-  render(
-    <>
-      <MembersAdmin config={CONFIG} />
-      <Toaster />
-    </>,
-  );
+  renderMembers();
   fireEvent.click(await screen.findByRole("button", { name: "열기 김학생" }));
   fireEvent.click(await screen.findByRole("tab", { name: /알림톡.문자/ }));
   fireEvent.change(await screen.findByRole("textbox"), {
