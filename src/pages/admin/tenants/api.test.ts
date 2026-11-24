@@ -184,7 +184,7 @@ describe("기관 상세", () => {
       method: "GET",
       path: "/api/admin/tenants/tenant-1",
     });
-    expect((spy.mock.calls[1]?.[0] as Request).url).toContain(
+    expect(String((spy.mock.calls[1] ?? [])[0]?.url)).toContain(
       "/api/admin/tenants/a%2Fb",
     );
     expect(detail.term_months).toBe(6);
