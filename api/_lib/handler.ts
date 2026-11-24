@@ -12,6 +12,7 @@
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { z } from "zod";
 import { resolveAdmin, resolveWinningAdmin } from "./adminAuth.js";
 import { type ConsoleActor, resolveConsoleActor } from "./console/actor.js";
 import { isAuthorizedCron } from "./cronAuth.js";
@@ -81,6 +82,12 @@ export function requireUserId(ctx: HandlerCtx): string {
 const AUTH_REQUIRED_MESSAGE = "로그인이 필요합니다.";
 const AUTH_REQUIRED_CODE = "UNAUTHENTICATED";
 
+const METHOD_NOT_ALLOWED_CODE = "METHOD_NOT_ALLOWED";
+const FORBIDDEN_CODE = "FORBIDDEN";
+
+const VALIDATION_FAILED_CODE = "VALIDATION_FAILED";
+const VALIDATION_FAILED_MESSAGE = "요청 값이 올바르지 않아요.";
+
 const INVALID_TIME_ZONE_CODE = "INVALID_TIME_ZONE";
 const TIME_ZONE_REQUIRED_CODE = "TIME_ZONE_REQUIRED";
 
@@ -94,7 +101,32 @@ const READ_ONLY_METHODS = new Set(["GET", "HEAD"]);
 const CRON_REQUIRED_MESSAGE = "인증이 필요합니다.";
 const CRON_REQUIRED_CODE = "UNAUTHORIZED";
 
-export interface DefineHandlerOptions {
+// resolveAdmin 계열은 code 없이 status 와 detail 만 준다. problem 은 code 가 필수라
+// 여기서만 채우고, 다른 shape 의 바디는 그대로 둔다.
+function adminFailureCode(
+  shape: ErrorShape,
+  status: number,
+): string | undefined {
+  if (shape !== "problem") return undefined;
+  if (status === 401) return AUTH_REQUIRED_CODE;
+  if (status === 403) return FORBIDDEN_CODE;
+  return undefined;
+}
+
+type ZodSchema = z.ZodType;
+
+// body/query 스키마가 있을 때만 ctx 에 해당 키가 생기고 출력 타입을 가진다.
+// 스키마가 없으면 unknown 과의 교차라 기존 HandlerCtx 와 같다.
+type ValidatedCtx<
+  B extends ZodSchema | undefined,
+  Q extends ZodSchema | undefined,
+> = (B extends ZodSchema ? { body: z.output<B> } : unknown) &
+  (Q extends ZodSchema ? { query: z.output<Q> } : unknown);
+
+export interface DefineHandlerOptions<
+  B extends ZodSchema | undefined = undefined,
+  Q extends ZodSchema | undefined = undefined,
+> {
   methods: readonly ("GET" | "POST" | "PUT" | "PATCH" | "DELETE")[];
   /** 명시 필수 — 기본값을 두지 않는다(등급 누락을 컴파일 타임에 강제로 드러내기 위함). */
   auth: AuthMode;
@@ -143,15 +175,88 @@ export interface DefineHandlerOptions {
    * 401/403 등 auth 실패 응답에도 헤더가 실리게 했다 — 그 순서를 그대로 재현한다.
    */
   headers?: Record<string, string>;
+  /** 있으면 인증 뒤, handler 앞에서 req.body 를 검증해 ctx.body 로 넘긴다. */
+  body?: B;
+  /** 있으면 인증 뒤, handler 앞에서 req.query 를 검증해 ctx.query 로 넘긴다. */
+  query?: Q;
   handler: (
     req: VercelRequest,
     res: VercelResponse,
-    ctx: HandlerCtx,
+    ctx: HandlerCtx & ValidatedCtx<B, Q>,
   ) => Promise<void>;
 }
 
-export function defineHandler(opts: DefineHandlerOptions) {
+/** 검증 실패면 400 을 보내고 null, 통과하면 파싱된 값을 돌려준다. */
+function parseOrReject(
+  res: VercelResponse,
+  shape: ErrorShape,
+  schema: ZodSchema,
+  input: unknown,
+): { value: unknown } | null {
+  const parsed = schema.safeParse(input);
+  if (parsed.success) return { value: parsed.data };
+  sendError(
+    res,
+    shape,
+    400,
+    VALIDATION_FAILED_MESSAGE,
+    VALIDATION_FAILED_CODE,
+    {
+      errors: parsed.error.issues.map((issue) => ({
+        path: issue.path.map(String).join("."),
+        message: issue.message,
+      })),
+    },
+  );
+  return null;
+}
+
+export function defineHandler<
+  B extends ZodSchema | undefined = undefined,
+  Q extends ZodSchema | undefined = undefined,
+>(opts: DefineHandlerOptions<B, Q>) {
   return async (req: VercelRequest, res: VercelResponse): Promise<void> => {
+    // ctx.supabaseAdmin은 lazy getter다 — 실제로 접근하는 시점에만
+    // createSupabaseAdmin()을 호출한다(내부적으로 module-level 싱글턴이라 여러
+    // 번 접근해도 클라이언트는 하나만 만들어진다). auth:"none" 핸들러가 토큰·
+    // service_key 검증 같은 early return을 supabaseAdmin 없이 먼저 처리하는
+    // dev 원본 순서(예: create-service-ticket.ts의 suhaeng 200, monthly-report.ts의
+    // not_month_end 200 skip)를 재현하기 위함이다 — env 미설정이어도 그 경로들은
+    // 여전히 200을 낸다.
+    const ctx = {} as HandlerCtx;
+    let cachedAdmin: SupabaseClient | undefined;
+    Object.defineProperty(ctx, "supabaseAdmin", {
+      enumerable: true,
+      configurable: true,
+      get(): SupabaseClient {
+        if (!cachedAdmin) cachedAdmin = createSupabaseAdmin();
+        return cachedAdmin;
+      },
+    });
+
+    const startedAt = performance.now();
+    // 응답이 끝나거나 연결이 끊길 때 요청당 한 줄만 남긴다(finish, close 중 먼저 온 쪽).
+    // 토큰, 본문, 쿼리, 개인정보는 싣지 않는다.
+    // 테스트용 가짜 res 에는 on 이 없을 수 있어 옵셔널 호출로 건다.
+    let logged = false;
+    const logRequest = () => {
+      if (logged) return;
+      logged = true;
+      const requestId = req.headers["x-vercel-id"];
+      console.log(
+        JSON.stringify({
+          requestId: typeof requestId === "string" ? requestId : null,
+          route: req.url ? req.url.split("?")[0] : null,
+          method: req.method ?? null,
+          status: res.statusCode,
+          durationMs: Math.round(performance.now() - startedAt),
+          userId: ctx.userId ?? null,
+        }),
+      );
+    };
+    res.on?.("finish", logRequest);
+    res.on?.("close", logRequest);
+
     if (
       !assertMethod(
         req,
@@ -159,7 +264,9 @@ export function defineHandler(opts: DefineHandlerOptions) {
         opts.methods,
         opts.errorShape,
         opts.methodNotAllowedMessage,
-        opts.methodNotAllowedCode,
+        opts.errorShape === "problem"
+          ? METHOD_NOT_ALLOWED_CODE
+          : opts.methodNotAllowedCode,
         opts.methodNotAllowedExtra,
       )
     ) {
@@ -173,24 +280,6 @@ export function defineHandler(opts: DefineHandlerOptions) {
     }
 
     try {
-      // ctx.supabaseAdmin은 lazy getter다 — 실제로 접근하는 시점에만
-      // createSupabaseAdmin()을 호출한다(내부적으로 module-level 싱글턴이라 여러
-      // 번 접근해도 클라이언트는 하나만 만들어진다). auth:"none" 핸들러가 토큰·
-      // service_key 검증 같은 early return을 supabaseAdmin 없이 먼저 처리하는
-      // dev 원본 순서(예: create-service-ticket.ts의 suhaeng 200, monthly-report.ts의
-      // not_month_end 200 skip)를 재현하기 위함이다 — env 미설정이어도 그 경로들은
-      // 여전히 200을 낸다.
-      const ctx = {} as HandlerCtx;
-      let cachedAdmin: SupabaseClient | undefined;
-      Object.defineProperty(ctx, "supabaseAdmin", {
-        enumerable: true,
-        configurable: true,
-        get(): SupabaseClient {
-          if (!cachedAdmin) cachedAdmin = createSupabaseAdmin();
-          return cachedAdmin;
-        },
-      });
-
       // 인증보다 먼저 읽는다: 모든 auth 모드에서 잘못된 값은 같은 400 이다.
       const timeZone = readTimeZone(req);
       if (timeZone) ctx.timeZone = timeZone;
@@ -280,7 +369,13 @@ export function defineHandler(opts: DefineHandlerOptions) {
             sendQaBlocked(res, opts.errorShape, admin.code);
             return;
           }
-          sendError(res, opts.errorShape, admin.status, admin.detail);
+          sendError(
+            res,
+            opts.errorShape,
+            admin.status,
+            admin.detail,
+            adminFailureCode(opts.errorShape, admin.status),
+          );
           return;
         }
         ctx.userId = admin.userId;
@@ -295,7 +390,13 @@ export function defineHandler(opts: DefineHandlerOptions) {
             sendQaBlocked(res, opts.errorShape, admin.code);
             return;
           }
-          sendError(res, opts.errorShape, admin.status, admin.detail);
+          sendError(
+            res,
+            opts.errorShape,
+            admin.status,
+            admin.detail,
+            adminFailureCode(opts.errorShape, admin.status),
+          );
           return;
         }
         ctx.userId = admin.userId;
@@ -318,7 +419,23 @@ export function defineHandler(opts: DefineHandlerOptions) {
       }
       // auth === "none" → 통과, ctx에 유저 정보 없음
 
-      await opts.handler(req, res, ctx);
+      if (opts.body) {
+        const parsed = parseOrReject(res, opts.errorShape, opts.body, req.body);
+        if (!parsed) return;
+        (ctx as { body?: unknown }).body = parsed.value;
+      }
+      if (opts.query) {
+        const parsed = parseOrReject(
+          res,
+          opts.errorShape,
+          opts.query,
+          req.query,
+        );
+        if (!parsed) return;
+        (ctx as { query?: unknown }).query = parsed.value;
+      }
+
+      await opts.handler(req, res, ctx as Parameters<typeof opts.handler>[2]);
     } catch (error) {
       if (error instanceof QaBlockedError) {
         sendQaBlocked(res, opts.errorShape, error.code);

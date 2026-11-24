@@ -12,10 +12,13 @@
 //                                                          형제 키로 스프레드된다 —
 //                                                          api/performance/*.ts의
 //                                                          로컬 fail() 실제 구현 기준)
+//   problem: RFC 9457 problem details (application/problem+json)
 
+import { STATUS_CODES } from "node:http";
 import type { VercelResponse } from "@vercel/node";
+import { PROBLEM_CONTENT_TYPE } from "../../src/lib/http/problem.js";
 
-export type ErrorShape = "detail" | "okDetail" | "error" | "coded";
+export type ErrorShape = "detail" | "okDetail" | "error" | "coded" | "problem";
 
 export function sendError(
   res: VercelResponse,
@@ -38,5 +41,39 @@ export function sendError(
     case "coded":
       res.status(status).json({ error: { code, message }, ...(extra || {}) });
       return;
+    case "problem":
+      sendProblem(res, status, message, code, extra);
+      return;
   }
+}
+
+// code 없는 호출은 500 만 INTERNAL_ERROR 로 받는다. 나머지는 호출부 실수이므로 던진다.
+function sendProblem(
+  res: VercelResponse,
+  status: number,
+  message: string,
+  code: string | undefined,
+  extra: Record<string, unknown> | undefined,
+): void {
+  if (!code && status !== 500) {
+    throw new Error(
+      `sendError: problem shape 는 code 가 필요합니다 (${status}).`,
+    );
+  }
+  const requestId = res.req?.headers["x-vercel-id"];
+  // res.json 은 Content-Type 을 덮어쓸 수 있어 end 로 직접 쓴다.
+  res.setHeader("Content-Type", PROBLEM_CONTENT_TYPE);
+  // 표준 멤버는 extra 로 덮을 수 없다(instance 가 없는 경우 포함).
+  const { instance: _instance, ...members } = extra || {};
+  res.status(status).end(
+    JSON.stringify({
+      ...members,
+      type: "about:blank",
+      title: STATUS_CODES[status],
+      status,
+      detail: message,
+      ...(typeof requestId === "string" ? { instance: requestId } : {}),
+      code: code || "INTERNAL_ERROR",
+    }),
+  );
 }
