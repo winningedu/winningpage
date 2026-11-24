@@ -1,6 +1,6 @@
 // W16 교사 계정 관리. 교사 콘솔 /teacher/teachers/accounts. 담임은 셸(ConsoleLayout)이 막는다.
 // 계정이 있는 교사만 학교 전체 관리자 먼저, 이어서 학년과 반 순으로 보인다(교 #126). 비밀번호는 가림 표시다.
-// 신규 발급은 휴대폰에서 감춘다(결정 8). 최근 로그인 열은 읽을 수 있는 값이 서버에 없어 그리지 않는다.
+// 휴대폰 카드는 수정과 담당 변경/추가를 보이고 나머지는 더보기 메뉴에 둔다. 본인 카드는 더보기가 없다.
 // PC 표에 이름 수정과 삭제 버튼을 둔다. 로그인한 본인 행은 삭제와 비활성화 버튼을 감춘다.
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -33,6 +33,7 @@ import EditNameDialog from "./EditNameDialog";
 import IssueDialog from "./IssueDialog";
 import IssuedPanel from "./IssuedPanel";
 import type { IssuedRow } from "./issuedFile";
+import MoreMenu from "./MoreMenu";
 import { type AccountItem, classText, lastLoginText } from "./roster";
 import TeacherDialog from "./TeacherDialog";
 
@@ -128,6 +129,8 @@ export default function TeacherAccountsPage() {
   const assignTarget = list.data?.items.find((t) => t.id === assignId);
   const editTarget = list.data?.items.find((t) => t.id === editId);
   const deleteTarget = list.data?.items.find((t) => t.id === deleteId);
+  const cardButton =
+    "h-11 flex-1 rounded-lg bg-surface-muted text-app-label font-semibold text-ink-strong hover:bg-surface-muted";
   const small =
     "h-8 rounded-lg bg-surface-muted px-3 text-app-label font-semibold text-ink-strong hover:bg-surface-muted";
   const statusChip = (t: AccountItem) => (
@@ -142,17 +145,15 @@ export default function TeacherAccountsPage() {
         title="선생님 계정 관리"
         subtitle="담임 선생님과 전체 관리자의 로그인 아이디를 발급하고 관리합니다"
         actions={
-          mobile ? undefined : (
-            <Button
-              type="button"
-              onClick={() => setIssuing(true)}
-              className="h-10 rounded-lg px-5 text-app-label font-semibold"
-            >
-              신규 계정 발급
-            </Button>
-          )
+          <Button
+            type="button"
+            onClick={() => setIssuing(true)}
+            className="h-10 rounded-lg px-5 text-app-label font-semibold"
+          >
+            신규 계정 발급
+          </Button>
         }
-        notice="신규 계정 발급은 PC나 태블릿에서 할 수 있어요"
+        actionsOnMobile
       />
       <div className="flex max-w-content flex-col gap-4 px-4 pb-24 md:px-8 lg:px-12">
         {error && <Notice tone="Danger">{error}</Notice>}
@@ -193,23 +194,44 @@ export default function TeacherAccountsPage() {
                       {`최근 로그인 ${lastLoginText(t.lastLoginAt)}`}
                     </span>
                     <div className="flex gap-2">
-                      {t.id !== ownId && (
-                        <Button
-                          type="button"
-                          onClick={() => void toggleStatus(t)}
-                          className="h-11 flex-1 rounded-lg bg-surface-muted text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
-                        >
-                          {t.status === "active" ? "비활성화" : "활성화"}
-                        </Button>
-                      )}
+                      <Button
+                        type="button"
+                        onClick={() => setEditId(t.id)}
+                        className={cardButton}
+                      >
+                        수정
+                      </Button>
                       {t.role === "homeroom" && (
                         <Button
                           type="button"
                           onClick={() => setAssignId(t.id)}
-                          className="h-11 flex-1 rounded-lg bg-surface-muted text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
+                          className={cardButton}
                         >
                           담당 변경/추가
                         </Button>
+                      )}
+                      {t.id !== ownId && (
+                        <MoreMenu
+                          items={[
+                            ...(t.passwordSet
+                              ? []
+                              : [
+                                  {
+                                    label: "임시 비밀번호 재발급",
+                                    onSelect: () => void reissue(t),
+                                  },
+                                ]),
+                            {
+                              label:
+                                t.status === "active" ? "비활성화" : "활성화",
+                              onSelect: () => void toggleStatus(t),
+                            },
+                            {
+                              label: "삭제",
+                              onSelect: () => setDeleteId(t.id),
+                            },
+                          ]}
+                        />
                       )}
                     </div>
                   </div>

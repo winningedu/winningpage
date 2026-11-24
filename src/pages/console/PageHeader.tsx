@@ -14,6 +14,8 @@ interface PageHeaderProps {
   asOf?: string;
   /** 768 이상에서만 보이는 동작(휴대폰에서는 숨긴다). */
   actions?: React.ReactNode;
+  /** 휴대폰에서도 동작을 보인다. */
+  actionsOnMobile?: boolean;
   /** 휴대폰(768 미만)에서만 보이는 PC 전용 안내 줄. */
   notice?: string;
   /** 화면이 정하는 빵부스러기. 없으면 역할에 따른 기본 위치를 쓴다. */
@@ -34,6 +36,7 @@ export default function PageHeader({
   mobileSubtitle,
   asOf,
   actions,
+  actionsOnMobile = false,
   notice,
   breadcrumb,
 }: PageHeaderProps) {
@@ -91,7 +94,11 @@ export default function PageHeader({
           )}
           {asOf && <p className="text-app-caption text-ink-sub">{asOf}</p>}
         </div>
-        {actions && <div className="ml-auto max-md:hidden">{actions}</div>}
+        {actions && (
+          <div className={cn("ml-auto", !actionsOnMobile && "max-md:hidden")}>
+            {actions}
+          </div>
+        )}
       </div>
       {notice && (
         <p className="text-app-body text-ink-sub md:hidden">{notice}</p>

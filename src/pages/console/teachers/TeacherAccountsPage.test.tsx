@@ -318,26 +318,73 @@ describe("W16 담당 변경, 신규 발급, 재발급", () => {
 });
 
 describe("W16 휴대폰", () => {
-  it("카드로 보이고 상태 변경과 담당 변경/추가만 두며 신규 발급과 재발급은 감춘다", async () => {
+  it("카드에 수정과 담당 변경/추가를 보이고 머리에 신규 계정 발급을 둔다", async () => {
     useMobileScreen();
     stubPage();
 
     renderRoutes(routes, "/teacher/teachers/accounts");
 
     expect(await screen.findByText("선생님 계정 3개")).toBeTruthy();
-    expect(
-      screen.getAllByRole("button", { name: "비활성화" }).length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "수정" })).toHaveLength(3);
     expect(
       screen.getAllByRole("button", { name: "담당 변경/추가" }),
     ).toHaveLength(2);
-    expect(screen.queryByRole("button", { name: "신규 계정 발급" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "더보기" })).toHaveLength(3);
+    expect(screen.queryByRole("button", { name: "비활성화" })).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "임시 비밀번호 재발급" }),
+      screen.queryByText("신규 계정 발급은 PC나 태블릿에서 할 수 있어요"),
     ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "신규 계정 발급" }));
     expect(
-      screen.getByText("신규 계정 발급은 PC나 태블릿에서 할 수 있어요"),
+      await screen.findByRole("heading", { name: "신규 계정 발급" }),
     ).toBeTruthy();
+  });
+
+  it("더보기 메뉴는 비밀번호 미설정이면 재발급, 상태에 따라 비활성화나 활성화, 삭제를 둔다", async () => {
+    useMobileScreen();
+    stubPage();
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const more = await screen.findAllByRole("button", { name: "더보기" });
+
+    fireEvent.click(more[2] as HTMLElement);
+    const yuna = await screen.findByRole("menu");
+    expect(
+      within(yuna)
+        .getAllByRole("menuitem")
+        .map((i) => i.textContent),
+    ).toEqual(["임시 비밀번호 재발급", "활성화", "삭제"]);
+    fireEvent.keyDown(yuna, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+
+    fireEvent.click(more[1] as HTMLElement);
+    const park = await screen.findByRole("menu");
+    expect(
+      within(park)
+        .getAllByRole("menuitem")
+        .map((i) => i.textContent),
+    ).toEqual(["비활성화", "삭제"]);
+  });
+
+  it("더보기의 비활성화는 상태 요청을 보내고 삭제는 확인 창을 연다", async () => {
+    useMobileScreen();
+    const calls = stubPage({
+      "POST /api/console/teachers/status": { body: { ok: true } },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const more = await screen.findAllByRole("button", { name: "더보기" });
+    fireEvent.click(more[1] as HTMLElement);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "비활성화" }));
+    await waitFor(() =>
+      expect(
+        calls.find((c) => c.key === "POST /api/console/teachers/status")?.body,
+      ).toEqual({ teacherId: "t-park", status: "inactive" }),
+    );
+
+    fireEvent.click(more[1] as HTMLElement);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "삭제" }));
+    expect(await screen.findByText("박지훈 선생님을 삭제할까요?")).toBeTruthy();
   });
 });
 
@@ -435,14 +482,32 @@ describe("W16 본인 행", () => {
     ).toBeTruthy();
   });
 
-  it("휴대폰 카드에서도 본인 카드는 비활성화가 없다", async () => {
+  it("휴대폰 본인 카드는 수정만 있고 더보기가 없다", async () => {
     useMobileScreen();
     stubPage({ [LIST_URL]: { body: body([OWN, ITEMS[1]]) } });
 
     renderRoutes(routes, "/teacher/teachers/accounts");
 
     expect(await screen.findByText("선생님 계정 2개")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "비활성화" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "수정" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "더보기" })).toHaveLength(1);
+  });
+
+  it("휴대폰 대리 접속에서는 전체 관리자 카드에도 더보기(비활성화, 삭제)가 있다", async () => {
+    useMobileScreen();
+    stubPage({
+      "GET /api/console/me": { body: proxyMe },
+      [LIST_URL]: { body: body([OWN]) },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    fireEvent.click(await screen.findByRole("button", { name: "더보기" }));
+
+    expect(
+      within(await screen.findByRole("menu"))
+        .getAllByRole("menuitem")
+        .map((i) => i.textContent),
+    ).toEqual(["비활성화", "삭제"]);
   });
 
   it("전체 관리자 대리 접속(본인 선생님 없음)에서는 아무것도 감추지 않는다", async () => {
