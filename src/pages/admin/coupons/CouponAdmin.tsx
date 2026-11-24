@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router";
 import CouponFormPage from "./CouponFormPage";
+import CouponGrants from "./CouponGrants";
 import CouponHistory from "./CouponHistory";
 import CouponList from "./CouponList";
 import { COUPONS_PATH } from "./paths";
@@ -13,6 +14,7 @@ export default function CouponAdmin() {
       <Route path="new" element={<CouponFormPage />} />
       <Route path=":id/edit" element={<CouponFormPage />} />
       <Route path=":id/history" element={<CouponHistory />} />
+      <Route path=":id/grants" element={<CouponGrants />} />
       <Route path="*" element={<Navigate to={COUPONS_PATH} replace />} />
     </Routes>
   );

@@ -50,6 +50,9 @@ export const couponKeys = {
   detail: (id: string) => [...couponKeys.all, "detail", id] as const,
   redemptions: (couponId: string) =>
     [...couponKeys.all, "redemptions", couponId] as const,
+  grants: (couponId: string) =>
+    [...couponKeys.all, "grants", couponId] as const,
+  userSearch: (q: string) => [...couponKeys.all, "user-search", q] as const,
 };
 
 // 사용자 이름은 서버가 profiles 에서 붙인다. 조회에 실패했거나 게스트 결제면 null 이다.
@@ -71,6 +74,33 @@ const redemptionSchema = z.looseObject({
 export type RedemptionRow = z.infer<typeof redemptionSchema>;
 
 const redemptionListSchema = z.object({ items: z.array(redemptionSchema) });
+
+const grantSchema = z.looseObject({
+  id: z.number(),
+  coupon_id: z.string(),
+  user_id: z.string(),
+  granted_at: z.string(),
+  granted_by: z.string(),
+  // 발급분 자체의 사용 기한. NULL 이면 무기한.
+  valid_until: z.string().nullable(),
+  revoked_at: z.string().nullable(),
+  revoke_reason: z.string().nullish(),
+  user: userSummarySchema,
+});
+export type GrantRow = z.infer<typeof grantSchema>;
+
+const grantListSchema = z.object({ items: z.array(grantSchema) });
+
+const userSearchSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string().nullable(),
+      email: z.string().nullable(),
+    }),
+  ),
+});
+export type FoundUser = z.infer<typeof userSearchSchema>["items"][number];
 
 // 서버 CouponPayload 와 같은 모양. 검사는 화면(validateForm)과 서버 zod 가 각자 한다.
 export interface CouponPayload {
@@ -153,6 +183,65 @@ export function useVoidRedemption(couponId: string) {
         }),
         queryClient.invalidateQueries({ queryKey: couponKeys.list() }),
       ]),
+  });
+}
+
+/** 쿠폰 하나의 발급 목록. 서버가 최근 200건까지 준다. */
+export function useGrants(couponId: string) {
+  return useQuery({
+    queryKey: couponKeys.grants(couponId),
+    queryFn: ({ signal }) =>
+      api
+        .get("admin/coupons/grants", { searchParams: { couponId }, signal })
+        .json(grantListSchema),
+  });
+}
+
+/** 사용자 검색. q 가 null 이면 아직 검색하지 않은 상태라 요청하지 않는다. */
+export function useUserSearch(q: string | null) {
+  return useQuery({
+    queryKey: couponKeys.userSearch(q ?? ""),
+    enabled: q !== null,
+    staleTime: 0,
+    gcTime: 0,
+    queryFn: ({ signal }) =>
+      api
+        .get("admin/coupons/user-search", {
+          searchParams: { q: q ?? "" },
+          signal,
+        })
+        .json(userSearchSchema),
+  });
+}
+
+/** 개별 발급. 발급 목록만 다시 받는다. */
+export function useGrantCoupon(couponId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      api
+        .post("admin/coupons/grants", { json: { couponId, userId } })
+        .json(z.looseObject({})),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: couponKeys.grants(couponId) }),
+  });
+}
+
+/** 발급 회수. 사유가 비면 키를 뺀다. 발급 목록만 다시 받는다. */
+export function useRevokeGrant(couponId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ grantId, reason }: { grantId: number; reason: string }) =>
+      api
+        .post("admin/coupons/grant-revoke", {
+          json: {
+            grantId,
+            ...(reason.trim() ? { reason: reason.trim() } : {}),
+          },
+        })
+        .json(z.looseObject({})),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: couponKeys.grants(couponId) }),
   });
 }
 
