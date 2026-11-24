@@ -41,18 +41,6 @@
     "legacyError": 2,
     "okSuccess": 4
   },
-  "api/_routes/admin/growth-grant.ts": {
-    "legacyError": 4,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/growth-recover.ts": {
-    "legacyError": 6,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/growth-reports.ts": {
-    "legacyError": 2,
-    "okSuccess": 2
-  },
   "api/_routes/admin/hq-dashboard/b2c.ts": {
     "legacyError": 3,
     "okSuccess": 1
@@ -77,18 +65,6 @@
     "legacyError": 3,
     "okSuccess": 1
   },
-  "api/_routes/admin/inquiry-grant.ts": {
-    "legacyError": 4,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/inquiry-recover.ts": {
-    "legacyError": 6,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/inquiry-sessions.ts": {
-    "legacyError": 2,
-    "okSuccess": 2
-  },
   "api/_routes/admin/invite-member.ts": {
     "legacyError": 10,
     "okSuccess": 1
@@ -109,28 +85,8 @@
     "legacyError": 2,
     "okSuccess": 1
   },
-  "api/_routes/admin/selfeval-grant.ts": {
-    "legacyError": 4,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/selfeval-recover.ts": {
-    "legacyError": 6,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/selfeval-sessions.ts": {
-    "legacyError": 3,
-    "okSuccess": 2
-  },
   "api/_routes/admin/send-message.ts": {
     "legacyError": 6,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/service-credit-adjust.ts": {
-    "legacyError": 6,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/service-credit-summary.ts": {
-    "legacyError": 2,
     "okSuccess": 1
   },
   "api/_routes/admin/tenants/move-student.ts": {
@@ -931,20 +887,8 @@
   "src/pages/admin/admission/AdmissionPanels.tsx": {
     "browserDb": 6
   },
-  "src/pages/admin/growth/GrowthReportsAdmin.tsx": {
-    "browserDb": 1
-  },
-  "src/pages/admin/growth/api.ts": {
-    "legacyFetch": 1
-  },
   "src/pages/admin/hq-dashboard/api.ts": {
     "legacyFetch": 2
-  },
-  "src/pages/admin/inquiry/InquirySessionsAdmin.tsx": {
-    "browserDb": 1
-  },
-  "src/pages/admin/inquiry/api.ts": {
-    "legacyFetch": 1
   },
   "src/pages/admin/knowledge/api.ts": {
     "legacyFetch": 1
@@ -965,16 +909,6 @@
   },
   "src/pages/admin/premium-book/PremiumBookAdmin.tsx": {
     "browserDb": 11
-  },
-  "src/pages/admin/selfeval/SelfevalSessionsAdmin.tsx": {
-    "browserDb": 1
-  },
-  "src/pages/admin/selfeval/api.ts": {
-    "legacyFetch": 1
-  },
-  "src/pages/admin/service-credit/api.ts": {
-    "browserDb": 1,
-    "legacyFetch": 1
   },
   "src/pages/admin/shared/AdminEngine.tsx": {
     "browserDb": 3
