@@ -1,8 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ApiError } from "@/lib/http/client";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
 import {
   ActionButton,
   Field,
@@ -12,11 +13,14 @@ import {
   fetchRole,
   fetchRoles,
   type Level,
+  patchRole,
+  postRole,
+  putRolePermissions,
   type Resource,
   type RoleWithPermissions,
   roleKeys,
 } from "./api";
-import { LEVEL_CHOICES, type LevelDraft, toDraft } from "./levels";
+import { LEVEL_CHOICES, type LevelDraft, toDraft, toItems } from "./levels";
 
 const ROLES_PATH = "/admin/adminRoles";
 
@@ -98,6 +102,10 @@ interface EditorProps {
 
 function RoleEditor({ role, resources }: EditorProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  // 등록 중 권한 항목 저장이 실패해도 묶음은 이미 만들어졌다. 다시 저장할 때 또 만들지 않도록 기억한다.
+  const roleIdRef = useRef(role?.id ?? "");
+  const stageRef = useRef<"role" | "permissions">("role");
   const [nameDraft, setNameDraft] = useState(role?.name ?? "");
   const [descDraft, setDescDraft] = useState(role?.description ?? "");
   const [permDraft, setPermDraft] = useState<LevelDraft>(() =>
@@ -115,6 +123,45 @@ function RoleEditor({ role, resources }: EditorProps) {
     }
     return map;
   }, [resources]);
+
+  // 권한 항목은 "지우고 다시 넣는다"를 서버가 한 요청으로 처리한다. 부분 갱신(upsert +
+  // 삭제 목록 계산)보다 단순하고, 화면에 보이는 상태가 곧 저장 결과라는 보장이 명확하다.
+  const save = useMutation({
+    mutationFn: async () => {
+      const body = {
+        name: nameDraft.trim(),
+        description: descDraft.trim() || null,
+      };
+      stageRef.current = "role";
+      if (roleIdRef.current) {
+        await patchRole(roleIdRef.current, body);
+      } else {
+        roleIdRef.current = (await postRole(body)).id;
+      }
+      stageRef.current = "permissions";
+      await putRolePermissions(roleIdRef.current, toItems(permDraft));
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: roleKeys.all });
+      navigate(ROLES_PATH);
+      toastSuccess("저장했습니다.");
+    },
+    onError: (error) =>
+      reportAdminError(
+        stageRef.current === "permissions"
+          ? "권한 항목 저장 실패"
+          : "저장 실패",
+        error,
+      ),
+  });
+
+  function submit() {
+    if (!nameDraft.trim()) {
+      toastWarning("권한 묶음 이름을 입력해 주세요.");
+      return;
+    }
+    save.mutate();
+  }
 
   function setLevel(resourceKey: string, level: Level | "") {
     setPermDraft((prev) => {
@@ -148,7 +195,9 @@ function RoleEditor({ role, resources }: EditorProps) {
           <ActionButton variant="light" onClick={() => navigate(ROLES_PATH)}>
             취소
           </ActionButton>
-          <ActionButton>저장</ActionButton>
+          <ActionButton onClick={submit} disabled={save.isPending}>
+            {save.isPending ? "저장 중..." : "저장"}
+          </ActionButton>
         </div>
       </div>
 

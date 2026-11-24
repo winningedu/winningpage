@@ -160,3 +160,19 @@ export const deleteRole = (id: string) => api.delete(roleUrl(id));
 
 export const fetchRole = (id: string, signal?: AbortSignal) =>
   api.get(roleUrl(id), opts(signal)).json(roleWithPermissionsSchema);
+
+export interface RoleBody {
+  name: string;
+  description: string | null;
+}
+
+export const postRole = (body: RoleBody) =>
+  api.post("admin/roles", { json: body }).json(roleSchema);
+
+export const patchRole = (id: string, body: RoleBody) =>
+  api.patch(roleUrl(id), { json: body }).json(roleSchema);
+
+export const putRolePermissions = (id: string, items: PermissionItem[]) =>
+  api
+    .put(`${roleUrl(id)}/permissions`, { json: { items } })
+    .json(savedItemsSchema);
