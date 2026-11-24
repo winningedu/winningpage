@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,6 +8,7 @@ import {
   ADMIN_PERMISSION_LEVEL_OPTIONS,
 } from "@/pages/admin/configs/adminSettings";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { toastSuccess } from "@/pages/admin/shared/adminToast";
 import {
   ActionButton,
   Field,
@@ -20,6 +21,8 @@ import {
   fetchStaffList,
   type Level,
   type PermissionItem,
+  patchStaff,
+  putStaffPermissions,
   type Resource,
   type RoleOption,
   staffKeys,
@@ -154,6 +157,7 @@ function MemberDetail({
   tab,
 }: DetailProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [roleDraft, setRoleDraft] = useState(member.role_id || "");
   const [deptDraft, setDeptDraft] = useState(member.department || "");
   const [statusDraft, setStatusDraft] = useState(member.status);
@@ -171,6 +175,43 @@ function MemberDetail({
     }
     return map;
   }, [resources]);
+
+  const refresh = () =>
+    queryClient.invalidateQueries({ queryKey: staffKeys.all });
+
+  const saveInfo = useMutation({
+    mutationFn: () =>
+      patchStaff(member.profile_id, {
+        roleId: roleDraft || null,
+        department: deptDraft.trim() || null,
+        status: statusDraft,
+      }),
+    onSuccess: async () => {
+      await refresh();
+      toastSuccess("저장했습니다.");
+    },
+    // 마지막 최고 관리자 보호(LAST_SUPER_ADMIN)도 서버가 쓴 안내가 그대로 올라온다.
+    onError: (error) => reportAdminError("저장 실패", error),
+  });
+
+  // 지우고 다시 넣는 일은 서버가 한 요청으로 처리한다(최대 48행).
+  const savePermissions = useMutation({
+    mutationFn: () =>
+      putStaffPermissions(
+        member.profile_id,
+        Object.entries(overrides).map(([resourceKey, level]) => ({
+          resourceKey,
+          level,
+        })),
+      ),
+    onSuccess: async () => {
+      await refresh();
+      toastSuccess("개별 권한을 저장했습니다.");
+    },
+    onError: (error) => reportAdminError("저장 실패", error),
+  });
+
+  const saving = saveInfo.isPending || savePermissions.isPending;
 
   const base = `${MEMBERS_PATH}/${member.profile_id}`;
 
@@ -251,7 +292,9 @@ function MemberDetail({
                 })}
               </Select>
             </Field>
-            <ActionButton>저장</ActionButton>
+            <ActionButton onClick={() => saveInfo.mutate()} disabled={saving}>
+              {saveInfo.isPending ? "저장 중..." : "저장"}
+            </ActionButton>
           </div>
         </TabsContent>
 
@@ -263,7 +306,12 @@ function MemberDetail({
           </div>
 
           <div className="mb-4 flex justify-end">
-            <ActionButton>개별 권한 저장</ActionButton>
+            <ActionButton
+              onClick={() => savePermissions.mutate()}
+              disabled={saving}
+            >
+              {savePermissions.isPending ? "저장 중..." : "개별 권한 저장"}
+            </ActionButton>
           </div>
 
           <div className="bg-white shadow-sm">

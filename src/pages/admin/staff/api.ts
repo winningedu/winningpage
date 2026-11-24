@@ -75,3 +75,26 @@ export const fetchStaffDetail = (profileId: string, signal?: AbortSignal) =>
   api
     .get(`admin/staff/${encodeURIComponent(profileId)}`, opts(signal))
     .json(staffDetailSchema);
+
+const savedItemsSchema = z.object({ items: z.array(permissionItemSchema) });
+
+export interface StaffInfoBody {
+  roleId: string | null;
+  department: string | null;
+  status: string;
+}
+
+export const patchStaff = (profileId: string, body: StaffInfoBody) =>
+  api
+    .patch(`admin/staff/${encodeURIComponent(profileId)}`, { json: body })
+    .json(directoryRowSchema);
+
+export const putStaffPermissions = (
+  profileId: string,
+  items: PermissionItem[],
+) =>
+  api
+    .put(`admin/staff/${encodeURIComponent(profileId)}/permissions`, {
+      json: { items },
+    })
+    .json(savedItemsSchema);
