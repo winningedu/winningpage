@@ -291,7 +291,6 @@ describe("buildResendResponse", () => {
     });
 
     expect(response).toEqual({
-      ok: true,
       sent: 1,
       failed: 1,
       skipped: 1,
@@ -320,7 +319,6 @@ describe("buildResendResponse", () => {
     });
 
     expect(response).toEqual({
-      ok: true,
       sent: 0,
       failed: 0,
       skipped: 0,
