@@ -27,3 +27,11 @@ export const goldenCreateSchema = z.strictObject({
   knowledge_type: goldenKnowledgeTypeSchema,
   ...goldenFields,
 });
+
+// 수정은 폼 필드 일부와 비활성 토글(is_active)을 받는다. knowledge_type 은 받지 않는다.
+export const goldenPatchSchema = z
+  .strictObject({ ...goldenFields, is_active: z.boolean() })
+  .partial()
+  .refine((body) => Object.keys(body).length > 0, {
+    message: "고칠 값이 하나 이상 필요합니다.",
+  });
