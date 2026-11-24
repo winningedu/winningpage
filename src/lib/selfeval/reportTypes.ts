@@ -15,15 +15,11 @@ export type ReportStepKey =
   | "inquiry"
   | "selfeval";
 
-export type ReportServiceTier = "individual" | "standard";
-
 export type ReportCover = {
   /** 표시형 학년. 예: 고등학교 1학년. 값이 없으면 null. */
   gradeLabel: string | null;
   /** 최종 저장 시각. yyyy. mm. dd */
   savedAt: string;
-  /** student_profiles.service_tier. null 이면 설정 전이다. */
-  serviceTier: ReportServiceTier | null;
   /** 예: 수학 자기평가서 */
   subjectTitle: string;
   academicYear: number;
