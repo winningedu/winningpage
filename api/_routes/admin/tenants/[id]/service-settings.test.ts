@@ -1,4 +1,4 @@
-// /api/admin/tenants/service-settings 계약 검증(사 #160, #164, #166, 결정 r5, r6). GET 은 기관의 서비스별 설정 행과 b2b 이용 기본값을,
+// /api/admin/tenants/:id/service-settings 계약 검증(사 #160, #164, #166, 결정 r5, r6). GET 은 기관의 서비스별 설정 행과 b2b 이용 기본값을,
 // PUT 은 한 서비스 행의 upsert 를 관리자 본인 토큰 클라이언트로 한다(변경 이력 트리거가 auth.uid() 를 변경자로 남긴다).
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -8,7 +8,7 @@ import {
   createKitState,
   type KitState,
   matchRows,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
@@ -17,7 +17,7 @@ const kit = vi.hoisted(() => ({
   userClientTokens: [] as string[],
 }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
   getEnv: (...keys: string[]) => {
     for (const key of keys) if (process.env[key]) return process.env[key];
     return "";
@@ -26,7 +26,7 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-vi.mock("../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: (token: string) => {
     kit.userClientTokens.push(token);
     return createFakeAdmin(kit.userState);
@@ -38,9 +38,11 @@ import handler from "./service-settings.js";
 const TENANT = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 const OTHER_TENANT = "8a2d3b4c-5e6f-4071-9b8c-0d1e2f3a4b5c";
 
-const get = (query: Record<string, string> = { tenantId: TENANT }) =>
+// 디스패처가 경로의 :id 를 req.query.id 에 넣어 준다.
+const get = (query: Record<string, string> = { id: TENANT }) =>
   callHandler(handler, undefined, "GET", query);
-const put = (body: unknown) => callHandler(handler, body, "PUT");
+const put = (body: unknown, id: string = TENANT) =>
+  callHandler(handler, body, "PUT", { id });
 
 const SETTINGS = [
   {
@@ -64,8 +66,8 @@ const SETTINGS = [
 ];
 const DEFAULTS = { diagnose: { monthly_limit: 3 } };
 
+// 본문에는 tenant_id 가 없다(경로가 정한다).
 const ROW = {
-  tenant_id: TENANT,
   program_key: "growth",
   enabled: true,
   starts_on: "2026-03-01",
@@ -109,7 +111,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("GET /api/admin/tenants/service-settings", () => {
+describe("GET /api/admin/tenants/:id/service-settings", () => {
   test.each([
     ["권한 없음", null],
     ["tenants none", "none" as const],
@@ -163,8 +165,8 @@ describe("GET /api/admin/tenants/service-settings", () => {
   });
 
   test.each([
-    ["tenantId 없음", {}],
-    ["uuid 가 아닌 tenantId", { tenantId: "tenant-7" }],
+    ["id 없음", {}],
+    ["uuid 가 아닌 id", { id: "tenant-7" }],
   ])("%s 이면 400 이다", async (_label, query) => {
     const r = await get(query);
 
@@ -184,7 +186,7 @@ describe("GET /api/admin/tenants/service-settings", () => {
   });
 });
 
-describe("PUT /api/admin/tenants/service-settings", () => {
+describe("PUT /api/admin/tenants/:id/service-settings", () => {
   beforeEach(() => {
     grant("edit");
     kit.userState.rows.tenant_service_settings = () => SAVED;
@@ -210,7 +212,7 @@ describe("PUT /api/admin/tenants/service-settings", () => {
     expect(kit.userState.upserts).toHaveLength(1);
     expect(kit.userState.upserts[0]).toMatchObject({
       table: "tenant_service_settings",
-      row: { ...ROW, updated_by: "hq-1" },
+      row: { ...ROW, tenant_id: TENANT, updated_by: "hq-1" },
       onConflict: "tenant_id,program_key",
     });
   });
@@ -243,6 +245,20 @@ describe("PUT /api/admin/tenants/service-settings", () => {
     });
   });
 
+  test("본문에 tenant_id 를 실어 보내도 경로 id 가 이긴다", async () => {
+    await put({ ...ROW, tenant_id: OTHER_TENANT });
+
+    expect(kit.userState.upserts[0]?.row).toMatchObject({ tenant_id: TENANT });
+  });
+
+  test("경로 id 가 uuid 가 아니면 400 이고 쓰지 않는다", async () => {
+    const r = await put(ROW, "tenant-7");
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(kit.userClientTokens).toHaveLength(0);
+  });
+
   test("끄기(enabled false)도 행은 그대로 upsert 한다", async () => {
     await put({ ...ROW, enabled: false });
 
@@ -261,7 +277,6 @@ describe("PUT /api/admin/tenants/service-settings", () => {
 
   test.each([
     ["본문 없음", undefined],
-    ["tenant_id 가 uuid 가 아님", { ...ROW, tenant_id: "t-1" }],
     ["모르는 program_key", { ...ROW, program_key: "x" }],
     ["enabled 가 불리언이 아님", { ...ROW, enabled: "yes" }],
     ["0 한도", { ...ROW, monthly_limit: 0 }],
