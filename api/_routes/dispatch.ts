@@ -8,9 +8,10 @@ export type RouteLoader = () => Promise<{
 // 라우트 키는 정규화 없이 원문 그대로 뽑는다. new URL 로 풀면 `..` 접기, 역슬래시 변환,
 // 절대 주소 허용 때문에 `/api/goal/../x` 가 x 핸들러에 닿아 경로 기반 방화벽 규칙을 우회할 수 있다.
 // 그래서 빈 구간, `.`, `..`, 역슬래시, `%` 가 있으면 라우트 조회 없이 404 로 거절한다.
+// 대괄호도 거절한다. 원문 `[key]` 가 패턴 키와 정확히 맞아 쿼리스트링 값이 경로 값 행세를 하는 것을 막는다.
 const rawRouteKey = (url: string | undefined): string | undefined => {
   const [target = ""] = (url ?? "").split(/[?#]/);
-  if (!target.startsWith("/api/") || /[\\%]/.test(target)) return undefined;
+  if (!target.startsWith("/api/") || /[\\%[\]]/.test(target)) return undefined;
   const key = target.slice("/api/".length).replace(/\/+$/, "");
   const invalid = key
     .split("/")
@@ -77,7 +78,11 @@ export async function dispatch(
 ): Promise<void> {
   const route = rawRouteKey(req.url);
   let load: RouteLoader | undefined;
-  if (route !== undefined && Object.hasOwn(routes, route)) {
+  if (
+    route !== undefined &&
+    Object.hasOwn(routes, route) &&
+    !route.includes("[")
+  ) {
     load = routes[route];
   } else if (route !== undefined) {
     const pattern = findPattern(routes, route);

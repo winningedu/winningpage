@@ -1,7 +1,6 @@
 // 리포트 조립 입력(명세 No.133~173). DB 행을 읽는 load.ts 가 이 모양으로 만들고, 순수 함수들이 읽는다.
 
 import type {
-  ReportServiceTier,
   ReportStepKey,
   ReportTagMap,
 } from "../../../../src/lib/selfeval/reportTypes.js";
@@ -90,7 +89,6 @@ export type BuildInput = {
   charCount: { withSpace: number; withoutSpace: number };
   /** 최종 저장 시각(ISO). */
   savedAt: string;
-  serviceTier: ReportServiceTier | null;
   /** 표시 전 학년 원문(고1 등). */
   profileGrade: string | null;
   records: ReportRecord[];

@@ -1,5 +1,6 @@
 // 계약 종료 회원 삭제 화면(사 #162, #176, 결정 102.1, 102.3, 102.4). 기관을 고르면 미리보기를 읽고, 고른 학생만 삭제 API 로 보낸다.
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   fireEvent,
   render,
@@ -28,8 +29,20 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
-vi.mock("@/lib/adminPermissions", () => ({
-  fetchAdminPermissions: vi.fn(),
+vi.mock("@/context/AuthProvider", () => ({
+  useAuth: () => ({ userId: "hq-1" }),
+}));
+
+const permissionsApi = vi.hoisted(() => ({ get: vi.fn() }));
+
+vi.mock("@/lib/http/client", async (importActual) => ({
+  ...(await importActual<typeof import("@/lib/http/client")>()),
+  api: {
+    get: (path: string) => ({
+      json: async (schema: { parse: (v: unknown) => unknown }) =>
+        schema.parse(await permissionsApi.get(path)),
+    }),
+  },
 }));
 
 vi.mock("./api", () => ({
@@ -37,9 +50,19 @@ vi.mock("./api", () => ({
   runMemberPurge: vi.fn(),
 }));
 
-import { fetchAdminPermissions } from "@/lib/adminPermissions";
 import * as api from "./api";
 import MemberPurgeAdmin from "./MemberPurgeAdmin";
+
+function renderScreen() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemberPurgeAdmin />
+    </QueryClientProvider>,
+  );
+}
 
 const TENANT = {
   id: "tenant-7",
@@ -93,13 +116,14 @@ beforeEach(() => {
   vi.resetAllMocks();
   db.tenants = [TENANT];
   vi.mocked(api.fetchMemberPurgePreview).mockResolvedValue(preview(-36));
-  vi.mocked(fetchAdminPermissions).mockResolvedValue(
-    new Map([["tenants", "edit"]]),
-  );
+  permissionsApi.get.mockResolvedValue({
+    permissions: { tenants: "edit" },
+    isSuper: false,
+  });
 });
 
 async function openTenant() {
-  render(<MemberPurgeAdmin />);
+  renderScreen();
   const select = await screen.findByLabelText("기관");
   await screen.findByRole("option", { name: /한빛고/ });
   fireEvent.change(select, { target: { value: "tenant-7" } });
@@ -196,7 +220,7 @@ describe("MemberPurgeAdmin", () => {
             ]),
           ),
     );
-    render(<MemberPurgeAdmin />);
+    renderScreen();
     const select = await screen.findByLabelText("기관");
     await screen.findByRole("option", { name: /새빛고/ });
     fireEvent.change(select, { target: { value: "tenant-7" } });
@@ -214,9 +238,10 @@ describe("MemberPurgeAdmin", () => {
   });
 
   test("tenants 편집 권한이 없으면 삭제 실행 버튼이 막힌다", async () => {
-    vi.mocked(fetchAdminPermissions).mockResolvedValue(
-      new Map([["tenants", "view"]]),
-    );
+    permissionsApi.get.mockResolvedValue({
+      permissions: { tenants: "view" },
+      isSuper: false,
+    });
     await openTenant();
 
     expect(
@@ -321,7 +346,7 @@ describe("MemberPurgeAdmin", () => {
 
     test("기관 이름이 비어 있으면 아무것도 입력하지 않아도 삭제 버튼은 막혀 있다", async () => {
       db.tenants = [{ ...TENANT, name: "" }];
-      render(<MemberPurgeAdmin />);
+      renderScreen();
       const select = await screen.findByLabelText("기관");
       await screen.findByRole("option", { name: /ABCD1234/ });
       fireEvent.change(select, { target: { value: "tenant-7" } });

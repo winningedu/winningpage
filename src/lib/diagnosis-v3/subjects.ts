@@ -1,11 +1,13 @@
 // Page 3 subject verdicts (22 r44, r45; spec row 75): 내신 (q6s) and mock
 // (q6m) are judged inside their own scale, then combined per subject.
 
-import { OPTIONS } from "./options.js";
+import { middleToNine } from "./gradeConvert.js";
+import { OPTIONS, trackOf } from "./options.js";
 import { COPY_TEXT } from "./source/copyText.js";
 import type {
   DiagnosisV3Answers,
   DiagnosisV3Scores,
+  MiddleSubjectCode,
   SubjectCode,
   SubjectVerdict,
 } from "./types.js";
@@ -19,6 +21,33 @@ export const SUBJECT_CODES: readonly SubjectCode[] = [
   "SCI",
 ];
 
+/**
+ * M3 q6s subjects: the five above plus 역사 (customer answer 2026-11-24
+ * 학습진단 5번). The key is not the mock 한국사 key HIST.
+ */
+export const MIDDLE_SUBJECT_CODES: readonly MiddleSubjectCode[] = [
+  ...SUBJECT_CODES,
+  "HISTORY",
+];
+
+/**
+ * M3 overall average: mean of the six scores, rounded half up to 0.1. Table 10
+ * steps by 0.1, so the stored q6 is exactly a table key. null until all six
+ * subjects are present.
+ */
+export const middleAverage = (
+  scores: Readonly<Partial<Record<MiddleSubjectCode, number>>>,
+): number | null => {
+  const values = MIDDLE_SUBJECT_CODES.map((s) => scores[s]);
+  if (values.some((v) => v === undefined)) return null;
+  const sum = (values as number[]).reduce((a, b) => a + b, 0);
+  return (
+    Math.round(
+      Number(((sum / MIDDLE_SUBJECT_CODES.length) * 10).toPrecision(15)),
+    ) / 10
+  );
+};
+
 /** judge-report B D3, PDF p3: "1등급" is a value of 1.0 or better. */
 const ONE_GRADE = 1;
 
@@ -30,20 +59,23 @@ const VERDICT_WORDS: Readonly<Record<SubjectVerdict, string>> = {
   KEEP: "유지",
 };
 
-type Grades = Readonly<Partial<Record<SubjectCode, number>>>;
+type Grades = Readonly<Partial<Record<MiddleSubjectCode, number>>>;
 
 /**
  * 16 r8: q4 성취평가제 takes 원점수 (12 r5-r9), where larger is better, so the
  * 22 r44 grade ranking does not apply. Lead decision: skip (SUBJ_SKIP_NOTE).
  */
-const ACHIEVEMENT_Q4 = OPTIONS.q4.find(
+export const ACHIEVEMENT_Q4 = OPTIONS.q4.find(
   (o) => o.code === "12_환산_성취평가제",
 )?.ordinal;
 if (ACHIEVEMENT_Q4 === undefined) throw new Error("no q4 성취평가제 option");
 
 /** 22 r44: lowest = largest grade, ties all; none when every grade is equal. */
-const lowestOf = (grades: Grades): ReadonlySet<SubjectCode> => {
-  const entries = SUBJECT_CODES.flatMap((s) => {
+const lowestOf = (
+  grades: Grades,
+  codes: readonly MiddleSubjectCode[],
+): ReadonlySet<MiddleSubjectCode> => {
+  const entries = codes.flatMap((s) => {
     const grade = grades[s];
     return grade === undefined ? [] : [[s, grade] as const];
   });
@@ -60,19 +92,33 @@ const downSubject = (answers: DiagnosisV3Answers): SubjectCode | null => {
   return SUBJECT_CODES[answers.q8s - 1] ?? null;
 };
 
+/** M3 q6s as 9-grade values from table 10; a score the table lacks is left out. */
+const middleGrades = (answers: DiagnosisV3Answers): Grades =>
+  Object.fromEntries(
+    MIDDLE_SUBJECT_CODES.flatMap((s) => {
+      const score = answers.q6s?.[s];
+      const grade = score === undefined ? null : middleToNine(score);
+      return grade === null ? [] : [[s, grade] as const];
+    }),
+  );
+
 export function judgeSubjects(
   answers: DiagnosisV3Answers,
 ): DiagnosisV3Scores["subjects"] {
-  if (answers.q4 === ACHIEVEMENT_Q4) return null;
-  const school = answers.q6s ?? {};
-  // 22 r45: no q6s (switch off, M3 hidden or left empty) skips the table
-  if (!SUBJECT_CODES.some((s) => school[s] !== undefined)) return null;
+  // M3 has no mock and enters 원점수 for six subjects: table 10 makes them
+  // grades, whatever its q4 says
+  const middle = trackOf(answers.q1) === "M3";
+  if (!middle && answers.q4 === ACHIEVEMENT_Q4) return null;
+  const codes = middle ? MIDDLE_SUBJECT_CODES : SUBJECT_CODES;
+  const school = middle ? middleGrades(answers) : (answers.q6s ?? {});
+  // 22 r45: no q6s (switch off or left empty) skips the table
+  if (!codes.some((s) => school[s] !== undefined)) return null;
   const mock: Grades = answers.q6m?.grades ?? {};
-  const schoolLowest = lowestOf(school);
-  const mockLowest = lowestOf(mock);
+  const schoolLowest = lowestOf(school, codes);
+  const mockLowest = lowestOf(mock, SUBJECT_CODES);
   const down = downSubject(answers);
-  const verdicts: Partial<Record<SubjectCode, SubjectVerdict>> = {};
-  for (const subject of SUBJECT_CODES) {
+  const verdicts: Partial<Record<MiddleSubjectCode, SubjectVerdict>> = {};
+  for (const subject of codes) {
     const grade = school[subject];
     if (grade === undefined) continue;
     const mockGrade = mock[subject];
@@ -104,7 +150,7 @@ export function judgeSubjects(
 /** 22 r44 E: SUBJ_J_ when the subject has a mock grade, else SUBJ_J1_. */
 export function subjectTextId(
   answers: DiagnosisV3Answers,
-  subject: SubjectCode,
+  subject: MiddleSubjectCode,
   verdict: SubjectVerdict,
 ): string {
   const prefix =

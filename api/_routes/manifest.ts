@@ -3,6 +3,7 @@ import type { RouteLoader } from "./dispatch.js";
 // 라우트 키(/api/ 뒤 경로)별 핸들러 지연 로더. 정적 문자열 지정자여야 Vercel 파일 추적기가 따라간다.
 export const routes: Record<string, RouteLoader> = {
   "admin/access-logs": () => import("./admin/access-logs.js"),
+  "admin/me/activate": () => import("./admin/me/activate.js"),
   "admin/ai-telemetry": () => import("./admin/ai-telemetry.js"),
   "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
   "admin/coupons": () => import("./admin/coupons.js"),
@@ -30,6 +31,7 @@ export const routes: Record<string, RouteLoader> = {
   "admin/inquiry-recover": () => import("./admin/inquiry-recover.js"),
   "admin/inquiry-sessions": () => import("./admin/inquiry-sessions.js"),
   "admin/invite-member": () => import("./admin/invite-member.js"),
+  "admin/me/permissions": () => import("./admin/me/permissions.js"),
   "admin/knowledge-bulk": () => import("./admin/knowledge-bulk.js"),
   "admin/sections/[key]": () => import("./admin/sections/[key].js"),
   "admin/sections/[key]/[id]": () => import("./admin/sections/[key]/[id].js"),

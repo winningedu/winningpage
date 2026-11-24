@@ -18,6 +18,7 @@ import type { QuestionId, TrackCode } from "@/lib/diagnosis-v3/codes";
 import { defaultQ4 } from "@/lib/diagnosis-v3/gradeConvert";
 import { SCALE_ITEMS } from "@/lib/diagnosis-v3/likert";
 import { OPTIONS, trackOf } from "@/lib/diagnosis-v3/options";
+import { middleAverage } from "@/lib/diagnosis-v3/subjects";
 import type { AdmissionTarget, IsoDate } from "@/lib/diagnosis-v3/types";
 import {
   EVENT_WINDOW_DAYS,
@@ -308,6 +309,15 @@ export function toSubmitAnswers(
       const value = answerOf(id, draft[id], track, target);
       if (value !== undefined) answers[id] = value;
     }
+  }
+  // M3 does not type q6: it is the mean of the six q6s scores (the server
+  // recomputes it and ignores this value)
+  if (track === "M3") {
+    const average = isFields(answers.q6s)
+      ? middleAverage(answers.q6s as Record<string, number>)
+      : null;
+    if (average === null) delete answers.q6;
+    else answers.q6 = average;
   }
   // q15 whose keys could not be resolved is sent as absent, and q16..q18
   // only exist with q15 (13 H28-H30)

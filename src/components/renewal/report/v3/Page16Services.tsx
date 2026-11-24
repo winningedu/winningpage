@@ -16,13 +16,14 @@ import ReportSheet from "./parts/ReportSheet";
 /**
  * Sites with callmentor closed (site.features.callmentor false) hide the
  * callmentor card at render and show the legacy notice instead of the scope
- * note (judge R1; src/lib/diagnosisReport.ts CALLMENTOR_CLOSED_NOTICE). These two
+ * note (judge R1; src/lib/diagnosisReport.ts CALLMENTOR_CLOSED_NOTICE). These three
  * strings are the only text decided outside 22/copy; other scopes get none.
  */
 const CLOSED_SITE_NOTICE: Partial<
   Record<NonNullable<Page16["scope"]>, string>
 > = {
   M3: "중학교 3학년은 목표관리가 추천 대상입니다. 나머지 서비스는 고등학교 활동을 전제로 하므로 진학 이후에 안내드립니다.",
+  NSU: "재수\u00b7반수 과정에서는 목표관리가 추천 대상입니다. 나머지 서비스는 재학 중 활동을 전제로 하므로 안내에서 제외했습니다.",
   G3LATE:
     "고등학교 3학년 6월 이후에는 남은 기간 안에 바로 실행할 수 있는 목표관리를 우선 안내드립니다.",
 };
