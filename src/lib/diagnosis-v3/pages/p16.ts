@@ -111,12 +111,6 @@ export function buildPage16(engine: Engine): Page16 {
   if (!lowP1 || !lowP2) throw new Error("empty area order");
   const lowP2Score = scores.page2.areas[lowP2]?.score;
   if (lowP2Score === undefined) throw new Error("missing " + lowP2);
-  // 22 r117 SVC_RANK2_PREFIX {영역}: lowest related area of the 2nd service (23 tie rule)
-  const [secondLow] = orderLowToHigh(
-    allAreas(engine),
-    relatedAreas(engine, second.code),
-  );
-  if (!secondLow) throw new Error("no related area for " + second.code);
   const card = (fit: ServiceFit, prefix: string): ServiceCard => ({
     code: fit.code,
     name: serviceName(fit.code),
@@ -124,6 +118,26 @@ export function buildPage16(engine: Engine): Page16 {
     text: serviceText(fit, preferTrack),
     tags: tagsOf(fit.code, preferTrack),
   });
+  // 22 r117 SVC_RANK2_PREFIX {영역}: lowest related area of the 2nd service (23 tie rule)
+  const secondCard = (fit: ServiceFit): ServiceCard => {
+    const [secondLow] = orderLowToHigh(
+      allAreas(engine),
+      relatedAreas(engine, fit.code),
+    );
+    if (!secondLow) throw new Error("no related area for " + fit.code);
+    return card(
+      fit,
+      fill("SVC_RANK2_PREFIX", { 영역: AREAS[secondLow].label }),
+    );
+  };
+  const firstCard = card(
+    first,
+    copy(
+      services.counselPinned && first.code === "CALL"
+        ? "SVC_CALL_TEMP_PREFIX"
+        : "SVC_RANK1_PREFIX",
+    ),
+  );
   const reliabilityId = RELIABILITY_IDS[scores.reliability.diagnosis];
   const reliabilityLabel = RELIABILITY_LABELS.get(reliabilityId);
   if (reliabilityLabel === undefined)
@@ -144,17 +158,7 @@ export function buildPage16(engine: Engine): Page16 {
       .filter((o) => answers.q14?.includes(o.ordinal))
       .map((o) => o.label),
     // 22 r117
-    services: [
-      card(
-        first,
-        copy(
-          services.counselPinned && first.code === "CALL"
-            ? "SVC_CALL_TEMP_PREFIX"
-            : "SVC_RANK1_PREFIX",
-        ),
-      ),
-      card(second, fill("SVC_RANK2_PREFIX", { 영역: AREAS[secondLow].label })),
-    ],
+    services: second ? [firstCard, secondCard(second)] : [firstCard],
     // 22 r118
     ...(services.scope === "ALL"
       ? {}

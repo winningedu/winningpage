@@ -111,12 +111,15 @@ export type ServiceInput = {
     readonly diagnosis: "SIMPLE" | "MID" | "GOOD";
     readonly temperament: "CAUTION" | "NORMAL";
   };
+  /** services the site does not offer; removed before scoring, sorting and the care pin */
+  readonly excludedServices: readonly ServiceCode[];
 };
 
 export type ServicesResult = {
   /** 07 C16-C21 candidate scope */
   readonly scope: "ALL" | "M3" | "NSU" | "G3LATE";
-  readonly ranked: readonly [ServiceFit, ServiceFit];
+  /** 2 services; 1 only when exclusions leave a single candidate (중3, N수, 고3후기 without CALL) */
+  readonly ranked: readonly [ServiceFit] | readonly [ServiceFit, ServiceFit];
   /** 07 B32: the care condition put CALL first */
   readonly counselPinned: boolean;
   /** spec row 114: the copy layer prefers the 고3/N수 copy rows when present */
@@ -256,24 +259,27 @@ export function recommendServices(input: ServiceInput): ServicesResult {
   const candidates = candidatesOf(segment);
   const scored = serviceRows(track)
     .filter((row) => candidates.includes(row.code))
+    .filter((row) => !input.excludedServices.includes(row.code))
     .map((row) => scoreService(track, row, input));
   scored.sort(compareFit);
   // 07 B32 and B34, 18 r27: care pins CALL unless the response is simple or
   // the temperament answers need caution
+  const pinned = scored.find((fit) => fit.code === "CALL");
   const counselPinned =
     input.counsel &&
     input.reliability.diagnosis !== "SIMPLE" &&
-    input.reliability.temperament !== "CAUTION";
-  const pinned = scored.find((fit) => fit.code === "CALL");
+    input.reliability.temperament !== "CAUTION" &&
+    pinned !== undefined;
   const ordered =
     counselPinned && pinned
       ? [pinned, ...scored.filter((fit) => fit !== pinned)]
       : scored;
   const [first, second] = ordered;
-  if (!first || !second) throw new Error("fewer than 2 service candidates");
+  if (!first || (!second && input.excludedServices.length === 0))
+    throw new Error("fewer than 2 service candidates");
   return {
     scope,
-    ranked: [strip(first), strip(second)],
+    ranked: second ? [strip(first), strip(second)] : [strip(first)],
     counselPinned,
     preferTrackCopy: track === "H3",
   };

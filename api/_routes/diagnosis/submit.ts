@@ -12,6 +12,7 @@
 //   413 PAYLOAD_TOO_LARGE
 
 import type { VercelResponse } from "@vercel/node";
+import { SITES } from "../../../src/config/sites.js";
 import {
   type DiagnosisV3Context,
   SCHEMA_VERSION,
@@ -163,6 +164,11 @@ export default defineHandler({
         ? await fetchAdmissionInputs(ctx.supabaseAdmin, validated.answers.q15)
         : null,
       studentName: name.length > 0 ? name : null,
+      // a site with callmentor closed never ranks CALL (customer answer: fill with the next rank)
+      excludedServices: SITES[isSchoolmentorSite() ? "schoolmentor" : "winning"]
+        .features.callmentor
+        ? []
+        : ["CALL"],
     };
 
     const payload = scoreDiagnosisV3(validated.answers, context);

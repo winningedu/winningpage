@@ -1,7 +1,7 @@
 // 사이트별 브랜드 데이터의 정본 — env(import.meta.env.VITE_SITE)에 의존하지 않는
 // 순수 데이터만 담는다. vite.config.js(빌드타임, import.meta.env 사용 불가)와
 // site.ts(런타임, env로 하나를 고른다) 양쪽이 이 파일을 공유한다.
-import type { GateableProgram } from "./programs";
+import type { GateableProgram } from "./programs.js";
 
 export type SiteKey = "winning" | "schoolmentor";
 

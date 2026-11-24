@@ -64,23 +64,26 @@ describe("표지", () => {
     expect(filled).toEqual(["false", "false", "true", "true", "true", "true"]);
   });
 
-  test("학생명은 계정에서 받은 값, 학년, 저장일과 개별관리 서비스를 정보 줄에 그린다", () => {
+  test("학생명은 계정에서 받은 값, 학년, 저장일을 정보 줄에 그리고 서비스 유형은 그리지 않는다", () => {
     renderDoc();
     const info = screen.getByTestId("cover-info");
     expect(info).toHaveTextContent("QA학생");
     expect(info).toHaveTextContent("고등학교 1학년");
-    expect(info).toHaveTextContent("2026. 11. 10, 개별관리");
+    expect(info).toHaveTextContent("2026. 11. 10");
+    expect(info).not.toHaveTextContent("개별관리");
+    expect(info).not.toHaveTextContent("서비스");
   });
 
-  test("서비스 유형이 standard 이거나 없으면 서비스 라벨을 붙이지 않는다", () => {
-    for (const serviceTier of ["standard", null] as const) {
+  test("서비스 유형이 들어 있는 예전 저장 payload 도 서비스 라벨 없이 그린다", () => {
+    for (const serviceTier of ["individual", "standard", null]) {
       const { unmount } = renderDoc({
         ...SAMPLE_PAYLOAD,
         cover: { ...SAMPLE_PAYLOAD.cover, serviceTier },
-      });
+      } as ReportPayload);
       const info = screen.getByTestId("cover-info");
       expect(info).toHaveTextContent("2026. 11. 10");
       expect(info).not.toHaveTextContent("개별관리");
+      expect(info).not.toHaveTextContent("서비스");
       unmount();
     }
   });

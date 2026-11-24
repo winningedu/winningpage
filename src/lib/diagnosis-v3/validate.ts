@@ -11,6 +11,11 @@ import {
 import { SCALE_ITEMS } from "./likert.js";
 import { OPTIONS, type OptionRow, trackOf } from "./options.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
+import {
+  ACHIEVEMENT_Q4,
+  MIDDLE_SUBJECT_CODES,
+  middleAverage,
+} from "./subjects.js";
 import type { DiagnosisV3Answers, IsoDate } from "./types.js";
 
 export type ValidationError = {
@@ -80,6 +85,18 @@ export const gradeBoundsOf = (q4: unknown) => {
   }
   return { min: 1, max: Number.parseInt(OPTIONS.q4[0]?.label ?? "", 10) };
 };
+
+/**
+ * M3 q6s scores are 원점수 for table 10, whatever q4 says: the 성취평가제 range
+ * (customer answer 2026-11-24 학습진단 5번).
+ */
+export const MIDDLE_SCORE_BOUNDS = gradeBoundsOf(ACHIEVEMENT_Q4);
+
+const inBounds = (value: unknown, { min, max }: { min: number; max: number }) =>
+  typeof value === "number" &&
+  Number.isFinite(value) &&
+  value >= min &&
+  value <= max;
 
 const isGrade = (value: unknown, q4: unknown) => {
   const { min, max } = gradeBoundsOf(q4);
@@ -159,6 +176,7 @@ export const isHidden = (
     case "q8d":
       return input.q8s === undefined || input.q8s === Q8S_UNKNOWN;
     case "q6s":
+      return !SUBJECT_GRADES_ON;
     case "q6r":
     case "q6m":
       return !SUBJECT_GRADES_ON || track === "M3";
@@ -283,6 +301,9 @@ const isAdmissionTarget = (value: unknown) =>
   isText(value.admissionTrack) &&
   (value.subjectReflection === null || isText(value.subjectReflection));
 
+const isMiddle = (input: Raw) =>
+  isOrdinalOf(OPTIONS.q1, input.q1) && trackOf(input.q1 as number) === "M3";
+
 const isValid = (
   question: QuestionId | "q3Target",
   value: unknown,
@@ -302,10 +323,16 @@ const isValid = (
   }
   switch (question) {
     case "q6":
+      // M3: not trusted, validateAnswers sets it from the six q6s scores
+      return isMiddle(input) || isGrade(value, input.q4);
     case "q6r":
       return isGrade(value, input.q4);
     case "q6s":
-      return isGradeMap(value, SUBJECTS, (grade) => isGrade(grade, input.q4));
+      return isMiddle(input)
+        ? isGradeMap(value, MIDDLE_SUBJECT_CODES, (grade) =>
+            inBounds(grade, MIDDLE_SCORE_BOUNDS),
+          )
+        : isGradeMap(value, SUBJECTS, (grade) => isGrade(grade, input.q4));
     case "q6m":
       return (
         isRecord(value) &&
@@ -405,7 +432,16 @@ export function validateAnswers(
       errors.push({ question, reason: "invalid" });
     }
   }
+  if (track === "M3" && !isHidden("q6s", input, track)) {
+    // all six scores are required, and q6 is theirs (mean, 0.1 step)
+    const scores = answers.q6s;
+    const rejected = errors.some((error) => error.question === "q6s");
+    const average = isRecord(scores) ? middleAverage(scores) : null;
+    if (average !== null) answers.q6 = average;
+    else if (!rejected) errors.push({ question: "q6s", reason: "missing" });
+  }
   for (const question of REQUIRED_QUESTIONS) {
+    if (question === "q6" && track === "M3") continue;
     if (input[question] === undefined) {
       errors.push({ question, reason: "missing" });
     }

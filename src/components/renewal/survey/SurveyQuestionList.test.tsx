@@ -24,10 +24,12 @@ function Harness({
   ids,
   initial = {},
   levels,
+  diagnosedAt = "2026-11-09",
 }: {
   ids: QuestionId[];
   initial?: Record<string, unknown>;
   levels?: CascadeLevel[];
+  diagnosedAt?: string;
 }) {
   const [answers, setAnswers] = useState<Record<string, unknown>>(initial);
   latest = answers;
@@ -36,7 +38,7 @@ function Harness({
       questionIds={ids}
       answers={answers}
       onAnswer={(id, value) => setAnswers((prev) => ({ ...prev, [id]: value }))}
-      diagnosedAt="2026-11-09"
+      diagnosedAt={diagnosedAt}
       seed="seed-1"
       cascadeLevels={levels}
     />
@@ -285,6 +287,89 @@ describe("SurveyQuestionList 성적 입력", () => {
     cleanup();
     render(<Harness ids={["q6m"]} initial={{ q1: 4, q4: 2 }} />);
     expect(screen.getByLabelText(label(OPTIONS.q8s, 4))).toBeInTheDocument();
+  });
+});
+
+describe("SurveyQuestionList 중3 과목별 점수 (고객 답 2026-11-24 학습진단 5번)", () => {
+  const SIX = {
+    KOR: "95",
+    MATH: "60",
+    ENG: "90",
+    SOC: "80",
+    SCI: "80",
+    HISTORY: "70",
+  };
+  const average = () =>
+    screen.getByRole("textbox", { name: "현재 성적을 입력해 주세요" });
+
+  it("6-1번은 역사를 더한 여섯 칸을 받는다", () => {
+    render(<Harness ids={["q6s"]} initial={{ q1: 2, q4: 3 }} />);
+    expect(screen.getAllByRole("textbox")).toHaveLength(6);
+    fireEvent.change(screen.getByLabelText("역사"), {
+      target: { value: "70" },
+    });
+    expect(latest.q6s).toEqual({ HISTORY: "70" });
+  });
+
+  it("고등학생 6-1번은 다섯 칸 그대로이고 역사가 없다", () => {
+    render(<Harness ids={["q6s"]} initial={{ q1: 3, q4: 2 }} />);
+    expect(screen.getAllByRole("textbox")).toHaveLength(5);
+    expect(screen.queryByLabelText("역사")).toBeNull();
+  });
+
+  it("6번 평균은 입력칸이 아니라 여섯 점수가 모두 차면 계산해 보여 준다", () => {
+    render(
+      <Harness
+        ids={["q6", "q6s"]}
+        initial={{ q1: 2, q4: 3, q6s: { ...SIX, HISTORY: "" } }}
+      />,
+    );
+    expect(average()).toHaveAttribute("readonly");
+    expect(average()).toHaveValue("");
+    fireEvent.change(screen.getByLabelText("역사"), {
+      target: { value: "70" },
+    });
+    expect(average()).toHaveValue("79.2");
+    expect(latest).not.toHaveProperty("q6");
+  });
+
+  it("고등학생 6번 평균은 그대로 입력한다", () => {
+    render(<Harness ids={["q6"]} initial={{ q1: 3, q4: 2 }} />);
+    expect(average()).not.toHaveAttribute("readonly");
+  });
+});
+
+describe("SurveyQuestionList 6-3번 2027학년도 라벨", () => {
+  it("2027학년도부터 고2, 고3은 통합사회, 통합과학 라벨을 쓰고 N수는 쓰지 않는다", () => {
+    render(
+      <Harness
+        ids={["q6m"]}
+        initial={{ q1: 4, q4: 2 }}
+        diagnosedAt="2027-03-02"
+      />,
+    );
+    expect(screen.getByLabelText("통합사회")).toBeInTheDocument();
+    expect(screen.getByLabelText("통합과학")).toBeInTheDocument();
+    cleanup();
+    render(
+      <Harness
+        ids={["q6m"]}
+        initial={{ q1: 6, q4: 2 }}
+        diagnosedAt="2027-03-02"
+      />,
+    );
+    expect(screen.queryByLabelText("통합사회")).toBeNull();
+  });
+
+  it("2026학년도 고2는 탐구 라벨을 유지한다", () => {
+    render(
+      <Harness
+        ids={["q6m"]}
+        initial={{ q1: 4, q4: 2 }}
+        diagnosedAt="2027-02-28"
+      />,
+    );
+    expect(screen.queryByLabelText("통합사회")).toBeNull();
   });
 });
 

@@ -21,7 +21,6 @@ export function buildCover(input: BuildInput): ReportCover {
   return {
     gradeLabel: formatGradeLabel(input.profileGrade),
     savedAt: coverDate(input.savedAt, input.timeZone),
-    serviceTier: input.serviceTier,
     subjectTitle: subjectTitle(name),
     academicYear: session.academicYear,
     steps: input.steps,

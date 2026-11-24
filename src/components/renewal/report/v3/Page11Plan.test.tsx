@@ -35,6 +35,18 @@ describe("Page11Plan (22 r101-r107)", () => {
     expect(screen.getAllByRole("row")).toHaveLength(5);
   });
 
+  it("shows the q21 weekend answer directly below the minimum load line", () => {
+    const page = { ...p11, numbers: { ...p11.numbers, weekend: "2~4시간" } };
+    render(<Page11Plan page={page} />);
+    const weekend = screen.getByText("평소 주말 자습: 2~4시간 (응답 기준)");
+    expect(weekend.previousElementSibling).toHaveTextContent("MINLOAD text");
+  });
+
+  it("renders no weekend line when the weekend answer is missing", () => {
+    render(<Page11Plan page={p11} />);
+    expect(screen.queryByText(/평소 주말 자습/)).toBeNull();
+  });
+
   it("labels every PDF p12 number: urgency points, week rows, the 3 numbers and checkpoints", () => {
     render(<Page11Plan page={p11} />);
     expect(screen.getByText("10점")).toBeInTheDocument();

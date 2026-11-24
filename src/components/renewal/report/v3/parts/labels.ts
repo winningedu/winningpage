@@ -2,7 +2,11 @@
 // these come from the improved report PDF layout (page chrome, card titles);
 // no sheet cell holds them. Content strings always come from the payload.
 
-import type { MockSubjectCode, SubjectVerdict } from "@/lib/diagnosis-v3/types";
+import type {
+  MiddleSubjectCode,
+  MockSubjectCode,
+  SubjectVerdict,
+} from "@/lib/diagnosis-v3/types";
 
 /**
  * Footer total. judge-report R9: numbering stays fixed at 16 even when M3
@@ -12,15 +16,19 @@ export const TOTAL_PAGES = 16;
 
 /**
  * 22_리포트요소 D44 subject names (국어, 수학, 영어, 사회, 과학); 한국사 is
- * the q6m extra of judge-report R3 and has no sheet cell.
+ * the q6m extra of judge-report R3 and 역사 the M3 q6s extra (customer
+ * answer 2026-11-24 학습진단 5번); neither has a sheet cell.
  */
-export const SUBJECT_LABELS: Readonly<Record<MockSubjectCode, string>> = {
+export const SUBJECT_LABELS: Readonly<
+  Record<MockSubjectCode | MiddleSubjectCode, string>
+> = {
   KOR: "국어",
   MATH: "수학",
   ENG: "영어",
   SOC: "사회",
   SCI: "과학",
   HIST: "한국사",
+  HISTORY: "역사",
 };
 
 /** 22 D44 verdicts, the suffixes of the SUBJ_J_ copy ids. */
@@ -88,6 +96,8 @@ export const PLAN_LABELS = {
   logCaption: "매일 밤 기록",
   arrow: "\u2192",
   percent: "%",
+  /** the q21 weekend self-study answer under the minimum load line */
+  weekendStudy: (label: string) => `평소 주말 자습: ${label} (응답 기준)`,
   rateCaption: "주차별 목표 실행률",
   /** checkpoint n of 1..4 reads "n주 점검" */
   checkSuffix: "주 점검",

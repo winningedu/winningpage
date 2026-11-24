@@ -81,6 +81,7 @@ export function scoreEngine(
     q14: answers.q14 ?? [],
     counsel: temperament.counsel,
     reliability,
+    excludedServices: context.excludedServices,
   });
   const examOps = judgeExamOps(answers);
   const plan = buildPlan({

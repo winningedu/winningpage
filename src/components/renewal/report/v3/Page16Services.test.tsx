@@ -20,6 +20,8 @@ const LEGACY_M3 =
   "중학교 3학년은 목표관리가 추천 대상입니다. 나머지 서비스는 고등학교 활동을 전제로 하므로 진학 이후에 안내드립니다.";
 const LEGACY_H3_LATE =
   "고등학교 3학년 6월 이후에는 남은 기간 안에 바로 실행할 수 있는 목표관리를 우선 안내드립니다.";
+const CLOSED_NSU =
+  "재수\u00b7반수 과정에서는 목표관리가 추천 대상입니다. 나머지 서비스는 재학 중 활동을 전제로 하므로 안내에서 제외했습니다.";
 const withCallCard = (scope: "ALL" | "M3" | "NSU" | "G3LATE") => ({
   ...p16,
   scope,
@@ -89,6 +91,25 @@ describe("Page16Services (22 r115-r121)", () => {
   it("shows the legacy H3_LATE notice for the late grade 3 scope when closed", () => {
     mockSite.features.callmentor = false;
     render(<Page16Services page={withCallCard("G3LATE")} />);
+    expect(screen.getByText(LEGACY_H3_LATE)).toBeInTheDocument();
+  });
+
+  it("shows the closed-site N수 notice without a callmentor mention", () => {
+    mockSite.features.callmentor = false;
+    render(<Page16Services page={withCallCard("NSU")} />);
+    expect(screen.getByText(CLOSED_NSU)).toBeInTheDocument();
+    expect(screen.queryByText("SCOPE note")).toBeNull();
+  });
+
+  it("shows the scope notice for a single-card page on a closed site", () => {
+    mockSite.features.callmentor = false;
+    const single = {
+      ...p16,
+      scope: "G3LATE" as const,
+      services: [p16.services[0]] as unknown as typeof p16.services,
+    };
+    render(<Page16Services page={single} />);
+    expect(screen.getAllByRole("article")).toHaveLength(1);
     expect(screen.getByText(LEGACY_H3_LATE)).toBeInTheDocument();
   });
 
