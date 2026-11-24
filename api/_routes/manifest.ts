@@ -12,6 +12,8 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/admission/results/rows.js"),
   "admin/admission/results/bulk": () =>
     import("./admin/admission/results/bulk.js"),
+  "admin/admission/guidelines/bulk": () =>
+    import("./admin/admission/guidelines/bulk.js"),
   "admin/ai-telemetry": () => import("./admin/ai-telemetry.js"),
   "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
   "admin/coupons": () => import("./admin/coupons.js"),
