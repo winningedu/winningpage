@@ -173,9 +173,9 @@ describe("SelfevalSessionsAdmin 상세 라우트", () => {
     on("GET", DETAIL_PATH, () => new Promise(() => {}));
     renderSelfeval("/admin/selfevalSessions/s-1");
     const dialog = await screen.findByRole("dialog", { name: "세션 상세" });
-    expect(within(dialog).getByRole("status")).toHaveTextContent(
-      "불러오는 중...",
-    );
+    expect(
+      within(dialog).getByRole("status", { name: "세션 상세를 불러오는 중" }),
+    ).toBeInTheDocument();
   });
 
   test("세션이 없으면 서버 안내를 상세에 보인다", async () => {
