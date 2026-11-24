@@ -102,12 +102,79 @@ function isLegacyFetch(call, sf) {
   return first !== undefined && argText(first, call, sf).includes("/api");
 }
 
+const RESPONSE_RECEIVER = /^(res|response|resp)$|Res$/;
+
+// res.status(N).json(...) 형태의 응답 쓰기 호출을 읽는다. 응답 호출이 아니면 null.
+function responseCall(call, sf) {
+  const callee = call.expression;
+  if (!ts.isPropertyAccessExpression(callee)) return null;
+  const method = callee.name.text;
+  if (!["json", "send", "end"].includes(method)) return null;
+  // 인수 없는 json()은 fetch Response 본문 읽기다
+  if (method === "json" && call.arguments.length === 0) return null;
+  let obj = callee.expression;
+  let status = null;
+  while (
+    ts.isCallExpression(obj) &&
+    ts.isPropertyAccessExpression(obj.expression)
+  ) {
+    if (obj.expression.name.text === "status") {
+      status = obj.arguments[0]?.getText(sf) ?? null;
+    }
+    obj = obj.expression.expression;
+  }
+  const name = ts.isIdentifier(obj)
+    ? obj.text
+    : ts.isPropertyAccessExpression(obj)
+      ? obj.name.text
+      : null;
+  if (name === null || !RESPONSE_RECEIVER.test(name)) return null;
+  return { method, status, arg: call.arguments[0] };
+}
+
+// 상태 코드 글자가 400 이상 숫자이거나 숫자가 아니면 오류로 본다(상태 없음은 성공).
+function isErrorStatus(status) {
+  if (status === null) return false;
+  return /^\d+$/.test(status) ? Number(status) >= 400 : true;
+}
+
+function isLegacyError(call, sf) {
+  const callee = call.expression.getText(sf);
+  if (callee === "sendError") {
+    const shape = call.arguments[1];
+    return !(
+      shape !== undefined &&
+      ts.isStringLiteralLike(shape) &&
+      shape.text === "problem"
+    );
+  }
+  if (callee === "defineHandler") {
+    const opts = call.arguments[0];
+    if (opts === undefined || !ts.isObjectLiteralExpression(opts)) return false;
+    const prop = opts.properties.find(
+      (p) => ts.isPropertyAssignment(p) && p.name.getText(sf) === "errorShape",
+    );
+    return !(
+      prop !== undefined &&
+      ts.isStringLiteralLike(prop.initializer) &&
+      prop.initializer.text === "problem"
+    );
+  }
+  const r = responseCall(call, sf);
+  return r !== null && isErrorStatus(r.status);
+}
+
 const RULES = {
   browserDb: { scope: "src", match: isBrowserDb },
   legacyFetch: {
     scope: "src",
     match: isLegacyFetch,
     exempt: /^src\/lib\/(apiFetch\.ts|http\/client\.ts)$/,
+  },
+  legacyError: {
+    scope: "api",
+    match: isLegacyError,
+    exempt: /^api\/_lib\/httpResponse\.ts$/,
   },
 };
 

@@ -216,3 +216,58 @@ describe("check-http-legacy legacyFetch", () => {
     expect(run().code).toBe(0);
   });
 });
+
+// --update 로 baseline을 만들어 파일별 분류 수를 읽는다.
+function counts() {
+  expect(run("--update").code).toBe(0);
+  return JSON.parse(
+    readFileSync(join(root, "scripts/http-legacy.baseline.json"), "utf8"),
+  );
+}
+
+describe("check-http-legacy legacyError", () => {
+  test.each([
+    ['sendError(res, "detail", 400, "x");'],
+    ['sendError(res, "okDetail", 400, "x");'],
+    ['sendError(res, "coded", 400, "x", "c");'],
+    ['sendError(res, "error", 500, "x");'],
+    ['sendError(res, shape, 400, "x");'],
+    ['export default defineHandler({ errorShape: "detail", handler });'],
+    ['export default defineHandler({ errorShape: "coded", handler });'],
+    ['res.status(400).json({ detail: "x" });'],
+    ['res.status(500).send("x");'],
+    ["res.status(404).end();"],
+    ["res.status(code).json({ a: 1 });"],
+    ['response.status(403).json({ error: "x" });'],
+    ['resp.status(401).json({ error: "x" });'],
+    ['fooRes.status(400).json({ error: "x" });'],
+    ['ctx.res.status(400).json({ error: "x" });'],
+  ])("레거시 오류 응답을 잡는다: %s", (code) => {
+    put("api/a.ts", `${code}\n`);
+    expect(counts()).toEqual({ "api/a.ts": { legacyError: 1 } });
+  });
+
+  test.each([
+    ['sendError(res, "problem", 400, "x", "c");'],
+    ['export default defineHandler({ errorShape: "problem", handler });'],
+    ["res.status(200).json({ a: 1 });"],
+    ["res.status(201).json({ a: 1 });"],
+    ["res.json({ a: 1 });"],
+    ["res.status(204).end();"],
+    ['other.status(400).json({ detail: "x" });'],
+    ["res.status(400);"],
+    ["const body = await r.json();"],
+    ['const body = await res.json({ detail: "x" }, 500);'],
+  ])("레거시 오류가 아니면 세지 않는다: %s", (code) => {
+    put("api/a.ts", `${code}\n`);
+    expect(counts()).toEqual({});
+  });
+
+  test("src/ 파일과 httpResponse.ts 정의 파일은 세지 않는다", () => {
+    const code =
+      'sendError(res, "detail", 400, "x");\nres.status(400).json({});\n';
+    put("src/a.ts", code);
+    put("api/_lib/httpResponse.ts", code);
+    expect(counts()).toEqual({});
+  });
+});
