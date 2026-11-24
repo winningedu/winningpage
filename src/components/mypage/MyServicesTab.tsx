@@ -454,11 +454,18 @@ function toViewModel(
 
   let actions: ServiceCardAction[];
   if (isOngoing && category === "diagnosis") {
-    // 미사용 유료 1회권 — 소진 전에는 "이용중"이고, 할 일은 검사뿐이다(옛
-    // 구현은 진단을 무조건 완료로 취급해 이 상태 자체가 없었다).
-    actions = [
-      { kind: "link", label: "검사하기", href: SURVEY_FIRST_STEP_PATH },
-    ];
+    // 소진 전에는 "이용중"이고 할 일은 검사다. 회차권으로 이미 받은 리포트가
+    // 있으면(latestDiagnosisAttemptId) 지난 결과를 열 수 있게 함께 보여 준다.
+    actions = latestDiagnosisAttemptId
+      ? [
+          {
+            kind: "outline-solid",
+            label: "결과 리포트 보기",
+            href: `/learning-diagnosis/report/${latestDiagnosisAttemptId}`,
+          },
+          { kind: "solid", label: "검사하기", href: SURVEY_FIRST_STEP_PATH },
+        ]
+      : [{ kind: "link", label: "검사하기", href: SURVEY_FIRST_STEP_PATH }];
   } else if (isOngoing) {
     const label = category === "session" ? "상담 기록 보기" : "프로그램 가기";
     actions = [{ kind: "link", label, href }];
