@@ -32,12 +32,12 @@ import { ActionButton } from "@/pages/admin/shared/formFields";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
 
 // ---------------------------------------------------------------------------
-// 매출 및 결제(revenue) — Figma 4466:7097.
+// 매출 및 결제(revenue), Figma 4466:7097.
 //
 // 무엇이 달라졌나
-//   예전 「매출 조정」·「매출 정산」·「일일정산」은 운영자가 손으로 적는 수기
+//   예전 「매출 조정」, 「매출 정산」, 「일일정산」은 운영자가 손으로 적는 수기
 //   장부였고 실제 결제와 연결이 없었다(2026-08-23 에 셋 다 없앴다). 이 화면은
-//   **실제 결제**(orders/order_items)를 본다 — admin_revenue_items 뷰가 원천이고,
+//   **실제 결제**(orders/order_items)를 본다, admin_revenue_items 뷰가 원천이고,
 //   주문 단위 할인 안분과 환불 차감을 거기서 이미 끝내 놓았다.
 //   그래서 이 파일은 "기간을 자르고 합을 낸다"만 한다.
 //
@@ -51,7 +51,7 @@ import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate
 
 const HEAD = "whitespace-normal px-4 py-3 font-semibold";
 
-// QA 271 내보내기 컬럼 — 화면 표의 여덟 칸에 결제자 이메일을 더한 것이다.
+// QA 271 내보내기 컬럼, 화면 표의 여덟 칸에 결제자 이메일을 더한 것이다.
 // 이메일은 표에 결제자명이 없을 때만 대체 표기로 쓰여 눈에 잘 띄지 않지만,
 // 파일에는 있어야 정산 대사(對査)에 쓸 수 있다. 이 이메일 때문에 이 다운로드가
 // 개인정보 반출이고, 그래서 게이트를 탄다.
@@ -102,9 +102,9 @@ export default function RevenueAdmin() {
   const [fromYmd, setFromYmd] = useState(periodFrom);
   const [toYmd, setToYmd] = useState(periodTo);
 
-  // 이번 달 1일~오늘. 오늘·이번 주·이번 달 카드 셋을 이 한 번의 조회로 다 계산한다
+  // 이번 달 1일~오늘. 오늘, 이번 주, 이번 달 카드 셋을 이 한 번의 조회로 다 계산한다
   // (이번 달이 나머지 둘을 포함하므로 따로 부를 이유가 없다).
-  // 상한은 '미만'으로 비교한다 — 다음 날 0시 직전의 1초도 새지 않는다.
+  // 상한은 '미만'으로 비교한다, 다음 날 0시 직전의 1초도 새지 않는다.
   const monthRange = dayRangeUtc(monthStartYmd, todayYmd, timeZone);
   const monthQuery = useQuery(
     revenueRowsQuery(monthRange.from, monthRange.toExclusive),
@@ -116,9 +116,9 @@ export default function RevenueAdmin() {
   );
 
   const servicesQuery = useQuery(revenueServicesQuery);
-  // QA 274 「처리 필요 항목」 — 환불 원장에서 대기 건수만 센다. 목록을 통째로
+  // QA 274 「처리 필요 항목」, 환불 원장에서 대기 건수만 센다. 목록을 통째로
   // 받지 않고 count 만 받는다(화면이 쓰는 건 숫자뿐이고, 환불 신청에는
-  // 계좌·사유 같은 개인정보가 들어 있어 필요 없는 걸 끌어오지 않는다).
+  // 계좌, 사유 같은 개인정보가 들어 있어 필요 없는 걸 끌어오지 않는다).
   const pendingQuery = useQuery(revenuePendingQuery);
 
   const loading = monthQuery.isFetching || periodQuery.isFetching;
@@ -138,10 +138,10 @@ export default function RevenueAdmin() {
     [periodQuery.data, periodQuery.error],
   );
 
-  // 탭 목록을 하드코딩하지 않는다 — 서비스가 늘거나 이름이 바뀌면 화면만 옛것으로
+  // 탭 목록을 하드코딩하지 않는다, 서비스가 늘거나 이름이 바뀌면 화면만 옛것으로
   // 남는다. products 가 정본이고, 이 화면은 그 목록을 그대로 따른다.
   const serviceTabs = servicesQuery.data ?? [];
-  // 대시보드 보조 지표라 실패해도 화면 전체를 막지 않는다 — 0으로 두고 넘어간다.
+  // 대시보드 보조 지표라 실패해도 화면 전체를 막지 않는다, 0으로 두고 넘어간다.
   const pending = pendingQuery.data ?? {
     approvalWaiting: 0,
     processWaiting: 0,
@@ -193,7 +193,7 @@ export default function RevenueAdmin() {
     periodQuery.refetch();
   }
 
-  // 서비스 필터는 이미 받아온 행에 걸면 된다 — 탭을 옮길 때마다 다시 조회하면
+  // 서비스 필터는 이미 받아온 행에 걸면 된다, 탭을 옮길 때마다 다시 조회하면
   // 같은 기간을 반복해서 긁는다.
   const filteredMonth = useMemo(
     () =>
@@ -242,7 +242,7 @@ export default function RevenueAdmin() {
 
   const tabs: ServiceTab[] = [{ key: "all", label: "전체" }, ...serviceTabs];
 
-  // QA 271 — 매출·결제 다운로드. 결제자 이름·이메일이 함께 나가므로 게이트를 탄다.
+  // QA 271, 매출, 결제 다운로드. 결제자 이름, 이메일이 함께 나가므로 게이트를 탄다.
   function exportRevenue() {
     downloadCsv(
       `매출및결제_${fromYmd}_${toYmd}.csv`,
@@ -272,7 +272,7 @@ export default function RevenueAdmin() {
       {gate}
 
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
-        {/* 서비스별 탭 — 시안의 전체/목표관리/콜멘토/… 줄 */}
+        {/* 서비스별 탭, 시안의 전체/목표관리/콜멘토/… 줄 */}
         <Tabs value={activeService} onValueChange={selectService}>
           <TabsList
             variant="line"
@@ -349,7 +349,7 @@ export default function RevenueAdmin() {
         )}
       </div>
 
-      {/* QA 274 총괄 대시보드 — 파일18 「정산관리」의 정산 총괄표. 선택 기간과
+      {/* QA 274 총괄 대시보드, 파일18 「정산관리」의 정산 총괄표. 선택 기간과
           서비스 탭이 적용된 행(filteredPeriod)을 그대로 본다. */}
       {!loading && (
         <RevenueDashboard
@@ -436,7 +436,7 @@ export default function RevenueAdmin() {
                     </TableCell>
                     <TableCell className="px-4 py-3">
                       {row.revenue_status === "refunded" ? (
-                        // 부분환불이면 최종 결제 금액과 실제 환불액이 다르다 —
+                        // 부분환불이면 최종 결제 금액과 실제 환불액이 다르다,
                         // 상태만 보고 전액이 돌아간 것으로 오해하지 않도록 금액을 같이 쓴다.
                         <span className="font-medium text-destructive">
                           환불 {formatMoney(Number(row.refunded_amount || 0))}
