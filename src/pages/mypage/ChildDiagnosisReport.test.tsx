@@ -59,7 +59,7 @@ describe("ChildDiagnosisReport", () => {
     const { container } = renderRoute();
 
     await waitFor(() =>
-      expect(container.querySelectorAll(".fd-report-sheet")).toHaveLength(17),
+      expect(container.querySelectorAll(".fd-report-sheet")).toHaveLength(18),
     );
     expect(screen.getAllByText("16 / 16").length).toBeGreaterThan(0);
   });
