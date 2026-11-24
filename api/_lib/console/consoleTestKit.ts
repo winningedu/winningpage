@@ -179,6 +179,7 @@ export function createFakeAdmin(state: KitState) {
       let updating = false;
       let deleting = false;
       let upserting = false;
+      let inserting = false;
       const read: KitState["reads"][number] = { table };
       state.reads.push(read);
       const result = () => {
@@ -186,7 +187,7 @@ export function createFakeAdmin(state: KitState) {
           ? state.updateErrors[table]?.(filters)
           : undefined;
         if (updateError) return { data: null, error: updateError };
-        if (upserting && state.insertErrors[table]) {
+        if ((upserting || inserting) && state.insertErrors[table]) {
           return { data: null, error: state.insertErrors[table] };
         }
         if (deleting && state.deleteErrors[table]) {
@@ -289,9 +290,18 @@ export function createFakeAdmin(state: KitState) {
       chain.insert = (row: Record<string, unknown>) => {
         state.events.push(`insert:${table}`);
         state.inserts.push({ table, row });
-        return Promise.resolve({
-          error: state.insertErrors[table] ?? state.insertError,
-        });
+        // insert(...).select().single() 로 만든 행을 읽는 호출부도 흉내 낸다.
+        return Object.assign(
+          Promise.resolve({
+            error: state.insertErrors[table] ?? state.insertError,
+          }),
+          {
+            select: () => {
+              inserting = true;
+              return chain;
+            },
+          },
+        );
       };
       return chain;
     },
