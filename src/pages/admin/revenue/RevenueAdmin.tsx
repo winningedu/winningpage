@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -21,6 +21,7 @@ import { browserTimeZone } from "@/lib/time/zone";
 import {
   type RevenueRow,
   revenuePendingQuery,
+  revenueRowsKey,
   revenueRowsQuery,
   revenueServicesQuery,
   type ServiceTab,
@@ -30,6 +31,8 @@ import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { downloadCsv } from "@/pages/admin/shared/csvExport";
 import { ActionButton } from "@/pages/admin/shared/formFields";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
+import { AdminCardsSkeleton } from "@/pages/admin/shared/skeletons/AdminCardsSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 
 // ---------------------------------------------------------------------------
 // 매출 및 결제(revenue), Figma 4466:7097.
@@ -121,7 +124,9 @@ export default function RevenueAdmin() {
   // 계좌, 사유 같은 개인정보가 들어 있어 필요 없는 걸 끌어오지 않는다).
   const pendingQuery = useQuery(revenuePendingQuery);
 
-  const loading = monthQuery.isFetching || periodQuery.isFetching;
+  // 처음 받을 때와 기간 키가 바뀔 때만 스켈레톤이다. 배경 재조회는 행을 그대로 둔다.
+  const loading = monthQuery.isPending || periodQuery.isPending;
+  const queryClient = useQueryClient();
   const loadError = monthQuery.error ?? periodQuery.error;
   const error = loadError
     ? loadError instanceof ApiError
@@ -165,6 +170,11 @@ export default function RevenueAdmin() {
   const { requestAccess, gate } = useSensitiveActionGate();
 
   function applyPeriod() {
+    // 사용자가 직접 누른 조회라 같은 기간이어도 옛 행 대신 스켈레톤 뒤 새 행을 보인다.
+    const next = dayRangeUtc(fromYmd, toYmd, timeZone);
+    void queryClient.resetQueries({
+      queryKey: revenueRowsQuery(next.from, next.toExclusive).queryKey,
+    });
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -189,8 +199,7 @@ export default function RevenueAdmin() {
   }
 
   function refresh() {
-    monthQuery.refetch();
-    periodQuery.refetch();
+    void queryClient.resetQueries({ queryKey: revenueRowsKey });
   }
 
   // 서비스 필터는 이미 받아온 행에 걸면 된다, 탭을 옮길 때마다 다시 조회하면
@@ -290,18 +299,27 @@ export default function RevenueAdmin() {
           </TabsList>
         </Tabs>
 
-        <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {cards.map((card) => (
-            <Card key={card.label} size="sm" className="bg-muted px-2">
-              <div className="text-sm font-medium text-muted-foreground">
-                {card.label}
-              </div>
-              <div className="text-2xl font-semibold">
-                {formatMoney(card.value)}
-              </div>
-            </Card>
-          ))}
-        </div>
+        {loading ? (
+          <div className="mb-5">
+            <AdminCardsSkeleton
+              count={cards.length}
+              label="매출 요약을 불러오는 중입니다."
+            />
+          </div>
+        ) : (
+          <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {cards.map((card) => (
+              <Card key={card.label} size="sm" className="bg-muted px-2">
+                <div className="text-sm font-medium text-muted-foreground">
+                  {card.label}
+                </div>
+                <div className="text-2xl font-semibold">
+                  {formatMoney(card.value)}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-muted-foreground">
@@ -361,12 +379,10 @@ export default function RevenueAdmin() {
       )}
 
       {loading ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+        <AdminTableSkeleton
+          columns={8}
+          label="매출 및 결제 목록을 불러오는 중입니다."
+        />
       ) : (
         <div className="bg-white shadow-sm">
           <Table className="min-w-[62.5rem]">

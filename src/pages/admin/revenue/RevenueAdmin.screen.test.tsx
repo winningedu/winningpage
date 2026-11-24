@@ -2,7 +2,13 @@
 
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, expect, test, vi } from "vitest";
 
@@ -31,6 +37,8 @@ vi.mock("@/lib/http/client", async (importOriginal) => ({
 }));
 
 let revenueItems: unknown[] = [];
+// 값이 있으면 매출 행 응답이 이 약속이 풀릴 때까지 늦어진다.
+let hold: Promise<void> | null = null;
 
 function mockApi() {
   revenueItems = [
@@ -39,7 +47,10 @@ function mockApi() {
   ];
   get.mockImplementation((path: string) => ({
     json: async () => {
-      if (path === "admin/revenue") return { items: revenueItems };
+      if (path === "admin/revenue") {
+        if (hold) await hold;
+        return { items: revenueItems };
+      }
       if (path === "admin/revenue/services")
         return {
           items: [
@@ -56,22 +67,34 @@ import RevenueAdmin from "./RevenueAdmin";
 
 function renderScreen() {
   mockApi();
-  return render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const view = render(
+    <QueryClientProvider client={client}>
       <MemoryRouter>
         <RevenueAdmin />
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return { client, ...view };
 }
+
+function holdResponses() {
+  let release: () => void = () => {};
+  hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return release;
+}
+
+const TABLE_LABEL = "매출 및 결제 목록을 불러오는 중입니다.";
+const CARDS_LABEL = "매출 요약을 불러오는 중입니다.";
 
 afterEach(() => {
   cleanup();
   get.mockReset();
+  hold = null;
 });
 
 test("서비스 탭은 role=tab 이고 누르면 해당 서비스 행만 남는다", async () => {
@@ -114,10 +137,85 @@ test("선택 기간 매출 타일은 작은 카드다", async () => {
   expect(tile).toHaveAttribute("data-size", "sm");
 });
 
-test("불러오는 동안 상태 안내가 role=status 로 보인다", () => {
+test("불러오는 동안 표와 요약 카드 자리에 스켈레톤이 role=status 로 보인다", async () => {
+  holdResponses();
   renderScreen();
 
-  expect(screen.getByRole("status")).toHaveTextContent(
-    "데이터를 불러오는 중입니다.",
+  const table = screen.getByRole("status", { name: TABLE_LABEL });
+  // 번호 없이 머리글 8칸과 같은 열 수다.
+  expect(table.querySelector('[data-part="header"]')?.children).toHaveLength(8);
+  const cards = screen.getByRole("status", { name: CARDS_LABEL });
+  expect(cards.querySelectorAll('[data-part="card"]')).toHaveLength(4);
+  // 응답 전에 0원 카드를 보이지 않는다.
+  expect(screen.queryByText("선택 기간 매출")).toBeNull();
+  expect(screen.queryByText("0원")).toBeNull();
+});
+
+test("창 포커스 같은 배경 재조회는 행과 카드를 그대로 두고 스켈레톤을 띄우지 않는다", async () => {
+  const { client } = renderScreen();
+  await screen.findByText("목표결제자");
+
+  holdResponses();
+  void client.refetchQueries({ queryKey: ["admin", "revenue", "rows"] });
+  await waitFor(() =>
+    expect(
+      get.mock.calls.filter(([path]) => path === "admin/revenue").length,
+    ).toBeGreaterThan(1),
   );
+
+  expect(screen.getByText("목표결제자")).toBeInTheDocument();
+  expect(screen.queryByRole("status", { name: TABLE_LABEL })).toBeNull();
+  expect(screen.queryByRole("status", { name: CARDS_LABEL })).toBeNull();
+});
+
+test("새로고침을 누르면 스켈레톤을 보인 뒤 새 행을 보인다", async () => {
+  renderScreen();
+  await screen.findByText("목표결제자");
+
+  const release = holdResponses();
+  revenueItems = [row("3", "goal", "새결제자")];
+  fireEvent.click(screen.getByRole("button", { name: "새로고침" }));
+  expect(
+    await screen.findByRole("status", { name: TABLE_LABEL }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("목표결제자")).toBeNull();
+
+  release();
+  expect(await screen.findByText("새결제자")).toBeInTheDocument();
+  expect(screen.queryByRole("status", { name: TABLE_LABEL })).toBeNull();
+});
+
+test("같은 기간으로 조회를 다시 눌러도 스켈레톤을 거쳐 새 행을 보인다", async () => {
+  renderScreen();
+  await screen.findByText("목표결제자");
+
+  const release = holdResponses();
+  revenueItems = [row("4", "goal", "다시결제자")];
+  fireEvent.click(screen.getByRole("button", { name: "조회" }));
+  expect(
+    await screen.findByRole("status", { name: TABLE_LABEL }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("목표결제자")).toBeNull();
+
+  release();
+  expect(await screen.findByText("다시결제자")).toBeInTheDocument();
+});
+
+test("다른 기간으로 조회하면 스켈레톤을 보인 뒤 그 기간 행을 보인다", async () => {
+  renderScreen();
+  await screen.findByText("목표결제자");
+
+  const release = holdResponses();
+  revenueItems = [row("5", "goal", "지난달결제자")];
+  fireEvent.change(screen.getByLabelText("조회 시작일"), {
+    target: { value: "2026-10-01" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "조회" }));
+  expect(
+    await screen.findByRole("status", { name: TABLE_LABEL }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("목표결제자")).toBeNull();
+
+  release();
+  expect(await screen.findByText("지난달결제자")).toBeInTheDocument();
 });
