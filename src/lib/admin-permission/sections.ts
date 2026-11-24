@@ -28,12 +28,15 @@ export function isSuperOnlySection(sectionKey: string): boolean {
   return SUPER_ONLY_SECTIONS.has(sectionKey);
 }
 
-/** 권한 맵에서 찾을 키. 별칭 메뉴인데 사이트 플래그가 꺼져 있으면 null(열지 않는다). */
+/**
+ * 권한 맵에서 찾을 키. 별칭 메뉴인데 사이트 플래그가 꺼져 있으면 null(열지 않는다).
+ * 플래그는 별칭 메뉴일 때만 읽는다(서버는 SITE env 가 있어야 읽을 수 있다).
+ */
 export function permissionKeyFor(
   sectionKey: string,
-  hqTenantAdmin: boolean,
+  hqTenantAdmin: () => boolean,
 ): string | null {
   const alias = SECTION_PERMISSION_ALIAS[sectionKey];
   if (!alias) return sectionKey;
-  return hqTenantAdmin ? alias : null;
+  return hqTenantAdmin() ? alias : null;
 }

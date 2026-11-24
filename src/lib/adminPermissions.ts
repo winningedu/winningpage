@@ -1,5 +1,8 @@
 import { site } from "@/config/site";
-import { isSuperOnlySection, permissionKeyFor } from "./admin-permission/sections";
+import {
+  isSuperOnlySection,
+  permissionKeyFor,
+} from "./admin-permission/sections";
 import { getCached, setCached } from "./routeMiddlewareCache";
 import { supabase } from "./supabase";
 
@@ -92,6 +95,6 @@ export function canAccessSection(
   sectionKey: string,
 ): boolean {
   if (isSuperOnlySection(sectionKey)) return isSuperAdmin;
-  const key = permissionKeyFor(sectionKey, site.features.hqTenantAdmin);
+  const key = permissionKeyFor(sectionKey, () => site.features.hqTenantAdmin);
   return key !== null && permissions.has(key);
 }
