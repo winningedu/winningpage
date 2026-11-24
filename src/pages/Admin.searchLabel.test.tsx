@@ -42,6 +42,14 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+vi.mock("./admin/engine/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./admin/engine/api")>()),
+  fetchSectionList: vi.fn(async () => ({
+    items: state.rows,
+    total: state.rows.length,
+  })),
+}));
+
 vi.mock("./admin/shared/adminSession", () => ({
   getFreshSupabaseAccessTokenOrSignOut: async () => "token",
 }));
@@ -66,12 +74,15 @@ vi.mock("./admin/shared/csvExport", async (importOriginal) => ({
 }));
 
 import { AdminSectionRoute } from "./Admin";
+import { TestQueryProvider } from "./admin/engine/testQuery";
 
 function renderSection() {
   return render(
-    <MemoryRouter initialEntries={["/admin/premiumConsults"]}>
-      <AdminSectionRoute section="premiumConsults" />
-    </MemoryRouter>,
+    <TestQueryProvider>
+      <MemoryRouter initialEntries={["/admin/premiumConsults"]}>
+        <AdminSectionRoute section="premiumConsults" />
+      </MemoryRouter>
+    </TestQueryProvider>,
   );
 }
 

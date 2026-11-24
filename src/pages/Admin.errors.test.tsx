@@ -38,12 +38,20 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+vi.mock("./admin/engine/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./admin/engine/api")>()),
+  fetchSectionList: vi.fn(async () => {
+    throw new Error("permission denied for 홍길동");
+  }),
+}));
+
 vi.mock("./admin/shared/adminSession", () => ({
   getFreshSupabaseAccessTokenOrSignOut: async () => "token",
 }));
 
 import { Toaster } from "@/components/ui/toast";
 import { AdminSectionRoute } from "./Admin";
+import { TestQueryProvider } from "./admin/engine/testQuery";
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -57,10 +65,12 @@ describe("Admin 입결정보 엑셀 다운로드 오류 안내", () => {
   it("다운로드에 실패하면 원문 없이 안내만 토스트로 보인다", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     render(
-      <MemoryRouter initialEntries={["/admin/admissionResults"]}>
-        <AdminSectionRoute section="admissionResults" />
-        <Toaster />
-      </MemoryRouter>,
+      <TestQueryProvider>
+        <MemoryRouter initialEntries={["/admin/admissionResults"]}>
+          <AdminSectionRoute section="admissionResults" />
+          <Toaster />
+        </MemoryRouter>
+      </TestQueryProvider>,
     );
 
     fireEvent.click(

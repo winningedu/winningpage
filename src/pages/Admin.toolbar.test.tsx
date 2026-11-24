@@ -48,6 +48,14 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+vi.mock("./admin/engine/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./admin/engine/api")>()),
+  fetchSectionList: vi.fn(async () => ({
+    items: state.rows,
+    total: state.rows.length,
+  })),
+}));
+
 vi.mock("./admin/shared/adminSession", () => ({
   getFreshSupabaseAccessTokenOrSignOut: async () => "token",
 }));
@@ -74,6 +82,7 @@ vi.mock("./admin/shared/csvExport", async (importOriginal) => ({
 import { Toaster, toast } from "@/components/ui/toast";
 import { writeAdminAccessLog } from "@/lib/adminAccessLog";
 import { AdminSectionRoute } from "./Admin";
+import { TestQueryProvider } from "./admin/engine/testQuery";
 import { downloadCsv } from "./admin/shared/csvExport";
 
 function consult(id: number, name = `신청자${id}`) {
@@ -91,10 +100,12 @@ function consult(id: number, name = `신청자${id}`) {
 
 function renderSection() {
   return render(
-    <MemoryRouter initialEntries={["/admin/premiumConsults"]}>
-      <AdminSectionRoute section="premiumConsults" />
-      <Toaster />
-    </MemoryRouter>,
+    <TestQueryProvider>
+      <MemoryRouter initialEntries={["/admin/premiumConsults"]}>
+        <AdminSectionRoute section="premiumConsults" />
+        <Toaster />
+      </MemoryRouter>
+    </TestQueryProvider>,
   );
 }
 
