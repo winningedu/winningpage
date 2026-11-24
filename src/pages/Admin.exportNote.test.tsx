@@ -42,6 +42,15 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+vi.mock("./admin/engine/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./admin/engine/api")>()),
+  fetchSectionList: vi.fn(async () => ({
+    items: state.rows,
+    total: state.rows.length,
+  })),
+  fetchExportChunk: vi.fn(async () => ({ items: state.rows, next: null })),
+}));
+
 vi.mock("./admin/shared/adminSession", () => ({
   getFreshSupabaseAccessTokenOrSignOut: async () => "token",
 }));
@@ -70,14 +79,17 @@ vi.mock("./admin/configs/admission", async (importOriginal) => {
 
 import { Toaster, toast } from "@/components/ui/toast";
 import { AdminSectionRoute } from "./Admin";
+import { TestQueryProvider } from "./admin/engine/testQuery";
 import { downloadCsvText } from "./admin/shared/csvExport";
 
 function renderSection() {
   return render(
-    <MemoryRouter initialEntries={["/admin/admissionResults"]}>
-      <AdminSectionRoute section="admissionResults" />
-      <Toaster />
-    </MemoryRouter>,
+    <TestQueryProvider>
+      <MemoryRouter initialEntries={["/admin/admissionResults"]}>
+        <AdminSectionRoute section="admissionResults" />
+        <Toaster />
+      </MemoryRouter>
+    </TestQueryProvider>,
   );
 }
 
@@ -100,6 +112,10 @@ describe("Admin 서버 페이지네이션 내보내기 안내", () => {
     const addSpy = vi.spyOn(toast, "add");
     const closeSpy = vi.spyOn(toast, "close");
     renderSection();
+    // 목록 건수가 도착한 뒤에 눌러야 내보낼 건수가 잡힌다.
+    await waitFor(() =>
+      expect(document.querySelector(".text-blue-600")).toHaveTextContent("3"),
+    );
 
     fireEvent.click(
       await screen.findByRole("button", { name: "엑셀 다운로드" }),

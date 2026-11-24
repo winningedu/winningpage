@@ -910,7 +910,6 @@
     "browserDb": 1
   },
   "src/pages/Admin.tsx": {
-    "browserDb": 8,
     "legacyFetch": 2
   },
   "src/pages/AdmissionBoard.tsx": {
@@ -958,9 +957,6 @@
   "src/pages/admin/admission/AdmissionPanels.tsx": {
     "browserDb": 6
   },
-  "src/pages/admin/configs/bannersForm.tsx": {
-    "browserDb": 1
-  },
   "src/pages/admin/coupons/CouponAdmin.tsx": {
     "browserDb": 14
   },
@@ -992,9 +988,6 @@
   "src/pages/admin/knowledge/evals/api.ts": {
     "browserDb": 6,
     "legacyFetch": 1
-  },
-  "src/pages/admin/landing/SectionCopyPanel.tsx": {
-    "browserDb": 2
   },
   "src/pages/admin/learning-diagnosis/LearningDiagnosisAdmin.tsx": {
     "browserDb": 12

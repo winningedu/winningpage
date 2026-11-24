@@ -324,9 +324,9 @@ export async function callHandler(
       captured.body = payload;
       return res;
     },
-    // problem 바디는 res.end 로 나간다.
-    end(payload: string) {
-      captured.body = JSON.parse(payload);
+    // problem 응답과 204 는 res.end 로 나간다.
+    end(payload?: string) {
+      if (payload) captured.body = JSON.parse(payload);
       return res;
     },
   } as unknown as VercelResponse;

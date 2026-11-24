@@ -3,38 +3,21 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const db = vi.hoisted(() => ({
-  calls: [] as string[],
+const engine = vi.hoisted(() => ({
+  deleteSectionRow: vi.fn(async () => {}),
 }));
 
-// 어떤 체인이든 끝에서 await 하면 행 한 개를 돌려주고, 부른 메서드 이름을 기록한다.
-function recordingChain() {
-  const proxy: unknown = new Proxy(
-    {},
-    {
-      get(_target, prop) {
-        if (prop === "then") {
-          return (resolve: (value: unknown) => void) =>
-            resolve({
-              data: [{ id: 7, title: "가을 팝업", sort_order: 1 }],
-              count: 1,
-              error: null,
-            });
-        }
-        return () => {
-          db.calls.push(String(prop));
-          return proxy;
-        };
-      },
-    },
-  );
-  return proxy;
-}
+vi.mock("./admin/engine/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./admin/engine/api")>()),
+  fetchSectionList: vi.fn(async () => ({
+    items: [{ id: 7, title: "가을 팝업", sort_order: 1 }],
+    total: 1,
+  })),
+  deleteSectionRow: engine.deleteSectionRow,
+}));
 
 vi.mock("@/lib/supabase", () => ({
   supabase: {
-    from: () => recordingChain(),
-    rpc: () => recordingChain(),
     auth: {
       signOut: async () => ({ error: null }),
       getSession: async () => ({ data: { session: null } }),
@@ -51,10 +34,10 @@ vi.mock("./admin/shared/adminSession", () => ({
 
 import { toast } from "@/components/ui/toast";
 import { AdminSectionRoute } from "./Admin";
+import { TestQueryProvider } from "./admin/engine/testQuery";
 import { ConfirmAdminHost } from "./admin/shared/confirmAdmin";
 
 beforeEach(() => {
-  db.calls = [];
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -71,10 +54,12 @@ async function clickRowDelete() {
 
 function renderPopups() {
   return render(
-    <MemoryRouter initialEntries={["/admin/popups"]}>
-      <AdminSectionRoute section="popups" />
-      <ConfirmAdminHost />
-    </MemoryRouter>,
+    <TestQueryProvider>
+      <MemoryRouter initialEntries={["/admin/popups"]}>
+        <AdminSectionRoute section="popups" />
+        <ConfirmAdminHost />
+      </MemoryRouter>
+    </TestQueryProvider>,
   );
 }
 
@@ -92,7 +77,7 @@ describe("Admin 행 삭제 확인", () => {
     await waitFor(() =>
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
     );
-    expect(db.calls).not.toContain("delete");
+    expect(engine.deleteSectionRow).not.toHaveBeenCalled();
     expect(confirmSpy).not.toHaveBeenCalled();
   });
 
@@ -103,6 +88,8 @@ describe("Admin 행 삭제 확인", () => {
     await screen.findByRole("alertdialog");
     fireEvent.click(screen.getByRole("button", { name: "삭제" }));
 
-    await waitFor(() => expect(db.calls).toContain("delete"));
+    await waitFor(() =>
+      expect(engine.deleteSectionRow).toHaveBeenCalledWith("popups", 7),
+    );
   });
 });

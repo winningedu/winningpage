@@ -120,6 +120,34 @@ function adminFailureCode(
 
 type ZodSchema = z.ZodType;
 
+/**
+ * 경로 파라미터 값이 잘못됐을 때(예: 모르는 섹션 키) 던진다. 권한 키 함수나 핸들러에서 던지면
+ * zod 검증 실패와 같은 400 VALIDATION_FAILED 로 응답한다(권한 판정보다 먼저 막는다).
+ */
+export class RouteParamError extends Error {
+  readonly path: string;
+  constructor(path: string, message: string) {
+    super(message);
+    this.name = "RouteParamError";
+    this.path = path;
+  }
+}
+
+function sendValidationFailed(
+  res: VercelResponse,
+  shape: ErrorShape,
+  errors: { path: string; message: string }[],
+): void {
+  sendError(
+    res,
+    shape,
+    400,
+    VALIDATION_FAILED_MESSAGE,
+    VALIDATION_FAILED_CODE,
+    { errors },
+  );
+}
+
 // body/query 스키마가 있을 때만 ctx 에 해당 키가 생기고 출력 타입을 가진다.
 // 스키마가 없으면 unknown 과의 교차라 기존 HandlerCtx 와 같다.
 type ValidatedCtx<
@@ -208,18 +236,13 @@ export function parseOrReject(
 ): { value: unknown } | null {
   const parsed = schema.safeParse(input);
   if (parsed.success) return { value: parsed.data };
-  sendError(
+  sendValidationFailed(
     res,
     shape,
-    400,
-    VALIDATION_FAILED_MESSAGE,
-    VALIDATION_FAILED_CODE,
-    {
-      errors: parsed.error.issues.map((issue) => ({
-        path: issue.path.map(String).join("."),
-        message: issue.message,
-      })),
-    },
+    parsed.error.issues.map((issue) => ({
+      path: issue.path.map(String).join("."),
+      message: issue.message,
+    })),
   );
   return null;
 }
@@ -468,6 +491,12 @@ export function defineHandler<
     } catch (error) {
       if (error instanceof QaBlockedError) {
         sendQaBlocked(res, opts.errorShape, error.code);
+        return;
+      }
+      if (error instanceof RouteParamError) {
+        sendValidationFailed(res, opts.errorShape, [
+          { path: error.path, message: error.message },
+        ]);
         return;
       }
       if (
