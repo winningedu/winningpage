@@ -37,6 +37,8 @@ export const routes: Record<string, RouteLoader> = {
   "admin/tenants/school-admin": () => import("./admin/tenants/school-admin.js"),
   "admin/tenants/school-admins": () =>
     import("./admin/tenants/school-admins.js"),
+  "admin/tenants/service-settings": () =>
+    import("./admin/tenants/service-settings.js"),
   "admin/tenants/student-usage": () =>
     import("./admin/tenants/student-usage.js"),
   "admin/web-analytics": () => import("./admin/web-analytics.js"),
