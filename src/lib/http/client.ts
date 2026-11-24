@@ -1,8 +1,37 @@
 // 브라우저 전용 HTTP 클라이언트. 재시도는 react-query가 맡으므로 ky retry 는 끈다.
 
-import ky from "ky";
+import ky, { isHTTPError } from "ky";
 import { supabase } from "../supabase";
 import { browserTimeZone, isValidTimeZone } from "../time/zone";
+import { type Problem, problemSchema } from "./problem";
+
+/** 화면이 다루는 실패는 이 에러 하나뿐이다. status 가 null 이면 서버 응답이 없었다는 뜻이다. */
+export class ApiError extends Error {
+  readonly status: number | null;
+  readonly code: string;
+  readonly detail: string;
+  readonly title?: string;
+  readonly supportCode: string | null;
+  readonly problem?: Problem;
+
+  constructor(init: {
+    status: number | null;
+    code: string;
+    detail: string;
+    title?: string;
+    supportCode?: string | null;
+    problem?: Problem;
+  }) {
+    super(init.detail);
+    this.name = "ApiError";
+    this.status = init.status;
+    this.code = init.code;
+    this.detail = init.detail;
+    this.title = init.title;
+    this.supportCode = init.supportCode ?? null;
+    this.problem = init.problem;
+  }
+}
 
 export const api = ky.create({
   prefix: "/api",
@@ -24,6 +53,26 @@ export const api = ky.create({
         const zone = browserTimeZone();
         if (!request.headers.has("X-Time-Zone") && isValidTimeZone(zone))
           request.headers.set("X-Time-Zone", zone);
+      },
+    ],
+    beforeError: [
+      ({ error }) => {
+        if (isHTTPError(error)) {
+          const parsed = problemSchema.safeParse(error.data);
+          if (parsed.success) {
+            const problem = parsed.data;
+            return new ApiError({
+              status: problem.status,
+              code: problem.code,
+              detail: problem.detail,
+              title: problem.title,
+              supportCode:
+                problem.instance ?? error.response.headers.get("x-vercel-id"),
+              problem,
+            });
+          }
+        }
+        return error;
       },
     ],
   },

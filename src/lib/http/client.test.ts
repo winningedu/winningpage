@@ -10,7 +10,7 @@ vi.mock("../supabase", () => ({
 
 import * as zone from "../time/zone";
 import { browserTimeZone } from "../time/zone";
-import { api } from "./client";
+import { ApiError, api } from "./client";
 
 // Node 의 Request 는 상대 URL 을 해석하지 못한다(브라우저는 location 기준으로 해석).
 // 브라우저 동작을 흉내 내려고 문서 주소를 기준으로 풀어 준다.
@@ -94,5 +94,43 @@ describe("api", () => {
     const spy = stubFetch();
     await api.get("x");
     expect(sentRequest(spy).headers.has("X-Time-Zone")).toBe(false);
+  });
+
+  test("problem 바디는 code, detail, supportCode(instance)를 가진 ApiError 가 된다", async () => {
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            type: "about:blank",
+            title: "Forbidden",
+            status: 403,
+            detail: "권한이 없어요.",
+            instance: "icn1::abc",
+            code: "FORBIDDEN",
+            errors: [{ path: "a", message: "b" }],
+          }),
+          {
+            status: 403,
+            headers: {
+              "content-type": "application/problem+json",
+              "x-vercel-id": "icn1::header",
+            },
+          },
+        ),
+    );
+    const error = await api.get("x").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      name: "ApiError",
+      status: 403,
+      code: "FORBIDDEN",
+      detail: "권한이 없어요.",
+      message: "권한이 없어요.",
+      title: "Forbidden",
+      supportCode: "icn1::abc",
+    });
+    expect((error as ApiError).problem?.errors).toEqual([
+      { path: "a", message: "b" },
+    ]);
   });
 });
