@@ -1,9 +1,9 @@
 // 지식 DB 관리 화면(엑셀 일괄 등록, 검색 테스트)이 부르는 서버 API 4종.
 // 모든 함수는 예외를 던지지 않는다. 실패도 ApiResult(apiResult.ts)로 돌려준다.
-//   중복 검사, 일괄 반영, 검색 테스트: coded 형식({ ok } 또는 { error: { message } })
-//   임베딩 backfill: admin-embed 의 detail 형식({ detail })
+// 실패 메시지는 서버가 준 problem 의 detail(ApiError)이다. 응답이 스키마와 다르면 그 예외 메시지다.
 
-import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
+import { z } from "zod";
+import { ApiError, api } from "@/lib/http/client";
 import type {
   DedupeItem,
   DedupeResult,
@@ -17,29 +17,16 @@ import type { ApiResult } from "./apiResult";
 import type { BackfillRound } from "./bulk/backfillLoop";
 import type { BulkRequest } from "./bulk/plan";
 
-type JsonReply = {
-  response: Response;
-  result: Record<string, unknown> | null;
-};
+// 서버 maxDuration(dedupe, admin-embed 60초, search 30초)보다 조금 길게 잡아 서버 응답을 기다린다.
+const DEDUPE_TIMEOUT_MS = 65_000;
+const EMBED_TIMEOUT_MS = 65_000;
+const SEARCH_TIMEOUT_MS = 35_000;
 
-// 세션 토큰 조회와 fetch 의 예외도 던지지 않고 그 메시지를 ok:false 로 돌려준다.
-async function postJson(
-  url: string,
-  body: unknown,
-): Promise<ApiResult<JsonReply>> {
+async function settle<T>(request: () => Promise<T>): Promise<ApiResult<T>> {
   try {
-    const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(body),
-    });
-    const result = await response.json().catch(() => null);
-    return { ok: true, data: { response, result } };
+    return { ok: true, data: await request() };
   } catch (error) {
+    if (error instanceof ApiError) return { ok: false, message: error.detail };
     return {
       ok: false,
       message: error instanceof Error ? error.message : String(error),
@@ -47,79 +34,67 @@ async function postJson(
   }
 }
 
-function failureMessage({ response, result }: JsonReply): string {
-  const error = result?.error as { message?: unknown } | undefined;
-  const message =
-    error?.message ??
-    result?.detail ??
-    `요청에 실패했습니다. (HTTP ${response.status})`;
-  return String(message);
-}
-
-/** coded 형식 응답. HTTP 상태와 본문 ok 가 모두 참이어야 성공이다. */
-async function postCoded(
-  url: string,
-  body: unknown,
-): Promise<ApiResult<Record<string, unknown>>> {
-  const reply = await postJson(url, body);
-  if (!reply.ok) return reply;
-  const { response, result } = reply.data;
-  if (!response.ok || !result?.ok)
-    return { ok: false, message: failureMessage(reply.data) };
-  return { ok: true, data: result };
-}
-
-/** detail 형식 응답. HTTP 상태만 본다. */
-async function postDetail(
-  url: string,
-  body: unknown,
-): Promise<ApiResult<Record<string, unknown>>> {
-  const reply = await postJson(url, body);
-  if (!reply.ok) return reply;
-  if (!reply.data.response.ok)
-    return { ok: false, message: failureMessage(reply.data) };
-  return { ok: true, data: reply.data.result ?? {} };
-}
+const dedupeSchema = z.object({
+  items: z.array(
+    z.object({
+      rowNo: z.number(),
+      exact: z.array(z.object({ id: z.string(), title: z.string() })),
+      near: z.array(
+        z.object({
+          id: z.string(),
+          title: z.string(),
+          similarity: z.number(),
+        }),
+      ),
+    }),
+  ),
+});
 
 export async function postKnowledgeDedupe(
   knowledgeType: string,
   items: DedupeItem[],
 ): Promise<ApiResult<DedupeResult[]>> {
-  const reply = await postCoded("/api/admin/knowledge-dedupe", {
-    knowledgeType,
-    items,
+  return settle(async () => {
+    const reply = await api
+      .post("admin/knowledge-dedupe", {
+        json: { knowledgeType, items },
+        timeout: DEDUPE_TIMEOUT_MS,
+      })
+      .json(dedupeSchema);
+    return reply.items;
   });
-  if (!reply.ok) return reply;
-  return { ok: true, data: reply.data.results as DedupeResult[] };
 }
 
-type BulkApplyResult = {
-  inserted: number;
-  updated: number;
-  ids: string[];
-};
+const bulkSchema = z.object({
+  inserted: z.number(),
+  updated: z.number(),
+  ids: z.array(z.string()),
+});
 
 export async function postKnowledgeBulk(
   request: BulkRequest,
-): Promise<ApiResult<BulkApplyResult>> {
-  const reply = await postCoded("/api/admin/knowledge-bulk", request);
-  if (!reply.ok) return reply;
-  const { inserted, updated, ids } = reply.data as BulkApplyResult;
-  return { ok: true, data: { inserted, updated, ids } };
+): Promise<ApiResult<z.infer<typeof bulkSchema>>> {
+  return settle(async () => {
+    const { inserted, updated, ids } = await api
+      .post("admin/knowledge-bulk", { json: request })
+      .json(bulkSchema);
+    return { inserted, updated, ids };
+  });
 }
 
+// admin-embed 는 batch B4 가 바꾸지만 embedded, failed 두 필드는 그대로 둔다.
+const backfillSchema = z.object({ embedded: z.number(), failed: z.number() });
+
 export async function postEmbedBackfill(): Promise<ApiResult<BackfillRound>> {
-  const reply = await postDetail("/api/performance/admin-embed", {
-    action: "backfill",
+  return settle(async () => {
+    const { embedded, failed } = await api
+      .post("performance/admin-embed", {
+        json: { action: "backfill" },
+        timeout: EMBED_TIMEOUT_MS,
+      })
+      .json(backfillSchema);
+    return { embedded, failed };
   });
-  if (!reply.ok) return reply;
-  return {
-    ok: true,
-    data: {
-      embedded: Number(reply.data.embedded ?? 0),
-      failed: Number(reply.data.failed ?? 0),
-    },
-  };
 }
 
 export type SearchPreviewResult = {
@@ -131,22 +106,40 @@ export type SearchPreviewResult = {
   items: SearchPreviewItem[];
 };
 
+const searchSchema = z.object({
+  mode: z.enum(["vector", "hybrid"]),
+  threshold: z.number(),
+  queryText: z.string(),
+  keywordQuery: z.string().nullable(),
+  items: z.array(
+    z.looseObject({
+      rank: z.number(),
+      id: z.string(),
+      title: z.string(),
+      grade: z.string(),
+      subject: z.string(),
+      career_field: z.string(),
+      similarity: z.number(),
+      passesThreshold: z.boolean(),
+      wouldBeInjected: z.boolean(),
+      semanticRank: z.number().nullish(),
+      keywordRank: z.number().nullish(),
+      rrfScore: z.number().nullish(),
+    }),
+  ),
+});
+
 export async function postSearchPreview(
   body: Omit<SearchPreviewBody, "includeOtherSubjects" | "limit" | "mode"> &
     Partial<Pick<SearchPreviewBody, "includeOtherSubjects" | "limit" | "mode">>,
 ): Promise<ApiResult<SearchPreviewResult>> {
-  const reply = await postCoded("/api/admin/knowledge-search", body);
-  if (!reply.ok) return reply;
-  const result = reply.data;
-  return {
-    ok: true,
-    data: {
-      mode: result.mode === "vector" ? "vector" : "hybrid",
-      threshold: Number(result.threshold),
-      queryText: String(result.queryText ?? ""),
-      keywordQuery:
-        typeof result.keywordQuery === "string" ? result.keywordQuery : null,
-      items: result.items as SearchPreviewItem[],
-    },
-  };
+  return settle(async () => {
+    const reply = await api
+      .post("admin/knowledge-search", {
+        json: body,
+        timeout: SEARCH_TIMEOUT_MS,
+      })
+      .json(searchSchema);
+    return reply as SearchPreviewResult;
+  });
 }
