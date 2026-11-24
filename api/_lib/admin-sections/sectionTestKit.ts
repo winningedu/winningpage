@@ -162,7 +162,7 @@ class Builder {
       }
     }
     const count = this.call.count ? total : null;
-    if (op === "delete" || (op !== "select" && !this.returning)) {
+    if (op !== "select" && !this.returning) {
       return { data: null, error: null, count };
     }
     if (this.mode === "many") return { data: affected, error: null, count };

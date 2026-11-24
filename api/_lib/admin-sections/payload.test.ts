@@ -20,6 +20,7 @@ describe("buildPayload", () => {
     const entry = {
       ...SECTIONS.faqs,
       listOnlyColumns: ["extra"],
+      columns: ["question", "extra"],
       writable: ["question", "extra"],
     };
     expect(buildPayload(entry, { question: "q", extra: 1 })).toEqual({
@@ -37,6 +38,36 @@ describe("buildPayload", () => {
       ok: true,
       payload: { title: "a" },
     });
+  });
+
+  test("실제 컬럼이지만 폼이 만들지 않는 키는 조용히 버린다", () => {
+    // 수정 폼은 행 전체 스냅샷을 보내므로 거절하지 않고 쓰지 않는다.
+    expect(
+      buildPayload(SECTIONS.refundRequests, {
+        admin_memo: "메모",
+        approval_status: "approved",
+        gross_amount: 1,
+      }),
+    ).toEqual({ ok: true, payload: { admin_memo: "메모" } });
+  });
+
+  test("지식 DB 의 embedding, search_text 는 버리고 고정 값 키는 받는다", () => {
+    expect(
+      buildPayload(
+        SECTIONS.winningSuhaengTopicDb,
+        { title: "t", embedding: "[1]", search_text: "s" },
+        { fixed: true },
+      ),
+    ).toEqual({
+      ok: true,
+      payload: { title: "t", knowledge_type: "topic_pattern" },
+    });
+  });
+
+  test("테이블에 없는 키는 writable 에 적혀 있지 않으면 계속 거절한다", () => {
+    expect(
+      buildPayload(SECTIONS.refundRequests, { admin_memo: "m", nope: 1 }),
+    ).toEqual({ ok: false, unknownKeys: ["nope"] });
   });
 
   test("알 수 없는 키는 거절하고 키 목록을 돌려준다", () => {
