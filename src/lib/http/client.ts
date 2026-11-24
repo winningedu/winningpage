@@ -71,6 +71,13 @@ export const api = ky.create({
               problem,
             });
           }
+          // 옛 에러 모양, HTML, 빈 바디는 상태 코드만 믿는다.
+          return new ApiError({
+            status: error.response.status,
+            code: `HTTP_${error.response.status}`,
+            detail: "요청을 처리하지 못했어요.",
+            supportCode: error.response.headers.get("x-vercel-id"),
+          });
         }
         return error;
       },

@@ -133,4 +133,25 @@ describe("api", () => {
       { path: "a", message: "b" },
     ]);
   });
+
+  test("problem 이 아닌 500 은 HTTP_500 과 응답 헤더 supportCode 로 변환된다", async () => {
+    stubFetch(
+      async () =>
+        new Response("<html>oops</html>", {
+          status: 500,
+          headers: {
+            "content-type": "text/html",
+            "x-vercel-id": "icn1::hdr",
+          },
+        }),
+    );
+    const error = await api.get("x").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      status: 500,
+      code: "HTTP_500",
+      detail: "요청을 처리하지 못했어요.",
+      supportCode: "icn1::hdr",
+    });
+  });
 });
