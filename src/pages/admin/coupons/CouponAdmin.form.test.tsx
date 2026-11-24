@@ -111,7 +111,7 @@ test("소속 선택지는 목록 응답의 tenants 로 채운다", async () => {
 });
 
 test("수정 주소를 새로고침해도 쿠폰을 id 로 받아 폼을 채운다", async () => {
-  on("GET", "admin/coupons/detail", {
+  on("GET", "admin/coupons/c1", {
     ...couponRow,
     title: "서버에서 받은 이름",
   });
@@ -119,11 +119,7 @@ test("수정 주소를 새로고침해도 쿠폰을 id 로 받아 폼을 채운�
 
   expect(await screen.findByDisplayValue("서버에서 받은 이름")).toBeVisible();
   expect(screen.getByDisplayValue("gift-1")).toBeVisible();
-  expect(
-    callsTo("GET", "admin/coupons/detail")[0]?.options.searchParams,
-  ).toEqual({
-    id: "c1",
-  });
+  expect(callsTo("GET", "admin/coupons/c1")).toHaveLength(1);
 });
 
 test("등록 저장은 payload 를 POST 하고 목록으로 돌아온다", async () => {
@@ -157,9 +153,9 @@ test("등록 저장은 payload 를 POST 하고 목록으로 돌아온다", async
   );
 });
 
-test("수정 저장은 id 를 query 로 PATCH 한다", async () => {
-  on("GET", "admin/coupons/detail", couponRow);
-  on("PATCH", "admin/coupons/detail", couponRow);
+test("수정 저장은 id 를 경로로 PATCH 한다", async () => {
+  on("GET", "admin/coupons/c1", couponRow);
+  on("PATCH", "admin/coupons/c1", couponRow);
   const { router } = renderCoupons("/admin/coupons/c1/edit");
   const title = await screen.findByRole("textbox", { name: "쿠폰 이름" });
   fireEvent.change(title, { target: { value: "바뀐 이름" } });
@@ -168,8 +164,8 @@ test("수정 저장은 id 를 query 로 PATCH 한다", async () => {
   await waitFor(() =>
     expect(router.state.location.pathname).toBe("/admin/coupons"),
   );
-  const patch = callsTo("PATCH", "admin/coupons/detail")[0];
-  expect(patch?.options.searchParams).toEqual({ id: "c1" });
+  const patch = callsTo("PATCH", "admin/coupons/c1")[0];
+  expect(patch).toBeDefined();
   expect(patch?.options.json).toMatchObject({
     title: "바뀐 이름",
     slug: "gift-1",
@@ -207,8 +203,8 @@ test("저장 오류 코드는 예전 문구로 보인다", async () => {
 });
 
 test("수정 저장이 실패하면 제목은 수정 실패다", async () => {
-  on("GET", "admin/coupons/detail", couponRow);
-  on("PATCH", "admin/coupons/detail", () => {
+  on("GET", "admin/coupons/c1", couponRow);
+  on("PATCH", "admin/coupons/c1", () => {
     throw new FakeApiError(409, "COUPON_DUPLICATE");
   });
   renderCoupons("/admin/coupons/c1/edit");

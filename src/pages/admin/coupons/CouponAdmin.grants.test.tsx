@@ -35,7 +35,7 @@ beforeEach(() => {
   resetApi();
   grants = [grant];
   on("GET", "admin/coupons", listBody());
-  on("GET", "admin/coupons/detail", couponRow);
+  on("GET", "admin/coupons/c1", couponRow);
   on("GET", "admin/coupons/grants", () => ({ items: grants }));
   on("GET", "admin/coupons/user-search", { items: found });
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -65,11 +65,7 @@ test("새로고침한 발급 주소가 쿠폰 머리글과 발급 목록을 id �
 
   expect(await screen.findByText("홍길동")).toBeVisible();
   expect(screen.getByText("gift-1")).toBeVisible();
-  expect(
-    callsTo("GET", "admin/coupons/detail")[0]?.options.searchParams,
-  ).toEqual({
-    id: "c1",
-  });
+  expect(callsTo("GET", "admin/coupons/c1")).toHaveLength(1);
   expect(
     callsTo("GET", "admin/coupons/grants")[0]?.options.searchParams,
   ).toEqual({

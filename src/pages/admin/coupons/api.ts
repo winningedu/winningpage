@@ -135,10 +135,7 @@ export function useCoupon(id: string | undefined) {
     gcTime: 0,
     queryFn: ({ signal }) =>
       api
-        .get("admin/coupons/detail", {
-          searchParams: { id: id ?? "" },
-          signal,
-        })
+        .get(`admin/coupons/${encodeURIComponent(id ?? "")}`, { signal })
         .json(couponSchema),
   });
 }
@@ -253,8 +250,7 @@ export function useSaveCoupon(id: string | undefined) {
       id === undefined
         ? api.post("admin/coupons", { json: payload }).json(couponSchema)
         : api
-            .patch("admin/coupons/detail", {
-              searchParams: { id },
+            .patch(`admin/coupons/${encodeURIComponent(id)}`, {
               json: payload,
             })
             .json(couponSchema),

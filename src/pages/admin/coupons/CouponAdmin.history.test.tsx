@@ -31,7 +31,7 @@ beforeEach(() => {
   resetApi();
   rows = [redemption];
   on("GET", "admin/coupons", listBody());
-  on("GET", "admin/coupons/detail", couponRow);
+  on("GET", "admin/coupons/c1", couponRow);
   on("GET", "admin/coupons/redemptions", () => ({ items: rows }));
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -65,11 +65,7 @@ test("새로고침한 이력 주소가 쿠폰 머리글과 사용 이력을 id �
   expect(await screen.findByText("홍길동")).toBeVisible();
   expect(screen.getByText("gift-1")).toBeVisible();
   expect(screen.getByText("order-1")).toBeVisible();
-  expect(
-    callsTo("GET", "admin/coupons/detail")[0]?.options.searchParams,
-  ).toEqual({
-    id: "c1",
-  });
+  expect(callsTo("GET", "admin/coupons/c1")).toHaveLength(1);
   expect(
     callsTo("GET", "admin/coupons/redemptions")[0]?.options.searchParams,
   ).toEqual({ couponId: "c1" });

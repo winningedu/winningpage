@@ -1,7 +1,7 @@
-// GET, PATCH /api/admin/coupons/detail?id=<uuid>
+// GET, PATCH /api/admin/coupons/:id
 //
 // GET: 쿠폰 한 건. PATCH: 같은 본문(CouponPayload)으로 전체 수정. 없는 id 는 404 NOT_FOUND.
-// 경로 파라미터를 쓰지 않는 라우팅이라 id 는 쿼리로 받는다. 저장 제약 위반은 sendCouponSaveError 가 409, 422 로 바꾼다.
+// id 는 경로 구간이고 dispatch 가 req.query.id 에 담는다(uuid 가 아니면 400). 저장 제약 위반은 sendCouponSaveError 가 409, 422 로 바꾼다.
 // 권한: 메뉴 coupons(GET view, PATCH edit).
 
 import { z } from "zod";
@@ -18,7 +18,7 @@ export default defineHandler({
   errorShape: "problem",
   permission: { key: "coupons" },
   unhandledMessage: "쿠폰을 처리하지 못했어요.",
-  logLabel: "[admin/coupons/detail]",
+  logLabel: "[admin/coupons/id]",
   query: z.object({ id: z.uuid() }),
   handler: async (req, res, ctx) => {
     const { id } = ctx.query;

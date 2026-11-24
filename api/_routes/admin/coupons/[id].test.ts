@@ -1,4 +1,4 @@
-// GET, PATCH /api/admin/coupons/detail?id= 계약 검증. 쿠폰 한 건 조회와 수정.
+// GET, PATCH /api/admin/coupons/:id 계약 검증. 쿠폰 한 건 조회와 수정.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -29,7 +29,7 @@ vi.mock("../../../_lib/supabaseUser.js", () => ({
   },
 }));
 
-import handler from "./detail.js";
+import handler from "./[id].js";
 
 const ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 
@@ -72,7 +72,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("GET /api/admin/coupons/detail", () => {
+describe("GET /api/admin/coupons/:id", () => {
   const get = (query: Record<string, string> = { id: ID }) =>
     callRoute(handler, { query });
 
@@ -121,7 +121,7 @@ describe("GET /api/admin/coupons/detail", () => {
   });
 });
 
-describe("PATCH /api/admin/coupons/detail", () => {
+describe("PATCH /api/admin/coupons/:id", () => {
   const patch = (body: unknown = PAYLOAD, query = { id: ID }) =>
     callRoute(handler, { method: "PATCH", query, body });
 
