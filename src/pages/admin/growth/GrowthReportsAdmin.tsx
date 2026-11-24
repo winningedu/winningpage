@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { supabase } from "@/lib/supabase";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
 import {
   ActionButton,
@@ -23,8 +32,14 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import {
+  type StudentSearchItem,
+  studentSearchQueryOptions,
+} from "@/pages/admin/shared/studentSearch";
+import {
+  fetchGrowthReport,
   fetchGrowthReports,
-  type GrowthReportsPage,
+  growthErrorText,
+  growthReportKeys,
   postGrowthGrant,
   postGrowthRecover,
 } from "./api";
@@ -33,11 +48,8 @@ import {
   type GrantFormValues,
   validateGrantForm,
 } from "./grantForm";
-import {
-  buildGrowthReportsSearch,
-  growthReportsQueryReducer,
-  initialGrowthReportsQuery,
-} from "./query";
+import { GROWTH_REPORTS_PATH } from "./paths";
+import { parseGrowthReportsParams, patchGrowthReportsParams } from "./query";
 import {
   canRecover,
   GROWTH_STATUS_OPTIONS,
@@ -48,8 +60,6 @@ import {
   terminalLabel,
 } from "./row";
 
-const STUDENT_SEARCH_LIMIT = 20;
-
 function formatDate(value?: string | null) {
   if (!value) return "-";
   const d = new Date(value);
@@ -57,44 +67,57 @@ function formatDate(value?: string | null) {
   return d.toLocaleDateString("ko-KR");
 }
 
-type StudentRow = { id: string; name: string | null; email: string | null };
-
 interface Props {
   config: { title: string; [key: string]: unknown };
 }
 
+// 섹션 라우트가 growthReports/* 라 아래 Routes 가 나머지 경로를 맡는다. 목록과 상세는 같은 화면이라
+// :id 가 있든 없든 한 엘리먼트로 그려 목록이 다시 마운트되지 않는다.
 export default function GrowthReportsAdmin({ config }: Props) {
-  const [query, dispatch] = useReducer(
-    growthReportsQueryReducer,
-    initialGrowthReportsQuery,
+  return (
+    <Routes>
+      <Route path=":id?" element={<GrowthReportsScreen config={config} />} />
+      <Route path="*" element={<Navigate to={GROWTH_REPORTS_PATH} replace />} />
+    </Routes>
   );
-  const [data, setData] = useState<GrowthReportsPage | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [selected, setSelected] = useState<GrowthReportItem | null>(null);
+}
+
+function GrowthReportsScreen({ config }: Props) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { search } = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const params = parseGrowthReportsParams(searchParams);
+  // 입력 중인 검색어. 조회를 눌러야 주소에 반영된다.
+  const [draft, setDraft] = useState(params.q);
   const [grantOpen, setGrantOpen] = useState(false);
 
-  const search = buildGrowthReportsSearch(query);
+  // 뒤로가기로 q 가 바뀌면 입력칸도 맞춘다.
+  useEffect(() => setDraft(params.q), [params.q]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    const result = await fetchGrowthReports(search);
-    setLoading(false);
-    if (!result.ok) {
-      setError(result.message);
-      setData(null);
-      return;
-    }
-    setData(result.data);
-  }, [search]);
+  const listQuery = useQuery({
+    queryKey: growthReportKeys.list(params),
+    queryFn: ({ signal }) => fetchGrowthReports(params, signal),
+  });
+  const detailQuery = useQuery({
+    queryKey: growthReportKeys.detail(id ?? ""),
+    queryFn: ({ signal }) => fetchGrowthReport(id ?? "", signal),
+    enabled: id !== undefined,
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
+  const data = listQuery.data;
+  const loading = listQuery.isPending;
+  const error = listQuery.error ? growthErrorText(listQuery.error) : "";
   const total = data?.total ?? 0;
-  const lastPage = Math.max(1, Math.ceil(total / query.pageSize));
+  const lastPage = Math.max(1, Math.ceil(total / params.pageSize));
+
+  // 상세는 목록 조건을 달고 오가서 닫거나 뒤로 가면 같은 목록이 열린다.
+  const openDetail = (reportId: string) =>
+    navigate({
+      pathname: `${GROWTH_REPORTS_PATH}/${encodeURIComponent(reportId)}`,
+      search,
+    });
+  const closeDetail = () => navigate({ pathname: GROWTH_REPORTS_PATH, search });
 
   return (
     <div>
@@ -104,14 +127,20 @@ export default function GrowthReportsAdmin({ config }: Props) {
             className="flex flex-wrap items-end gap-3"
             onSubmit={(e) => {
               e.preventDefault();
-              dispatch({ type: "submit" });
+              setSearchParams((prev) =>
+                patchGrowthReportsParams(prev, { q: draft.trim() }),
+              );
             }}
           >
             <div className="w-[10rem]">
               <Field label="상태">
                 <Select
-                  value={query.status}
-                  onChange={(status) => dispatch({ type: "setStatus", status })}
+                  value={params.status}
+                  onChange={(status) =>
+                    setSearchParams((prev) =>
+                      patchGrowthReportsParams(prev, { status }),
+                    )
+                  }
                 >
                   <option value="">전체</option>
                   {GROWTH_STATUS_OPTIONS.map((s) => (
@@ -125,8 +154,8 @@ export default function GrowthReportsAdmin({ config }: Props) {
             <div className="w-[15rem]">
               <Field label="검색어">
                 <TextInput
-                  value={query.draft}
-                  onChange={(draft) => dispatch({ type: "setDraft", draft })}
+                  value={draft}
+                  onChange={setDraft}
                   placeholder="이름 또는 이메일"
                 />
               </Field>
@@ -199,7 +228,7 @@ export default function GrowthReportsAdmin({ config }: Props) {
                 data.items.map((row) => (
                   <TableRow
                     key={row.id}
-                    onClick={() => setSelected(row)}
+                    onClick={() => openDetail(row.id)}
                     className="cursor-pointer border-b border-gray-100"
                   >
                     <TableCell className="whitespace-normal px-3 py-3">
@@ -207,7 +236,7 @@ export default function GrowthReportsAdmin({ config }: Props) {
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          setSelected(row);
+                          openDetail(row.id);
                         }}
                         className="text-left font-medium underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
                       >
@@ -245,21 +274,24 @@ export default function GrowthReportsAdmin({ config }: Props) {
           </Table>
 
           <AdminPagination
-            page={query.page}
+            page={params.page}
             totalPages={lastPage}
-            onPageChange={(page) => dispatch({ type: "setPage", page })}
+            onPageChange={(page) =>
+              setSearchParams((prev) =>
+                patchGrowthReportsParams(prev, { page }),
+              )
+            }
           />
         </div>
       )}
 
       <ReportDetailDialog
-        key={selected?.id ?? "none"}
-        row={selected}
-        onClose={() => setSelected(null)}
-        onRecovered={() => {
-          setSelected(null);
-          load();
-        }}
+        key={id ?? "none"}
+        open={id !== undefined}
+        row={detailQuery.data ?? null}
+        loading={detailQuery.isPending}
+        error={detailQuery.error ? growthErrorText(detailQuery.error) : ""}
+        onClose={closeDetail}
       />
       <GrantDialog open={grantOpen} onClose={() => setGrantOpen(false)} />
     </div>
@@ -267,34 +299,34 @@ export default function GrowthReportsAdmin({ config }: Props) {
 }
 
 function ReportDetailDialog({
+  open,
   row,
+  loading,
+  error,
   onClose,
-  onRecovered,
 }: {
+  open: boolean;
   row: GrowthReportItem | null;
+  loading: boolean;
+  error: string;
   onClose: () => void;
-  onRecovered: () => void;
 }) {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { search } = useLocation();
   const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-
-  async function recover() {
-    if (!row || busy) return;
-    setBusy(true);
-    setMessage("");
-    const result = await postGrowthRecover(row.id);
-    setBusy(false);
-    if (!result.ok) {
-      setMessage(result.message);
-      return;
-    }
-    onRecovered();
-  }
+  const recover = useMutation({
+    mutationFn: postGrowthRecover,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: growthReportKeys.all });
+      navigate({ pathname: GROWTH_REPORTS_PATH, search });
+    },
+  });
+  const busy = recover.isPending;
 
   return (
     <Dialog
-      open={row !== null}
+      open={open}
       disablePointerDismissal
       onOpenChange={(open, eventDetails) => {
         if (open) return;
@@ -307,7 +339,28 @@ function ReportDetailDialog({
       }}
     >
       <DialogContent className="sm:max-w-[32rem]">
-        {row && (
+        {!row ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>회차 상세</DialogTitle>
+              <DialogDescription className="sr-only">
+                성장설계 회차 상세
+              </DialogDescription>
+            </DialogHeader>
+            {loading ? (
+              <div role="status" className="text-sm font-medium text-gray-500">
+                데이터를 불러오는 중입니다.
+              </div>
+            ) : (
+              <div
+                role="alert"
+                className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-600"
+              >
+                {error}
+              </div>
+            )}
+          </>
+        ) : (
           <>
             <DialogHeader>
               <DialogTitle>
@@ -338,12 +391,12 @@ function ReportDetailDialog({
               {row.terminal ? ` (${formatDate(row.terminal.at)})` : ""}
             </div>
 
-            {message && (
+            {recover.error && (
               <div
                 role="alert"
                 className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-600"
               >
-                {message}
+                {growthErrorText(recover.error)}
               </div>
             )}
 
@@ -351,7 +404,10 @@ function ReportDetailDialog({
               (confirming ? (
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <span>새 회차를 만들어 복구합니다. 진행할까요?</span>
-                  <ActionButton onClick={recover} disabled={busy}>
+                  <ActionButton
+                    onClick={() => recover.mutate(row.id)}
+                    disabled={busy}
+                  >
                     {busy ? "처리 중..." : "확인"}
                   </ActionButton>
                   <ActionButton
@@ -386,48 +442,46 @@ function GrantDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const queryClient = useQueryClient();
   const [userQuery, setUserQuery] = useState("");
-  const [results, setResults] = useState<StudentRow[] | null>(null);
-  const [student, setStudent] = useState<StudentRow | null>(null);
+  // 검색 버튼을 눌러 확정한 검색어. 입력 중에는 요청하지 않는다.
+  const [term, setTerm] = useState("");
+  const [student, setStudent] = useState<StudentSearchItem | null>(null);
   const [sessionQuota, setSessionQuota] = useState("");
   const [months, setMonths] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
+  const [formMessage, setFormMessage] = useState("");
   const [resultText, setResultText] = useState("");
+  const search = useQuery(studentSearchQueryOptions("growthReports", term));
+  const grant = useMutation({
+    mutationFn: postGrowthGrant,
+    onSuccess: (result) => {
+      setResultText(JSON.stringify(result.quota));
+      void queryClient.invalidateQueries({ queryKey: growthReportKeys.all });
+    },
+  });
+  const busy = grant.isPending;
+  const results = search.isError ? [] : (search.data?.items ?? null);
+  const message =
+    formMessage ||
+    (search.isError
+      ? "학생 조회에 실패했습니다."
+      : grant.error
+        ? growthErrorText(grant.error)
+        : "");
 
   useEffect(() => {
     if (open) return;
     setUserQuery("");
-    setResults(null);
+    setTerm("");
     setStudent(null);
     setSessionQuota("");
     setMonths("");
-    setMessage("");
+    setFormMessage("");
     setResultText("");
-  }, [open]);
+    grant.reset();
+  }, [open, grant.reset]);
 
-  async function searchStudents() {
-    // PostgREST or 필터는 콤마와 괄호로 절을 구분하므로 검색어에서 걷어낸다.
-    const q = userQuery.trim().replace(/[,()*"\\]/g, "");
-    if (!q) {
-      setResults(null);
-      return;
-    }
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, name, email")
-      .or(`email.ilike.%${q}%,name.ilike.%${q}%`)
-      .limit(STUDENT_SEARCH_LIMIT);
-    if (error) {
-      console.error(error);
-      setMessage("학생 조회에 실패했습니다.");
-      setResults([]);
-      return;
-    }
-    setResults(data || []);
-  }
-
-  async function submit() {
+  function submit() {
     if (busy) return;
     const values: GrantFormValues = {
       profileId: student?.id ?? "",
@@ -436,18 +490,11 @@ function GrantDialog({
     };
     const invalid = validateGrantForm(values);
     if (invalid) {
-      setMessage(invalid);
+      setFormMessage(invalid);
       return;
     }
-    setBusy(true);
-    setMessage("");
-    const result = await postGrowthGrant(buildGrantBody(values));
-    setBusy(false);
-    if (!result.ok) {
-      setMessage(result.message);
-      return;
-    }
-    setResultText(JSON.stringify(result.data.quota));
+    setFormMessage("");
+    grant.mutate(buildGrantBody(values));
   }
 
   return (
@@ -480,7 +527,14 @@ function GrantDialog({
               />
             </Field>
           </div>
-          <ActionButton onClick={searchStudents}>검색</ActionButton>
+          <ActionButton
+            onClick={() => {
+              setFormMessage("");
+              setTerm(userQuery);
+            }}
+          >
+            검색
+          </ActionButton>
         </div>
 
         {results && (
