@@ -1,6 +1,6 @@
 // 쿠폰 화면의 서버 호출. 응답 모양은 zod 로 검증하고, 조회는 react-query 키로 묶는다.
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { z } from "zod";
 import { ApiError, api } from "@/lib/http/client";
@@ -47,13 +47,65 @@ const couponListSchema = z.object({
 export const couponKeys = {
   all: ["admin", "coupons"] as const,
   list: () => [...couponKeys.all, "list"] as const,
+  detail: (id: string) => [...couponKeys.all, "detail", id] as const,
 };
+
+// 서버 CouponPayload 와 같은 모양. 검사는 화면(validateForm)과 서버 zod 가 각자 한다.
+export interface CouponPayload {
+  slug: string;
+  code: string | null;
+  tenant_id: string | null;
+  title: string;
+  discount_amount: number;
+  min_amount: number;
+  is_active: boolean;
+  stackable: boolean;
+  grant_type: string;
+  grant_on_signup: boolean;
+  valid_until: string | null;
+  max_uses_per_user: number | null;
+  max_redemptions: number | null;
+}
 
 export function useCouponList() {
   return useQuery({
     queryKey: couponKeys.list(),
     queryFn: ({ signal }) =>
       api.get("admin/coupons", { signal }).json(couponListSchema),
+  });
+}
+
+/** 쿠폰 한 건. id 가 없으면 요청하지 않는다. 새로고침과 수정 폼이 늘 서버 값을 보도록 캐시하지 않는다. */
+export function useCoupon(id: string | undefined) {
+  return useQuery({
+    queryKey: couponKeys.detail(id ?? ""),
+    enabled: id !== undefined,
+    gcTime: 0,
+    queryFn: ({ signal }) =>
+      api
+        .get("admin/coupons/detail", {
+          searchParams: { id: id ?? "" },
+          signal,
+        })
+        .json(couponSchema),
+  });
+}
+
+/** 등록(id 없음)과 수정. 저장하면 목록을 다시 받는다. */
+export function useSaveCoupon(id: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CouponPayload) =>
+      id === undefined
+        ? api.post("admin/coupons", { json: payload }).json(couponSchema)
+        : api
+            .patch("admin/coupons/detail", {
+              searchParams: { id },
+              json: payload,
+            })
+            .json(couponSchema),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: couponKeys.list() }),
   });
 }
 
