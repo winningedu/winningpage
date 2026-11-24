@@ -1,23 +1,18 @@
-// goal_university_cuts 백필(H-2) — 소스 조회 + 순수 집계.
+// goal_university_cuts 백필(H-2) — 순수 집계.
 //
-// Admin.jsx(어드민 미리보기 패널)와 scripts/run-goal-cuts-backfill.mjs(1회
-// 실행 백필 스크립트) 양쪽이 이 모듈을 공유한다. **로직을 두 곳에 복제하지
+// 서버(api/_lib/goal/cutBackfill.ts)와 scripts/run-goal-cuts-backfill.mjs(1회
+// 실행 백필 스크립트)가 이 모듈을 공유한다. **로직을 두 곳에 복제하지
 // 않는다** — 복제하면 두 경로의 산출이 갈라지는 드리프트가 생긴다.
-//
-// React/JSX 의존 없는 순수 모듈이다. supabase 클라이언트는 인자로
-// 주입받는다(호출부가 anon 키든 service role 이든 자유롭게 고르도록).
+// 소스 조회는 DB 접근이라 서버 모듈로 옮겼다. 이 파일은 DB 를 만지지 않는다.
 
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeUniversityName } from "./universityNameNormalize.js";
-
-const GOAL_BACKFILL_SOURCE_TABLE = "admission_results";
 
 // 🔴 백필 소스 필터의 핵심 축. 기회균형·농어촌·지역인재·특성화고·특수교육은
 // **지원 자격이 제한된 전형**이라 일반 학생 기준으로 쓰면 컷이 비현실적으로
 // 완화된다. 반면 추천형(학교장추천 등)은 자격제한 전형이 아니고, 일반·교과와
 // 둘 다 있는 쌍의 평균 차이가 +0.059등급으로 사실상 동일하다 — 배제하면
 // 762쌍이 종합 컷으로 폴백돼 normal 컷이 오히려 느슨해진다(명세 §3-D3).
-const GOAL_BACKFILL_SCREENING_CATEGORIES = ["일반", "추천형"];
+export const GOAL_BACKFILL_SCREENING_CATEGORIES = ["일반", "추천형"];
 
 export type GoalBackfillYearMode = "prefer2026" | "only2026" | "only2025";
 
@@ -30,12 +25,7 @@ export const GOAL_BACKFILL_YEAR_MODES: {
   { value: "only2025", label: "2025만" },
 ];
 
-// PostgREST 기본 응답 상한과 맞춘 읽기 청크. Admin.jsx 의 GOAL_CUTS_READ_CHUNK
-// 와 같은 값이지만, 이 모듈은 React 화면의 다른 테이블 페이지네이션과
-// 무관해 독립 상수로 둔다(같은 상수를 억지로 공유하면 결합만 늘어난다).
-const BACKFILL_READ_CHUNK = 1000;
-
-// admission_results 소스 행 — buildBackfillSourceQuery 의 select 절
+// admission_results 소스 행 — 서버 cutBackfill.ts 의 소스 조회 select 절
 // "university_name, department_name, main_track, grade_70, result_year" 그대로.
 export interface GoalBackfillSourceRow {
   university_name: string | null;
@@ -43,69 +33,6 @@ export interface GoalBackfillSourceRow {
   main_track: string | null;
   grade_70: number | string | null;
   result_year: number | string | null;
-}
-
-// client: supabase-js 클라이언트 인스턴스(호출부 주입 — Admin.jsx 는 anon
-// 키 클라이언트, 백필 스크립트는 service role 클라이언트를 넘긴다). createClient()가
-// Database 제네릭 없이 생성돼 SupabaseClient<any>로 흘러온다(src/lib/supabase.ts와
-// admissionSettings.ts의 SupabaseClient 인자 전제와 동일).
-function buildBackfillSourceQuery(
-  client: SupabaseClient,
-  yearMode: GoalBackfillYearMode,
-  options: { head?: boolean } = {},
-) {
-  // select() 오버로드가 (columns, options) 고정 자리라 삼항식으로 인자 배열을 만들어
-  // 스프레드하면(원래 JS 형태) 유니온 배열이 되어 타입이 안 좁혀진다 — 같은 결과를
-  // 내는 두 분기 호출로 풀어 쓴다(런타임 동작은 원본과 동일).
-  let query = options.head
-    ? client
-        .from(GOAL_BACKFILL_SOURCE_TABLE)
-        .select("university_name", { count: "exact", head: true })
-    : client
-        .from(GOAL_BACKFILL_SOURCE_TABLE)
-        .select(
-          "university_name, department_name, main_track, grade_70, result_year",
-        );
-  query = query
-    .eq("is_active", true)
-    // percentile 은 0행이라 쓸 수 없다. grade_70 이 유일한 소스이고,
-    // [1, 9] 밖 값은 goal_university_cuts 의 CHECK 를 위반한다.
-    .gte("grade_70", 1)
-    .lte("grade_70", 9)
-    .in("screening_category", GOAL_BACKFILL_SCREENING_CATEGORIES);
-  if (yearMode === "only2026") query = query.eq("result_year", 2026);
-  else if (yearMode === "only2025") query = query.eq("result_year", 2025);
-  else query = query.in("result_year", [2025, 2026]);
-  return query;
-}
-
-export async function fetchBackfillSourceRows(
-  client: SupabaseClient,
-  yearMode: GoalBackfillYearMode,
-  onProgress?: (progress: { done: number; total: number }) => void,
-): Promise<GoalBackfillSourceRow[]> {
-  const { count, error: countError } = await buildBackfillSourceQuery(
-    client,
-    yearMode,
-    { head: true },
-  );
-  if (countError) throw new Error(countError.message);
-  const total = count ?? 0;
-  const all: GoalBackfillSourceRow[] = [];
-  for (let from = 0; from < total; from += BACKFILL_READ_CHUNK) {
-    const { data, error } = await buildBackfillSourceQuery(client, yearMode)
-      // 정렬 없이 .range() 만 반복하면 페이지 경계에서 행이 중복·누락된다.
-      .order("id", { ascending: true })
-      .range(from, from + BACKFILL_READ_CHUNK - 1);
-    if (error) throw new Error(error.message);
-    if (!data || data.length === 0) break;
-    // buildBackfillSourceQuery()는 head 조회(count만)와 본조회(전체 컬럼) 두 갈래를
-    // 한 함수로 표현해 반환 타입이 두 shape의 유니온이다 — 이 호출은 항상 head:false라
-    // 전체 컬럼 shape임을 알고 있으므로 여기서만 단언한다.
-    all.push(...(data as GoalBackfillSourceRow[]));
-    onProgress?.({ done: all.length, total });
-  }
-  return all;
 }
 
 function goalCutAverage(values: number[]): number | null {
@@ -395,59 +322,13 @@ export function computeGoalCutBackfill(
 //   - 같은 (쌍, 연도)에 행이 여럿이면 평균(소수 2자리, goalCutAverage 재사용).
 // ---------------------------------------------------------------------------
 
-const GOAL_JUNGSI_BACKFILL_SOURCE_TABLE = "admission_results";
-
-// admission_results 소스 행 — buildJungsiBackfillSourceQuery 의 select 절
+// admission_results 소스 행 — 서버 cutBackfill.ts 의 정시 소스 조회 select 절
 // "university_name, department_name, percentile, result_year" 그대로.
 export interface GoalJungsiBackfillSourceRow {
   university_name: string | null;
   department_name: string | null;
   percentile: number | string | null;
   result_year: number | string | null;
-}
-
-function buildJungsiBackfillSourceQuery(
-  client: SupabaseClient,
-  options: { head?: boolean } = {},
-) {
-  const query = options.head
-    ? client
-        .from(GOAL_JUNGSI_BACKFILL_SOURCE_TABLE)
-        .select("university_name", { count: "exact", head: true })
-    : client
-        .from(GOAL_JUNGSI_BACKFILL_SOURCE_TABLE)
-        .select("university_name, department_name, percentile, result_year");
-  return (
-    query
-      .eq("is_active", true)
-      // goal_university_cuts_avg_cut_check(jungsi ⇒ avg_cut 0..100)와 같은 범위로
-      // 방어한다. gte/lte 비교는 NULL을 자동으로 걸러낸다(percentile is null 행 제외).
-      .gte("percentile", 0)
-      .lte("percentile", 100)
-  );
-}
-
-export async function fetchJungsiBackfillSourceRows(
-  client: SupabaseClient,
-  onProgress?: (progress: { done: number; total: number }) => void,
-): Promise<GoalJungsiBackfillSourceRow[]> {
-  const { count, error: countError } = await buildJungsiBackfillSourceQuery(
-    client,
-    { head: true },
-  );
-  if (countError) throw new Error(countError.message);
-  const total = count ?? 0;
-  const all: GoalJungsiBackfillSourceRow[] = [];
-  for (let from = 0; from < total; from += BACKFILL_READ_CHUNK) {
-    const { data, error } = await buildJungsiBackfillSourceQuery(client)
-      .order("id", { ascending: true })
-      .range(from, from + BACKFILL_READ_CHUNK - 1);
-    if (error) throw new Error(error.message);
-    if (!data || data.length === 0) break;
-    all.push(...(data as GoalJungsiBackfillSourceRow[]));
-    onProgress?.({ done: all.length, total });
-  }
-  return all;
 }
 
 // goal_university_cuts upsert payload — cut_type이 항상 'jungsi'인 것만 다르고
