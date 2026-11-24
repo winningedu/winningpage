@@ -16,6 +16,17 @@ export const SECTION_EXPORT_CHUNK = 1000;
 /** 클라이언트가 보내도 서버가 받지 않는 컬럼(DB 가 채운다). */
 export const PROTECTED_COLUMNS = ["id", "created_at", "updated_at"] as const;
 
+/** 섹션 폼이 파일을 올리는 필드 하나. 키는 엔진 필드 키다(registry.drift.test.ts 가 브라우저 config 와 맞춘다). */
+export interface UploadField {
+  kind: "image" | "file";
+  /** 저장 때 banners 버킷에서 옮겨 갈 폴더. */
+  folder: string;
+  /** 허용 확장자(점 없이 소문자). 파일 필드에만 쓴다. */
+  accept?: readonly string[];
+  /** 필드별 크기 한도(byte). 없으면 MAX_UPLOAD_BYTES. */
+  maxBytes?: number;
+}
+
 export interface SectionEntry {
   table: string;
   /** 목록만 조인 뷰에서 읽는 섹션. 쓰기는 table 을 쓴다. */
