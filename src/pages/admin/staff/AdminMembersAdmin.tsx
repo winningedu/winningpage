@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { ActionButton } from "@/pages/admin/shared/formFields";
 import { fetchStaffList, staffKeys } from "./api";
+import { InvitePanel } from "./InvitePanel";
 import {
   formatDate,
   MEMBERS_PATH,
@@ -61,6 +63,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
 function MemberList({ config }: AdminMembersAdminProps) {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState("");
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // 목록, 권한 묶음, 메뉴 목록은 한 응답으로 온다. 상세 새로고침도 같은 응답을 쓴다.
   const list = useQuery({
@@ -107,11 +110,22 @@ function MemberList({ config }: AdminMembersAdminProps) {
                 className="h-9 w-70 font-medium"
               />
             </div>
+            <ActionButton onClick={() => setInviteOpen(true)}>
+              <UserPlus size={14} aria-hidden="true" />
+              관리자 초대
+            </ActionButton>
           </div>
         </div>
 
         <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
+
+      {inviteOpen && list.data && (
+        <InvitePanel
+          roles={list.data.roles}
+          onClose={() => setInviteOpen(false)}
+        />
+      )}
 
       {list.isPending ? (
         <div

@@ -98,3 +98,22 @@ export const putStaffPermissions = (
       json: { items },
     })
     .json(savedItemsSchema);
+
+const inviteResultSchema = z.object({
+  profileId: z.string(),
+  resent: z.boolean(),
+  emailed: z.boolean(),
+});
+
+export interface InviteBody {
+  email: string;
+  name: string;
+  roleId: string;
+  department?: string;
+  confirmExisting: boolean;
+}
+
+export type InviteResult = z.infer<typeof inviteResultSchema>;
+
+export const postInvite = (body: InviteBody) =>
+  api.post("admin/invite-member", { json: body }).json(inviteResultSchema);
