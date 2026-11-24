@@ -52,6 +52,8 @@ export interface KitState {
   reads: {
     table: string;
     orderBy?: { column: string; ascending: boolean };
+    /** select(열 목록)에 준 문자열. */
+    select?: string;
     limit?: number;
     /** range(from, to) 를 건 경우의 양 끝(포함). */
     range?: { from: number; to: number };
@@ -176,6 +178,7 @@ export function createFakeAdmin(state: KitState) {
       const chain: Record<string, unknown> = {};
       let updating = false;
       let deleting = false;
+      let upserting = false;
       const read: KitState["reads"][number] = { table };
       state.reads.push(read);
       const result = () => {
@@ -183,6 +186,9 @@ export function createFakeAdmin(state: KitState) {
           ? state.updateErrors[table]?.(filters)
           : undefined;
         if (updateError) return { data: null, error: updateError };
+        if (upserting && state.insertErrors[table]) {
+          return { data: null, error: state.insertErrors[table] };
+        }
         if (deleting && state.deleteErrors[table]) {
           return { data: null, error: state.deleteErrors[table] };
         }
@@ -207,7 +213,10 @@ export function createFakeAdmin(state: KitState) {
           : data;
         return { data: sorted.slice(0, read.limit), error: null };
       };
-      chain.select = () => chain;
+      chain.select = (columns?: string) => {
+        if (typeof columns === "string") read.select = columns;
+        return chain;
+      };
       chain.eq = (col: string, value: unknown) => {
         filters[col] = value;
         return chain;
@@ -245,6 +254,7 @@ export function createFakeAdmin(state: KitState) {
         return chain;
       };
       chain.maybeSingle = async () => result();
+      chain.single = async () => result();
       // biome-ignore lint/suspicious/noThenProperty: Supabase 쿼리 빌더처럼 await 할 수 있어야 한다.
       chain.then = (resolve: (r: unknown) => unknown) => resolve(result());
       chain.update = (values: Record<string, unknown>) => {
@@ -265,7 +275,16 @@ export function createFakeAdmin(state: KitState) {
       ) => {
         state.events.push(`upsert:${table}`);
         state.upserts.push({ table, row, onConflict: options?.onConflict });
-        return Promise.resolve({ error: state.insertErrors[table] ?? null });
+        // upsert(...).select().single() 로 저장된 행을 읽는 호출부도 흉내 낸다.
+        return Object.assign(
+          Promise.resolve({ error: state.insertErrors[table] ?? null }),
+          {
+            select: () => {
+              upserting = true;
+              return chain;
+            },
+          },
+        );
       };
       chain.insert = (row: Record<string, unknown>) => {
         state.events.push(`insert:${table}`);
@@ -303,6 +322,11 @@ export async function callHandler(
     },
     json(payload: unknown) {
       captured.body = payload;
+      return res;
+    },
+    // problem 바디는 res.end 로 나간다.
+    end(payload: string) {
+      captured.body = JSON.parse(payload);
       return res;
     },
   } as unknown as VercelResponse;

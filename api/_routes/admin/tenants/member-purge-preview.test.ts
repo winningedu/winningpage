@@ -1,4 +1,4 @@
-// GET /api/admin/tenants/member-purge-preview 계약 검증(사 #162, 결정 102.1, 102.4). 본사 tenants view 이상만,
+// GET /api/admin/tenants/member-purge-preview 계약 검증(사 #162, 결정 102.1, 102.4). 본사 memberPurge(tenants 별칭) view 이상만,
 // 스쿨멘토 사이트에서만 읽고, 학생 이름은 가려서(학년, 반, 번호, 회원번호와 함께) 돌려준다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -60,6 +60,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-11-06T16:00:00Z")); // KST 2026-11-07 01:00
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
+  kit.state.rows.profiles = () => ({ role: "admin" });
   kit.state.rpc.fn_admin_effective_permissions = () => ({
     data: [{ resource_key: "tenants", level: "view" }],
     error: null,
@@ -91,7 +92,7 @@ describe("GET /api/admin/tenants/member-purge-preview", () => {
     const r = await get();
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(r.body).toMatchObject({ status: 403, code: "FORBIDDEN" });
     expect(previewArgs).toHaveLength(0);
   });
 
@@ -191,7 +192,6 @@ describe("GET /api/admin/tenants/member-purge-preview", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
-      ok: true,
       contractEnd: null,
       graceEnd: null,
       deletableFrom: null,
@@ -223,6 +223,7 @@ describe("GET /api/admin/tenants/member-purge-preview", () => {
     const r = await get(query);
 
     expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
     expect(previewArgs).toHaveLength(0);
   });
 
@@ -232,6 +233,7 @@ describe("GET /api/admin/tenants/member-purge-preview", () => {
     const r = await get();
 
     expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({ code: "NOT_FOUND" });
     expect(previewArgs).toHaveLength(0);
   });
 

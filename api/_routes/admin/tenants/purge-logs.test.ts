@@ -1,5 +1,5 @@
-// GET /api/admin/tenants/purge-logs 계약 검증(사 #163, #177). 본사 권한 tenants view 이상만 읽고,
-// 이름과 연락처 없이 실행 일시, 실행자, 기관, 계약 종료일, 삭제 건수, 제외 건수, 회원번호 목록만 돌려준다.
+// GET /api/admin/tenants/purge-logs 계약 검증(사 #163, #177). 본사 권한 memberPurgeLogs(tenants 별칭) view 이상만 읽고,
+// 이름과 연락처 없이 실행 일시, 실행자, 기관, 계약 종료일, 삭제 건수, 제외 건수, 회원번호 목록만 { items } 로 돌려준다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -12,6 +12,10 @@ import {
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
 vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (...keys: string[]) => {
+    for (const key of keys) if (process.env[key]) return process.env[key];
+    return "";
+  },
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
@@ -41,7 +45,9 @@ const LOG_ROW = {
 const filtersSeen: Record<string, unknown>[] = [];
 
 beforeEach(() => {
+  process.env.SITE = "schoolmentor";
   kit.state = createKitState();
+  kit.state.rows.profiles = () => ({ role: "admin" });
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
   kit.state.rpc.fn_admin_effective_permissions = () => ({
     data: [{ resource_key: "tenants", level: "view" }],
@@ -55,6 +61,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  delete process.env.SITE;
   vi.restoreAllMocks();
 });
 
@@ -72,7 +79,7 @@ describe("GET /api/admin/tenants/purge-logs", () => {
     const r = await get();
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(r.body).toMatchObject({ status: 403, code: "FORBIDDEN" });
     expect(filtersSeen).toHaveLength(0);
   });
 
@@ -81,8 +88,7 @@ describe("GET /api/admin/tenants/purge-logs", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
-      ok: true,
-      logs: [
+      items: [
         {
           id: "log-1",
           executedAt: "2026-11-05T19:40:00Z",
@@ -109,7 +115,8 @@ describe("GET /api/admin/tenants/purge-logs", () => {
 
     expect(r.status).toBe(200);
     expect(
-      (r.body as { logs: { executedBy: string | null }[] }).logs[0]?.executedBy,
+      (r.body as { items: { executedBy: string | null }[] }).items[0]
+        ?.executedBy,
     ).toBe("hq@example.com");
   });
 
@@ -121,7 +128,7 @@ describe("GET /api/admin/tenants/purge-logs", () => {
     const r = await get();
 
     expect(
-      (r.body as { logs: { skippedCount: number }[] }).logs[0]?.skippedCount,
+      (r.body as { items: { skippedCount: number }[] }).items[0]?.skippedCount,
     ).toBe(3);
   });
 
@@ -143,6 +150,14 @@ describe("GET /api/admin/tenants/purge-logs", () => {
       action: "member_purge",
       tenant_id: "tenant-7",
     });
+  });
+
+  test("위닝 사이트에서도 같은 권한으로 열린다(hqTenantAdmin 별칭)", async () => {
+    process.env.SITE = "winning";
+
+    const r = await get();
+
+    expect(r.status).toBe(200);
   });
 
   test("GET 이외의 메서드는 405 이다", async () => {
