@@ -5,6 +5,7 @@ import {
   REVIEW_STALE_MONTH_OPTIONS,
   type ReviewStaleMonths,
 } from "../knowledge/review/cycle";
+import { parseListPageAndQ } from "./sectionList";
 
 export type SectionView =
   | { kind: "list" }
@@ -46,11 +47,9 @@ export type ListUrlState = {
 
 // 알아볼 수 없는 값은 없는 것으로 친다(기본값). 기본값은 주소에 쓰지 않는다.
 export function parseListSearch(params: URLSearchParams): ListUrlState {
-  const page = Number(params.get("page"));
   const months = Number(params.get("months"));
   return {
-    page: Number.isInteger(page) && page >= 1 ? page : 1,
-    q: params.get("q") ?? "",
+    ...parseListPageAndQ(params),
     filter: params.get("filter") ?? "",
     stale: params.get("stale") === "1",
     months:
