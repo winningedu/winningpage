@@ -103,6 +103,8 @@ export default function AccessLogsAdmin() {
             <option value="">전체</option>
             <option value="view">조회</option>
             <option value="edit">수정</option>
+            <option value="create">등록</option>
+            <option value="delete">삭제</option>
             <option value="export">출력</option>
             <option value="proxy">대행</option>
           </Select>

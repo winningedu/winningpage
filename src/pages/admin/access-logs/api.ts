@@ -6,7 +6,13 @@ import { api } from "@/lib/http/client";
 import { addDaysYmd, dayStartUtc } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
 
-export type AccessLogKind = "view" | "edit" | "export" | "proxy";
+export type AccessLogKind =
+  | "view"
+  | "edit"
+  | "create"
+  | "delete"
+  | "export"
+  | "proxy";
 
 const accessLogEntrySchema = z.object({
   id: z.string(),
@@ -18,7 +24,7 @@ const accessLogEntrySchema = z.object({
   teacherName: z.string().nullable(),
   teacherLoginId: z.string().nullable(),
   teacherPhone: z.string().nullable(),
-  kind: z.enum(["view", "edit", "export", "proxy"]),
+  kind: z.enum(["view", "edit", "create", "delete", "export", "proxy"]),
   kindLabel: z.string(),
   targetStudentName: z.string().nullable(),
   content: z.string(),
