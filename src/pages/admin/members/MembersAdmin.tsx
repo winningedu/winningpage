@@ -390,6 +390,32 @@ function MemberList({ config }: MembersAdminProps) {
   );
 }
 
+// 탭마다 자기 데이터만 받는다. 한 탭이 실패해도 나머지 탭은 그대로 열린다.
+// 회원 응답을 기다리지 않도록 상세 라우트가 주소의 id로 회원 요청과 함께 시작한다.
+function useMemberTabQueries(memberId: string, tab: string) {
+  const links = useQuery({
+    queryKey: memberKeys.links(memberId),
+    queryFn: ({ signal }) => fetchMemberLinks(memberId, signal),
+    enabled: tab === "profile",
+  });
+  const services = useQuery({
+    queryKey: memberKeys.services(memberId),
+    queryFn: ({ signal }) => fetchMemberServices(memberId, signal),
+    enabled: tab === "services",
+  });
+  const orders = useQuery({
+    queryKey: memberKeys.orders(memberId),
+    queryFn: ({ signal }) => fetchMemberOrders(memberId, signal),
+    enabled: tab === "pay",
+  });
+  const messages = useQuery({
+    queryKey: memberKeys.messages(memberId),
+    queryFn: ({ signal }) => fetchMemberMessages(memberId, signal),
+    enabled: tab === "msg",
+  });
+  return { links, services, orders, messages };
+}
+
 function MemberDetailRoute({ config }: MembersAdminProps) {
   const { id = "", tab } = useParams();
   const location = useLocation();
@@ -397,6 +423,7 @@ function MemberDetailRoute({ config }: MembersAdminProps) {
     queryKey: memberKeys.detail(id),
     queryFn: ({ signal }) => fetchMember(id, signal),
   });
+  const tabQueries = useMemberTabQueries(id, tab ?? "profile");
 
   useEffect(() => {
     if (
@@ -442,6 +469,7 @@ function MemberDetailRoute({ config }: MembersAdminProps) {
       config={config}
       member={member.data}
       tab={(tab ?? "profile") as TabKey}
+      tabQueries={tabQueries}
     />
   );
 }
@@ -450,7 +478,12 @@ function MemberDetail({
   config,
   member,
   tab,
-}: MembersAdminProps & { member: ProfileRow; tab: TabKey }) {
+  tabQueries,
+}: MembersAdminProps & {
+  member: ProfileRow;
+  tab: TabKey;
+  tabQueries: ReturnType<typeof useMemberTabQueries>;
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -459,27 +492,7 @@ function MemberDetail({
   // 개인정보 반출 게이트 (QA 269 마스킹 해제).
   const { requestAccess, gate } = useSensitiveActionGate();
 
-  // 탭마다 자기 데이터만 받는다. 한 탭이 실패해도 나머지 탭은 그대로 열린다.
-  const links = useQuery({
-    queryKey: memberKeys.links(member.id),
-    queryFn: ({ signal }) => fetchMemberLinks(member.id, signal),
-    enabled: tab === "profile",
-  });
-  const services = useQuery({
-    queryKey: memberKeys.services(member.id),
-    queryFn: ({ signal }) => fetchMemberServices(member.id, signal),
-    enabled: tab === "services",
-  });
-  const orders = useQuery({
-    queryKey: memberKeys.orders(member.id),
-    queryFn: ({ signal }) => fetchMemberOrders(member.id, signal),
-    enabled: tab === "pay",
-  });
-  const messages = useQuery({
-    queryKey: memberKeys.messages(member.id),
-    queryFn: ({ signal }) => fetchMemberMessages(member.id, signal),
-    enabled: tab === "msg",
-  });
+  const { links, services, orders, messages } = tabQueries;
   const activeQuery =
     tab === "profile"
       ? links
