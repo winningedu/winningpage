@@ -7,6 +7,7 @@
 import { z } from "zod";
 import { defineHandler, parseOrReject } from "../../../_lib/handler.js";
 import { sendError } from "../../../_lib/httpResponse.js";
+import { toItems } from "../../../_lib/staff/permissions.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -26,12 +27,6 @@ const patchSchema = z.strictObject({
 const NOT_FOUND_MESSAGE = "관리자를 찾을 수 없습니다.";
 const LAST_SUPER_MESSAGE =
   "최고 관리자가 1명뿐이라 강등, 정지, 삭제할 수 없습니다. 다른 사람을 먼저 최고 관리자로 올려 주세요.";
-
-const toItems = (rows: { resource_key: string; level: string }[] | null) =>
-  (rows ?? []).map((row) => ({
-    resourceKey: row.resource_key,
-    level: row.level,
-  }));
 
 export default defineHandler({
   methods: ["GET", "PATCH"],
