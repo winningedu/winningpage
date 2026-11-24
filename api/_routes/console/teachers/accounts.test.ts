@@ -31,6 +31,7 @@ const TEACHERS = [
     status: "active",
     login_id: "SM26HB83K7MPQ2",
     profile_id: "p-park",
+    created_at: "2026-02-25T00:30:00Z",
     deleted_at: null,
   },
   {
@@ -53,6 +54,7 @@ const TEACHERS = [
     status: "active",
     login_id: "SM26HB83R4TXW9",
     profile_id: "p-choi",
+    created_at: "2026-02-20T00:30:00Z",
     deleted_at: null,
   },
   {
@@ -75,6 +77,7 @@ const TEACHERS = [
     status: "inactive",
     login_id: "SM26HB83F1FREE",
     profile_id: "p-free",
+    created_at: "2026-10-30T00:30:00Z",
     deleted_at: null,
   },
 ];
@@ -179,6 +182,17 @@ describe("GET /api/console/teachers/accounts", () => {
       ],
     });
     expect(body.items[2]).toMatchObject({ status: "inactive" });
+  });
+
+  test("등록일은 교사 행이 만들어진 시각(UTC ISO)이다", async () => {
+    const r = await get();
+
+    const body = r.body as { items: Record<string, unknown>[] };
+    expect(body.items.map((i) => [i.id, i.createdAt])).toEqual([
+      ["t-choi", "2026-02-20T00:30:00.000Z"],
+      ["t-park", "2026-02-25T00:30:00.000Z"],
+      ["t-free", "2026-10-30T00:30:00.000Z"],
+    ]);
   });
 
   test("최근 로그인은 Auth 의 마지막 로그인 시각이고 한 번도 없거나 읽지 못하면 null 이다", async () => {

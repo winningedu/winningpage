@@ -30,6 +30,8 @@ export interface DirectoryTeacher {
   hasAccount: boolean;
   profileId: string | null;
   passwordSet: boolean;
+  /** 교사 행을 만든 시각(ISO). W16 이름 칸의 등록일. */
+  createdAt: string;
   /** 학년, 그룹, 반 순. */
   classes: DirectoryClass[];
 }
@@ -60,6 +62,7 @@ interface TeacherRow {
   login_id: string | null;
   profile_id: string | null;
   password_set_at: string | null;
+  created_at: string;
   deleted_at: string | null;
 }
 
@@ -84,7 +87,7 @@ export async function loadTeacherDirectory(
       readAll<TeacherRow>(
         admin,
         "teachers",
-        "id, name, phone, role, status, login_id, profile_id, password_set_at, deleted_at",
+        "id, name, phone, role, status, login_id, profile_id, password_set_at, created_at, deleted_at",
         (q) => q.eq("tenant_id", tenantId),
       ),
       readAll<{
@@ -147,6 +150,7 @@ export async function loadTeacherDirectory(
       hasAccount: t.profile_id !== null,
       profileId: t.profile_id,
       passwordSet: Boolean(t.password_set_at),
+      createdAt: t.created_at,
       classes: assignments
         .filter((a) => a.teacher_id === t.id && classById.has(a.class_id))
         .map((a) => classById.get(a.class_id) as DirectoryClassRow)
