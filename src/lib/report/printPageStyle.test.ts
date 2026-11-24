@@ -16,4 +16,13 @@ describe("REPORT_PRINT_PAGE_BASE_STYLE", () => {
       true,
     );
   });
+
+  // 표지가 @page :first 여백 0 이라 Chrome 이 문서를 210mm 폭으로 배치하는 경우가 있다(flex 열
+  // 루트인 자기평가서, 심화탐구 리포트 상세에서 실측). 15mm 여백인 2쪽 이후는 오른쪽 30mm 가 잘린다.
+  // 인쇄 루트를 인쇄 가능 폭(210mm - 15mm x 2 = 180mm)으로 묶어 표지만 전면 폭을 갖게 한다.
+  it("인쇄 루트(body의 직계)를 인쇄 가능 폭 180mm 로 묶는다", () => {
+    expect(REPORT_PRINT_PAGE_BASE_STYLE).toMatch(
+      /@media\s+print\s*\{[^@]*body\s*>\s*\*\s*\{[^}]*max-width:\s*180mm/,
+    );
+  });
 });

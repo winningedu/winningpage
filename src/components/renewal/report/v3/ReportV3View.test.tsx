@@ -19,17 +19,38 @@ afterEach(() => {
 });
 
 describe("ReportV3View", () => {
-  it("renders the cover, pages 1 to 6 in order, then the later pages slot", () => {
+  it("starts with the shared image cover filled from the cover data, then the v3 cover page", () => {
     render(<ReportV3View pages={FRONT_PAGES} laterPages={later} />);
     const sheets = Array.from(document.querySelectorAll(".fd-report-sheet"));
-    expect(sheets).toHaveLength(8);
-    expect(sheets[0]).toHaveTextContent(FRONT_PAGES.cover.basis);
+    const sharedCover = sheets[0] as HTMLElement;
+    expect(sharedCover).toHaveAttribute("aria-label", "학습진단 리포트 표지");
+    const info = within(sharedCover).getByTestId("cover-info");
+    expect(info).toHaveTextContent("학생명김위닝");
+    expect(info).toHaveTextContent("학년고등학교 2학년");
+    expect(info).toHaveTextContent("진단일2026. 11. 10");
+    expect(sharedCover).not.toHaveTextContent("/ 16");
+    expect(sheets[1]).toHaveTextContent(FRONT_PAGES.cover.basis);
+  });
+
+  it("the profile name overrides the cover student name on the shared cover", () => {
+    render(<ReportV3View pages={FRONT_PAGES} studentName="박프로필" />);
+    const info = within(
+      document.querySelector(".fd-report-sheet") as HTMLElement,
+    ).getByTestId("cover-info");
+    expect(info).toHaveTextContent("학생명박프로필");
+  });
+
+  it("renders the shared cover, the v3 cover, pages 1 to 6 in order, then the later pages slot", () => {
+    render(<ReportV3View pages={FRONT_PAGES} laterPages={later} />);
+    const sheets = Array.from(document.querySelectorAll(".fd-report-sheet"));
+    expect(sheets).toHaveLength(9);
+    expect(sheets[1]).toHaveTextContent(FRONT_PAGES.cover.basis);
     for (let page = 1; page <= 6; page += 1) {
-      expect(sheets[page]).toHaveTextContent(`${page} / 16`);
+      expect(sheets[page + 1]).toHaveTextContent(`${page} / 16`);
     }
-    expect(sheets[7]).toHaveTextContent("7 이후");
+    expect(sheets[8]).toHaveTextContent("7 이후");
     expect(
-      within(sheets[1] as HTMLElement).getByRole("heading", { level: 2 }),
+      within(sheets[2] as HTMLElement).getByRole("heading", { level: 2 }),
     ).toHaveTextContent(FRONT_PAGES.p1.title);
   });
 
@@ -43,10 +64,10 @@ describe("ReportV3View", () => {
     };
     render(<ReportV3View pages={{ ...FRONT_PAGES, cover }} />);
     const sheets = Array.from(document.querySelectorAll(".fd-report-sheet"));
-    expect(sheets[1]).toHaveTextContent("01진단 요약");
-    expect(sheets[4]).toHaveTextContent("04\u0037단계 학습관리 사이클");
-    expect(sheets[6]).toHaveTextContent("06학교생활\u00b7입시 준비도");
-    expect(sheets[6]).not.toHaveTextContent("섹션명");
+    expect(sheets[2]).toHaveTextContent("01진단 요약");
+    expect(sheets[5]).toHaveTextContent("04\u0037단계 학습관리 사이클");
+    expect(sheets[7]).toHaveTextContent("06학교생활\u00b7입시 준비도");
+    expect(sheets[7]).not.toHaveTextContent("섹션명");
   });
 
   it("surfaces an error when the toc lacks one of pages 1 to 6", () => {
@@ -65,9 +86,9 @@ describe("ReportV3View", () => {
     );
     const host = document.createElement("div");
     host.innerHTML = html;
-    const root = host.firstElementChild as HTMLElement;
+    const root = host.querySelector(".fd-print-area") as HTMLElement;
     expect(root).toHaveClass("fd-print-area");
-    expect(root.querySelectorAll(".fd-report-sheet")).toHaveLength(8);
+    expect(root.querySelectorAll(".fd-report-sheet")).toHaveLength(9);
     for (let page = 1; page <= 6; page += 1) {
       expect(html).toContain(`${page} / 16`);
     }

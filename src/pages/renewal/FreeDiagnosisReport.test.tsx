@@ -52,7 +52,7 @@ describe("FreeDiagnosisReport", () => {
     const { container } = renderRoute("/report/a1");
 
     await waitFor(() =>
-      expect(container.querySelectorAll(".fd-report-sheet")).toHaveLength(17),
+      expect(container.querySelectorAll(".fd-report-sheet")).toHaveLength(18),
     );
     for (let n = 1; n <= 16; n += 1) {
       expect(screen.getAllByText(`${n} / 16`).length).toBeGreaterThan(0);
@@ -68,7 +68,7 @@ describe("FreeDiagnosisReport", () => {
     const { container } = renderRoute("/report/a1");
 
     await waitFor(() =>
-      expect(container.querySelectorAll(".fd-report-sheet")).toHaveLength(16),
+      expect(container.querySelectorAll(".fd-report-sheet")).toHaveLength(17),
     );
     expect(screen.queryByText("7 / 16")).toBeNull();
   });
