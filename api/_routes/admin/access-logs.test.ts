@@ -1,16 +1,20 @@
-// GET /api/admin/access-logs 계약 검증(사 #170, 교 #66, 결정 102.5). 최고 관리자만 읽고,
-// 교사 이름, 로그인 아이디, 가린 전화번호, 가린 학생 이름을 붙여 한 줄씩 돌려준다.
+// GET /api/admin/access-logs 계약 검증(사 #170, 교 #66, 결정 102.5). 메뉴 권한(adminAccessLogs view)과
+// 최고 관리자(데이터 술어)를 모두 통과한 사람만 읽고, 교사 이름, 로그인 아이디, 가린 전화번호,
+// 가린 학생 이름을 붙여 한 줄씩 돌려준다.
 
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
   matchRows,
 } from "../../_lib/console/consoleTestKit.js";
 
-const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
+const kit = vi.hoisted(() => ({
+  state: null as unknown as KitState,
+  role: "admin",
+}));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
   isSupabaseConfigError: () => false,
@@ -19,13 +23,63 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
 
 import handler from "./access-logs.js";
 
+interface Captured {
+  status: number;
+  body: unknown;
+  headers: Record<string, string>;
+}
+
+// problem 바디는 res.end 로 나가므로 json 과 end 를 모두 받는 가짜 res 로 부른다.
+async function call(
+  method: string,
+  body: unknown,
+  query: Record<string, string> = {},
+): Promise<Captured> {
+  const out: Captured = { status: 0, body: undefined, headers: {} };
+  const headers = { authorization: "Bearer token" };
+  const res = {
+    req: { headers },
+    setHeader: (key: string, value: string) => {
+      out.headers[key] = value;
+      return res;
+    },
+    status(code: number) {
+      out.status = code;
+      return res;
+    },
+    json(payload: unknown) {
+      out.body = payload;
+      return res;
+    },
+    end(payload: string) {
+      out.body = JSON.parse(payload);
+      return res;
+    },
+  };
+  await handler(
+    { method, headers, query, body } as unknown as VercelRequest,
+    res as unknown as VercelResponse,
+  );
+  return out;
+}
+
 const get = (query: Record<string, string> = {}, method = "GET") =>
-  callHandler(handler, undefined, method, query);
+  call(method, undefined, query);
 
 interface Body {
-  logs: Record<string, unknown>[];
+  items: Record<string, unknown>[];
   page: number;
   hasNext: boolean;
+}
+
+const PROBLEM_KEYS = ["code", "detail", "status", "title", "type"];
+
+function expectProblem(r: Captured, status: number, code: string) {
+  expect(r.status).toBe(status);
+  expect(Object.keys(r.body as object).sort()).toEqual(
+    expect.arrayContaining(PROBLEM_KEYS),
+  );
+  expect(r.body).toMatchObject({ status, code });
 }
 
 const TEACHER_VIEW_LOG = {
@@ -64,15 +118,24 @@ const logFilters: Record<string, unknown>[] = [];
 
 beforeEach(() => {
   kit.state = createKitState();
+  kit.role = "admin";
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
   kit.state.rpc.fn_is_super_admin = () => ({ data: true, error: null });
+  kit.state.rpc.fn_admin_effective_permissions = () => ({
+    data: [{ resource_key: "adminAccessLogs", level: "view" }],
+    error: null,
+  });
   logFilters.length = 0;
   kit.state.rows.admin_access_logs = (filters) => {
     logFilters.push({ ...filters });
     return [TEACHER_VIEW_LOG];
   };
   kit.state.rows.teachers = (filters) => matchRows(TEACHERS, filters);
-  kit.state.rows.profiles = (filters) => matchRows(PROFILES, filters);
+  // eq("id", 토큰 사용자)는 관리자 판정용 한 줄, in("id", [...])는 이름 조회용 목록이다.
+  kit.state.rows.profiles = (filters) =>
+    Array.isArray(filters.id)
+      ? matchRows(PROFILES, filters)
+      : { role: kit.role };
 });
 
 afterEach(() => {
@@ -80,14 +143,56 @@ afterEach(() => {
 });
 
 describe("GET /api/admin/access-logs", () => {
-  test("최고 관리자가 아니면 403 이고 로그를 읽지 않는다", async () => {
+  test("최고 관리자가 아니면 403 problem 이고 로그를 읽지 않는다", async () => {
     kit.state.rpc.fn_is_super_admin = () => ({ data: false, error: null });
 
     const r = await get();
 
-    expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expectProblem(r, 403, "FORBIDDEN");
+    expect(r.body).toMatchObject({ detail: "최고 관리자만 볼 수 있습니다." });
     expect(logFilters).toHaveLength(0);
+  });
+
+  test("adminAccessLogs 메뉴 권한이 없으면 403 이고 로그를 읽지 않는다", async () => {
+    kit.state.rpc.fn_admin_effective_permissions = () => ({
+      data: [],
+      error: null,
+    });
+
+    const r = await get();
+
+    expectProblem(r, 403, "FORBIDDEN");
+    expect(logFilters).toHaveLength(0);
+  });
+
+  test("관리자가 아니면 403 이다", async () => {
+    kit.role = "user";
+
+    const r = await get();
+
+    expectProblem(r, 403, "FORBIDDEN");
+    expect(logFilters).toHaveLength(0);
+  });
+
+  test("최고 관리자 판정 조회가 실패하면 500 problem 이다", async () => {
+    kit.state.rpc.fn_is_super_admin = () => ({
+      data: null,
+      error: { message: "boom" },
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const r = await get();
+
+    expectProblem(r, 500, "INTERNAL_ERROR");
+    expect(r.body).toMatchObject({
+      detail: "접근 로그를 불러오지 못했습니다.",
+    });
+  });
+
+  test("GET 과 POST 가 아닌 메서드는 405 METHOD_NOT_ALLOWED 이다", async () => {
+    const r = await get({}, "DELETE");
+
+    expectProblem(r, 405, "METHOD_NOT_ALLOWED");
   });
 
   test("교사 이름, 로그인 아이디, 가린 전화번호와 가린 학생 이름을 한 줄로 붙인다", async () => {
@@ -96,7 +201,8 @@ describe("GET /api/admin/access-logs", () => {
     expect(r.status).toBe(200);
     expect(r.headers["Cache-Control"]).toBe("no-store");
     const body = r.body as Body;
-    expect(body.logs).toEqual([
+    expect(Object.keys(body).sort()).toEqual(["hasNext", "items", "page"]);
+    expect(body.items).toEqual([
       expect.objectContaining({
         id: "log-1",
         createdAt: "2026-11-05T10:00:00Z",
@@ -135,7 +241,7 @@ describe("GET /api/admin/access-logs", () => {
 
     const r = await get();
 
-    expect((r.body as Body).logs[0]).toMatchObject({
+    expect((r.body as Body).items[0]).toMatchObject({
       actorName: "본사직원",
       actorEmail: "hq@example.com",
       reason: "고객 문의 확인",
@@ -162,7 +268,7 @@ describe("GET /api/admin/access-logs", () => {
     const r = await get({ tenantCode: "NOPE0000" });
 
     expect(r.status).toBe(200);
-    expect((r.body as Body).logs).toEqual([]);
+    expect(r.body).toEqual({ items: [], page: 1, hasNext: false });
     expect(logFilters).toHaveLength(0);
   });
 
@@ -189,6 +295,20 @@ describe("GET /api/admin/access-logs", () => {
     ]);
   });
 
+  test("빈 문자열 조건은 없는 것으로 본다", async () => {
+    const r = await get({
+      tenantCode: "",
+      from: "",
+      to: "",
+      kind: "",
+      page: "",
+    });
+
+    expect(r.status).toBe(200);
+    expect((r.body as Body).page).toBe(1);
+    expect(logFilters).toHaveLength(1);
+  });
+
   test("구분을 주면 그 구분의 동작만 읽는다", async () => {
     await get({ kind: "edit" });
 
@@ -209,6 +329,7 @@ describe("GET /api/admin/access-logs", () => {
 
   test.each([
     [{ kind: "nope" }],
+    [{ page: "1.5" }],
     [{ from: "2026/11/01" }],
     [{ from: "2026-11-01" }],
     [{ from: "2026-11-01T00:00:00+09:00" }],
@@ -219,8 +340,7 @@ describe("GET /api/admin/access-logs", () => {
   ])("잘못된 조건 %j 은 400 이고 읽지 않는다", async (query) => {
     const r = await get(query);
 
-    expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expectProblem(r, 400, "VALIDATION_FAILED");
     expect(logFilters).toHaveLength(0);
   });
 
@@ -234,11 +354,11 @@ describe("GET /api/admin/access-logs", () => {
     const first = await get();
     const third = await get({ page: "3" });
 
-    expect((first.body as Body).logs).toHaveLength(50);
+    expect((first.body as Body).items).toHaveLength(50);
     expect((first.body as Body).hasNext).toBe(true);
     expect((third.body as Body).page).toBe(3);
-    expect((third.body as Body).logs).toHaveLength(20);
-    expect((third.body as Body).logs[0]?.id).toBe("log-100");
+    expect((third.body as Body).items).toHaveLength(20);
+    expect((third.body as Body).items[0]?.id).toBe("log-100");
     expect((third.body as Body).hasNext).toBe(false);
   });
 });
