@@ -30,6 +30,8 @@ import { browserTimeZone } from "@/lib/time/zone";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
+import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";
 import {
   type ContractStatus,
@@ -249,9 +251,13 @@ export default function TenantOverview({
       {gate}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-sm text-muted-foreground">
-          {s ? `${formatDateTime(s.asOf)} 기준` : ""}
-        </span>
+        {summary.isPending ? (
+          <AdminLineSkeleton label="기준 시각을 불러오는 중" />
+        ) : (
+          <span className="text-sm text-muted-foreground">
+            {s ? `${formatDateTime(s.asOf)} 기준` : ""}
+          </span>
+        )}
         <label className="flex items-center gap-2 text-sm font-medium">
           <input
             type="checkbox"
@@ -363,12 +369,10 @@ export default function TenantOverview({
           </p>
         )}
         {tenants.isPending ? (
-          <div
-            role="status"
-            className="p-12 text-center text-sm text-muted-foreground"
-          >
-            데이터를 불러오는 중입니다.
-          </div>
+          <AdminTableSkeleton
+            columns={COLUMNS.length}
+            label="기관 목록을 불러오는 중"
+          />
         ) : (
           <Table className="min-w-[62.5rem]">
             <TableHeader>
@@ -491,12 +495,11 @@ export default function TenantOverview({
                           className="px-4 py-3"
                         >
                           {usage.isPending ? (
-                            <div
-                              role="status"
-                              className="text-sm text-muted-foreground"
-                            >
-                              서비스 사용량을 불러오는 중입니다.
-                            </div>
+                            <AdminTableSkeleton
+                              columns={USAGE_HEAD.length}
+                              rows={USAGE_PROGRAMS.length}
+                              label="서비스 사용량을 불러오는 중입니다."
+                            />
                           ) : (
                             <UsageDetail
                               name={row.name}
