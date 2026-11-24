@@ -27,6 +27,7 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/service-credit-adjust.js"),
   "admin/service-credit-summary": () =>
     import("./admin/service-credit-summary.js"),
+  "admin/tenants": () => import("./admin/tenants.js"),
   "admin/tenants/member-purge": () => import("./admin/tenants/member-purge.js"),
   "admin/tenants/member-purge-preview": () =>
     import("./admin/tenants/member-purge-preview.js"),

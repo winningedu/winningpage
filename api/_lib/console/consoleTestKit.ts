@@ -52,6 +52,8 @@ export interface KitState {
   reads: {
     table: string;
     orderBy?: { column: string; ascending: boolean };
+    /** select(열 목록)에 준 문자열. */
+    select?: string;
     limit?: number;
     /** range(from, to) 를 건 경우의 양 끝(포함). */
     range?: { from: number; to: number };
@@ -207,7 +209,10 @@ export function createFakeAdmin(state: KitState) {
           : data;
         return { data: sorted.slice(0, read.limit), error: null };
       };
-      chain.select = () => chain;
+      chain.select = (columns?: string) => {
+        if (typeof columns === "string") read.select = columns;
+        return chain;
+      };
       chain.eq = (col: string, value: unknown) => {
         filters[col] = value;
         return chain;
