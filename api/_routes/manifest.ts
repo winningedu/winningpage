@@ -24,6 +24,7 @@ export const routes: Record<string, RouteLoader> = {
   "admin/hq-dashboard/usage": () => import("./admin/hq-dashboard/usage.js"),
   "admin/growth-recover": () => import("./admin/growth-recover.js"),
   "admin/growth-reports": () => import("./admin/growth-reports.js"),
+  "admin/growth-reports/[id]": () => import("./admin/growth-reports/[id].js"),
   "admin/hq-dashboard/logins": () => import("./admin/hq-dashboard/logins.js"),
   "admin/hq-dashboard/b2c": () => import("./admin/hq-dashboard/b2c.js"),
   "admin/hq-dashboard/trends": () => import("./admin/hq-dashboard/trends.js"),
