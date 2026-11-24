@@ -61,6 +61,29 @@ describe("Page03Grades", () => {
     expect(screen.queryByText("최근 모의고사 등급")).toBeNull();
   });
 
+  it("lists 역사 in the grade bars and the verdict table (M3, six subjects)", () => {
+    render(
+      <Page03Grades
+        page={{
+          ...p3,
+          bars: { school: [{ subject: "HISTORY", grade: 70 }] },
+          subjects: {
+            kind: "table",
+            rows: [{ subject: "HISTORY", verdict: "KEEP", text: "유지 문구" }],
+            note: "판정 규칙 안내문",
+          },
+        }}
+        tocTitle="성적 진단"
+      />,
+    );
+    expect(
+      screen.getByRole("list", { name: "내신 과목별 등급" }),
+    ).toHaveTextContent("역사70");
+    expect(
+      within(screen.getByRole("table")).getByText("역사"),
+    ).toBeInTheDocument();
+  });
+
   it("skip note replaces the table and absent bars draw nothing", () => {
     const { bars: _bars, ...rest } = p3;
     render(

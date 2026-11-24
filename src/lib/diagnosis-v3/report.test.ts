@@ -346,6 +346,34 @@ describe("3p 성적 (22 r38-r46)", () => {
     expect(mid.pages.p3.examOpsVerdict).toBe("보통");
   });
 
+  test("M3 p3 lists all six subjects, 역사 included, judged through table 10", () => {
+    const { p3 } = run({
+      ...validAnswers("M3"),
+      q6: 79.2,
+      q6s: { KOR: 95, MATH: 60, ENG: 90, SOC: 80, SCI: 80, HISTORY: 70 },
+    }).pages;
+    expect(p3.bars?.school.map((b) => b.subject)).toEqual([
+      "KOR",
+      "MATH",
+      "ENG",
+      "SOC",
+      "SCI",
+      "HISTORY",
+    ]);
+    expect(p3.subjects.kind).toBe("table");
+    expect(
+      p3.subjects.kind === "table" &&
+        p3.subjects.rows.map((r) => [r.subject, r.verdict]),
+    ).toEqual([
+      ["KOR", "KEEP"],
+      ["MATH", "CHECK"],
+      ["ENG", "KEEP"],
+      ["SOC", "KEEP"],
+      ["SCI", "KEEP"],
+      ["HISTORY", "KEEP"],
+    ]);
+  });
+
   test("PDF p3 grades: subject table, recent gap and exam ops RISK", () => {
     const { p3 } = run({
       ...CALC_EXAMPLE,
