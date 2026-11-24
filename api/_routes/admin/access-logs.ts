@@ -1,3 +1,4 @@
+// POST /api/admin/access-logs  { action, resourceKey, reason, rowCount?, targetId? } -> 201 { id, createdAt }
 // GET /api/admin/access-logs[?tenantCode=&from=&to=&kind=&page=]  (from 포함, to 미포함인 ISO Z 시각)
 //
 // 본사 개인정보 접근 로그 화면의 목록(사 #170, 교 #66, 결정 102.5). 소속코드, 교사 이름과 로그인 아이디,
@@ -6,6 +7,7 @@
 // 권한: 메뉴 권한 adminAccessLogs view(defineHandler permission) + fn_is_super_admin. 뒤쪽은 admin_access_logs 의 RLS 와 같은 데이터 술어다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import {
   ACCESS_LOG_KINDS,
@@ -217,4 +219,59 @@ const getHandler = defineHandler({
   },
 });
 
-export default getHandler;
+const postBodySchema = z.object({
+  action: z.enum(["download", "unmask"]),
+  resourceKey: z.string().min(1),
+  reason: z.string().trim().min(1),
+  rowCount: z.number().int().min(0).optional(),
+  targetId: z.string().optional(),
+});
+
+// 개인정보 반출 게이트의 접근 기록 적재. 감사 로그라 멱등 키 없이 제출마다 한 줄이다(추가만 되고,
+// 클라이언트는 재시도하지 않으며 게이트가 이중 제출을 막는다).
+const postHandler = defineHandler({
+  methods: ["POST"],
+  auth: "admin",
+  errorShape: "problem",
+  // 기록은 그 메뉴를 읽은 일(내려받기, 마스킹 해제)이므로 그 메뉴의 view 면 된다. edit 를 요구하면 조회 권한자는 내려받지 못한다.
+  permission: {
+    key: (req) =>
+      typeof req.body?.resourceKey === "string" ? req.body.resourceKey : "",
+    level: "view",
+  },
+  unhandledMessage: "접근 기록을 남기지 못했습니다.",
+  logLabel: "[admin/access-logs]",
+  body: postBodySchema,
+  handler: async (_req, res, ctx) => {
+    const profileId = ctx.userId as string;
+    const { data: authUser, error: authError } =
+      await ctx.supabaseAdmin.auth.admin.getUserById(profileId);
+    const email = authUser?.user?.email;
+    if (authError || !email) throw new Error("auth user lookup failed");
+
+    const { data, error } = await ctx.supabaseAdmin
+      .from("admin_access_logs")
+      .insert({
+        profile_id: profileId,
+        actor_email: email,
+        action: ctx.body.action,
+        resource_key: ctx.body.resourceKey,
+        reason: ctx.body.reason,
+        row_count: ctx.body.rowCount ?? null,
+        target_id: ctx.body.targetId ?? null,
+      })
+      .select("id, created_at")
+      .single();
+    if (error || !data) throw new Error("access log insert failed");
+
+    res.status(201).json({ id: data.id, createdAt: data.created_at });
+  },
+});
+
+export default function handler(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<void> {
+  // POST 만 쓰기 핸들러로 보내고 나머지는 GET 핸들러가 405 로 거른다.
+  return (req.method === "POST" ? postHandler : getHandler)(req, res);
+}

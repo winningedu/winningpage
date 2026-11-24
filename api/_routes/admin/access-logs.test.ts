@@ -18,10 +18,42 @@ const kit = vi.hoisted(() => ({
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
   isSupabaseConfigError: () => false,
-  createSupabaseAdmin: () => createFakeAdmin(kit.state),
+  createSupabaseAdmin: () => fakeAdminWithInsertReturning(),
 }));
 
 import handler from "./access-logs.js";
+
+// 공용 가짜의 insert 는 await 만 되므로, insert().select().single() 체인을 얹는다.
+function fakeAdminWithInsertReturning() {
+  const admin = createFakeAdmin(kit.state);
+  const from = admin.from;
+  return {
+    ...admin,
+    from: (table: string) => {
+      const chain = from(table) as Record<string, unknown>;
+      const insert = chain.insert as (
+        row: Record<string, unknown>,
+      ) => Promise<{ error: unknown }>;
+      chain.insert = (row: Record<string, unknown>) => {
+        const written = insert(row);
+        return {
+          select: () => ({
+            single: async () => {
+              const { error } = await written;
+              return error
+                ? { data: null, error }
+                : {
+                    data: { id: "log-new", created_at: "2026-11-24T01:02:03Z" },
+                    error: null,
+                  };
+            },
+          }),
+        };
+      };
+      return chain;
+    },
+  };
+}
 
 interface Captured {
   status: number;
@@ -34,9 +66,12 @@ async function call(
   method: string,
   body: unknown,
   query: Record<string, string> = {},
+  withToken = true,
 ): Promise<Captured> {
   const out: Captured = { status: 0, body: undefined, headers: {} };
-  const headers = { authorization: "Bearer token" };
+  const headers: Record<string, string> = withToken
+    ? { authorization: "Bearer token" }
+    : {};
   const res = {
     req: { headers },
     setHeader: (key: string, value: string) => {
@@ -360,5 +395,137 @@ describe("GET /api/admin/access-logs", () => {
     expect((third.body as Body).items).toHaveLength(20);
     expect((third.body as Body).items[0]?.id).toBe("log-100");
     expect((third.body as Body).hasNext).toBe(false);
+  });
+});
+
+const VALID_POST = {
+  action: "download",
+  resourceKey: "members",
+  reason: "  정산 대사  ",
+  rowCount: 12,
+};
+
+const post = (body: unknown, withToken = true) =>
+  call("POST", body, {}, withToken);
+
+describe("POST /api/admin/access-logs", () => {
+  beforeEach(() => {
+    kit.state.rpc.fn_admin_effective_permissions = () => ({
+      data: [{ resource_key: "members", level: "view" }],
+      error: null,
+    });
+    kit.state.auth.getUserById.mockResolvedValue({
+      data: { user: { email: "hq@example.com" } },
+      error: null,
+    });
+  });
+
+  test("본문 메뉴의 view 권한이면 토큰 사용자와 인증 이메일로 적재하고 201 로 id 를 돌려준다", async () => {
+    const r = await post(VALID_POST);
+
+    expect(r.status).toBe(201);
+    expect(r.body).toEqual({
+      id: "log-new",
+      createdAt: "2026-11-24T01:02:03Z",
+    });
+    expect(kit.state.auth.getUserById).toHaveBeenCalledWith("hq-1");
+    expect(kit.state.inserts).toEqual([
+      {
+        table: "admin_access_logs",
+        row: {
+          profile_id: "hq-1",
+          actor_email: "hq@example.com",
+          action: "download",
+          resource_key: "members",
+          reason: "정산 대사",
+          row_count: 12,
+          target_id: null,
+        },
+      },
+    ]);
+  });
+
+  test("마스킹 해제는 대상 id 를 남기고 건수는 비운다", async () => {
+    await post({
+      action: "unmask",
+      resourceKey: "members",
+      reason: "환불 문의 응대",
+      targetId: "member-9",
+    });
+
+    expect(kit.state.inserts[0]?.row).toMatchObject({
+      action: "unmask",
+      target_id: "member-9",
+      row_count: null,
+    });
+  });
+
+  test("본문의 profile_id 와 actor_email 은 무시한다", async () => {
+    await post({
+      ...VALID_POST,
+      profile_id: "someone-else",
+      actor_email: "forged@example.com",
+    });
+
+    expect(kit.state.inserts[0]?.row).toMatchObject({
+      profile_id: "hq-1",
+      actor_email: "hq@example.com",
+    });
+  });
+
+  test.each([
+    [{ ...VALID_POST, reason: "   " }],
+    [{ ...VALID_POST, reason: undefined }],
+    [{ ...VALID_POST, action: "view" }],
+    [{ ...VALID_POST, rowCount: -1 }],
+    [{ ...VALID_POST, rowCount: 1.5 }],
+  ])("잘못된 본문 %j 은 400 이고 적재하지 않는다", async (body) => {
+    const r = await post(body);
+
+    expectProblem(r, 400, "VALIDATION_FAILED");
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
+  test("본문 메뉴의 권한이 없으면 403 이고 적재하지 않는다", async () => {
+    const r = await post({ ...VALID_POST, resourceKey: "revenue" });
+
+    expectProblem(r, 403, "FORBIDDEN");
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
+  test("resourceKey 가 없으면 403 이다", async () => {
+    const r = await post({ ...VALID_POST, resourceKey: undefined });
+
+    expectProblem(r, 403, "FORBIDDEN");
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
+  test("토큰이 없으면 401 이다", async () => {
+    const r = await post(VALID_POST, false);
+
+    expectProblem(r, 401, "UNAUTHENTICATED");
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
+  test("인증 이메일을 못 구하면 500 이고 적재하지 않는다", async () => {
+    kit.state.auth.getUserById.mockResolvedValue({
+      data: { user: { email: null } },
+      error: null,
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const r = await post(VALID_POST);
+
+    expectProblem(r, 500, "INTERNAL_ERROR");
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
+  test("적재가 실패하면 500 이다", async () => {
+    kit.state.insertErrors.admin_access_logs = { message: "rls" };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const r = await post(VALID_POST);
+
+    expectProblem(r, 500, "INTERNAL_ERROR");
   });
 });
