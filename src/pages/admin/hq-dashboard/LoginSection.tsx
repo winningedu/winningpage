@@ -49,11 +49,11 @@ export default function LoginSection() {
 
   const statsQuery = useQuery({
     queryKey: ["hqDashboard", "logins", stats],
-    queryFn: () => fetchLoginStats(stats),
+    queryFn: ({ signal }) => fetchLoginStats(stats, signal),
   });
   const logQuery = useQuery({
     queryKey: ["hqDashboard", "logins", log],
-    queryFn: () => fetchLoginLog(log),
+    queryFn: ({ signal }) => fetchLoginLog(log, signal),
   });
 
   // 필터를 바꾸면 기록 표는 1쪽으로 돌아간다.

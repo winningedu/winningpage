@@ -1,27 +1,45 @@
 // 개인정보 접근 로그 화면의 데이터 호출. teachers 가 클라이언트에 막혀 있어 /api/admin/access-logs 로만 읽는다.
 
+import { queryOptions } from "@tanstack/react-query";
+import { z } from "zod";
+import { api } from "@/lib/http/client";
 import { addDaysYmd, dayStartUtc } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
-import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 
-export type AccessLogKind = "view" | "edit" | "export" | "proxy";
+export type AccessLogKind =
+  | "view"
+  | "edit"
+  | "create"
+  | "delete"
+  | "export"
+  | "proxy";
 
-export interface AccessLogEntry {
-  id: string;
-  createdAt: string;
-  tenantCode: string | null;
-  actorName: string | null;
-  actorEmail: string | null;
-  reason: string | null;
-  teacherName: string | null;
-  teacherLoginId: string | null;
-  teacherPhone: string | null;
-  kind: AccessLogKind;
-  kindLabel: string;
-  targetStudentName: string | null;
-  content: string;
-  isProxy: boolean;
-}
+const accessLogEntrySchema = z.object({
+  id: z.string(),
+  createdAt: z.string(),
+  tenantCode: z.string().nullable(),
+  actorName: z.string().nullable(),
+  actorEmail: z.string().nullable(),
+  reason: z.string().nullable(),
+  teacherName: z.string().nullable(),
+  teacherLoginId: z.string().nullable(),
+  teacherPhone: z.string().nullable(),
+  kind: z.enum(["view", "edit", "create", "delete", "export", "proxy"]),
+  kindLabel: z.string(),
+  targetStudentName: z.string().nullable(),
+  content: z.string(),
+  isProxy: z.boolean(),
+});
+
+export type AccessLogEntry = z.infer<typeof accessLogEntrySchema>;
+
+const accessLogPageSchema = z.object({
+  items: z.array(accessLogEntrySchema),
+  page: z.number(),
+  hasNext: z.boolean(),
+});
+
+export type AccessLogPage = z.infer<typeof accessLogPageSchema>;
 
 export interface AccessLogFilter {
   tenantCode: string;
@@ -31,39 +49,23 @@ export interface AccessLogFilter {
   page: number;
 }
 
-export interface AccessLogPage {
-  logs: AccessLogEntry[];
-  page: number;
-  hasNext: boolean;
-}
-
-export type ApiResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; message: string };
-
-export async function fetchAccessLogs(
-  filter: AccessLogFilter,
-): Promise<ApiResult<AccessLogPage>> {
-  const params = new URLSearchParams({ page: String(filter.page) });
-  if (filter.tenantCode) params.set("tenantCode", filter.tenantCode);
-  // 화면의 날짜는 브라우저 시간대의 하루다. 서버에는 from 포함, to 미포함인 ISO Z 시각으로 보낸다.
-  const tz = browserTimeZone();
-  if (filter.from) params.set("from", dayStartUtc(filter.from, tz));
-  if (filter.to) params.set("to", dayStartUtc(addDaysYmd(filter.to, 1), tz));
-  if (filter.kind) params.set("kind", filter.kind);
-
-  const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-  const response = await fetch(`/api/admin/access-logs?${params}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+export function accessLogsQueryOptions(filter: AccessLogFilter) {
+  return queryOptions({
+    queryKey: ["admin", "access-logs", filter],
+    queryFn: ({ signal }) => {
+      const searchParams: Record<string, string> = {
+        page: String(filter.page),
+      };
+      if (filter.tenantCode) searchParams.tenantCode = filter.tenantCode;
+      // 화면의 날짜는 브라우저 시간대의 하루다. 서버에는 from 포함, to 미포함인 ISO Z 시각으로 보낸다.
+      const tz = browserTimeZone();
+      if (filter.from) searchParams.from = dayStartUtc(filter.from, tz);
+      if (filter.to)
+        searchParams.to = dayStartUtc(addDaysYmd(filter.to, 1), tz);
+      if (filter.kind) searchParams.kind = filter.kind;
+      return api
+        .get("admin/access-logs", { searchParams, signal })
+        .json(accessLogPageSchema);
+    },
   });
-  const result = await response.json().catch(() => null);
-  if (!response.ok || !result?.ok) {
-    return {
-      ok: false,
-      message:
-        result?.error?.message ??
-        `접근 로그를 불러오지 못했습니다. (HTTP ${response.status})`,
-    };
-  }
-  return { ok: true, data: result as AccessLogPage };
 }

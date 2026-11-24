@@ -1,5 +1,7 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Plus, RefreshCw } from "lucide-react";
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Navigate, Route, Routes, useNavigate } from "react-router";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -19,8 +21,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { site } from "@/config/site";
-import { supabase } from "@/lib/supabase";
-import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import {
+  AdminApiError,
+  reportAdminError,
+} from "@/pages/admin/shared/adminErrors";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import {
   ActionButton,
@@ -28,7 +32,13 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
-import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
+import { useKeywordParam } from "@/pages/admin/shared/useKeywordParam";
+import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
+import {
+  createTenant,
+  fetchTenants,
+  type TenantRow,
+} from "@/pages/admin/tenants/api";
 import {
   deletionDdayText,
   mouLabel,
@@ -41,6 +51,11 @@ import {
   TIER_OPTIONS,
 } from "@/pages/admin/tenants/options";
 import TenantDetail from "@/pages/admin/tenants/TenantDetail";
+import {
+  errorDetail,
+  tenantKeys,
+  tenantPaths,
+} from "@/pages/admin/tenants/tenantQueries";
 
 // ---------------------------------------------------------------------------
 // 기관 관리(tenants, 2026-09-22) — 목록 + 발급.
@@ -69,28 +84,10 @@ import TenantDetail from "@/pages/admin/tenants/TenantDetail";
 // 스쿨멘토(site.features.hqTenantAdmin)는 목록에 계약 기간, MOU, 유예 종료일, 삭제 D-day, 기타 뱃지를
 // 더하고 기관 이름을 누르면 기관 상세(TenantDetail: 기관 정보 수정, 학교 관리자)를 연다. 등록 직후에도
 // 발급 코드 모달 대신 그 상세로 간다. 위닝은 예전 화면 그대로다.
+//
+// 화면은 주소가 정한다(/admin/tenants, /new, /:id/*). 목록, 등록, 상세는 서버 경로(admin/tenants)로
+// 읽고 쓴다. 열 구성(hqTenantAdmin)은 서버가 정하고, 화면은 같은 플래그로 열을 보일지만 가른다.
 // ---------------------------------------------------------------------------
-
-interface TenantRow {
-  id: string;
-  code: string;
-  name: string;
-  region: string;
-  org_type: string;
-  tier: string;
-  created_at: string;
-  contract_start_date?: string | null;
-  contract_end_date?: string | null;
-  grace_ends_on?: string | null;
-  mou_status?: string | null;
-  is_catch_all?: boolean;
-  time_zone?: string;
-}
-
-const BASE_COLUMNS = "id, code, name, region, org_type, tier, created_at";
-const HQ_COLUMNS = `${BASE_COLUMNS}, contract_start_date, contract_end_date, grace_ends_on, mou_status, is_catch_all, time_zone`;
-
-type ViewMode = "list" | "create" | "detail";
 
 interface CreateForm {
   name: string;
@@ -116,207 +113,17 @@ interface TenantsAdminProps {
 
 const HEAD = "whitespace-normal px-3 py-3 text-left font-semibold";
 
+// 서버가 쓴 문장만 보인다. 오류 원문은 화면에 싣지 않는다.
+function reportApiError(title: string, error: unknown) {
+  reportAdminError(title, new AdminApiError(errorDetail(error)));
+}
+
 export default function TenantsAdmin({ config }: TenantsAdminProps) {
-  const [view, setView] = useState<ViewMode>("list");
-  const [rows, setRows] = useState<TenantRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [keyword, setKeyword] = useState("");
-  const [detailId, setDetailId] = useState<string | null>(null);
-  // app_settings.contract_grace_days. 유예 종료일이 빈 기관의 삭제 D-day 계산에 쓴다.
-  const [graceDays, setGraceDays] = useState<number | null>(null);
-
-  const [form, setForm] = useState<CreateForm>(() => emptyForm());
-  const [saving, setSaving] = useState(false);
-
-  // fn_create_tenant 가 막 발급한 코드 — 등록 즉시 눈에 띄게 모달로 보여준다.
-  // 목록으로 돌아가면 같은 값을 코드 칼럼에서 다시 볼 수 있지만, 발급
-  // 직후에는 "방금 이 코드를 어디로 전달해야 하는지"가 급하므로 별도로 띄운다.
+  // 막 발급한 코드. 등록 폼에서 목록으로 돌아온 뒤에도 남아야 해서 라우트 바깥에 둔다.
   const [issuedTenant, setIssuedTenant] = useState<TenantRow | null>(null);
 
-  async function loadRows() {
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from("tenants")
-      .select(site.features.hqTenantAdmin ? HQ_COLUMNS : BASE_COLUMNS)
-      .order("created_at", { ascending: false });
-
-    setLoading(false);
-
-    if (error) {
-      reportAdminError(`${config.title} 조회 실패`, error);
-      setRows([]);
-      return;
-    }
-
-    // select 열 목록이 사이트 플래그에 따라 달라 타입 파서가 결과를 추론하지 못한다.
-    setRows((data as unknown as TenantRow[]) || []);
-  }
-
-  async function loadGraceDays() {
-    const { data } = await supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "contract_grace_days")
-      .maybeSingle();
-    const value = (data as { value: unknown } | null)?.value;
-    setGraceDays(typeof value === "number" ? value : null);
-  }
-
-  const onMountLoad = useEffectEvent(() => {
-    loadRows();
-    if (site.features.hqTenantAdmin) loadGraceDays();
-  });
-
-  useEffect(() => {
-    onMountLoad();
-  }, []);
-
-  const hq = site.features.hqTenantAdmin;
-
-  const filteredRows = useMemo(() => {
-    const q = keyword.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) => row.name.toLowerCase().includes(q));
-  }, [rows, keyword]);
-
-  function openCreate() {
-    setForm(emptyForm());
-    setView("create");
-  }
-
-  function openDetail(id: string) {
-    setDetailId(id);
-    setView("detail");
-  }
-
-  function closeForm() {
-    setView("list");
-    setForm(emptyForm());
-  }
-
-  // QA 317 계열 — 상세(등록 폼)가 라우트가 아니라 state 라 뒤로가기가 직전
-  // 메뉴로 튄다. CouponAdmin/AdminMembersAdmin 과 같은 처방.
-  useAdminDetailBack(view !== "list", () => setView("list"));
-
-  async function save() {
-    if (saving) return;
-
-    if (!form.name.trim()) {
-      toastWarning("이름 항목을 입력해주세요.");
-      return;
-    }
-
-    setSaving(true);
-
-    // 오류 원문은 화면에 싣지 않는다(reportAdminError 가 매핑된 안내만 보인다).
-    // WC067(최고 관리자 아님, not_super_admin)은 adminErrors 매핑이 한국어 안내로 바꾼다.
-    const { data, error } = await supabase.rpc("fn_create_tenant", {
-      p_name: form.name.trim(),
-      p_region: form.region,
-      p_org_type: form.org_type,
-      p_tier: form.tier,
-    });
-
-    setSaving(false);
-
-    if (error) {
-      reportAdminError("등록 실패", error);
-      return;
-    }
-
-    const created = data as TenantRow;
-    closeForm();
-    await loadRows();
-    if (site.features.hqTenantAdmin) {
-      openDetail(created.id);
-      return;
-    }
-    setIssuedTenant(created);
-  }
-
-  if (view === "detail" && detailId) {
-    return (
-      <TenantDetail
-        tenantId={detailId}
-        onBack={() => setView("list")}
-        onSaved={loadRows}
-      />
-    );
-  }
-
-  if (view === "create") {
-    return (
-      <div>
-        <h1 className="mb-5 text-2xl font-semibold text-foreground">
-          {config.title} 등록
-        </h1>
-
-        <div className="flex flex-wrap items-end gap-4 bg-white p-6 shadow-sm">
-          <Field label="이름">
-            <TextInput
-              value={form.name}
-              onChange={(value) =>
-                setForm((prev) => ({ ...prev, name: value }))
-              }
-            />
-          </Field>
-          <Field label="지역">
-            <Select
-              value={form.region}
-              onChange={(value) =>
-                setForm((prev) => ({ ...prev, region: value }))
-              }
-            >
-              {REGION_OPTIONS.map((region) => (
-                <option key={region} value={region}>
-                  {region}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="기관 유형">
-            <Select
-              value={form.org_type}
-              onChange={(value) =>
-                setForm((prev) => ({ ...prev, org_type: value }))
-              }
-            >
-              {ORG_TYPE_OPTIONS.map((orgType) => (
-                <option key={orgType} value={orgType}>
-                  {orgType}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="등급(내부용)">
-            <Select
-              value={form.tier}
-              onChange={(value) =>
-                setForm((prev) => ({ ...prev, tier: value }))
-              }
-            >
-              {TIER_OPTIONS.map((tier) => (
-                <option key={tier.value} value={tier.value}>
-                  {tier.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <ActionButton onClick={save} disabled={saving}>
-            {saving ? "등록 중..." : "등록"}
-          </ActionButton>
-          <ActionButton variant="light" onClick={closeForm}>
-            취소
-          </ActionButton>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div>
+    <>
       {issuedTenant && (
         // 발급 직후 결과 모달 — 코드는 이 순간을 놓치면 목록에서 다시 찾아야
         // 한다(trg_tenants_lock_code 로 불변이니 재발급도 못 한다). 확인으로만 닫히도록
@@ -358,7 +165,167 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
           </AlertDialogContent>
         </AlertDialog>
       )}
+      <Routes>
+        <Route index element={<TenantList config={config} />} />
+        <Route
+          path="new"
+          element={<TenantCreate config={config} onIssued={setIssuedTenant} />}
+        />
+        {site.features.hqTenantAdmin && (
+          <Route path=":id/*" element={<TenantDetail />} />
+        )}
+        <Route path="*" element={<Navigate to={tenantPaths.list} replace />} />
+      </Routes>
+    </>
+  );
+}
 
+function TenantCreate({
+  config,
+  onIssued,
+}: TenantsAdminProps & { onIssued: (tenant: TenantRow) => void }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<CreateForm>(() => emptyForm());
+  // 등록이 끝나 스스로 이동할 때는 이탈 보호를 거치지 않는다.
+  const done = useRef(false);
+  const dirty = JSON.stringify(form) !== JSON.stringify(emptyForm());
+  useUnsavedGuard(dirty, () => done.current);
+
+  const createMutation = useMutation({
+    mutationFn: (body: CreateForm) => createTenant(body),
+  });
+  const saving = createMutation.isPending;
+
+  function save() {
+    if (saving) return;
+
+    if (!form.name.trim()) {
+      toastWarning("이름 항목을 입력해주세요.");
+      return;
+    }
+
+    createMutation.mutate(
+      { ...form, name: form.name.trim() },
+      {
+        onSuccess: (created) => {
+          done.current = true;
+          queryClient.invalidateQueries({ queryKey: tenantKeys.list() });
+          if (site.features.hqTenantAdmin) {
+            navigate(tenantPaths.detail(created.id), { replace: true });
+            return;
+          }
+          navigate(tenantPaths.list, { replace: true });
+          onIssued(created);
+        },
+        onError: (error) => reportApiError("등록 실패", error),
+      },
+    );
+  }
+
+  function closeForm() {
+    navigate(tenantPaths.list);
+  }
+
+  return (
+    <div>
+      <h1 className="mb-5 text-2xl font-semibold text-foreground">
+        {config.title} 등록
+      </h1>
+
+      <div className="flex flex-wrap items-end gap-4 bg-white p-6 shadow-sm">
+        <Field label="이름">
+          <TextInput
+            value={form.name}
+            onChange={(value) => setForm((prev) => ({ ...prev, name: value }))}
+          />
+        </Field>
+        <Field label="지역">
+          <Select
+            value={form.region}
+            onChange={(value) =>
+              setForm((prev) => ({ ...prev, region: value }))
+            }
+          >
+            {REGION_OPTIONS.map((region) => (
+              <option key={region} value={region}>
+                {region}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="기관 유형">
+          <Select
+            value={form.org_type}
+            onChange={(value) =>
+              setForm((prev) => ({ ...prev, org_type: value }))
+            }
+          >
+            {ORG_TYPE_OPTIONS.map((orgType) => (
+              <option key={orgType} value={orgType}>
+                {orgType}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="등급(내부용)">
+          <Select
+            value={form.tier}
+            onChange={(value) => setForm((prev) => ({ ...prev, tier: value }))}
+          >
+            {TIER_OPTIONS.map((tier) => (
+              <option key={tier.value} value={tier.value}>
+                {tier.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <ActionButton onClick={save} disabled={saving}>
+          {saving ? "등록 중..." : "등록"}
+        </ActionButton>
+        <ActionButton variant="light" onClick={closeForm}>
+          취소
+        </ActionButton>
+      </div>
+    </div>
+  );
+}
+
+function TenantList({ config }: TenantsAdminProps) {
+  const navigate = useNavigate();
+  const [keyword, setKeyword] = useKeywordParam();
+  const query = useQuery({
+    queryKey: tenantKeys.list(),
+    queryFn: ({ signal }) => fetchTenants(signal),
+  });
+  const rows = query.data?.items ?? [];
+  // 유예 종료일이 빈 기관의 삭제 D-day 계산에 쓰는 기본 유예 일수. 서버가 없으면 null 이다.
+  const graceDays = query.data?.graceDays ?? null;
+  const loading = query.isFetching;
+
+  useEffect(() => {
+    if (query.error) reportApiError(`${config.title} 조회 실패`, query.error);
+  }, [query.error, config.title]);
+
+  const hq = site.features.hqTenantAdmin;
+
+  const filteredRows = useMemo(() => {
+    const q = keyword.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((row) => row.name.toLowerCase().includes(q));
+  }, [rows, keyword]);
+
+  function openCreate() {
+    navigate(tenantPaths.create);
+  }
+
+  function openDetail(id: string) {
+    navigate(tenantPaths.detail(id));
+  }
+
+  return (
+    <div>
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -366,7 +333,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
               type="button"
               variant="outline"
               size="lg"
-              onClick={loadRows}
+              onClick={() => query.refetch()}
             >
               <RefreshCw size={14} aria-hidden="true" />
               초기화

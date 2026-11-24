@@ -2,10 +2,12 @@
 // 가는 사고를 막는 구조 가드. 새 핸들러는 파일만 추가하면 이 테스트가 빠진 등록을 알려준다.
 import fs from "node:fs";
 import path from "node:path";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { describe, expect, test } from "vitest";
 import { config as config10 } from "../router.js";
 import { config as config30 } from "../router-30.js";
 import { config as config60 } from "../router-60.js";
+import { dispatch } from "./dispatch.js";
 import { routes as defaultRoutes } from "./manifest.js";
 import { routes as routes30 } from "./manifest-30.js";
 import { routes as routes60 } from "./manifest-60.js";
@@ -159,6 +161,27 @@ const vercelJson = JSON.parse(
 const alternation = (routes: Record<string, unknown>) =>
   `/api/((?:${Object.keys(routes).sort().join("|")})/?)`;
 
+describe("대괄호 라우트 키", () => {
+  // 대괄호가 있으면 구간 전체가 [영문] 이어야 한다(dispatch 의 PARAM_SEGMENT 와 같은 규칙).
+  const validSegment = (segment: string) =>
+    !/[[\]]/.test(segment) || /^\[[a-zA-Z]+\]$/.test(segment);
+
+  test("매니페스트 키의 대괄호는 구간 전체가 [영문] 이다", () => {
+    const bad = Object.values(manifests)
+      .flatMap((routes) => Object.keys(routes))
+      .filter((key) => !key.split("/").every(validSegment));
+
+    expect(bad).toEqual([]);
+  });
+
+  test("규칙이 구간 일부에 섞인 대괄호를 거른다", () => {
+    expect(["[key]", "plain", "a-b"].every(validSegment)).toBe(true);
+    expect(
+      ["a[key]", "[key]x", "[]", "[k1]", "[[key]]"].some(validSegment),
+    ).toBe(false);
+  });
+});
+
 describe("vercel.json 라우터 rewrite", () => {
   test("앞의 세 개가 30초, 60초, 기본 진입 함수로 보낸다", () => {
     expect(vercelJson.rewrites.slice(0, 3)).toEqual([
@@ -280,5 +303,145 @@ describe("api/ 직속 독립 함수", () => {
       "새 엔드포인트는 api/_routes/ 에 두고 매니페스트에 등록한다",
     ).toEqual([]);
     expect(standalone.sort()).toEqual([...allowed].sort());
+  });
+});
+
+// 실제 매니페스트 키로 요청이 어느 라우트에 닿고 경로 값이 어떻게 담기는지 본다.
+describe("쿠폰 경로 파라미터", () => {
+  const COUPON_ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
+
+  const resolve = async (url: string) => {
+    const hit: { key?: string; query?: unknown } = {};
+    const stubs = Object.fromEntries(
+      Object.keys(defaultRoutes).map((key) => [
+        key,
+        async () => ({
+          default: (req: VercelRequest) => {
+            hit.key = key;
+            hit.query = req.query;
+          },
+        }),
+      ]),
+    );
+    const res = { status: () => res, json: () => res };
+    await dispatch(
+      stubs,
+      { url, query: {} } as unknown as VercelRequest,
+      res as unknown as VercelResponse,
+    );
+    return hit;
+  };
+
+  test("글자 그대로인 user-search 가 [id] 보다 먼저다", async () => {
+    expect(await resolve("/api/admin/coupons/user-search")).toEqual({
+      key: "admin/coupons/user-search",
+      query: {},
+    });
+  });
+
+  test.each([
+    [
+      `/api/admin/coupons/${COUPON_ID}`,
+      "admin/coupons/[id]",
+      { id: COUPON_ID },
+    ],
+    [
+      `/api/admin/coupons/${COUPON_ID}/redemptions`,
+      "admin/coupons/[id]/redemptions",
+      { id: COUPON_ID },
+    ],
+    [
+      `/api/admin/coupons/${COUPON_ID}/grants`,
+      "admin/coupons/[id]/grants",
+      { id: COUPON_ID },
+    ],
+    [
+      "/api/admin/coupons/redemptions/5/void",
+      "admin/coupons/redemptions/[id]/void",
+      { id: "5" },
+    ],
+    [
+      "/api/admin/premium-book/pages/7",
+      "admin/premium-book/pages/[id]",
+      { id: "7" },
+    ],
+    [
+      "/api/admin/coupons/grants/5/revoke",
+      "admin/coupons/grants/[id]/revoke",
+      { id: "5" },
+    ],
+  ])("%s 는 %s 로 가고 id 가 담긴다", async (url, key, query) => {
+    expect(await resolve(url)).toEqual({ key, query });
+  });
+});
+
+describe("학습진단, 멘토 신청 경로", () => {
+  const ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
+  const resolve = async (url: string) => {
+    const hit: { key?: string; query?: unknown } = {};
+    const stubs = Object.fromEntries(
+      Object.keys(defaultRoutes).map((key) => [
+        key,
+        async () => ({
+          default: (req: VercelRequest) => {
+            hit.key = key;
+            hit.query = req.query;
+          },
+        }),
+      ]),
+    );
+    const res = { status: () => res, json: () => res };
+    await dispatch(
+      stubs,
+      { url, query: {} } as unknown as VercelRequest,
+      res as unknown as VercelResponse,
+    );
+    return hit;
+  };
+
+  test.each([
+    [
+      "/api/admin/learning-diagnosis/questions",
+      "admin/learning-diagnosis/questions",
+      {},
+    ],
+    [
+      `/api/admin/learning-diagnosis/questions/${ID}`,
+      "admin/learning-diagnosis/questions/[id]",
+      { id: ID },
+    ],
+    [
+      "/api/admin/learning-diagnosis/options",
+      "admin/learning-diagnosis/options",
+      {},
+    ],
+    [
+      `/api/admin/learning-diagnosis/options/${ID}`,
+      "admin/learning-diagnosis/options/[id]",
+      { id: ID },
+    ],
+    [
+      "/api/admin/learning-diagnosis/programs",
+      "admin/learning-diagnosis/programs",
+      {},
+    ],
+    [
+      `/api/admin/learning-diagnosis/programs/${ID}`,
+      "admin/learning-diagnosis/programs/[id]",
+      { id: ID },
+    ],
+    ["/api/admin/mentor-applications", "admin/mentor-applications", {}],
+    [
+      `/api/admin/mentor-applications/${ID}`,
+      "admin/mentor-applications/[id]",
+      { id: ID },
+    ],
+    [
+      `/api/admin/mentor-applications/${ID}/proof-url`,
+      "admin/mentor-applications/[id]/proof-url",
+      { id: ID },
+    ],
+  ])("%s 는 %s 로 간다", async (url, key, query) => {
+    expect(await resolve(url)).toEqual({ key, query });
   });
 });

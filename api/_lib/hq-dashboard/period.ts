@@ -1,6 +1,7 @@
 // 본사 대시보드 통계 라우트의 기간 쿼리. 날짜는 보는 사람 시간대의 달력 날짜(YYYY-MM-DD)이고 양 끝을 포함한다.
 // 기본 기간은 이번 달 1일부터 오늘(보는 사람 시간대). 종료일은 오늘을 넘을 수 없고 기간은 최대 731일(로그인 기록 보관 2년).
 
+import { z } from "zod";
 import { ymdIn } from "../../../src/lib/time/day.js";
 
 const MAX_SPAN_DAYS = 731;
@@ -10,6 +11,22 @@ export const GRAINS = ["day", "week", "month"] as const;
 export const MAU_MODES = ["calendar", "rolling30"] as const;
 export type Grain = (typeof GRAINS)[number];
 export type MauMode = (typeof MAU_MODES)[number];
+
+// 통계 라우트 공통 쿼리. 날짜 검사는 parsePeriod 가 한다(문구가 화면에 그대로 보인다).
+// includeInternal 은 "1" 일 때만 포함이고 다른 값은 제외다.
+export const periodQuery = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+  includeInternal: z
+    .string()
+    .optional()
+    .transform((value) => value === "1"),
+});
+
+export const statsQuery = periodQuery.extend({
+  grain: z.enum(GRAINS).default("day"),
+  mau: z.enum(MAU_MODES).default("calendar"),
+});
 
 function isDate(value: string): boolean {
   if (!DATE_RE.test(value)) return false;
@@ -25,16 +42,6 @@ function daysBetween(from: string, to: string): number {
     (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) /
     86_400_000
   );
-}
-
-// 쿼리에 없으면 fallback, 허용 값이 아니면 null.
-export function pick<T extends string>(
-  value: unknown,
-  allowed: readonly T[],
-  fallback: T,
-): T | null {
-  if (value === undefined) return fallback;
-  return allowed.includes(value as T) ? (value as T) : null;
 }
 
 // 올바르면 { from, to }, 아니면 화면에 보일 오류 문구.

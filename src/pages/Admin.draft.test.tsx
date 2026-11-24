@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,10 +16,21 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+vi.mock("@/context/AuthProvider", () => ({
+  useAuth: () => ({ userId: null }),
+}));
+
 vi.mock("./admin/shared/adminSession", () => ({
   getFreshSupabaseAccessTokenOrSignOut: async () => "token",
 }));
 
+const embed = vi.hoisted(() => ({ requestEmbedding: vi.fn() }));
+vi.mock("./admin/engine/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./admin/engine/api")>()),
+  requestEmbedding: embed.requestEmbedding,
+}));
+
+import { ApiError } from "@/lib/http/client";
 import { AdminLayout, requestWinningEmbedding } from "./Admin";
 
 beforeEach(() => {
@@ -34,9 +46,11 @@ describe("Admin 학습진단 초안", () => {
     localStorage.setItem("diagnosis-draft:u1", "{}");
     localStorage.setItem("other-key", "keep");
     render(
-      <MemoryRouter initialEntries={["/admin"]}>
-        <AdminLayout />
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={["/admin"]}>
+          <AdminLayout />
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "로그아웃" }));
@@ -49,18 +63,25 @@ describe("Admin 학습진단 초안", () => {
   it("임베딩 요청이 401이면 학습진단 초안을 지우고 다른 키는 둔다", async () => {
     localStorage.setItem("diagnosis-draft:u1", "{}");
     localStorage.setItem("other-key", "keep");
-    vi.stubGlobal(
-      "fetch",
-      async () =>
-        new Response(JSON.stringify({ detail: "unauthorized" }), {
-          status: 401,
-        }),
+    embed.requestEmbedding.mockRejectedValue(
+      new ApiError({
+        status: 401,
+        code: "UNAUTHORIZED",
+        detail: "unauthorized",
+      }),
     );
+    vi.spyOn(console, "error").mockImplementation(() => {});
 
     await requestWinningEmbedding({ id: "row-1" });
 
+    expect(embed.requestEmbedding).toHaveBeenCalledWith("row-1");
     expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull();
     expect(localStorage.getItem("other-key")).toBe("keep");
-    vi.unstubAllGlobals();
+    expect(console.error).toHaveBeenCalledWith(
+      "위닝 수행 DB 자동 임베딩 요청 실패:",
+      expect.objectContaining({
+        message: "unauthorized: 로그아웃 후 다시 로그인하세요.",
+      }),
+    );
   });
 });

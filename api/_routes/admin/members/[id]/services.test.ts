@@ -1,0 +1,98 @@
+// GET /api/admin/members/:id/services 계약 검증. 회원의 이용권(program_access) 목록.
+
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  createSectionAdmin,
+  type SectionDb,
+} from "../../../../_lib/admin-sections/sectionTestKit.js";
+import {
+  callHandler,
+  createKitState,
+  type KitState,
+} from "../../../../_lib/console/consoleTestKit.js";
+import {
+  MEMBER_ID,
+  OTHER_ID,
+  seedMembersDb,
+} from "../../../../_lib/members/membersTestKit.js";
+
+const kit = vi.hoisted(() => ({
+  state: null as unknown as KitState,
+  db: null as unknown as SectionDb,
+}));
+
+vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => createSectionAdmin(kit.state, kit.db),
+}));
+
+import handler from "./services.js";
+
+const get = (id: string) => callHandler(handler, undefined, "GET", { id });
+
+const TABLES = {
+  profiles: [{ id: MEMBER_ID, member_type: "student" }],
+  program_access: [
+    { id: MEMBER_ID, program_key: "diagnose", access_status: "active" },
+    { id: MEMBER_ID, program_key: "target", access_status: "expired" },
+    { id: OTHER_ID, program_key: "growth", access_status: "active" },
+  ],
+};
+
+beforeEach(() => {
+  kit.state = createKitState();
+  kit.db = seedMembersDb(kit.state, "view", TABLES);
+});
+
+describe("GET /api/admin/members/:id/services", () => {
+  test("그 회원의 이용권만 돌려준다", async () => {
+    const r = await get(MEMBER_ID);
+
+    expect(r.status).toBe(200);
+    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(
+      (r.body as { items: { program_key: string }[] }).items.map(
+        (x) => x.program_key,
+      ),
+    ).toEqual(["diagnose", "target"]);
+    const read = kit.db.calls.find((c) => c.table === "program_access");
+    expect(read?.filters).toEqual([["id", "eq", MEMBER_ID]]);
+  });
+
+  test("members 권한이 없으면 403 이고 읽지 않는다", async () => {
+    kit.db = seedMembersDb(kit.state, "none", TABLES);
+
+    expect((await get(MEMBER_ID)).status).toBe(403);
+    expect(kit.db.calls.some((c) => c.table === "program_access")).toBe(false);
+  });
+
+  test("없는 회원은 404 NOT_FOUND 이고 program_access 를 읽지 않는다", async () => {
+    const r = await get(OTHER_ID);
+
+    expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({ code: "NOT_FOUND" });
+    expect(kit.db.calls.some((c) => c.table === "program_access")).toBe(false);
+  });
+
+  test("uuid 가 아닌 id 는 400 이고 읽지 않는다", async () => {
+    const r = await get("x");
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(kit.db.calls.some((c) => c.table === "program_access")).toBe(false);
+  });
+
+  test("읽기 오류는 500 INTERNAL_ERROR", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    kit.db.errors.push({
+      table: "program_access",
+      op: "select",
+      error: { code: "42501" },
+    });
+
+    const r = await get(MEMBER_ID);
+
+    expect(r.status).toBe(500);
+    expect(r.body).toMatchObject({ code: "INTERNAL_ERROR" });
+  });
+});

@@ -8,12 +8,15 @@
 // 차감: 종결 때 원본의 차감은 이미 되돌려졌다(fn_growth_terminate_report). 새 회차는 ledger_id 가
 // 없으므로 1단계 성공 시점에 다시 차감된다. 복구 자체는 차감하지 않는다.
 //
-// 응답 200 { ok, newReportId }
-// 오류(coded): 400 INVALID_BODY, 404 REPORT_NOT_FOUND, 409 NOT_RECOVERABLE,
-//   409 ALREADY_RECOVERED, 409 OPEN_REPORT_EXISTS, 401/403 인증, 405, 500 INTERNAL
+// 응답 200 { newReportId }
+// 오류(problem): 400 VALIDATION_FAILED(모양, 정의되지 않은 키), 400 INVALID_BODY(값 규칙), 404 REPORT_NOT_FOUND, 409 NOT_RECOVERABLE,
+//   409 ALREADY_RECOVERED, 409 OPEN_REPORT_EXISTS, 401/403 인증, 405, 500 INTERNAL_ERROR
+// 원본 기록이 0행이면(확인 뒤 상태가 바뀜) 만든 회차을 지우고 409 NOT_RECOVERABLE 이다.
+// 권한: 메뉴 growthReports edit.
 //
-// 핸들러 본문은 테스트하지 않는다. 판정과 복제는 api/_lib/growth/ops/recover.ts.
+// 판정과 복제는 api/_lib/growth/ops/recover.ts.
 
+import { z } from "zod";
 import {
   canRecover,
   cloneForRecovery,
@@ -31,21 +34,20 @@ const SOURCE_COLUMNS =
 export default defineHandler({
   methods: ["POST"],
   auth: "admin",
-  errorShape: "coded",
+  errorShape: "problem",
+  permission: { key: "growthReports" },
   methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  authFailureExtra: { ok: false },
+  // 종결된 원본 회차를 고치는 복구라 수정으로 남긴다.
+  audit: { action: "update" },
   unhandledMessage: "성장설계 회차 복구에 실패했습니다.",
-  unhandledCode: "INTERNAL",
-  unhandledExtra: { ok: false },
   logLabel: "admin/growth-recover",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const parsed = validateRecoverBody(req.body);
+  // 모양만 거르고 값 규칙과 한국어 사유는 validateRecoverBody 가 맡는다.
+  body: z.object({ reportId: z.string() }).strict(),
+  handler: async (_req, res, ctx) => {
+    const parsed = validateRecoverBody(ctx.body);
     if (!parsed.ok) {
-      sendError(res, "coded", 400, parsed.reason, "INVALID_BODY", {
-        ok: false,
-      });
+      sendError(res, "problem", 400, parsed.reason, "INVALID_BODY");
       return;
     }
     const db = ctx.supabaseAdmin;
@@ -60,11 +62,10 @@ export default defineHandler({
     if (!source) {
       sendError(
         res,
-        "coded",
+        "problem",
         404,
         "회차를 찾을 수 없습니다.",
         "REPORT_NOT_FOUND",
-        { ok: false },
       );
       return;
     }
@@ -76,7 +77,7 @@ export default defineHandler({
         verdict.code === "ALREADY_RECOVERED"
           ? "이미 복구한 회차입니다."
           : "복구할 수 없는 회차입니다. 종결된 회차만 복구할 수 있습니다.";
-      sendError(res, "coded", 409, message, verdict.code, { ok: false });
+      sendError(res, "problem", 409, message, verdict.code);
       return;
     }
 
@@ -89,9 +90,7 @@ export default defineHandler({
       .limit(1);
     if (openError) throw new Error(`미완 회차 조회 실패: ${openError.message}`);
     if ((open ?? []).length > 0) {
-      sendError(res, "coded", 409, openMessage, "OPEN_REPORT_EXISTS", {
-        ok: false,
-      });
+      sendError(res, "problem", 409, openMessage, "OPEN_REPORT_EXISTS");
       return;
     }
 
@@ -104,9 +103,7 @@ export default defineHandler({
     if (insertError) {
       // 위 확인과 insert 사이에 학생이 회차를 만든 경우(학생당 미완 1개 부분 유니크).
       if (insertError.code === PG_UNIQUE_VIOLATION) {
-        sendError(res, "coded", 409, openMessage, "OPEN_REPORT_EXISTS", {
-          ok: false,
-        });
+        sendError(res, "problem", 409, openMessage, "OPEN_REPORT_EXISTS");
         return;
       }
       throw new Error(`복구 회차 생성 실패: ${insertError.message}`);
@@ -116,15 +113,28 @@ export default defineHandler({
       row.step_state && typeof row.step_state === "object"
         ? row.step_state
         : {};
-    const { error: markError } = await db
+    const { data: marked, error: markError } = await db
       .from("growth_reports")
       .update({ step_state: { ...state, recoveredTo: created.id } })
       .eq("id", row.id)
-      .eq("status", "archived");
+      .eq("status", "archived")
+      .select("id");
     if (markError)
       throw new Error(`원본 recoveredTo 기록 실패: ${markError.message}`);
+    if ((marked ?? []).length === 0) {
+      // 확인 뒤 원본이 종결 상태를 벗어났다. 성공으로 답하지 않고 방금 만든 회차을 되돌린다.
+      await db.from("growth_reports").delete().eq("id", created.id);
+      sendError(
+        res,
+        "problem",
+        409,
+        "복구할 수 없는 회차입니다. 종결된 회차만 복구할 수 있습니다.",
+        "NOT_RECOVERABLE",
+      );
+      return;
+    }
 
-    res.status(200).json({ ok: true, newReportId: created.id });
+    res.status(200).json({ newReportId: created.id });
   },
 });
 

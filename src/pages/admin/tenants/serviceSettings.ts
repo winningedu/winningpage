@@ -14,8 +14,8 @@ export type ProgramKey = (typeof SERVICE_PROGRAMS)[number]["key"];
 
 export interface UsageDefaults {
   [programKey: string]: {
-    monthly_limit?: number;
-    term_limit_by_term_months?: Record<string, number>;
+    monthly_limit?: number | undefined;
+    term_limit_by_term_months?: Record<string, number> | undefined;
   };
 }
 
@@ -97,12 +97,8 @@ const blankToNull = (value: string) => (value.trim() === "" ? null : value);
 export const numberOrNull = (value: string) =>
   value.trim() === "" ? null : Number(value);
 
-/** 한 행의 upsert 본문. 끄기는 enabled false 이고 행은 지우지 않는다(DELETE 권한이 없다). */
-export function settingPayload(
-  tenantId: string,
-  row: ServiceRowForm,
-  userId: string,
-) {
+/** 한 행의 upsert 본문. 변경자(updated_by)는 서버가 채운다. 끄기는 enabled false 이고 행은 지우지 않는다(DELETE 권한이 없다). */
+export function settingPayload(tenantId: string, row: ServiceRowForm) {
   return {
     tenant_id: tenantId,
     program_key: row.programKey,
@@ -111,7 +107,6 @@ export function settingPayload(
     ends_on: blankToNull(row.endsOn),
     monthly_limit: numberOrNull(row.monthlyLimit),
     term_limit: numberOrNull(row.termLimit),
-    updated_by: userId,
     updated_at: new Date().toISOString(),
   };
 }

@@ -1,3 +1,4 @@
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   Table,
@@ -11,7 +12,7 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
-import { postSweep, type SweepResponse } from "./api";
+import { errorText, postSweep, type SweepResponse } from "./api";
 import ErrorBox from "./ErrorBox";
 import {
   type EvalParams,
@@ -42,25 +43,26 @@ export default function SweepSection({
   const [draft, setDraft] = useState<SweepDraft>(EMPTY_SWEEP_DRAFT);
   const [result, setResult] = useState<SweepResponse | null>(null);
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
 
-  async function run() {
+  const sweep = useMutation({
+    mutationFn: postSweep,
+    onSuccess: (data) => {
+      setResult(data);
+      onSaved();
+    },
+    onError: (e) => setMessage(errorText(e)),
+  });
+  const busy = sweep.isPending;
+
+  function run() {
     if (busy) return;
     const parsed = toSweepGrid(draft);
     if (!parsed.ok) {
       setMessage(parsed.message);
       return;
     }
-    setBusy(true);
     setMessage("");
-    const response = await postSweep({ knowledgeType, grid: parsed.grid });
-    setBusy(false);
-    if (!response.ok) {
-      setMessage(response.message);
-      return;
-    }
-    setResult(response.data);
-    onSaved();
+    sweep.mutate({ knowledgeType, grid: parsed.grid });
   }
 
   const items = result ? sortSweepItems(result.items) : [];

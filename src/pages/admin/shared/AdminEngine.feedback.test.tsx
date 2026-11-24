@@ -1,4 +1,4 @@
-// AdminForm 과 uploadImage 의 안내. 알림창과 브라우저 확인창 대신 토스트와 확인 대화상자를 쓴다.
+// AdminForm 과 uploadSectionFiles 의 안내. 알림창과 브라우저 확인창 대신 토스트와 확인 대화상자를 쓴다.
 // (뒤로가기 popstate 의 이탈 확인은 동기 응답이 필요해 window.confirm 그대로라 여기서 다루지 않는다.)
 
 import "@testing-library/jest-dom/vitest";
@@ -14,24 +14,23 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const storage = vi.hoisted(() => ({ uploads: [] as string[] }));
 
-vi.mock("@/lib/supabase", () => ({
-  supabase: {
-    storage: {
-      from: () => ({
-        upload: async (path: string) => {
-          storage.uploads.push(path);
-          return { error: null };
-        },
-        getPublicUrl: (path: string) => ({
-          data: { publicUrl: `https://cdn.test/${path}` },
-        }),
-      }),
-    },
+vi.mock("../engine/api", () => ({
+  issueUpload: async (_section: string, file: { fileName: string }) => ({
+    path: `tmp-${file.fileName}`,
+    uploadUrl: `https://up/${file.fileName}`,
+  }),
+  previewUpload: async (_section: string, path: string) =>
+    `https://read/${path}`,
+  removeUploads: async () => {},
+}));
+vi.mock("@/lib/storage/signedUpload", () => ({
+  putSignedUpload: async (url: string) => {
+    storage.uploads.push(url);
   },
 }));
 
 import { Toaster, toast } from "@/components/ui/toast";
-import { AdminForm, uploadImage } from "./AdminEngine";
+import { AdminForm, uploadSectionFiles } from "./AdminEngine";
 import { ConfirmAdminHost, confirmAdmin } from "./confirmAdmin";
 
 function renderForm(
@@ -60,6 +59,7 @@ function renderForm(
         onCancel={() => {}}
         onSave={onSave}
         onUpload={(async () => null) as never}
+        onRemoveFiles={() => {}}
       />
       <Toaster />
       <ConfirmAdminHost />
@@ -176,7 +176,7 @@ describe("AdminForm 저장 전 검증 안내", () => {
   });
 });
 
-describe("uploadImage 안내", () => {
+describe("uploadSectionFiles 안내", () => {
   test("용량 초과는 닫을 때까지 남는 경고 토스트로 알리고 올리지 않는다", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<Toaster />);
@@ -184,7 +184,10 @@ describe("uploadImage 안내", () => {
       type: "image/png",
     });
 
-    const result = await uploadImage(big, { imageSpec: { maxMB: 1 } } as never);
+    const result = await uploadSectionFiles("notices", big, {
+      key: "image",
+      imageSpec: { maxMB: 1 },
+    } as never);
 
     expect(result).toEqual([]);
     await waitFor(() =>
@@ -202,9 +205,12 @@ describe("uploadImage 안내", () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<ConfirmAdminHost />);
     const file = new File(["x"], "a.png", { type: "image/png" });
-    const field = { imageSpec: { width: 100, height: 100 } } as never;
+    const field = {
+      key: "image",
+      imageSpec: { width: 100, height: 100 },
+    } as never;
 
-    const cancelled = uploadImage(file, field);
+    const cancelled = uploadSectionFiles("notices", file, field);
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent("이미지 규격이 다릅니다.");
     expect(dialog).toHaveTextContent("100x100 필요, 현재 200x200");
@@ -212,7 +218,7 @@ describe("uploadImage 안내", () => {
     await expect(cancelled).resolves.toEqual([]);
     expect(storage.uploads).toEqual([]);
 
-    const accepted = uploadImage(file, field);
+    const accepted = uploadSectionFiles("notices", file, field);
     fireEvent.click(
       within(await screen.findByRole("alertdialog")).getByRole("button", {
         name: "계속",
@@ -246,6 +252,7 @@ describe("AdminForm 저장하지 않은 변경사항 이탈 확인", () => {
           onCancel={onCancel}
           onSave={vi.fn()}
           onUpload={(async () => null) as never}
+          onRemoveFiles={() => {}}
         />
         <ConfirmAdminHost />
       </>,
@@ -304,6 +311,7 @@ describe("AdminForm 저장하지 않은 변경사항 이탈 확인", () => {
         onCancel={onCancel}
         onSave={vi.fn()}
         onUpload={(async () => null) as never}
+        onRemoveFiles={() => {}}
       />,
     );
 

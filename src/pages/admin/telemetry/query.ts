@@ -25,71 +25,95 @@ export type AiTelemetryFilters = {
 
 export type AiTelemetryQuery = {
   tab: AiTelemetryTab;
-  draft: AiTelemetryFilters;
   applied: AiTelemetryFilters;
   page: number;
   pageSize: number;
 };
 
-export function createInitialQuery(now: Date): AiTelemetryQuery {
-  const filters: AiTelemetryFilters = {
-    ...defaultRange(now),
-    service: "",
-    feature: "",
-    status: "",
-    retriedOnly: false,
-    kind: "",
-  };
+const TABS: readonly AiTelemetryTab[] = [
+  "summary",
+  "calls",
+  "citations",
+  "pricing",
+];
+
+// 새로고침과 링크 공유로 같은 화면이 되도록 탭, 적용된 필터, 페이지는 주소 검색 파라미터에 둔다.
+const PARAM = {
+  tab: "tab",
+  from: "from",
+  to: "to",
+  service: "service",
+  feature: "feature",
+  status: "status",
+  retriedOnly: "retried",
+  kind: "kind",
+  page: "page",
+} as const;
+
+// from, to 가 주소에 없을 때만 기본 기간을 쓴다. 잘못된 탭과 페이지는 기본값으로 읽는다.
+export function readQuery(
+  params: URLSearchParams,
+  now: Date,
+): AiTelemetryQuery {
+  const range = defaultRange(now);
+  const tab = params.get(PARAM.tab);
+  const page = Number(params.get(PARAM.page));
   return {
-    tab: "summary",
-    draft: filters,
-    applied: filters,
-    page: 1,
+    tab: TABS.find((t) => t === tab) ?? "summary",
+    applied: {
+      from: params.get(PARAM.from) || range.from,
+      to: params.get(PARAM.to) || range.to,
+      service: params.get(PARAM.service) ?? "",
+      feature: params.get(PARAM.feature) ?? "",
+      status: params.get(PARAM.status) ?? "",
+      retriedOnly: params.get(PARAM.retriedOnly) === "1",
+      kind: params.get(PARAM.kind) ?? "",
+    },
+    page: Number.isInteger(page) && page >= 1 ? page : 1,
     pageSize: AI_TELEMETRY_PAGE_SIZE,
   };
 }
 
-export type AiTelemetryQueryAction =
-  | { type: "setTab"; tab: AiTelemetryTab }
-  | { type: "setRange"; from: string; to: string }
-  | { type: "setService"; service: string }
-  | { type: "setFeature"; feature: string }
-  | { type: "setStatus"; status: string }
-  | { type: "setRetriedOnly"; retriedOnly: boolean }
-  | { type: "setKind"; kind: string }
-  | { type: "setPage"; page: number }
-  | { type: "submit" };
+function setOrDelete(params: URLSearchParams, key: string, value: string) {
+  if (value) params.set(key, value);
+  else params.delete(key);
+}
 
-export function aiTelemetryQueryReducer(
-  state: AiTelemetryQuery,
-  action: AiTelemetryQueryAction,
-): AiTelemetryQuery {
-  switch (action.type) {
-    case "setTab":
-      return { ...state, tab: action.tab };
-    case "setRange":
-      return {
-        ...state,
-        draft: { ...state.draft, from: action.from, to: action.to },
-      };
-    case "setService":
-      return { ...state, draft: { ...state.draft, service: action.service } };
-    case "setFeature":
-      return { ...state, draft: { ...state.draft, feature: action.feature } };
-    case "setStatus":
-      return { ...state, draft: { ...state.draft, status: action.status } };
-    case "setRetriedOnly":
-      return {
-        ...state,
-        draft: { ...state.draft, retriedOnly: action.retriedOnly },
-      };
-    case "setKind":
-      return { ...state, draft: { ...state.draft, kind: action.kind } };
-    case "setPage":
-      return { ...state, page: Math.max(1, Math.floor(action.page)) };
-    case "submit":
-      return { ...state, applied: { ...state.draft }, page: 1 };
-  }
+// 조회를 누르면 필터를 주소에 적고 페이지는 1로 돌린다.
+export function withFilters(
+  params: URLSearchParams,
+  f: AiTelemetryFilters,
+): URLSearchParams {
+  const next = new URLSearchParams(params);
+  setOrDelete(next, PARAM.from, f.from.trim());
+  setOrDelete(next, PARAM.to, f.to.trim());
+  setOrDelete(next, PARAM.service, f.service);
+  setOrDelete(next, PARAM.feature, f.feature.trim());
+  setOrDelete(next, PARAM.status, f.status);
+  setOrDelete(next, PARAM.retriedOnly, f.retriedOnly ? "1" : "");
+  setOrDelete(next, PARAM.kind, f.kind);
+  next.delete(PARAM.page);
+  return next;
+}
+
+// 요약은 기본 탭이라 주소에서 비운다.
+export function withTab(
+  params: URLSearchParams,
+  tab: AiTelemetryTab,
+): URLSearchParams {
+  const next = new URLSearchParams(params);
+  setOrDelete(next, PARAM.tab, tab === "summary" ? "" : tab);
+  return next;
+}
+
+export function withPage(
+  params: URLSearchParams,
+  page: number,
+): URLSearchParams {
+  const next = new URLSearchParams(params);
+  const safe = Math.max(1, Math.floor(page));
+  setOrDelete(next, PARAM.page, safe === 1 ? "" : String(safe));
+  return next;
 }
 
 function baseParams(view: string, f: AiTelemetryFilters): URLSearchParams {

@@ -1,33 +1,28 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("./api", () => ({
-  saveGoldenQuery: vi.fn(),
-  searchKnowledgeResources: vi.fn(),
-}));
+vi.mock(
+  "@/lib/http/client",
+  async () => (await import("./fakeApi")).clientMock,
+);
 
-import * as api from "./api";
+import { callsTo, on, resetApi } from "./fakeApi";
 import QueryDialog from "./QueryDialog";
+import { goldenRow, renderInRouter } from "./testKit";
 
 const target = {
-  id: "q1",
-  knowledge_type: "topic_pattern" as const,
-  grade: "고2",
-  subject: "물리학Ⅰ",
+  ...goldenRow,
   career: null,
   selected_topic: null,
-  assessment_info: null,
-  note: null,
   expected_resource_ids: ["r1"],
-  is_active: true,
-  created_at: "2026-10-07T00:00:00Z",
 };
 
 const onClose = vi.fn();
 const onSaved = vi.fn();
 
 function renderDialog() {
-  return render(
+  return renderInRouter(
     <QueryDialog
       knowledgeType="topic_pattern"
       target={target}
@@ -45,18 +40,22 @@ function pressEscape() {
 }
 
 async function startSaving() {
-  let finishSave: (value: { ok: true; data: null }) => void = () => {};
-  vi.mocked(api.saveGoldenQuery).mockReturnValue(
-    new Promise((resolve) => {
-      finishSave = resolve;
-    }),
+  let finishSave: (value: unknown) => void = () => {};
+  on(
+    "PATCH",
+    "admin/knowledge-eval/queries/q1",
+    () =>
+      new Promise((resolve) => {
+        finishSave = resolve;
+      }),
   );
   fireEvent.click(await screen.findByRole("button", { name: "저장" }));
-  return finishSave;
+  return (value: unknown) => finishSave(value);
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
+  resetApi();
 });
 
 describe("QueryDialog", () => {
@@ -83,18 +82,21 @@ describe("QueryDialog", () => {
     renderDialog();
     const finishSave = await startSaving();
     await vi.waitFor(() =>
-      expect(api.saveGoldenQuery).toHaveBeenCalledTimes(1),
+      expect(callsTo("PATCH", "admin/knowledge-eval/queries/q1")).toHaveLength(
+        1,
+      ),
     );
 
+    // react-query 의 isPending 은 한 틱 늦게 반영되므로 닫기 막힘이 걸린 뒤에 누른다.
+    await vi.waitFor(() =>
+      expect(screen.getByRole("button", { name: "취소" })).toBeDisabled(),
+    );
     pressEscape();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(onClose).not.toHaveBeenCalled();
-    expect(
-      (screen.getByRole("button", { name: "취소" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
 
-    finishSave({ ok: true, data: null });
+    finishSave(target);
     await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
   });
 

@@ -1,68 +1,52 @@
-// AdminMembersAdmin 초대 실패 안내. 우리 서버가 관리자용으로 쓴 detail 은 그대로 보이고,
-// 우리 JSON 이 아닌 응답 원문(HTTP 상태, HTML 등)은 일반 안내로 대체된다.
+// 관리자 초대. 서버 안내는 그대로 보이고, 기존 회원을 올릴 때는 확인을 거쳐 confirmExisting 으로 다시 보낸다.
 
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-vi.mock("@/lib/supabase", () => {
-  type Result = { data: unknown; error: unknown };
-  const query = (result: Result): Promise<Result> =>
-    Object.assign(Promise.resolve(result), {
-      select: () => query(result),
-      order: () => query(result),
-      eq: () => query(result),
-    });
-  const tables: Record<string, unknown[]> = {
-    admin_member_directory: [],
-    admin_roles: [{ id: "role-1", name: "운영자", is_super: false }],
-    admin_resources: [],
-  };
-  return {
-    supabase: {
-      from: (table: string) => ({
-        select: () => query({ data: tables[table] ?? [], error: null }),
-      }),
-    },
-  };
-});
-
-vi.mock("@/pages/admin/shared/adminSession", () => ({
-  getFreshSupabaseAccessTokenOrSignOut: vi.fn().mockResolvedValue("tok"),
+const http = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
 }));
 
-import { Toaster, toast } from "@/components/ui/toast";
-import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
-import AdminMembersAdmin from "./AdminMembersAdmin";
+vi.mock("@/lib/http/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/http/client")>()),
+  api: http,
+}));
 
-const CONFIG = { title: "관리자 계정", searchPlaceholder: "검색" };
+import { toast } from "@/components/ui/toast";
+import { ApiError } from "@/lib/http/client";
+import { renderMembers, routeApi } from "./testHelpers";
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
+  routeApi(http.get, {
+    "admin/staff": {
+      items: [],
+      roles: [
+        { id: "role-0", name: "최고 관리자", is_super: true },
+        { id: "role-1", name: "운영자", is_super: false },
+      ],
+      resources: [],
+    },
+  });
 });
 
 afterEach(() => {
   toast.close();
   vi.restoreAllMocks();
-  vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
-async function submitInviteWith(...responses: Response[]) {
-  const fetchMock = vi.fn();
-  for (const response of responses) fetchMock.mockResolvedValueOnce(response);
-  vi.stubGlobal("fetch", fetchMock);
-  render(
-    <>
-      <AdminMembersAdmin config={CONFIG} />
-      <Toaster />
-      <ConfirmAdminHost />
-    </>,
-  );
+const title = () => document.querySelector('[data-slot="toast-title"]');
+const description = () =>
+  document.querySelector('[data-slot="toast-description"]');
+
+async function openInvite() {
+  renderMembers();
   fireEvent.click(await screen.findByText("관리자 초대"));
   fireEvent.change(await screen.findByLabelText("이름"), {
     target: { value: "김관리" },
@@ -70,58 +54,128 @@ async function submitInviteWith(...responses: Response[]) {
   fireEvent.change(screen.getByLabelText("이메일"), {
     target: { value: "kim@example.com" },
   });
-  fireEvent.click(screen.getByText("초대 메일 보내기"));
-  return fetchMock;
 }
 
-const description = () =>
-  document.querySelector('[data-slot="toast-description"]');
+const send = () => fireEvent.click(screen.getByText("초대 메일 보내기"));
 
-test("초대가 서버 detail 과 함께 실패하면 그 detail 을 토스트로 보인다", async () => {
-  await submitInviteWith(
-    new Response(JSON.stringify({ detail: "이미 등록된 관리자입니다." }), {
-      status: 409,
-    }),
+const failure = (status: number, code: string, detail: string, extra = {}) =>
+  new ApiError({
+    status,
+    code,
+    detail,
+    problem: {
+      type: "about:blank",
+      title: "오류",
+      status,
+      detail,
+      code,
+      ...extra,
+    },
+  });
+
+const needsConfirm = () =>
+  failure(409, "NEEDS_CONFIRM", "이미 가입된 계정입니다.", {
+    existingName: "홍길동",
+    existingMemberType: "학생",
+  });
+
+test("비어 있는 항목이 있으면 요청 없이 경고만 보인다", async () => {
+  renderMembers();
+  fireEvent.click(await screen.findByText("관리자 초대"));
+
+  send();
+
+  await waitFor(() =>
+    expect(title()).toHaveTextContent(
+      "이름, 이메일, 권한 묶음을 모두 입력해 주세요.",
+    ),
   );
+  expect(http.post).not.toHaveBeenCalled();
+});
+
+test("초대하면 계약 본문으로 POST 하고 메일을 보냈다는 토스트를 보인다", async () => {
+  http.post.mockReturnValue({
+    json: async () => ({ profileId: "p9", resent: false, emailed: true }),
+  });
+  await openInvite();
+
+  send();
+
+  await waitFor(() =>
+    expect(title()).toHaveTextContent("초대 메일을 보냈습니다."),
+  );
+  // 권한 묶음 기본값은 최고 관리자가 아닌 첫 묶음이다.
+  expect(http.post).toHaveBeenCalledWith("admin/invite-member", {
+    json: {
+      email: "kim@example.com",
+      name: "김관리",
+      roleId: "role-1",
+      confirmExisting: false,
+    },
+  });
+  await waitFor(() =>
+    expect(screen.queryByText("초대 메일 보내기")).not.toBeInTheDocument(),
+  );
+});
+
+test("메일이 나가지 않는 등록은 직접 알리라는 경고를 보인다", async () => {
+  http.post.mockReturnValue({
+    json: async () => ({ profileId: "p9", resent: false, emailed: false }),
+  });
+  await openInvite();
+  fireEvent.change(screen.getByLabelText("부서"), {
+    target: { value: " 운영팀 " },
+  });
+
+  send();
 
   await waitFor(() => {
-    expect(
-      document.querySelector('[data-slot="toast-title"]'),
-    ).toHaveTextContent("초대 실패");
-    expect(description()).toHaveTextContent("이미 등록된 관리자입니다.");
+    expect(title()).toHaveTextContent("관리자로 등록했습니다.");
+    expect(description()).toHaveTextContent("직접 알려주세요");
+  });
+  expect(http.post.mock.calls[0]?.[1]).toMatchObject({
+    json: { department: "운영팀" },
   });
 });
 
-test("초대 응답이 우리 JSON 이 아니면 본문 원문 없이 일반 안내를 보인다", async () => {
-  await submitInviteWith(
-    new Response("<html>Bad Gateway upstream-host-7</html>", { status: 502 }),
-  );
+test("초대가 서버 안내와 함께 실패하면 그 안내를 초대 실패로 보인다", async () => {
+  http.post.mockReturnValue({
+    json: async () => {
+      throw failure(
+        409,
+        "ALREADY_ACTIVE_ADMIN",
+        "이미 활성 상태인 관리자입니다.",
+      );
+    },
+  });
+  await openInvite();
+
+  send();
 
   await waitFor(() => {
-    expect(description()).toHaveTextContent("요청을 처리하지 못했습니다.");
+    expect(title()).toHaveTextContent("초대 실패");
+    expect(description()).toHaveTextContent("이미 활성 상태인 관리자입니다.");
   });
-  expect(document.body.textContent).not.toContain("upstream-host-7");
-  expect(document.body.textContent).not.toContain("HTTP 502");
 });
 
-const NEEDS_CONFIRM = () =>
-  new Response(
-    JSON.stringify({
-      needsConfirm: true,
-      detail: "이미 가입된 계정입니다.",
-      existingName: "홍길동",
-      existingMemberType: "학생",
-    }),
-    { status: 409 },
-  );
+test("기존 회원 확인창에서 취소하면 다시 보내지 않고, 계속하면 confirmExisting 으로 다시 보낸다", async () => {
+  http.post
+    .mockReturnValueOnce({
+      json: async () => {
+        throw needsConfirm();
+      },
+    })
+    .mockReturnValueOnce({
+      json: async () => {
+        throw needsConfirm();
+      },
+    })
+    .mockReturnValueOnce({
+      json: async () => ({ profileId: "p9", resent: false, emailed: false }),
+    });
+  await openInvite();
 
-test("기존 회원 초대 확인창에서 취소하면 재요청하지 않고, 확인하면 confirmExisting 으로 다시 보낸다", async () => {
-  const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-  const fetchMock = await submitInviteWith(
-    NEEDS_CONFIRM(),
-    NEEDS_CONFIRM(),
-    new Response(JSON.stringify({ emailed: false }), { status: 200 }),
-  );
+  send();
 
   const dialog = await screen.findByRole("alertdialog");
   expect(dialog).toHaveTextContent("대상: 홍길동(학생)");
@@ -134,18 +188,28 @@ test("기존 회원 초대 확인창에서 취소하면 재요청하지 않고, 
   await waitFor(() =>
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
   );
-  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(http.post).toHaveBeenCalledTimes(1);
 
-  fireEvent.click(screen.getByText("초대 메일 보내기"));
+  // 취소가 끝나 버튼이 다시 눌릴 수 있을 때까지 기다린다.
+  await screen.findByText("초대 메일 보내기");
+  send();
   fireEvent.click(
     within(await screen.findByRole("alertdialog")).getByRole("button", {
       name: "계속",
     }),
   );
 
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-  expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toMatchObject({
-    confirmExisting: true,
+  await waitFor(() => expect(http.post).toHaveBeenCalledTimes(3));
+  expect(http.post.mock.calls[2]?.[1]).toMatchObject({
+    json: { confirmExisting: true },
   });
-  expect(confirmSpy).not.toHaveBeenCalled();
+});
+
+test("보내는 동안 버튼은 눌리지 않는다", async () => {
+  http.post.mockReturnValue({ json: () => new Promise(() => {}) });
+  await openInvite();
+
+  send();
+
+  expect(await screen.findByText("보내는 중...")).toBeDisabled();
 });

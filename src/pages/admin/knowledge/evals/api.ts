@@ -1,99 +1,146 @@
-// 지식 검색 품질 평가 화면의 데이터 호출. 평가 실행과 이력은 /api/admin/knowledge-eval 을 부르고,
-// 문제집 CRUD 와 기대 자료 검색은 관리자 RLS 가 열려 있어 클라이언트 Supabase 로 직접 한다.
+// 지식 검색 품질 평가 화면의 서버 호출. 응답 모양은 zod 로 검증하고, 조회는 react-query 키로 묶는다.
+// 평가 실행과 이력은 admin/knowledge-eval, 문제집은 admin/knowledge-eval/queries,
+// 기대 자료 제목은 admin/knowledge-items/titles 다. 브라우저는 DB 를 직접 부르지 않는다.
 
-import { escapeIlike } from "@/components/growth/survey/surveySearch";
-import { supabase } from "@/lib/supabase";
-import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
-import type { ApiResult } from "../apiResult";
+import { z } from "zod";
+import { ApiError, api } from "@/lib/http/client";
 import type {
   EvalParams,
   ExpectedResource,
   GoldenRowInput,
   KnowledgeType,
-  RunMetrics,
   SweepGrid,
-  SweepItem,
 } from "./form";
 
-export type PerQueryResult = {
-  queryId: string;
-  label: string;
-  expectedIds: string[];
-  ranks: (number | null)[];
+// 서버 maxDuration(knowledge-eval 60초)보다 조금 길게 잡아 서버 응답을 기다린다.
+const RUN_TIMEOUT_MS = 65_000;
+
+/** 서버가 한 번에 받는 id 수 상한(titles 라우트와 같다). */
+const TITLES_CHUNK = 200;
+
+export const evalKeys = {
+  all: ["admin", "knowledge-evals"] as const,
+  runs: (knowledgeType: KnowledgeType) =>
+    [...evalKeys.all, "runs", knowledgeType] as const,
+  queries: (knowledgeType: KnowledgeType) =>
+    [...evalKeys.all, "queries", knowledgeType] as const,
+  titles: (ids: string) => [...evalKeys.all, "titles", ids] as const,
 };
 
-export type RunResponse = {
-  runId: string;
-  queryCount: number;
-  params: EvalParams;
-  metrics: RunMetrics;
-  perQuery: PerQueryResult[];
-};
+const knowledgeTypeSchema = z.enum(["topic_pattern", "verified_resource"]);
 
-export type SweepResponse = {
-  queryCount: number;
-  productionParams: EvalParams;
-  items: SweepItem[];
-};
+const evalParamsSchema = z.object({
+  matchThreshold: z.number(),
+  rrfK: z.number(),
+  fullTextWeight: z.number(),
+  semanticWeight: z.number(),
+  matchCount: z.number(),
+});
 
-export type EvalRun = {
-  id: string;
-  created_at: string;
-  knowledge_type: KnowledgeType;
-  mode: "vector" | "hybrid";
-  params: EvalParams;
-  query_count: number;
-  metrics: RunMetrics;
-  per_query: PerQueryResult[];
-  note: string | null;
-};
+const metricsSchema = z.object({
+  recall: z.record(z.string(), z.number()),
+  mrr: z.number(),
+});
 
-export type RunsResponse = {
-  productionParams: Record<KnowledgeType, EvalParams>;
-  items: EvalRun[];
-};
+const perQuerySchema = z.object({
+  queryId: z.string(),
+  label: z.string(),
+  expectedIds: z.array(z.string()),
+  ranks: z.array(z.number().nullable()),
+});
+export type PerQueryResult = z.infer<typeof perQuerySchema>;
 
-export type GoldenQuery = GoldenRowInput & {
-  id: string;
-  is_active: boolean;
-  created_at: string;
-};
+const runResponseSchema = z.object({
+  runId: z.string(),
+  queryCount: z.number(),
+  params: evalParamsSchema,
+  metrics: metricsSchema,
+  perQuery: z.array(perQuerySchema),
+});
+export type RunResponse = z.infer<typeof runResponseSchema>;
 
-const ENDPOINT = "/api/admin/knowledge-eval";
+const sweepResponseSchema = z.object({
+  queryCount: z.number(),
+  productionParams: evalParamsSchema,
+  items: z.array(
+    z.discriminatedUnion("status", [
+      z.object({
+        status: z.literal("done"),
+        runId: z.string(),
+        params: evalParamsSchema,
+        metrics: metricsSchema,
+      }),
+      z.object({ status: z.literal("skipped"), params: evalParamsSchema }),
+    ]),
+  ),
+});
+export type SweepResponse = z.infer<typeof sweepResponseSchema>;
 
-/** 기대 자료 검색 결과 수 상한. */
-const RESOURCE_SEARCH_LIMIT = 20;
+const evalRunSchema = z.object({
+  id: z.string(),
+  created_at: z.string(),
+  knowledge_type: knowledgeTypeSchema,
+  mode: z.enum(["vector", "hybrid"]),
+  params: evalParamsSchema,
+  query_count: z.number(),
+  metrics: metricsSchema,
+  per_query: z.array(perQuerySchema),
+  note: z.string().nullable(),
+});
+export type EvalRun = z.infer<typeof evalRunSchema>;
 
-async function call<T>(
-  url: string,
-  init: { method: "GET" | "POST"; body?: unknown },
-): Promise<ApiResult<T>> {
-  const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-  const response = await fetch(url, {
-    method: init.method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
-  });
-  const result = await response.json().catch(() => null);
-  if (!response.ok || !result?.ok) {
-    const message =
-      result?.error?.message ??
-      result?.detail ??
-      result?.message ??
-      `요청에 실패했습니다. (HTTP ${response.status})`;
-    return { ok: false, message: String(message) };
-  }
-  return { ok: true, data: result as T };
+const runsResponseSchema = z.object({
+  productionParams: z.object({
+    topic_pattern: evalParamsSchema,
+    verified_resource: evalParamsSchema,
+  }),
+  items: z.array(evalRunSchema),
+});
+export type RunsResponse = z.infer<typeof runsResponseSchema>;
+
+const goldenQuerySchema = z.object({
+  id: z.string(),
+  knowledge_type: knowledgeTypeSchema,
+  grade: z.string(),
+  subject: z.string(),
+  career: z.string().nullable(),
+  selected_topic: z.string().nullable(),
+  assessment_info: z.string().nullable(),
+  note: z.string().nullable(),
+  expected_resource_ids: z.array(z.string()),
+  is_active: z.boolean(),
+  created_at: z.string(),
+});
+export type GoldenQuery = z.infer<typeof goldenQuerySchema>;
+
+const goldenListSchema = z.object({ items: z.array(goldenQuerySchema) });
+
+const titlesSchema = z.object({
+  items: z.array(z.object({ id: z.string(), title: z.string() })),
+});
+
+/** 화면에 보여 줄 실패 문구. 서버가 준 problem 의 detail 이 있으면 그것이다. */
+export function errorText(error: unknown): string {
+  if (error instanceof ApiError) return error.detail;
+  return error instanceof Error ? error.message : String(error);
 }
 
-export function fetchRuns(knowledgeType: KnowledgeType) {
-  return call<RunsResponse>(
-    `${ENDPOINT}?view=runs&knowledgeType=${knowledgeType}`,
-    { method: "GET" },
-  );
+/** 서버 문구 대신 동작 이름으로 알리는 실패 문구. 원인은 콘솔에 남긴다. */
+export function failureText(label: string, error: unknown): string {
+  console.error(error);
+  return `${label}에 실패했습니다.`;
+}
+
+export function fetchRuns(
+  knowledgeType: KnowledgeType,
+  signal?: AbortSignal,
+): Promise<RunsResponse> {
+  return api
+    .get("admin/knowledge-eval", {
+      searchParams: { view: "runs", knowledgeType },
+      ...(signal ? { signal } : {}),
+    })
+    .json(runsResponseSchema);
 }
 
 export function postRun(body: {
@@ -101,106 +148,98 @@ export function postRun(body: {
   mode: "vector" | "hybrid";
   params: Partial<EvalParams>;
   note?: string;
-}) {
-  return call<RunResponse>(ENDPOINT, {
-    method: "POST",
-    body: { action: "run", ...body },
-  });
+}): Promise<RunResponse> {
+  return api
+    .post("admin/knowledge-eval", {
+      json: { action: "run", ...body },
+      timeout: RUN_TIMEOUT_MS,
+    })
+    .json(runResponseSchema);
 }
 
 export function postSweep(body: {
   knowledgeType: KnowledgeType;
   grid: SweepGrid;
   note?: string;
-}) {
-  return call<SweepResponse>(ENDPOINT, {
-    method: "POST",
-    body: { action: "sweep", ...body },
-  });
-}
-
-function failure(label: string, error: { message: string }) {
-  console.error(error);
-  return { ok: false as const, message: `${label}에 실패했습니다.` };
+}): Promise<SweepResponse> {
+  return api
+    .post("admin/knowledge-eval", {
+      json: { action: "sweep", ...body },
+      timeout: RUN_TIMEOUT_MS,
+    })
+    .json(sweepResponseSchema);
 }
 
 export async function listGoldenQueries(
   knowledgeType: KnowledgeType,
-): Promise<ApiResult<GoldenQuery[]>> {
-  const { data, error } = await supabase
-    .from("knowledge_golden_queries")
-    .select(
-      "id, knowledge_type, grade, subject, career, selected_topic, assessment_info, note, expected_resource_ids, is_active, created_at",
-    )
-    .eq("knowledge_type", knowledgeType)
-    .order("is_active", { ascending: false })
-    .order("created_at", { ascending: true });
-  if (error) return failure("문제집 조회", error);
-  return { ok: true, data: (data ?? []) as GoldenQuery[] };
+  signal?: AbortSignal,
+): Promise<GoldenQuery[]> {
+  const reply = await api
+    .get("admin/knowledge-eval/queries", {
+      searchParams: { knowledgeType },
+      ...(signal ? { signal } : {}),
+    })
+    .json(goldenListSchema);
+  return reply.items;
 }
 
-export async function saveGoldenQuery(
-  id: string | null,
-  row: GoldenRowInput,
-): Promise<ApiResult<null>> {
-  const { error } = id
-    ? await supabase.from("knowledge_golden_queries").update(row).eq("id", id)
-    : await supabase.from("knowledge_golden_queries").insert(row);
-  if (error) return failure("질의 저장", error);
-  return { ok: true, data: null };
+export function createGoldenQuery(row: GoldenRowInput): Promise<GoldenQuery> {
+  return api
+    .post("admin/knowledge-eval/queries", { json: row })
+    .json(goldenQuerySchema);
 }
 
-/** 삭제는 비활성으로 한다. 지난 실행 이력의 질의 id 가 계속 뜻을 갖게 하려는 선택이다. */
-export async function setGoldenQueryActive(
+/** 질의 수정과 비활성 토글. 유형은 고칠 수 없고 범위(쿼리)로만 보낸다. */
+export function patchGoldenQuery(
   id: string,
-  isActive: boolean,
-): Promise<ApiResult<null>> {
-  const { error } = await supabase
-    .from("knowledge_golden_queries")
-    .update({ is_active: isActive })
-    .eq("id", id);
-  if (error) return failure("질의 상태 변경", error);
-  return { ok: true, data: null };
+  knowledgeType: KnowledgeType,
+  body: Partial<Omit<GoldenRowInput, "knowledge_type">> & {
+    is_active?: boolean;
+  },
+): Promise<GoldenQuery> {
+  return api
+    .patch(`admin/knowledge-eval/queries/${id}`, {
+      searchParams: { knowledgeType },
+      json: body,
+    })
+    .json(goldenQuerySchema);
 }
 
 export async function searchKnowledgeResources(
   knowledgeType: KnowledgeType,
   term: string,
-): Promise<ApiResult<ExpectedResource[]>> {
+): Promise<ExpectedResource[]> {
   const q = term.trim();
-  if (!q) return { ok: true, data: [] };
-  const { data, error } = await supabase
-    .from("winning_assessment_knowledge_items")
-    .select("id, title")
-    .eq("knowledge_type", knowledgeType)
-    .ilike("title", `%${escapeIlike(q)}%`)
-    .order("title")
-    .limit(RESOURCE_SEARCH_LIMIT);
-  if (error) return failure("자료 검색", error);
-  return {
-    ok: true,
-    data: (data ?? []).map((row) => ({
-      id: row.id,
-      title: row.title ?? "",
-    })),
-  };
+  if (!q) return [];
+  const reply = await api
+    .get("admin/knowledge-items/titles", {
+      searchParams: { knowledgeType, q },
+    })
+    .json(titlesSchema);
+  return reply.items;
 }
 
-/** 기대 자료 id 의 제목. 표와 편집 Dialog 에서 id 대신 제목을 보여 준다. */
+/** 기대 자료 id 의 제목. 표와 편집 Dialog 에서 id 대신 제목을 보여 준다. 서버 상한마다 나눠 부른다. */
 export async function fetchResourceTitles(
   ids: readonly string[],
-): Promise<ApiResult<Record<string, string>>> {
+  signal?: AbortSignal,
+): Promise<Record<string, string>> {
   const unique = [...new Set(ids)];
-  if (!unique.length) return { ok: true, data: {} };
-  const { data, error } = await supabase
-    .from("winning_assessment_knowledge_items")
-    .select("id, title")
-    .in("id", unique);
-  if (error) return failure("자료 제목 조회", error);
-  return {
-    ok: true,
-    data: Object.fromEntries(
-      (data ?? []).map((row) => [row.id, row.title ?? ""]),
+  const chunks: string[][] = [];
+  for (let start = 0; start < unique.length; start += TITLES_CHUNK) {
+    chunks.push(unique.slice(start, start + TITLES_CHUNK));
+  }
+  const replies = await Promise.all(
+    chunks.map((chunk) =>
+      api
+        .get("admin/knowledge-items/titles", {
+          searchParams: { ids: chunk.join(",") },
+          ...(signal ? { signal } : {}),
+        })
+        .json(titlesSchema),
     ),
-  };
+  );
+  return Object.fromEntries(
+    replies.flatMap((reply) => reply.items.map((row) => [row.id, row.title])),
+  );
 }

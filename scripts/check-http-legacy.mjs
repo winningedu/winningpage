@@ -76,10 +76,25 @@ function isBrowserDb(call, sf) {
   );
 }
 
+// 호출을 감싼 함수의 매개변수 이름인지 본다.
+function isParameter(name, call) {
+  for (let n = call.parent; n !== undefined; n = n.parent) {
+    if (
+      ts.isFunctionLike(n) &&
+      n.parameters.some((p) => ts.isIdentifier(p.name) && p.name.text === name)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // 식별자 인수는 같은 파일 안 선언(호출보다 앞선 것 중 마지막)의 초기값 글자로 푼다.
+// 매개변수이거나 문자열, 템플릿 리터럴로 풀리지 않으면 null(어디로 가는지 모름).
 function argText(arg, call, sf) {
   if (!ts.isIdentifier(arg)) return arg.getText(sf);
-  let resolved = arg.getText(sf);
+  if (isParameter(arg.text, call)) return null;
+  let resolved = null;
   visit(sf, (d) => {
     if (
       ts.isVariableDeclaration(d) &&
@@ -88,7 +103,11 @@ function argText(arg, call, sf) {
       d.initializer &&
       d.getStart(sf) < call.getStart(sf)
     ) {
-      resolved = d.initializer.getText(sf);
+      resolved =
+        ts.isStringLiteralLike(d.initializer) ||
+        ts.isTemplateExpression(d.initializer)
+          ? d.initializer.getText(sf)
+          : null;
     }
   });
   return resolved;
@@ -99,7 +118,9 @@ function isLegacyFetch(call, sf) {
   if (callee === "apiFetch") return true;
   if (!/^(fetch|window\.fetch|globalThis\.fetch)$/.test(callee)) return false;
   const first = call.arguments[0];
-  return first !== undefined && argText(first, call, sf).includes("/api");
+  if (first === undefined) return false;
+  const text = argText(first, call, sf);
+  return text === null || text.includes("/api");
 }
 
 const RESPONSE_RECEIVER = /^(res|response|resp)$|Res$/;

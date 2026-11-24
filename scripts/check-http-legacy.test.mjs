@@ -185,6 +185,13 @@ describe("check-http-legacy legacyFetch", () => {
     ['globalThis.fetch("/api/x");'],
     ['const url = "/api/x";\nfetch(url);'],
     ["const url = `${base}/api/x`;\nfetch(url, { method: 'POST' });"],
+    ["fetch(url);"],
+    ["async function get(url) {\n  return fetch(url, {});\n}"],
+    ["const get = (u) => window.fetch(u);"],
+    [
+      'const url = "https://example.com";\nfunction get(url) {\n  return fetch(url);\n}',
+    ],
+    ["const url = build();\nfetch(url);"],
   ])("레거시 /api 호출을 잡는다: %s", (code) => {
     put("src/a.ts", `${code}\n`);
     const r = run();
@@ -194,8 +201,8 @@ describe("check-http-legacy legacyFetch", () => {
 
   test.each([
     ['fetch("https://example.com/x");'],
-    ["fetch(url);"],
     ['const url = "https://example.com";\nfetch(url);'],
+    ["const url = `https://example.com/${id}`;\nfetch(url);"],
     ['api.get("api/x");'],
     ['other.fetch("/api/x");'],
     ['apiFetchHelper("/api/x");'],
@@ -205,10 +212,22 @@ describe("check-http-legacy legacyFetch", () => {
   });
 
   test("정의 파일 apiFetch.ts 와 http/client.ts 는 건너뛴다", () => {
-    const code = 'fetch("/api/x");\napiFetch("/api/y");\n';
+    const code =
+      'fetch("/api/x");\napiFetch("/api/y");\nconst f = (u) => fetch(u);\n';
     put("src/lib/apiFetch.ts", code);
     put("src/lib/http/client.ts", code);
     expect(run().code).toBe(0);
+  });
+
+  test("매개변수 URL fetch 는 baseline 과 같으면 통과하고 늘면 실패한다", () => {
+    const one = "export const get = (url) => fetch(url);\n";
+    put("src/a.ts", one);
+    setBaseline({ "src/a.ts": { legacyFetch: 1 } });
+    expect(run().code).toBe(0);
+    put("src/a.ts", `${one}export const put = (url) => fetch(url, {});\n`);
+    const r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("src/a.ts: legacyFetch 2 (baseline 1)");
   });
 
   test("api/ 파일의 fetch 는 세지 않는다", () => {

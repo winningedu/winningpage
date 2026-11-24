@@ -13,7 +13,17 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { z } from "zod";
+import {
+  type AdminAuditAction,
+  isAuditableMethod,
+  scheduleAdminAudit,
+} from "./accessLog/adminWrite.js";
 import { resolveAdmin, resolveWinningAdmin } from "./adminAuth.js";
+import {
+  type AdminLevel,
+  assertSectionPermission,
+  SectionPermissionDeniedError,
+} from "./adminPermission.js";
 import { type ConsoleActor, resolveConsoleActor } from "./console/actor.js";
 import { isAuthorizedCron } from "./cronAuth.js";
 import { resolveUser } from "./httpAuth.js";
@@ -115,6 +125,34 @@ function adminFailureCode(
 
 type ZodSchema = z.ZodType;
 
+/**
+ * 경로 파라미터 값이 잘못됐을 때(예: 모르는 섹션 키) 던진다. 권한 키 함수나 핸들러에서 던지면
+ * zod 검증 실패와 같은 400 VALIDATION_FAILED 로 응답한다(권한 판정보다 먼저 막는다).
+ */
+export class RouteParamError extends Error {
+  readonly path: string;
+  constructor(path: string, message: string) {
+    super(message);
+    this.name = "RouteParamError";
+    this.path = path;
+  }
+}
+
+function sendValidationFailed(
+  res: VercelResponse,
+  shape: ErrorShape,
+  errors: { path: string; message: string }[],
+): void {
+  sendError(
+    res,
+    shape,
+    400,
+    VALIDATION_FAILED_MESSAGE,
+    VALIDATION_FAILED_CODE,
+    { errors },
+  );
+}
+
 // body/query 스키마가 있을 때만 ctx 에 해당 키가 생기고 출력 타입을 가진다.
 // 스키마가 없으면 unknown 과의 교차라 기존 HandlerCtx 와 같다.
 type ValidatedCtx<
@@ -161,6 +199,20 @@ export interface DefineHandlerOptions<
    * 데이터를 바꾸지 않는 POST(미리보기, 내려받기와 출력 기록)만 켠다.
    */
   allowReadOnlyProxy?: boolean;
+  /**
+   * auth:"admin" 전용 메뉴 권한(사용법은 adminPermission.ts 상단). key 는 메뉴 키이거나 요청에서 뽑는 함수다.
+   * level 생략 시 GET, HEAD 는 view, 나머지는 edit.
+   */
+  permission?: {
+    key: string | ((req: VercelRequest) => string);
+    level?: AdminLevel;
+  };
+  /**
+   * auth:"admin" 전용 감사 행. permission 이 있는 라우트의 요청(HEAD 제외)은 응답 뒤에
+   * admin_access_logs 에 한 줄을 남긴다(성공, 실패 모두). false 면 자동 행을 끈다(라우트가 직접 남기는 경우).
+   * { action } 은 메서드 기본값(GET view, POST create, PATCH, PUT update, DELETE delete)을 바꾼다.
+   */
+  audit?: false | { action: AdminAuditAction };
   /** 미처리 예외(500) 응답 문구 — 라우트마다 달라 필수로 받는다. */
   unhandledMessage: string;
   /** errorShape가 "coded"일 때만 쓰는 500 코드. */
@@ -186,8 +238,8 @@ export interface DefineHandlerOptions<
   ) => Promise<void>;
 }
 
-/** 검증 실패면 400 을 보내고 null, 통과하면 파싱된 값을 돌려준다. */
-function parseOrReject(
+/** 검증 실패면 400 을 보내고 null, 통과하면 파싱된 값을 돌려준다. 메서드마다 입력이 다른 라우트가 직접 쓴다. */
+export function parseOrReject(
   res: VercelResponse,
   shape: ErrorShape,
   schema: ZodSchema,
@@ -195,18 +247,13 @@ function parseOrReject(
 ): { value: unknown } | null {
   const parsed = schema.safeParse(input);
   if (parsed.success) return { value: parsed.data };
-  sendError(
+  sendValidationFailed(
     res,
     shape,
-    400,
-    VALIDATION_FAILED_MESSAGE,
-    VALIDATION_FAILED_CODE,
-    {
-      errors: parsed.error.issues.map((issue) => ({
-        path: issue.path.map(String).join("."),
-        message: issue.message,
-      })),
-    },
+    parsed.error.issues.map((issue) => ({
+      path: issue.path.map(String).join("."),
+      message: issue.message,
+    })),
   );
   return null;
 }
@@ -215,6 +262,13 @@ export function defineHandler<
   B extends ZodSchema | undefined = undefined,
   Q extends ZodSchema | undefined = undefined,
 >(opts: DefineHandlerOptions<B, Q>) {
+  // 다른 auth 모드에 붙이면 조용히 무시되므로 정의 시점에 막는다.
+  if (opts.permission && opts.auth !== "admin") {
+    throw new Error('defineHandler: permission 은 auth:"admin" 에서만 쓴다.');
+  }
+  if (opts.audit !== undefined && opts.auth !== "admin") {
+    throw new Error('defineHandler: audit 은 auth:"admin" 에서만 쓴다.');
+  }
   return async (req: VercelRequest, res: VercelResponse): Promise<void> => {
     // ctx.supabaseAdmin은 lazy getter다 — 실제로 접근하는 시점에만
     // createSupabaseAdmin()을 호출한다(내부적으로 module-level 싱글턴이라 여러
@@ -278,6 +332,10 @@ export function defineHandler<
         res.setHeader(key, value);
       }
     }
+
+    // 감사 행에 쓸 값. 관리자 판정을 통과하고 권한 키가 정해진 뒤에만 채워진다.
+    let auditActor: { userId: string; email: string | null } | undefined;
+    let auditKey: string | undefined;
 
     try {
       // 인증보다 먼저 읽는다: 모든 auth 모드에서 잘못된 값은 같은 400 이다.
@@ -380,6 +438,22 @@ export function defineHandler<
         }
         ctx.userId = admin.userId;
         ctx.admin = { userId: admin.userId };
+        auditActor = { userId: admin.userId, email: admin.email };
+
+        if (opts.permission) {
+          const { key, level } = opts.permission;
+          // 키 함수가 던지면(400) 대상 메뉴가 없으니 auditKey 는 비워 둔다.
+          const requestedKey = typeof key === "function" ? key(req) : key;
+          auditKey = requestedKey;
+          // 거부는 SectionPermissionDeniedError(403), 조회 오류는 일반 예외(500)로 아래 catch 가 응답한다.
+          await assertSectionPermission(
+            ctx.supabaseAdmin,
+            admin.userId,
+            requestedKey,
+            level ??
+              (READ_ONLY_METHODS.has(req.method ?? "") ? "view" : "edit"),
+          );
+        }
       } else if (opts.auth === "winningAdmin") {
         const admin = await resolveWinningAdmin(
           ctx.supabaseAdmin,
@@ -441,18 +515,27 @@ export function defineHandler<
         sendQaBlocked(res, opts.errorShape, error.code);
         return;
       }
+      if (error instanceof RouteParamError) {
+        sendValidationFailed(res, opts.errorShape, [
+          { path: error.path, message: error.message },
+        ]);
+        return;
+      }
       if (
         error instanceof InvalidTimeZoneError ||
-        error instanceof TimeZoneRequiredError
+        error instanceof TimeZoneRequiredError ||
+        error instanceof SectionPermissionDeniedError
       ) {
         sendError(
           res,
           opts.errorShape,
-          400,
+          error instanceof SectionPermissionDeniedError ? 403 : 400,
           error.message,
-          error instanceof InvalidTimeZoneError
-            ? INVALID_TIME_ZONE_CODE
-            : TIME_ZONE_REQUIRED_CODE,
+          error instanceof SectionPermissionDeniedError
+            ? FORBIDDEN_CODE
+            : error instanceof InvalidTimeZoneError
+              ? INVALID_TIME_ZONE_CODE
+              : TIME_ZONE_REQUIRED_CODE,
           opts.authFailureExtra,
         );
         return;
@@ -477,6 +560,24 @@ export function defineHandler<
         opts.unhandledCode,
         opts.unhandledExtra,
       );
+    } finally {
+      // 상태 코드가 정해진 뒤(모든 종료 경로)에 한 번만 예약한다. 적재 실패는 응답에 닿지 않는다.
+      if (
+        auditActor &&
+        auditKey !== undefined &&
+        opts.audit !== false &&
+        isAuditableMethod(req.method)
+      ) {
+        const actor = auditActor;
+        const requestedKey = auditKey;
+        scheduleAdminAudit(() => ctx.supabaseAdmin, {
+          req,
+          statusCode: res.statusCode,
+          actor,
+          requestedKey,
+          ...(opts.audit ? { action: opts.audit.action } : {}),
+        });
+      }
     }
   };
 }

@@ -10,21 +10,24 @@
 //        items: [{ rowNo, id?, title, content, grade, subject, career_field,
 //                  source, source_link, keywords, memo }] }   최대 200건
 //   id 는 수정 행일 때만 보낸다. 자기 자신을 중복으로 잡지 않게 뺀다.
-// 응답 200 { ok, results: [{ rowNo, exact: [{ id, title }], near: [{ id, title, similarity }] }] }
-// 오류(coded): 400 INVALID_BODY, 401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL
+// 응답 200 { items: [{ rowNo, exact: [{ id, title }], near: [{ id, title, similarity }] }] }
+// 오류(problem): 400 VALIDATION_FAILED, 401/403, 405, 500
+// 권한: knowledgeType 이 가리키는 메뉴(winningSuhaengTopicDb, winningSuhaengResourceDb)의 edit.
+//   쓰기는 아니지만 행마다 임베딩 호출 비용이 드는 일괄 반영의 첫 단계라 edit 를 요구한다.
 //
 // 임베딩 호출이 행당 1회라 60초 상한 안에 끝나도록 화면은 작은 묶음으로 나눠 부른다.
-// 핸들러 본문은 테스트하지 않는다. 판단은 api/_lib/knowledge/dedupe.ts.
+// 판단은 api/_lib/knowledge/dedupe.ts, 계약 검증은 knowledge-dedupe.test.ts.
 
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { performanceTraceContext } from "../../_lib/ai/telemetry/performanceContext.js";
 import { createAiTrace } from "../../_lib/ai/telemetry/trace.js";
 import { defineHandler } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { knowledgeBodySchema } from "../../_lib/knowledge/bodySchema.js";
 import {
   detectKnowledgeDuplicates,
   validateDedupeBody,
 } from "../../_lib/knowledge/dedupe.js";
+import { knowledgeSectionKey } from "../../_lib/knowledge/permission.js";
 import {
   buildKnowledgeSearchText,
   embedText,
@@ -41,24 +44,16 @@ const NEAR_MATCH_COUNT = 5;
 export default defineHandler({
   methods: ["POST"],
   auth: "admin",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  authFailureExtra: { ok: false },
+  errorShape: "problem",
+  permission: { key: knowledgeSectionKey, level: "edit" },
+  body: knowledgeBodySchema(validateDedupeBody),
+  // 데이터를 바꾸지 않는 읽기 POST 라 조회로 남긴다.
+  audit: { action: "view" },
   unhandledMessage: "중복 검사에 실패했습니다.",
-  unhandledCode: "INTERNAL",
-  unhandledExtra: { ok: false },
   logLabel: "admin/knowledge-dedupe",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const parsed = validateDedupeBody(req.body);
-    if (!parsed.ok) {
-      sendError(res, "coded", 400, parsed.reason, "INVALID_BODY", {
-        ok: false,
-      });
-      return;
-    }
-    const { body } = parsed;
+  handler: async (_req, res, ctx) => {
+    const { body } = ctx;
     const db = ctx.supabaseAdmin;
 
     const existing: Array<{ id: string; title: string; content: string }> = [];
@@ -78,7 +73,7 @@ export default defineHandler({
       performanceTraceContext({ feature: "knowledge_dedupe" }),
     );
     try {
-      const results = await detectKnowledgeDuplicates(body, {
+      const items = await detectKnowledgeDuplicates(body, {
         existing,
         embed: (item) => embedText(buildKnowledgeSearchText(item), trace),
         searchNear: async (embedding, minSimilarity) => {
@@ -93,7 +88,7 @@ export default defineHandler({
           return data ?? [];
         },
       });
-      res.status(200).json({ ok: true, results });
+      res.status(200).json({ items });
     } finally {
       scheduleAfterResponse(() => trace.flush(db));
     }

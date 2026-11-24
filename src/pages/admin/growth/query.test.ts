@@ -1,66 +1,65 @@
 import { describe, expect, test } from "vitest";
 import {
-  buildGrowthReportsSearch,
   GROWTH_REPORTS_PAGE_SIZE,
-  growthReportsQueryReducer,
-  initialGrowthReportsQuery,
+  parseGrowthReportsParams,
+  patchGrowthReportsParams,
 } from "./query";
 
-describe("growthReportsQueryReducer", () => {
-  test("초기 상태는 전체 상태, 빈 검색어, 1페이지다", () => {
-    expect(initialGrowthReportsQuery).toEqual({
+const parse = (search: string) =>
+  parseGrowthReportsParams(new URLSearchParams(search));
+
+describe("parseGrowthReportsParams", () => {
+  test("빈 주소는 전체 상태, 빈 검색어, 1페이지다", () => {
+    expect(parse("")).toEqual({
       status: "",
-      draft: "",
       q: "",
       page: 1,
       pageSize: GROWTH_REPORTS_PAGE_SIZE,
     });
     expect(GROWTH_REPORTS_PAGE_SIZE).toBe(20);
   });
+
+  test("주소의 상태, 검색어, 페이지를 읽는다", () => {
+    expect(parse("status=archived&q=%EA%B9%80&page=3")).toMatchObject({
+      status: "archived",
+      q: "김",
+      page: 3,
+    });
+  });
+
+  test("모르는 상태와 잘못된 페이지는 기본값으로 읽는다", () => {
+    expect(parse("status=bogus&page=0").status).toBe("");
+    expect(parse("status=bogus&page=0").page).toBe(1);
+    expect(parse("page=abc").page).toBe(1);
+    expect(parse("page=2.5").page).toBe(1);
+  });
 });
 
-describe("growthReportsQueryReducer 동작", () => {
+describe("patchGrowthReportsParams", () => {
   test("상태를 바꾸면 1페이지로 돌아간다", () => {
-    const moved = { ...initialGrowthReportsQuery, page: 3 };
-    const next = growthReportsQueryReducer(moved, {
-      type: "setStatus",
+    const next = patchGrowthReportsParams(new URLSearchParams("page=3&q=a"), {
       status: "archived",
     });
-    expect(next.status).toBe("archived");
-    expect(next.page).toBe(1);
+    expect(next.get("status")).toBe("archived");
+    expect(next.get("q")).toBe("a");
+    expect(next.has("page")).toBe(false);
   });
 
-  test("검색어 입력은 조회 전까지 q에 반영되지 않고, 조회하면 trim되어 1페이지로 적용된다", () => {
-    let s = { ...initialGrowthReportsQuery, page: 4 };
-    s = growthReportsQueryReducer(s, { type: "setDraft", draft: "  홍길동 " });
-    expect(s.q).toBe("");
-    s = growthReportsQueryReducer(s, { type: "submit" });
-    expect(s.q).toBe("홍길동");
-    expect(s.page).toBe(1);
-  });
-
-  test("페이지 이동은 1 미만으로 내려가지 않는다", () => {
-    const s = growthReportsQueryReducer(initialGrowthReportsQuery, {
-      type: "setPage",
-      page: 0,
-    });
-    expect(s.page).toBe(1);
-    expect(
-      growthReportsQueryReducer(s, { type: "setPage", page: 3 }).page,
-    ).toBe(3);
-  });
-
-  test("쿼리 문자열은 비어 있는 필터를 생략한다", () => {
-    expect(buildGrowthReportsSearch(initialGrowthReportsQuery)).toBe(
-      "page=1&pageSize=20",
+  test("검색어를 적용하면 1페이지로 돌아가고 빈 값은 주소에서 빠진다", () => {
+    const next = patchGrowthReportsParams(
+      new URLSearchParams("status=draft&page=3&q=a"),
+      { q: "" },
     );
-    expect(
-      buildGrowthReportsSearch({
-        ...initialGrowthReportsQuery,
-        status: "archived",
-        q: "a&b",
-        page: 2,
-      }),
-    ).toBe("status=archived&q=a%26b&page=2&pageSize=20");
+    expect(next.has("q")).toBe(false);
+    expect(next.has("page")).toBe(false);
+    expect(next.get("status")).toBe("draft");
+  });
+
+  test("페이지만 바꾸면 나머지는 그대로다", () => {
+    const next = patchGrowthReportsParams(
+      new URLSearchParams("status=draft&q=a"),
+      { page: 4 },
+    );
+    expect(next.toString()).toBe("status=draft&q=a&page=4");
   });
 });

@@ -48,7 +48,17 @@ export type SelfevalReportRevision = {
   createdAt: string;
 };
 
+// 상세 응답의 session 은 DB 행 그대로(snake_case)라 화면이 읽는 컬럼만 적는다.
+export type SelfevalSessionRaw = {
+  id: string;
+  status: string;
+  current_step: number;
+  ledger_id: string | null;
+  ledger_reversed_at: string | null;
+};
+
 export type SelfevalSessionDetail = {
+  session: SelfevalSessionRaw;
   studentName: string | null;
   email: string | null;
   terminal: SelfevalTerminal | null;

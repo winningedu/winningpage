@@ -1,7 +1,5 @@
 import { ChevronDown, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import {
@@ -16,6 +14,13 @@ import {
   TextInput,
   Toggle,
 } from "@/pages/admin/shared/formFields";
+import {
+  type DiagnosisWrite,
+  reportDiagnosisError,
+  useDiagnosisLists,
+  useDiagnosisWrite,
+  useLoadErrorToast,
+} from "./api";
 
 // DB 로우 shape을 이 파일 안에서 로컬로 정의한다(learning_diagnosis_* 테이블, 새 전역 타입 파일 없음).
 // id 컬럼은 uuid(sql/00_base_schema.sql learning_diagnosis_*) — supabase-js가 string으로 반환한다.
@@ -109,11 +114,12 @@ const PROGRAM_EMPTY: DiagnosisProgramDraft = {
 };
 
 export default function LearningDiagnosisAdmin() {
+  const lists = useDiagnosisLists();
+  const write = useDiagnosisWrite();
+  const saving = write.isPending;
   const [questions, setQuestions] = useState<DiagnosisQuestion[]>([]);
   const [options, setOptions] = useState<DiagnosisOption[]>([]);
   const [programs, setPrograms] = useState<DiagnosisProgram[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [openQuestions, setOpenQuestions] = useState<Set<DiagnosisId>>(
     () => new Set(),
   );
@@ -121,6 +127,18 @@ export default function LearningDiagnosisAdmin() {
     useState<DiagnosisQuestionDraft>(QUESTION_EMPTY);
   const [newProgram, setNewProgram] =
     useState<DiagnosisProgramDraft>(PROGRAM_EMPTY);
+  const isFirstLoad = useRef(true);
+
+  const questionsQuery = lists.questions;
+  const optionsQuery = lists.options;
+  const programsQuery = lists.programs;
+  const loading =
+    questionsQuery.isPending ||
+    optionsQuery.isPending ||
+    programsQuery.isPending;
+  useLoadErrorToast(
+    questionsQuery.error ?? optionsQuery.error ?? programsQuery.error,
+  );
 
   const optionsByQuestion = useMemo(() => {
     const grouped: Record<string, DiagnosisOption[]> = {};
@@ -137,41 +155,16 @@ export default function LearningDiagnosisAdmin() {
     return grouped;
   }, [options]);
 
-  async function loadAll() {
-    setLoading(true);
-
-    const [questionRes, optionRes, programRes] = await Promise.all([
-      supabase
-        .from("learning_diagnosis_questions")
-        .select("*")
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("learning_diagnosis_options")
-        .select("*")
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("learning_diagnosis_programs")
-        .select("*")
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true }),
-    ]);
-
-    setLoading(false);
-
-    const error = questionRes.error || optionRes.error || programRes.error;
-    if (error) {
-      reportAdminError("학습진단 데이터 조회 실패", error);
+  // 서버에서 받을 때마다 로컬 편집본을 서버 값으로 되돌린다(예전 loadAll 과 같다).
+  const applyLoaded = useEffectEvent(() => {
+    if (!questionsQuery.data || !optionsQuery.data || !programsQuery.data)
       return;
-    }
 
     // 생성 타입은 description/is_required/is_active/sort_order 등을 전부
     // nullable로 내보내지만(NOT NULL 아님, DEFAULT는 있음) 이 화면은 로컬
     // DiagnosisQuestion/DiagnosisOption/DiagnosisProgram을 non-null로 두고
-    // 전부 아래처럼 `|| ""`/`??` 로 다뤄왔다(생성/수정 저장 로직과 동일한
-    // 관례) — 로드 시점에 한 번만 같은 규칙으로 null을 좁힌다.
-    const nextQuestions: DiagnosisQuestion[] = (questionRes.data || []).map(
+    // 전부 아래처럼 `|| ""`/`??` 로 다뤄왔다 — 받은 시점에 한 번만 같은 규칙으로 null을 좁힌다.
+    const nextQuestions: DiagnosisQuestion[] = questionsQuery.data.items.map(
       (row) => ({
         ...row,
         description: row.description ?? "",
@@ -180,7 +173,7 @@ export default function LearningDiagnosisAdmin() {
         sort_order: row.sort_order ?? 0,
       }),
     );
-    const nextOptions: DiagnosisOption[] = (optionRes.data || []).map(
+    const nextOptions: DiagnosisOption[] = optionsQuery.data.items.map(
       (option) => ({
         ...option,
         question_id: option.question_id ?? "",
@@ -190,7 +183,7 @@ export default function LearningDiagnosisAdmin() {
         program_ids: normalizeProgramIds(option.program_ids),
       }),
     );
-    const nextPrograms: DiagnosisProgram[] = (programRes.data || []).map(
+    const nextPrograms: DiagnosisProgram[] = programsQuery.data.items.map(
       (row) => ({
         ...row,
         badge: row.badge ?? "",
@@ -208,7 +201,11 @@ export default function LearningDiagnosisAdmin() {
     setQuestions(nextQuestions);
     setOptions(nextOptions);
     setPrograms(nextPrograms);
-    setOpenQuestions(new Set(nextQuestions.map((question) => question.id)));
+    // 처음 받을 때만 모두 펼친다. 이후엔 관리자가 접고 편 상태를 둔다.
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+      setOpenQuestions(new Set(nextQuestions.map((question) => question.id)));
+    }
 
     setNewQuestion((prev) => {
       if (String(prev.title || "").trim()) return prev;
@@ -227,15 +224,27 @@ export default function LearningDiagnosisAdmin() {
         sort_order: getNextSortOrder(nextPrograms),
       };
     });
-  }
-
-  const onMountLoadAll = useEffectEvent(() => {
-    loadAll();
   });
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 받은 시각이 바뀔 때만 로컬 편집본을 서버 값으로 되돌린다
   useEffect(() => {
-    onMountLoadAll();
-  }, []);
+    applyLoaded();
+  }, [
+    questionsQuery.dataUpdatedAt,
+    optionsQuery.dataUpdatedAt,
+    programsQuery.dataUpdatedAt,
+  ]);
+
+  // 쓰기 한 번. 실패하면 공통 문구만 알리고 false 를 돌려준다.
+  async function send(label: string, request: DiagnosisWrite) {
+    try {
+      await write.mutateAsync(request);
+      return true;
+    } catch (error) {
+      reportDiagnosisError(label, error);
+      return false;
+    }
+  }
 
   function updateQuestionLocal(
     id: DiagnosisId,
@@ -287,32 +296,24 @@ export default function LearningDiagnosisAdmin() {
     const nextSortOrder = getNextSortOrder(questions);
     const sortOrder = Number(newQuestion.sort_order || 0) || nextSortOrder;
 
-    setSaving(true);
-
-    const { error } = await supabase
-      .from("learning_diagnosis_questions")
-      .insert({
+    const ok = await send("질문 등록 실패", {
+      method: "post",
+      path: "questions",
+      json: {
         title,
         description: newQuestion.description || "",
         input_type: newQuestion.input_type || "single",
         is_required: boolValue(newQuestion.is_required),
         is_active: boolValue(newQuestion.is_active),
         sort_order: sortOrder,
-      });
-
-    setSaving(false);
-
-    if (error) {
-      reportAdminError("질문 등록 실패", error);
-      return;
-    }
+      },
+    });
+    if (!ok) return;
 
     setNewQuestion({
       ...QUESTION_EMPTY,
       sort_order: getNextSortOrder([...questions, { sort_order: sortOrder }]),
     });
-
-    await loadAll();
   }
 
   async function saveQuestion(question: DiagnosisQuestion) {
@@ -321,27 +322,19 @@ export default function LearningDiagnosisAdmin() {
       return;
     }
 
-    setSaving(true);
-    const { error } = await supabase
-      .from("learning_diagnosis_questions")
-      .update({
+    const ok = await send("질문 저장 실패", {
+      method: "patch",
+      path: `questions/${question.id}`,
+      json: {
         title: question.title,
         description: question.description || "",
         input_type: question.input_type || "single",
         is_required: boolValue(question.is_required),
         is_active: boolValue(question.is_active),
         sort_order: Number(question.sort_order || 1),
-      })
-      .eq("id", question.id);
-    setSaving(false);
-
-    if (error) {
-      reportAdminError("질문 저장 실패", error);
-      return;
-    }
-
-    toastSuccess("질문 저장 완료");
-    await loadAll();
+      },
+    });
+    if (ok) toastSuccess("질문 저장 완료");
   }
 
   async function deleteQuestion(question: DiagnosisQuestion) {
@@ -355,40 +348,26 @@ export default function LearningDiagnosisAdmin() {
     )
       return;
 
-    const { error } = await supabase
-      .from("learning_diagnosis_questions")
-      .delete()
-      .eq("id", question.id);
-    if (error) {
-      reportAdminError("질문 삭제 실패", error);
-      return;
-    }
-
-    await loadAll();
+    await send("질문 삭제 실패", {
+      method: "delete",
+      path: `questions/${question.id}`,
+    });
   }
 
   async function createOption(questionId: DiagnosisId) {
     const questionOptions = optionsByQuestion[questionId] || [];
-    // learning_diagnosis_options.option_text는 NOT NULL이고 DEFAULT가 없는
-    // 레거시 컬럼(현재 label이 정본, option_text는 어디서도 읽지 않는다)이다.
-    // 생성 Insert 타입 적용으로 이 insert가 option_text를 보내지 않아
-    // 23502(not_null_violation)로 "답변 추가"가 항상 실패하던 결함이 드러났다.
-    // label과 같은 빈 문자열로 채운다.
-    const { error } = await supabase.from("learning_diagnosis_options").insert({
-      question_id: questionId,
-      label: "",
-      option_text: "",
-      program_ids: [],
-      is_active: true,
-      sort_order: questionOptions.length + 1,
+    // 빈 답변을 먼저 만들고 관리자가 채운다. 서버가 옛 option_text 컬럼을 label 로 채운다.
+    await send("답변 추가 실패", {
+      method: "post",
+      path: "options",
+      json: {
+        question_id: questionId,
+        label: "",
+        program_ids: [],
+        is_active: true,
+        sort_order: questionOptions.length + 1,
+      },
     });
-
-    if (error) {
-      reportAdminError("답변 추가 실패", error);
-      return;
-    }
-
-    await loadAll();
   }
 
   async function saveOption(option: DiagnosisOption) {
@@ -397,27 +376,17 @@ export default function LearningDiagnosisAdmin() {
       return;
     }
 
-    setSaving(true);
-    const { error } = await supabase
-      .from("learning_diagnosis_options")
-      .update({
+    const ok = await send("답변 저장 실패", {
+      method: "patch",
+      path: `options/${option.id}`,
+      json: {
         label: option.label,
-        // 레거시 NOT NULL 컬럼 option_text는 label을 그대로 미러링한다.
-        option_text: option.label,
         program_ids: normalizeProgramIds(option.program_ids),
         is_active: boolValue(option.is_active),
         sort_order: Number(option.sort_order || 1),
-      })
-      .eq("id", option.id);
-    setSaving(false);
-
-    if (error) {
-      reportAdminError("답변 저장 실패", error);
-      return;
-    }
-
-    toastSuccess("답변 저장 완료");
-    await loadAll();
+      },
+    });
+    if (ok) toastSuccess("답변 저장 완료");
   }
 
   async function deleteOption(option: DiagnosisOption) {
@@ -430,16 +399,10 @@ export default function LearningDiagnosisAdmin() {
     )
       return;
 
-    const { error } = await supabase
-      .from("learning_diagnosis_options")
-      .delete()
-      .eq("id", option.id);
-    if (error) {
-      reportAdminError("답변 삭제 실패", error);
-      return;
-    }
-
-    await loadAll();
+    await send("답변 삭제 실패", {
+      method: "delete",
+      path: `options/${option.id}`,
+    });
   }
 
   async function createProgram() {
@@ -449,24 +412,25 @@ export default function LearningDiagnosisAdmin() {
       return;
     }
 
-    setSaving(true);
-    const { error } = await supabase
-      .from("learning_diagnosis_programs")
-      .insert({
-        ...newProgram,
+    const ok = await send("추천 프로그램 등록 실패", {
+      method: "post",
+      path: "programs",
+      json: {
         title,
-        sort_order: Number(newProgram.sort_order || 1),
+        badge: newProgram.badge,
+        description: newProgram.description,
+        primary_button_text: newProgram.primary_button_text,
+        primary_button_link: newProgram.primary_button_link,
+        secondary_button_text: newProgram.secondary_button_text,
+        secondary_button_link: newProgram.secondary_button_link,
+        icon: newProgram.icon,
         is_active: boolValue(newProgram.is_active),
-      });
-    setSaving(false);
-
-    if (error) {
-      reportAdminError("추천 프로그램 등록 실패", error);
-      return;
+        sort_order: Number(newProgram.sort_order || 1),
+      },
+    });
+    if (ok) {
+      setNewProgram({ ...PROGRAM_EMPTY, sort_order: programs.length + 2 });
     }
-
-    setNewProgram({ ...PROGRAM_EMPTY, sort_order: programs.length + 2 });
-    await loadAll();
   }
 
   async function saveProgram(program: DiagnosisProgram) {
@@ -475,10 +439,10 @@ export default function LearningDiagnosisAdmin() {
       return;
     }
 
-    setSaving(true);
-    const { error } = await supabase
-      .from("learning_diagnosis_programs")
-      .update({
+    const ok = await send("추천 프로그램 저장 실패", {
+      method: "patch",
+      path: `programs/${program.id}`,
+      json: {
         title: program.title,
         badge: program.badge || "",
         description: program.description || "",
@@ -489,17 +453,9 @@ export default function LearningDiagnosisAdmin() {
         icon: program.icon || "target",
         is_active: boolValue(program.is_active),
         sort_order: Number(program.sort_order || 1),
-      })
-      .eq("id", program.id);
-    setSaving(false);
-
-    if (error) {
-      reportAdminError("추천 프로그램 저장 실패", error);
-      return;
-    }
-
-    toastSuccess("추천 프로그램 저장 완료");
-    await loadAll();
+      },
+    });
+    if (ok) toastSuccess("추천 프로그램 저장 완료");
   }
 
   async function deleteProgram(program: DiagnosisProgram) {
@@ -513,16 +469,10 @@ export default function LearningDiagnosisAdmin() {
     )
       return;
 
-    const { error } = await supabase
-      .from("learning_diagnosis_programs")
-      .delete()
-      .eq("id", program.id);
-    if (error) {
-      reportAdminError("추천 프로그램 삭제 실패", error);
-      return;
-    }
-
-    await loadAll();
+    await send("추천 프로그램 삭제 실패", {
+      method: "delete",
+      path: `programs/${program.id}`,
+    });
   }
 
   return (
@@ -537,7 +487,7 @@ export default function LearningDiagnosisAdmin() {
             </p>
           </div>
 
-          <ActionButton onClick={loadAll} variant="light">
+          <ActionButton onClick={() => void lists.refetchAll()} variant="light">
             <RefreshCw size={14} />
             새로고침
           </ActionButton>

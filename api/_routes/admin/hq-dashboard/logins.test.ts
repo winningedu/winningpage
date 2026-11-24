@@ -70,6 +70,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-11-23T03:00:00Z"));
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
+  kit.state.rows.profiles = () => ({ role: "admin" });
   bucketCalls = [];
   logCalls = [];
   setPermissions([{ resource_key: "hqDashboard", level: "view" }]);
@@ -110,10 +111,12 @@ describe("GET /api/admin/hq-dashboard/logins 권한", () => {
     const r = await get();
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(r.body).toMatchObject({ code: "FORBIDDEN" });
     expect(kit.state.events).not.toContain("rpc:fn_hq_login_buckets");
     expect(kit.state.events).not.toContain("rpc:fn_hq_login_log");
-    expect(kit.state.reads).toHaveLength(0);
+    expect(kit.state.reads.map((read) => read.table)).not.toContain(
+      "profile_login_slots",
+    );
   });
 
   test("권한 조회가 실패하면 500 이다", async () => {
@@ -126,6 +129,21 @@ describe("GET /api/admin/hq-dashboard/logins 권한", () => {
 
     expect(r.status).toBe(500);
     expect(kit.state.events).not.toContain("rpc:fn_hq_login_buckets");
+  });
+
+  test("편집 권한이어도 읽을 수 있다", async () => {
+    setPermissions([{ resource_key: "hqDashboard", level: "edit" }]);
+
+    const r = await get();
+
+    expect(r.status).toBe(200);
+  });
+
+  test("GET 이 아니면 405 problem", async () => {
+    const r = await callHandler(handler, {}, "POST");
+
+    expect(r.status).toBe(405);
+    expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
   });
 
   test("로그인하지 않으면 401 이다", async () => {
@@ -154,7 +172,7 @@ describe("GET /api/admin/hq-dashboard/logins 입력 검사", () => {
     const r = await get(query);
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "INVALID_QUERY" } });
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
     expect(kit.state.events).not.toContain("rpc:fn_hq_login_buckets");
     expect(kit.state.events).not.toContain("rpc:fn_hq_login_log");
   });
@@ -170,10 +188,10 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
   test("기본값은 이번 달 1일부터 오늘(KST), 일 단위, 달력 기준 MAU, 내부 계정 제외", async () => {
     const r = await get();
 
+    expect(r.body).not.toHaveProperty("ok");
     expect(r.status).toBe(200);
     expect(r.headers["Cache-Control"]).toBe("no-store");
     expect(r.body).toMatchObject({
-      ok: true,
       from: "2026-11-01",
       to: "2026-11-23",
       grain: "day",
@@ -389,7 +407,7 @@ describe("GET /api/admin/hq-dashboard/logins 시간대", () => {
       const r = await get({ view }, "");
 
       expect(r.status).toBe(400);
-      expect(r.body).toMatchObject({ error: { code: "TIME_ZONE_REQUIRED" } });
+      expect(r.body).toMatchObject({ code: "TIME_ZONE_REQUIRED" });
       expect(kit.state.events).not.toContain("rpc:fn_hq_login_buckets");
       expect(kit.state.events).not.toContain("rpc:fn_hq_login_log");
     },
@@ -469,7 +487,6 @@ describe("GET /api/admin/hq-dashboard/logins view=log", () => {
       p_tz: "Asia/Seoul",
     });
     expect(r.body).toEqual({
-      ok: true,
       from: "2026-11-01",
       to: "2026-11-22",
       includeInternal: false,
@@ -489,6 +506,27 @@ describe("GET /api/admin/hq-dashboard/logins view=log", () => {
       ],
     });
     expect(kit.state.events).not.toContain("rpc:fn_hq_login_buckets");
+  });
+
+  test("members 편집 권한이어도 이름을 보낸다", async () => {
+    kit.state.rpc.fn_hq_login_log = () => ({ data: [row], error: null });
+    setPermissions([
+      { resource_key: "hqDashboard", level: "view" },
+      { resource_key: "members", level: "edit" },
+    ]);
+
+    const r = await get({ view: "log" });
+
+    expect(r.body).toMatchObject({
+      namesVisible: true,
+      items: [{ name: "김학생" }],
+    });
+  });
+
+  test("쪽 번호가 없으면 1쪽(offset 0)이다", async () => {
+    await get({ view: "log" });
+
+    expect(logCalls[0]).toMatchObject({ p_offset: 0 });
   });
 
   test("members 보기 권한이 없으면 이름을 보내지 않는다", async () => {

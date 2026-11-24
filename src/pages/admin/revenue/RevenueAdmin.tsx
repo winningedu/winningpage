@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { Download, RefreshCw } from "lucide-react";
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,25 +14,30 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/lib/supabase";
+import { ApiError } from "@/lib/http/client";
 import { addDaysYmd, dayRangeUtc, ymdIn } from "@/lib/time/day";
 import { formatDateTime } from "@/lib/time/format";
 import { browserTimeZone } from "@/lib/time/zone";
-import RevenueDashboard, {
-  type RevenuePending,
-} from "@/pages/admin/revenue/RevenueDashboard";
+import {
+  type RevenueRow,
+  revenuePendingQuery,
+  revenueRowsQuery,
+  revenueServicesQuery,
+  type ServiceTab,
+} from "@/pages/admin/revenue/api";
+import RevenueDashboard from "@/pages/admin/revenue/RevenueDashboard";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { downloadCsv } from "@/pages/admin/shared/csvExport";
 import { ActionButton } from "@/pages/admin/shared/formFields";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
 
 // ---------------------------------------------------------------------------
-// 매출 및 결제(revenue) — Figma 4466:7097.
+// 매출 및 결제(revenue), Figma 4466:7097.
 //
 // 무엇이 달라졌나
-//   예전 「매출 조정」·「매출 정산」·「일일정산」은 운영자가 손으로 적는 수기
+//   예전 「매출 조정」, 「매출 정산」, 「일일정산」은 운영자가 손으로 적는 수기
 //   장부였고 실제 결제와 연결이 없었다(2026-08-23 에 셋 다 없앴다). 이 화면은
-//   **실제 결제**(orders/order_items)를 본다 — admin_revenue_items 뷰가 원천이고,
+//   **실제 결제**(orders/order_items)를 본다, admin_revenue_items 뷰가 원천이고,
 //   주문 단위 할인 안분과 환불 차감을 거기서 이미 끝내 놓았다.
 //   그래서 이 파일은 "기간을 자르고 합을 낸다"만 한다.
 //
@@ -42,38 +49,9 @@ import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate
 //     매출만 줄어든다(뷰 상단 주석 참고).
 // ---------------------------------------------------------------------------
 
-interface RevenueRow {
-  order_item_id: string;
-  order_id: string;
-  paid_at: string | null;
-  payer_name: string | null;
-  payer_email: string | null;
-  student_name: string | null;
-  service_key: string | null;
-  item_name: string | null;
-  list_amount: number | null;
-  discount_amount: number | null;
-  paid_amount: number | null;
-  refunded_amount: number | null;
-  revenue_status: string;
-  net_amount: number | null;
-}
-
-interface ServiceTab {
-  key: string;
-  label: string;
-}
-
-// PostgREST 응답 상한이 1,000행이라 그보다 크게 잡아도 잘려 나온다 — Admin.tsx 의
-// CSV 내보내기(EXPORT_CHUNK)와 같은 제약이라 값도 맞춘다.
-const PAGE_SIZE = 1000;
-
 const HEAD = "whitespace-normal px-4 py-3 font-semibold";
 
-const VIEW_COLUMNS =
-  "order_item_id, order_id, paid_at, payer_name, payer_email, student_name, service_key, item_name, list_amount, discount_amount, paid_amount, refunded_amount, revenue_status, net_amount";
-
-// QA 271 내보내기 컬럼 — 화면 표의 여덟 칸에 결제자 이메일을 더한 것이다.
+// QA 271 내보내기 컬럼, 화면 표의 여덟 칸에 결제자 이메일을 더한 것이다.
 // 이메일은 표에 결제자명이 없을 때만 대체 표기로 쓰여 눈에 잘 띄지 않지만,
 // 파일에는 있어야 정산 대사(對査)에 쓸 수 있다. 이 이메일 때문에 이 다운로드가
 // 개인정보 반출이고, 그래서 게이트를 탄다.
@@ -103,32 +81,6 @@ function formatMoney(value: number): string {
   return `${Math.round(value).toLocaleString("ko-KR")}원`;
 }
 
-/**
- * 기간 안의 뷰 행을 전부 가져온다. 1,000행씩 끊어 받는다 — 한 달치 결제가 그보다
- * 많아지면 조용히 잘려서 매출이 과소 집계되기 때문에 페이지를 끝까지 돈다.
- */
-async function fetchRange(fromIso: string, toIso: string) {
-  const rows: RevenueRow[] = [];
-
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from("admin_revenue_items")
-      .select(VIEW_COLUMNS)
-      .gte("paid_at", fromIso)
-      .lt("paid_at", toIso)
-      .order("paid_at", { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1);
-
-    if (error) throw new Error(error.message);
-
-    const page = (data as unknown as RevenueRow[]) || [];
-    rows.push(...page);
-    if (page.length < PAGE_SIZE) break;
-  }
-
-  return rows;
-}
-
 function sumNet(rows: RevenueRow[]): number {
   return rows.reduce((sum, row) => sum + Number(row.net_amount || 0), 0);
 }
@@ -140,120 +92,108 @@ export default function RevenueAdmin() {
   const weekStartYmd = useMemo(() => weekStartYmdOf(todayYmd), [todayYmd]);
   const monthStartYmd = useMemo(() => `${todayYmd.slice(0, 7)}-01`, [todayYmd]);
 
-  const [serviceTabs, setServiceTabs] = useState<ServiceTab[]>([]);
-  const [activeService, setActiveService] = useState("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  // 새로고침해도 탭과 기간이 남도록 URL 이 정본이다. 없으면 전체, 이번 달 1일~오늘.
+  const activeService = searchParams.get("service") ?? "all";
+  const periodFrom = searchParams.get("from") ?? monthStartYmd;
+  const periodTo = searchParams.get("to") ?? todayYmd;
 
-  const [fromYmd, setFromYmd] = useState(monthStartYmd);
-  const [toYmd, setToYmd] = useState(todayYmd);
+  // 날짜 입력은 조회를 누를 때까지 화면에만 둔다.
+  const [fromYmd, setFromYmd] = useState(periodFrom);
+  const [toYmd, setToYmd] = useState(periodTo);
 
-  // 이번 달 1일~오늘. 오늘·이번 주·이번 달 카드 셋을 이 한 번의 조회로 다 계산한다
+  // 이번 달 1일~오늘. 오늘, 이번 주, 이번 달 카드 셋을 이 한 번의 조회로 다 계산한다
   // (이번 달이 나머지 둘을 포함하므로 따로 부를 이유가 없다).
-  const [monthRows, setMonthRows] = useState<RevenueRow[]>([]);
+  // 상한은 '미만'으로 비교한다, 다음 날 0시 직전의 1초도 새지 않는다.
+  const monthRange = dayRangeUtc(monthStartYmd, todayYmd, timeZone);
+  const monthQuery = useQuery(
+    revenueRowsQuery(monthRange.from, monthRange.toExclusive),
+  );
   // 달력으로 고른 기간. 표와 네 번째 카드가 같이 쓴다.
-  const [periodRows, setPeriodRows] = useState<RevenueRow[]>([]);
+  const periodRange = dayRangeUtc(periodFrom, periodTo, timeZone);
+  const periodQuery = useQuery(
+    revenueRowsQuery(periodRange.from, periodRange.toExclusive),
+  );
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  // QA 274 「처리 필요 항목」 — 환불 원장에서 대기 건수만 센다. 목록을 통째로
+  const servicesQuery = useQuery(revenueServicesQuery);
+  // QA 274 「처리 필요 항목」, 환불 원장에서 대기 건수만 센다. 목록을 통째로
   // 받지 않고 count 만 받는다(화면이 쓰는 건 숫자뿐이고, 환불 신청에는
-  // 계좌·사유 같은 개인정보가 들어 있어 필요 없는 걸 끌어오지 않는다).
-  const [pending, setPending] = useState<RevenuePending>({
+  // 계좌, 사유 같은 개인정보가 들어 있어 필요 없는 걸 끌어오지 않는다).
+  const pendingQuery = useQuery(revenuePendingQuery);
+
+  const loading = monthQuery.isFetching || periodQuery.isFetching;
+  const loadError = monthQuery.error ?? periodQuery.error;
+  const error = loadError
+    ? loadError instanceof ApiError
+      ? loadError.detail
+      : loadError.message
+    : "";
+  // 실패하면 이전 값 대신 빈 목록을 보인다(조회 실패 때 옛 매출이 남지 않도록).
+  const monthRows = useMemo<RevenueRow[]>(
+    () => (monthQuery.error ? [] : (monthQuery.data ?? [])),
+    [monthQuery.data, monthQuery.error],
+  );
+  const periodRows = useMemo<RevenueRow[]>(
+    () => (periodQuery.error ? [] : (periodQuery.data ?? [])),
+    [periodQuery.data, periodQuery.error],
+  );
+
+  // 탭 목록을 하드코딩하지 않는다, 서비스가 늘거나 이름이 바뀌면 화면만 옛것으로
+  // 남는다. products 가 정본이고, 이 화면은 그 목록을 그대로 따른다.
+  const serviceTabs = servicesQuery.data ?? [];
+  // 대시보드 보조 지표라 실패해도 화면 전체를 막지 않는다, 0으로 두고 넘어간다.
+  const pending = pendingQuery.data ?? {
     approvalWaiting: 0,
     processWaiting: 0,
-  });
+  };
+
+  useEffect(() => {
+    if (servicesQuery.error)
+      console.error("서비스 목록 조회 실패:", servicesQuery.error);
+  }, [servicesQuery.error]);
+
+  useEffect(() => {
+    if (pendingQuery.error)
+      console.error("환불 대기 건수 조회 실패:", pendingQuery.error);
+  }, [pendingQuery.error]);
+
+  useEffect(() => {
+    if (loadError) console.error("매출 조회 실패:", loadError);
+  }, [loadError]);
 
   // 개인정보 반출 게이트 (QA 271).
   const { requestAccess, gate } = useSensitiveActionGate();
 
-  async function loadServices() {
-    // 탭 목록을 하드코딩하지 않는다 — 서비스가 늘거나 이름이 바뀌면 화면만 옛것으로
-    // 남는다. products 가 정본이고, 이 화면은 그 목록을 그대로 따른다.
-    const { data, error: serviceError } = await supabase
-      .from("products")
-      .select("service_key, service_name, service_sort_order")
-      .eq("is_active", true)
-      .order("service_sort_order");
-
-    if (serviceError) {
-      console.error("서비스 목록 조회 실패:", serviceError);
-      return;
-    }
-
-    const seen = new Map<string, string>();
-    for (const row of data || []) {
-      const key = String(row.service_key || "");
-      if (key && !seen.has(key)) seen.set(key, String(row.service_name || key));
-    }
-
-    setServiceTabs([...seen.entries()].map(([key, label]) => ({ key, label })));
+  function applyPeriod() {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("from", fromYmd);
+        next.set("to", toYmd);
+        return next;
+      },
+      { replace: true },
+    );
   }
 
-  async function loadRows() {
-    setLoading(true);
-    setError("");
-
-    try {
-      // 상한은 '미만'으로 비교한다 — 다음 날 0시 직전의 1초도 새지 않는다.
-      const monthRange = dayRangeUtc(monthStartYmd, todayYmd, timeZone);
-      const periodRange = dayRangeUtc(fromYmd, toYmd, timeZone);
-      const [month, period] = await Promise.all([
-        fetchRange(monthRange.from, monthRange.toExclusive),
-        fetchRange(periodRange.from, periodRange.toExclusive),
-      ]);
-      setMonthRows(month);
-      setPeriodRows(period);
-    } catch (loadError) {
-      console.error("매출 조회 실패:", loadError);
-      setError((loadError as Error).message);
-      setMonthRows([]);
-      setPeriodRows([]);
-    } finally {
-      setLoading(false);
-    }
+  function selectService(service: string) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (service === "all") next.delete("service");
+        else next.set("service", service);
+        return next;
+      },
+      { replace: true },
+    );
   }
 
-  async function loadPending() {
-    try {
-      const [approval, process] = await Promise.all([
-        // 아직 승인/반려가 안 난 신청.
-        supabase
-          .from("refund_requests")
-          .select("id", { count: "exact", head: true })
-          .eq("approval_status", "requested"),
-        // 승인은 났는데 실제 환불이 안 끝난 건. status='completed' 가 실제 환불
-        // 완료라(admin_revenue_items 주석) 그 전 단계를 센다.
-        supabase
-          .from("refund_requests")
-          .select("id", { count: "exact", head: true })
-          .eq("approval_status", "approved")
-          .in("status", ["requested", "processing"]),
-      ]);
-
-      if (approval.error) throw approval.error;
-      if (process.error) throw process.error;
-
-      setPending({
-        approvalWaiting: approval.count ?? 0,
-        processWaiting: process.count ?? 0,
-      });
-    } catch (pendingError) {
-      // 대시보드 보조 지표라 실패해도 화면 전체를 막지 않는다 — 0으로 두고 넘어간다.
-      console.error("환불 대기 건수 조회 실패:", pendingError);
-    }
+  function refresh() {
+    monthQuery.refetch();
+    periodQuery.refetch();
   }
 
-  const onMountLoad = useEffectEvent(() => {
-    loadServices();
-    loadRows();
-    loadPending();
-  });
-
-  useEffect(() => {
-    onMountLoad();
-  }, []);
-
-  // 서비스 필터는 이미 받아온 행에 걸면 된다 — 탭을 옮길 때마다 다시 조회하면
+  // 서비스 필터는 이미 받아온 행에 걸면 된다, 탭을 옮길 때마다 다시 조회하면
   // 같은 기간을 반복해서 긁는다.
   const filteredMonth = useMemo(
     () =>
@@ -302,7 +242,7 @@ export default function RevenueAdmin() {
 
   const tabs: ServiceTab[] = [{ key: "all", label: "전체" }, ...serviceTabs];
 
-  // QA 271 — 매출·결제 다운로드. 결제자 이름·이메일이 함께 나가므로 게이트를 탄다.
+  // QA 271, 매출, 결제 다운로드. 결제자 이름, 이메일이 함께 나가므로 게이트를 탄다.
   function exportRevenue() {
     downloadCsv(
       `매출및결제_${fromYmd}_${toYmd}.csv`,
@@ -332,8 +272,8 @@ export default function RevenueAdmin() {
       {gate}
 
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
-        {/* 서비스별 탭 — 시안의 전체/목표관리/콜멘토/… 줄 */}
-        <Tabs value={activeService} onValueChange={setActiveService}>
+        {/* 서비스별 탭, 시안의 전체/목표관리/콜멘토/… 줄 */}
+        <Tabs value={activeService} onValueChange={selectService}>
           <TabsList
             variant="line"
             className="mb-5 h-auto w-full flex-wrap justify-start border-b border-border"
@@ -384,10 +324,10 @@ export default function RevenueAdmin() {
             onChange={(event) => setToYmd(event.target.value)}
             className="h-9 w-auto px-3 text-sm"
           />
-          <ActionButton onClick={loadRows} disabled={loading}>
+          <ActionButton onClick={applyPeriod} disabled={loading}>
             {loading ? "불러오는 중..." : "조회"}
           </ActionButton>
-          <Button type="button" variant="outline" size="lg" onClick={loadRows}>
+          <Button type="button" variant="outline" size="lg" onClick={refresh}>
             <RefreshCw aria-hidden="true" />
             새로고침
           </Button>
@@ -409,14 +349,14 @@ export default function RevenueAdmin() {
         )}
       </div>
 
-      {/* QA 274 총괄 대시보드 — 파일18 「정산관리」의 정산 총괄표. 선택 기간과
+      {/* QA 274 총괄 대시보드, 파일18 「정산관리」의 정산 총괄표. 선택 기간과
           서비스 탭이 적용된 행(filteredPeriod)을 그대로 본다. */}
       {!loading && (
         <RevenueDashboard
           rows={filteredPeriod}
           pending={pending}
           timeZone={timeZone}
-          periodLabel={`${fromYmd} ~ ${toYmd}`}
+          periodLabel={`${periodFrom} ~ ${periodTo}`}
         />
       )}
 
@@ -496,7 +436,7 @@ export default function RevenueAdmin() {
                     </TableCell>
                     <TableCell className="px-4 py-3">
                       {row.revenue_status === "refunded" ? (
-                        // 부분환불이면 최종 결제 금액과 실제 환불액이 다르다 —
+                        // 부분환불이면 최종 결제 금액과 실제 환불액이 다르다,
                         // 상태만 보고 전액이 돌아간 것으로 오해하지 않도록 금액을 같이 쓴다.
                         <span className="font-medium text-destructive">
                           환불 {formatMoney(Number(row.refunded_amount || 0))}

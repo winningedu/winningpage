@@ -138,7 +138,7 @@ describe("settingPayload", () => {
 
   const base = rowOf(buildServiceRows([]), "diagnose");
 
-  test("빈 칸은 null, 숫자 칸은 정수로 바꾸고 updated_by 와 updated_at 을 싣는다", () => {
+  test("빈 칸은 null, 숫자 칸은 정수로 바꾸고 updated_at 을 싣고 updated_by 는 싣지 않는다", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-11-06T01:02:03.000Z"));
     const row = {
@@ -148,7 +148,7 @@ describe("settingPayload", () => {
       monthlyLimit: "3",
     };
 
-    expect(settingPayload("tenant-7", row, "user-1")).toEqual({
+    expect(settingPayload("tenant-7", row)).toEqual({
       tenant_id: "tenant-7",
       program_key: "diagnose",
       enabled: true,
@@ -156,13 +156,12 @@ describe("settingPayload", () => {
       ends_on: null,
       monthly_limit: 3,
       term_limit: null,
-      updated_by: "user-1",
       updated_at: "2026-11-06T01:02:03.000Z",
     });
   });
 
   test("제공 안 함은 enabled false 로 보낸다(행을 지우지 않는다)", () => {
-    expect(settingPayload("tenant-7", base, "user-1").enabled).toBe(false);
+    expect(settingPayload("tenant-7", base).enabled).toBe(false);
   });
 });
 

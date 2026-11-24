@@ -1,10 +1,15 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("@/pages/admin/shared/adminSession", () => ({
-  getFreshSupabaseAccessTokenOrSignOut: vi.fn().mockResolvedValue("tok"),
+const http = vi.hoisted(() => ({ post: vi.fn() }));
+
+vi.mock("@/lib/http/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/http/client")>()),
+  api: http,
 }));
 
+import { ApiError } from "@/lib/http/client";
 import MoveStudentForm from "./MoveStudentForm";
 
 const SCHOOL = {
@@ -21,33 +26,47 @@ const ACADEMY = {
 };
 const ETC = { id: "t-etc", name: "기타", orgType: "기타", isCatchAll: true };
 
-const fetchMock = vi.fn();
+const MOVED = {
+  fromTenantId: "t-old",
+  tenantId: "t-school",
+  enrollmentId: "e-1",
+};
 
 function renderForm(
   tenant = SCHOOL,
-  handlers: { onMoved?: () => void; onCancel?: () => void } = {},
+  handlers: {
+    onMoved?: () => void;
+    onCancel?: () => void;
+    onDirtyChange?: (dirty: boolean) => void;
+  } = {},
 ) {
   return render(
-    <MoveStudentForm
-      profileId="p-1"
-      tenant={tenant}
-      onMoved={handlers.onMoved ?? (() => {})}
-      onCancel={handlers.onCancel ?? (() => {})}
-    />,
+    <QueryClientProvider client={new QueryClient()}>
+      <MoveStudentForm
+        profileId="p-1"
+        tenant={tenant}
+        onMoved={handlers.onMoved ?? (() => {})}
+        onCancel={handlers.onCancel ?? (() => {})}
+        {...(handlers.onDirtyChange
+          ? { onDirtyChange: handlers.onDirtyChange }
+          : {})}
+      />
+    </QueryClientProvider>,
   );
 }
 
-function jsonResponse(status: number, body: unknown) {
-  return { ok: status < 400, status, json: async () => body };
+const reply = (body: unknown) => ({ json: async () => body });
+
+function failWith(status: number, code: string, detail: string) {
+  http.post.mockReturnValue({
+    json: async () => {
+      throw new ApiError({ status, code, detail });
+    },
+  });
 }
 
 beforeEach(() => {
-  fetchMock.mockReset();
-  vi.stubGlobal("fetch", fetchMock);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
+  http.post.mockReset();
 });
 
 describe("MoveStudentForm", () => {
@@ -87,8 +106,8 @@ describe("MoveStudentForm", () => {
     expect(screen.getByLabelText("학년")).toBeInTheDocument();
   });
 
-  test("옮기면 토큰과 함께 move-student 로 보내고 성공을 알린다", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { ok: true }));
+  test("옮기면 move-student 로 보내고 성공을 알린다", async () => {
+    http.post.mockReturnValue(reply(MOVED));
     const onMoved = vi.fn();
     renderForm(SCHOOL, { onMoved });
 
@@ -100,21 +119,19 @@ describe("MoveStudentForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "옮기기" }));
 
     await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/admin/tenants/move-student");
-    expect(init.method).toBe("POST");
-    expect(init.headers).toMatchObject({ Authorization: "Bearer tok" });
-    expect(JSON.parse(init.body as string)).toEqual({
-      profileId: "p-1",
-      tenantId: "t-school",
-      grade: "고2",
-      className: "3반",
-      number: 7,
+    expect(http.post).toHaveBeenCalledWith("admin/tenants/move-student", {
+      json: {
+        profileId: "p-1",
+        tenantId: "t-school",
+        grade: "고2",
+        className: "3반",
+        number: 7,
+      },
     });
   });
 
   test("반과 번호를 비우면 본문에 싣지 않는다", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { ok: true }));
+    http.post.mockReturnValue(reply(MOVED));
     renderForm(SCHOOL);
 
     fireEvent.change(screen.getByLabelText("학년"), {
@@ -122,21 +139,14 @@ describe("MoveStudentForm", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "옮기기" }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(init.body as string)).toEqual({
-      profileId: "p-1",
-      tenantId: "t-school",
-      grade: "고1",
+    await waitFor(() => expect(http.post).toHaveBeenCalled());
+    expect(http.post.mock.calls[0]?.[1]).toEqual({
+      json: { profileId: "p-1", tenantId: "t-school", grade: "고1" },
     });
   });
 
   test("숫자가 아닌 번호는 조용히 버리지 않고 그대로 보내 서버가 거절하게 한다", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(400, {
-        error: { code: "BAD_REQUEST", message: "입력값을 확인해 주세요." },
-      }),
-    );
+    failWith(400, "BAD_REQUEST", "입력값을 확인해 주세요.");
     renderForm(SCHOOL);
 
     fireEvent.change(screen.getByLabelText("학년"), {
@@ -150,14 +160,13 @@ describe("MoveStudentForm", () => {
     expect(
       await screen.findByText("입력값을 확인해 주세요."),
     ).toBeInTheDocument();
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(init.body as string).number).toBe("7a");
+    expect(http.post.mock.calls[0]?.[1]).toMatchObject({
+      json: { number: "7a" },
+    });
   });
 
   test("전화번호가 겹치면 소속 저장 오류와 같은 문구를 보여주고 성공을 알리지 않는다", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(409, { error: { code: "PHONE_TAKEN", message: "x" } }),
-    );
+    failWith(409, "PHONE_TAKEN", "x");
     const onMoved = vi.fn();
     renderForm(SCHOOL, { onMoved });
 
@@ -175,11 +184,7 @@ describe("MoveStudentForm", () => {
   });
 
   test("그 밖의 오류는 서버 문구를 그대로 보여준다", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(409, {
-        error: { code: "NUMBER_TAKEN", message: "이미 사용 중인 번호예요." },
-      }),
-    );
+    failWith(409, "NUMBER_TAKEN", "이미 사용 중인 번호예요.");
     renderForm(SCHOOL);
 
     fireEvent.change(screen.getByLabelText("학년"), {
@@ -190,6 +195,32 @@ describe("MoveStudentForm", () => {
     expect(
       await screen.findByText("이미 사용 중인 번호예요."),
     ).toBeInTheDocument();
+  });
+
+  test("옮기는 동안은 버튼이 잠긴다", async () => {
+    http.post.mockReturnValue({ json: () => new Promise(() => {}) });
+    renderForm(SCHOOL);
+
+    fireEvent.change(screen.getByLabelText("학년"), {
+      target: { value: "고2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "옮기기" }));
+
+    expect(
+      await screen.findByRole("button", { name: "옮기는 중..." }),
+    ).toBeDisabled();
+  });
+
+  test("입력이 하나라도 있으면 바뀐 상태를 알리고, 닫히면 해제한다", () => {
+    const onDirtyChange = vi.fn();
+    const { unmount } = renderForm(SCHOOL, { onDirtyChange });
+
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+    fireEvent.change(screen.getByLabelText("반"), { target: { value: "3반" } });
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+
+    unmount();
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false);
   });
 
   test("취소를 누르면 onCancel 을 부른다", () => {
