@@ -45,6 +45,7 @@ import {
   computeEffectiveWindow,
   computeStudyHours,
   computeSubjectShare,
+  listReportPeriodOptions,
   type MonthlyWeekBar,
   resolveMonthlyPeriod,
   resolveWeeklyPeriod,
@@ -321,6 +322,14 @@ async function buildGrowthReport({
     period: type,
     heading: type === "monthly" ? "월간 성장 리포트" : "주간 성장 리포트",
     periodLabel: period.periodLabel,
+    // 지난 리포트 선택용. 시작일은 actual_start_date, 없으면 onboarded_at 의 학생 현지 날짜다.
+    periodOptions: listReportPeriodOptions(
+      type,
+      student.actual_start_date ||
+        ymdIn(new Date(student.onboarded_at), timeZone),
+      nowYmd,
+    ),
+    activePeriod: period.periodKey,
     hero: { narrative: heroNarrative, kpis },
     overview: {
       label: "한눈에 보기",
