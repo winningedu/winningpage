@@ -188,7 +188,7 @@ export function useGrants(couponId: string) {
     queryKey: couponKeys.grants(couponId),
     queryFn: ({ signal }) =>
       api
-        .get("admin/coupons/grants", { searchParams: { couponId }, signal })
+        .get(`admin/coupons/${encodeURIComponent(couponId)}/grants`, { signal })
         .json(grantListSchema),
   });
 }
@@ -216,7 +216,9 @@ export function useGrantCoupon(couponId: string) {
   return useMutation({
     mutationFn: (userId: string) =>
       api
-        .post("admin/coupons/grants", { json: { couponId, userId } })
+        .post(`admin/coupons/${encodeURIComponent(couponId)}/grants`, {
+          json: { userId },
+        })
         .json(z.looseObject({})),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: couponKeys.grants(couponId) }),

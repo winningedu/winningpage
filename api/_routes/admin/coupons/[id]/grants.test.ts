@@ -1,4 +1,4 @@
-// GET /api/admin/coupons/grants?couponId= 계약 검증. 쿠폰의 발급 이력(GET)과 쿠폰 발급(POST).
+// GET, POST /api/admin/coupons/:id/grants 계약 검증. 쿠폰의 발급 이력(GET)과 쿠폰 발급(POST).
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -10,7 +10,7 @@ import {
   problemCode,
   type Respond,
   type Result,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({
   admin: null as unknown,
@@ -18,20 +18,20 @@ const kit = vi.hoisted(() => ({
   tokens: [] as string[],
 }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-vi.mock("../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: (token: string) => {
     kit.tokens.push(token);
     return kit.user;
   },
 }));
 
-vi.mock("../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: (token: string) => {
     kit.tokens.push(token);
     return kit.user;
@@ -86,10 +86,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const get = (query: Record<string, string> = { couponId: COUPON_ID }) =>
+const get = (query: Record<string, string> = { id: COUPON_ID }) =>
   callRoute(handler, { query });
 
-describe("GET /api/admin/coupons/grants", () => {
+describe("GET /api/admin/coupons/:id/grants", () => {
   test("view 권한이면 행마다 사용자 이름과 이메일을 붙여 돌려준다", async () => {
     setup();
     const r = await get();
@@ -166,8 +166,8 @@ describe("GET /api/admin/coupons/grants", () => {
   });
 
   test.each([
-    ["couponId 없음", {}],
-    ["uuid 가 아닌 couponId", { couponId: "abc" }],
+    ["id 없음", {}],
+    ["uuid 가 아닌 id", { id: "abc" }],
   ])("%s 이면 400 VALIDATION_FAILED 다", async (_label, query) => {
     setup();
     const r = await get(query);
@@ -191,11 +191,13 @@ describe("GET /api/admin/coupons/grants", () => {
   });
 });
 
-describe("POST /api/admin/coupons/grants", () => {
+describe("POST /api/admin/coupons/:id/grants", () => {
   const USER_ID = U1;
   const GRANT = { id: 9, coupon_id: COUPON_ID, user_id: USER_ID };
-  const post = (body: unknown = { couponId: COUPON_ID, userId: USER_ID }) =>
-    callRoute(handler, { method: "POST", body });
+  const post = (
+    body: unknown = { userId: USER_ID },
+    query: Record<string, string> = { id: COUPON_ID },
+  ) => callRoute(handler, { method: "POST", query, body });
 
   beforeEach(() => {
     rpcs.fn_grant_coupon = () => ({ data: GRANT, error: null });
@@ -234,15 +236,15 @@ describe("POST /api/admin/coupons/grants", () => {
   });
 
   test.each([
-    ["couponId 가 uuid 가 아님", { couponId: "x", userId: USER_ID }],
-    ["userId 가 uuid 가 아님", { couponId: COUPON_ID, userId: "x" }],
-    ["userId 없음", { couponId: COUPON_ID }],
-    ["본문이 null", null],
+    ["경로 id 가 uuid 가 아님", { userId: USER_ID }, { id: "x" }],
+    ["userId 가 uuid 가 아님", { userId: "x" }, { id: COUPON_ID }],
+    ["userId 없음", {}, { id: COUPON_ID }],
+    ["본문이 null", null, { id: COUPON_ID }],
   ])(
     "%s 이면 400 VALIDATION_FAILED 이고 rpc 를 부르지 않는다",
-    async (_label, body) => {
+    async (_label, body, query) => {
       setup("edit");
-      const r = await post(body);
+      const r = await post(body, query);
       expect(r.status).toBe(400);
       expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
       expect(userRecorder.rpcCalls).toEqual([]);

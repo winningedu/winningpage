@@ -36,7 +36,7 @@ beforeEach(() => {
   grants = [grant];
   on("GET", "admin/coupons", listBody());
   on("GET", "admin/coupons/c1", couponRow);
-  on("GET", "admin/coupons/grants", () => ({ items: grants }));
+  on("GET", "admin/coupons/c1/grants", () => ({ items: grants }));
   on("GET", "admin/coupons/user-search", { items: found });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -66,11 +66,7 @@ test("새로고침한 발급 주소가 쿠폰 머리글과 발급 목록을 id �
   expect(await screen.findByText("홍길동")).toBeVisible();
   expect(screen.getByText("gift-1")).toBeVisible();
   expect(callsTo("GET", "admin/coupons/c1")).toHaveLength(1);
-  expect(
-    callsTo("GET", "admin/coupons/grants")[0]?.options.searchParams,
-  ).toEqual({
-    couponId: "c1",
-  });
+  expect(callsTo("GET", "admin/coupons/c1/grants")).toHaveLength(1);
 });
 
 test("목록의 발급 이력 버튼으로 들어간다", async () => {
@@ -115,7 +111,7 @@ test("검색에 실패하면 조회 실패 토스트와 빈 결과가 보인다"
 });
 
 test("발급은 쿠폰과 사용자 id 를 보내고 발급 목록을 새로 받는다", async () => {
-  on("POST", "admin/coupons/grants", () => {
+  on("POST", "admin/coupons/c1/grants", () => {
     grants = [
       {
         ...grant,
@@ -132,11 +128,10 @@ test("발급은 쿠폰과 사용자 id 를 보내고 발급 목록을 새로 받
   fireEvent.click(await screen.findByRole("button", { name: "등록" }));
 
   await waitFor(() => expect(toastTexts().title).toBe("저장 완료"));
-  expect(callsTo("POST", "admin/coupons/grants")[0]?.options.json).toEqual({
-    couponId: "c1",
+  expect(callsTo("POST", "admin/coupons/c1/grants")[0]?.options.json).toEqual({
     userId: "u2",
   });
-  expect(callsTo("GET", "admin/coupons/grants")).toHaveLength(2);
+  expect(callsTo("GET", "admin/coupons/c1/grants")).toHaveLength(2);
   // 방금 발급한 사용자도 표시만 남는다
   await waitFor(() =>
     expect(
@@ -153,7 +148,7 @@ test("발급 오류 코드는 예전 문구로 보인다", async () => {
   ];
   for (const [code, status, text] of cases) {
     toast.close();
-    on("POST", "admin/coupons/grants", () => {
+    on("POST", "admin/coupons/c1/grants", () => {
       throw new FakeApiError(status, code);
     });
     const view = renderCoupons("/admin/coupons/c1/grants");
@@ -190,7 +185,7 @@ test("회수는 사유와 함께 서버를 부르고 발급 목록을 새로 받
     grantId: 5,
     reason: "잘못 줌",
   });
-  expect(callsTo("GET", "admin/coupons/grants")).toHaveLength(2);
+  expect(callsTo("GET", "admin/coupons/c1/grants")).toHaveLength(2);
   expect(await screen.findByText("잘못 줌")).toBeVisible();
 });
 
