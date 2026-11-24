@@ -54,6 +54,8 @@ export interface SectionEntry {
   allowDelete: boolean;
   /** 테이블의 실제 컬럼. Update 키에서 보호 컬럼과 listOnlyColumns 를 뺀 것(읽기 전용 섹션은 비어 있다). 여기 없는 키는 400. */
   columns: readonly string[];
+  /** 파일을 올리는 폼 필드(키는 엔진 필드 키). 없으면 빈 객체. 드리프트 테스트가 브라우저 config 와 같은지 본다. */
+  uploads: Readonly<Record<string, UploadField>>;
   /** 서버가 쓰는 컬럼. 이 섹션 폼이 만들 수 있는 것만이다(드리프트 테스트가 정확히 같은지 본다). columns 에만 있는 키는 조용히 버린다. */
   writable: readonly string[];
 }
@@ -79,6 +81,7 @@ type SectionInput<T extends keyof Tables | keyof Views> = {
   listOnlyColumns?: readonly string[];
   viewCountEditable?: boolean;
   shiftSortOrder?: boolean;
+  uploads?: Readonly<Record<string, UploadField>>;
   allowCreate: boolean;
   allowUpdate: boolean;
   allowDelete: boolean;
@@ -100,8 +103,27 @@ function section<T extends keyof Tables | keyof Views>(
     listOnlyColumns: input.listOnlyColumns ?? [],
     viewCountEditable: input.viewCountEditable ?? false,
     shiftSortOrder: input.shiftSortOrder ?? false,
+    uploads: input.uploads ?? {},
   };
 }
+
+const MB = 1024 * 1024;
+// 공지, 입시 글 첨부 파일 필드의 허용 확장자(브라우저 config 의 accept).
+const DOCUMENT_EXTENSIONS = [
+  "pdf",
+  "hwp",
+  "hwpx",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+  "zip",
+  "png",
+  "jpg",
+  "jpeg",
+];
 
 // 관리자 RLS 정책이 FOR ALL 이거나 등록, 수정, 삭제를 모두 열어 둔 테이블.
 const OPS_ALL = { allowCreate: true, allowUpdate: true, allowDelete: true };
@@ -153,6 +175,13 @@ export const SECTIONS = {
   }),
   admissionCaseLogos: section({
     table: "admission_case_logos",
+    uploads: {
+      logo_url: {
+        kind: "image",
+        folder: "admission/university-logos",
+        maxBytes: MB,
+      },
+    },
     ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
@@ -326,6 +355,13 @@ export const SECTIONS = {
   }),
   trendingDepartments: section({
     table: "trending_departments",
+    uploads: {
+      logo_url: {
+        kind: "image",
+        folder: "admission/trending-departments",
+        maxBytes: MB,
+      },
+    },
     ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
@@ -350,6 +386,15 @@ export const SECTIONS = {
   }),
   admissionSusiJungsi: section({
     table: "admission_posts",
+    uploads: {
+      content: { kind: "image", folder: "admission-body", maxBytes: 3 * MB },
+      image_urls: { kind: "image", folder: "admin" },
+      attachments: {
+        kind: "file",
+        folder: "notice-files",
+        accept: DOCUMENT_EXTENSIONS,
+      },
+    },
     ...OPS_ALL,
     fixedCategories: ["susi", "jungsi"],
     order: "sort_order",
@@ -387,6 +432,14 @@ export const SECTIONS = {
   }),
   notices: section({
     table: "notices",
+    uploads: {
+      image_urls: { kind: "image", folder: "admin" },
+      attachments: {
+        kind: "file",
+        folder: "notice-files",
+        accept: DOCUMENT_EXTENSIONS,
+      },
+    },
     ...OPS_ALL,
     order: "sort_order",
     orderBy: [
@@ -427,6 +480,14 @@ export const SECTIONS = {
   }),
   companyNews: section({
     table: "company_news",
+    uploads: {
+      image_urls: { kind: "image", folder: "admin" },
+      attachments: {
+        kind: "file",
+        folder: "notice-files",
+        accept: DOCUMENT_EXTENSIONS,
+      },
+    },
     ...OPS_ALL,
     order: "sort_order",
     orderBy: [
@@ -467,6 +528,10 @@ export const SECTIONS = {
   }),
   galleries: section({
     table: "galleries",
+    uploads: {
+      content: { kind: "image", folder: "column-body", maxBytes: 3 * MB },
+      image_urls: { kind: "image", folder: "admin" },
+    },
     ...OPS_ALL,
     order: "created_at",
     viewCountEditable: true,
@@ -509,6 +574,9 @@ export const SECTIONS = {
   }),
   faqs: section({
     table: "faqs",
+    uploads: {
+      answer: { kind: "image", folder: "faq-body", maxBytes: 3 * MB },
+    },
     ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
@@ -591,6 +659,10 @@ export const SECTIONS = {
   }),
   popups: section({
     table: "popups",
+    uploads: {
+      image_url: { kind: "image", folder: "admin" },
+      mobile_image_url: { kind: "image", folder: "admin" },
+    },
     ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
@@ -620,6 +692,9 @@ export const SECTIONS = {
   }),
   banners: section({
     table: "banners",
+    uploads: {
+      image_url: { kind: "image", folder: "landing/hero", maxBytes: 2 * MB },
+    },
     ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
@@ -654,6 +729,14 @@ export const SECTIONS = {
   }),
   sideBanners: section({
     table: "home_side_banners",
+    uploads: {
+      image_url: { kind: "image", folder: "landing/hero", maxBytes: 2 * MB },
+      mobile_image_url: {
+        kind: "image",
+        folder: "landing/hero",
+        maxBytes: 2 * MB,
+      },
+    },
     ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
@@ -688,6 +771,9 @@ export const SECTIONS = {
   }),
   footerImages: section({
     table: "footer_operator_images",
+    uploads: {
+      image_url: { kind: "image", folder: "landing/footer", maxBytes: 2 * MB },
+    },
     ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
@@ -696,6 +782,9 @@ export const SECTIONS = {
   }),
   universityAcceptances: section({
     table: "university_acceptances",
+    uploads: {
+      emblem_url: { kind: "image", folder: "landing/acceptance", maxBytes: MB },
+    },
     ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
@@ -720,6 +809,13 @@ export const SECTIONS = {
   }),
   programCategories: section({
     table: "program_categories",
+    uploads: {
+      icon_image_url: {
+        kind: "image",
+        folder: "landing/services",
+        maxBytes: MB,
+      },
+    },
     ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
@@ -746,6 +842,13 @@ export const SECTIONS = {
   }),
   mentorStrategies: section({
     table: "home_mentor_strategies",
+    uploads: {
+      photo_url: {
+        kind: "image",
+        folder: "landing/mentors/photos",
+        maxBytes: MB,
+      },
+    },
     ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
@@ -779,6 +882,10 @@ export const SECTIONS = {
   }),
   pageContents: section({
     table: "page_contents",
+    uploads: {
+      image_url: { kind: "image", folder: "admin" },
+      image_urls: { kind: "image", folder: "admin" },
+    },
     ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
