@@ -26,11 +26,11 @@ function B2cBody() {
   const summary = b2cSearch(filters);
   const statsQuery = useQuery({
     queryKey: ["hqDashboard", "logins", stats],
-    queryFn: () => fetchLoginStats(stats),
+    queryFn: ({ signal }) => fetchLoginStats(stats, signal),
   });
   const summaryQuery = useQuery({
     queryKey: ["hqDashboard", "b2c", summary],
-    queryFn: () => fetchHqB2c(summary),
+    queryFn: ({ signal }) => fetchHqB2c(summary, signal),
   });
   const error = statsQuery.error ?? summaryQuery.error;
   const s = statsQuery.data;

@@ -40,7 +40,7 @@ export default function TrendSection() {
   );
   const query = useQuery({
     queryKey: ["hqDashboard", "trends", search],
-    queryFn: () => fetchHqTrends(search),
+    queryFn: ({ signal }) => fetchHqTrends(search, signal),
   });
   const axis = {
     axisLine: false,

@@ -127,6 +127,8 @@ export async function callRoute(
     method?: string;
     query?: Record<string, string>;
     body?: unknown;
+    /** 요청 헤더를 더한다(예: X-Time-Zone). Authorization 은 기본으로 들어간다. */
+    headers?: Record<string, string>;
   } = {},
 ): Promise<Captured> {
   const captured: Captured = { status: 0, body: undefined, headers: {} };
@@ -150,7 +152,7 @@ export async function callRoute(
   await handler(
     {
       method: request.method ?? "GET",
-      headers: { authorization: "Bearer admin-token" },
+      headers: { authorization: "Bearer admin-token", ...request.headers },
       query: request.query ?? {},
       body: request.body,
     } as unknown as VercelRequest,

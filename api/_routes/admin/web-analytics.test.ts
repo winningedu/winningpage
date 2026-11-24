@@ -3,18 +3,18 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
-  createFakeAdmin,
-  createKitState,
-  type KitState,
-} from "../../_lib/console/consoleTestKit.js";
+  callRoute,
+  createAdminFake,
+  problemCode,
+} from "../../_lib/adminRoute.testkit.js";
 
-const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
+const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../_lib/supabaseAdmin.js")>()),
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  // report.ts 가 env 를 이 함수로 읽으므로 stubEnv 값을 그대로 돌려준다. SITE 만 고정한다.
+  getEnv: (key: string) => (key === "SITE" ? "winning" : process.env[key]),
   isSupabaseConfigError: () => false,
-  createSupabaseAdmin: () => createFakeAdmin(kit.state),
+  createSupabaseAdmin: () => kit.admin,
 }));
 
 type Handler = typeof import("./web-analytics.js")["default"];
@@ -27,24 +27,24 @@ const ENV = {
   VERCEL_ANALYTICS_TEAM_ID: "team_site",
 };
 
+function setup(level: string | null = "view") {
+  kit.admin = createAdminFake({
+    permissions: level ? [{ resource_key: "webAnalytics", level }] : [],
+  });
+}
+
 const get = (
   query: Record<string, string>,
   zone: string | null = "Asia/Seoul",
 ) =>
-  callHandler(
-    (req, res) => {
-      if (zone) req.headers["x-time-zone"] = zone;
-      return handler(req, res);
-    },
-    undefined,
-    "GET",
+  callRoute(handler, {
     query,
-  );
+    headers: zone ? { "x-time-zone": zone } : {},
+  });
 
 const RANGE = { from: "2026-11-01", to: "2026-11-07" };
 
 interface Body {
-  ok: boolean;
   range: { from: string; to: string };
   totals: { pageviews: number; visitors: number };
   topPages: { path: string; pageviews: number; visitors: number }[];
@@ -57,7 +57,6 @@ interface Body {
       values: { value: string; count: number }[];
     }[];
   }[];
-  error?: { message: string; code: string };
 }
 
 function ok(data: unknown) {
@@ -127,12 +126,7 @@ const fetchMock = vi.fn(
 beforeEach(async () => {
   vi.resetModules();
   handler = (await import("./web-analytics.js")).default;
-  kit.state = createKitState();
-  kit.state.user = { id: "hq-1", email: "hq@example.com" };
-  kit.state.rpc.fn_admin_effective_permissions = () => ({
-    data: [{ resource_key: "webAnalytics", level: "view" }],
-    error: null,
-  });
+  setup("view");
   for (const [key, value] of Object.entries(ENV)) vi.stubEnv(key, value);
   fetchMock.mockClear();
   vi.stubGlobal("fetch", fetchMock);
@@ -145,17 +139,34 @@ afterEach(() => {
 });
 
 describe("GET /api/admin/web-analytics", () => {
-  test("방문 분석 보기 권한이 없으면 403 이고 Vercel 을 부르지 않는다", async () => {
-    kit.state.rpc.fn_admin_effective_permissions = () => ({
-      data: [{ resource_key: "webAnalytics", level: "none" }],
-      error: null,
-    });
+  test.each([["view"], ["edit"]])(
+    "방문 분석 %s 권한이면 200 이다",
+    async (level) => {
+      setup(level);
+
+      const r = await get(RANGE);
+
+      expect(r.status).toBe(200);
+    },
+  );
+
+  test("방문 분석 권한이 없으면 403 FORBIDDEN 이고 Vercel 을 부르지 않는다", async () => {
+    setup("none");
 
     const r = await get(RANGE);
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(problemCode(r.body)).toBe("FORBIDDEN");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("권한 행이 없어도 403 FORBIDDEN 이다", async () => {
+    setup(null);
+
+    const r = await get(RANGE);
+
+    expect(r.status).toBe(403);
+    expect(problemCode(r.body)).toBe("FORBIDDEN");
   });
 
   test.each([
@@ -168,9 +179,8 @@ describe("GET /api/admin/web-analytics", () => {
     const r = await get(RANGE);
 
     expect(r.status).toBe(503);
-    expect(r.body).toMatchObject({
-      error: { code: "NOT_CONFIGURED", message: "방문 분석 설정이 없어요" },
-    });
+    expect(problemCode(r.body)).toBe("NOT_CONFIGURED");
+    expect(r.body).toMatchObject({ detail: "방문 분석 설정이 없어요" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -184,7 +194,7 @@ describe("GET /api/admin/web-analytics", () => {
     const r = await get(query as Record<string, string>);
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -194,6 +204,7 @@ describe("GET /api/admin/web-analytics", () => {
     expect(r.status).toBe(200);
     expect(r.headers["Cache-Control"]).toBe("no-store");
     const body = r.body as Body;
+    expect(body).not.toHaveProperty("ok");
     expect(body.range).toEqual(RANGE);
     expect(body.totals).toEqual({ pageviews: 1200, visitors: 340 });
     expect(body.topPages).toEqual([
@@ -327,7 +338,7 @@ describe("GET /api/admin/web-analytics", () => {
     const r = await get(RANGE, null);
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "TIME_ZONE_REQUIRED" } });
+    expect(problemCode(r.body)).toBe("TIME_ZONE_REQUIRED");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -394,7 +405,10 @@ describe("GET /api/admin/web-analytics", () => {
     const r = await get(RANGE);
 
     expect(r.status).toBe(502);
-    expect(r.body).toMatchObject({ error: { code: "UPSTREAM_ERROR" } });
+    expect(problemCode(r.body)).toBe("UPSTREAM_ERROR");
+    expect(r.body).toMatchObject({
+      detail: "방문 분석을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+    });
     expect(JSON.stringify(r.body)).not.toContain(TOKEN);
 
     fetchMock.mockClear();
@@ -404,8 +418,9 @@ describe("GET /api/admin/web-analytics", () => {
   });
 
   test("POST 는 405 다", async () => {
-    const r = await callHandler(handler, undefined, "POST", RANGE);
+    const r = await callRoute(handler, { method: "POST", query: RANGE });
 
     expect(r.status).toBe(405);
+    expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
   });
 });

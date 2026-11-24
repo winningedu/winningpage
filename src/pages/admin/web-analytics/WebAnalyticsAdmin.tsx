@@ -12,17 +12,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ApiError } from "@/lib/http/client";
 import { addDaysYmd, ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
 import { ActionButton, Field } from "@/pages/admin/shared/formFields";
 import {
-  type ApiResult,
-  fetchWebAnalytics,
   type WebAnalyticsEventName,
   type WebAnalyticsProperty,
   type WebAnalyticsPropertyValue,
   type WebAnalyticsRange,
   type WebAnalyticsReport,
+  webAnalyticsQueryOptions,
 } from "./api";
 
 // ---------------------------------------------------------------------------
@@ -279,23 +279,18 @@ function RangeForm({
   );
 }
 
-function errorText(
-  failed: boolean,
-  result: ApiResult<WebAnalyticsReport> | undefined,
-): string | null {
-  if (failed) return "방문 분석을 불러오지 못했어요.";
-  if (result && !result.ok) return result.message;
-  return null;
+// 서버가 준 한글 문구(ApiError.detail)를 그대로 보인다. 그 밖의 실패는 기본 문구다.
+function errorText(error: Error | null): string | null {
+  if (!error) return null;
+  return error instanceof ApiError
+    ? error.detail
+    : "방문 분석을 불러오지 못했어요.";
 }
 
 export default function WebAnalyticsAdmin() {
   const [range, setRange] = useRangeParams();
-  const query = useQuery({
-    queryKey: ["admin", "webAnalytics", range.from, range.to],
-    queryFn: () => fetchWebAnalytics(range),
-  });
-  const result = query.data;
-  const errorMessage = errorText(query.isError, result);
+  const query = useQuery(webAnalyticsQueryOptions(range));
+  const errorMessage = errorText(query.error);
 
   return (
     <div className="bg-white p-10 shadow-sm">
@@ -318,7 +313,7 @@ export default function WebAnalyticsAdmin() {
           불러오는 중이에요.
         </p>
       )}
-      {result?.ok && <ReportBody report={result.data} />}
+      {query.data && <ReportBody report={query.data} />}
     </div>
   );
 }

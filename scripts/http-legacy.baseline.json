@@ -33,34 +33,6 @@
     "legacyError": 1,
     "okSuccess": 2
   },
-  "api/_routes/admin/hq-dashboard/b2c.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/hq-dashboard/logins.ts": {
-    "legacyError": 3,
-    "okSuccess": 2
-  },
-  "api/_routes/admin/hq-dashboard/summary.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/hq-dashboard/tenants.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/hq-dashboard/trends.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/hq-dashboard/usage.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/web-analytics.ts": {
-    "legacyError": 5,
-    "okSuccess": 1
-  },
   "api/_routes/auth/login.ts": {
     "legacyError": 3
   },
@@ -840,9 +812,6 @@
   "src/pages/admin/admission/AdmissionPanels.tsx": {
     "browserDb": 6
   },
-  "src/pages/admin/hq-dashboard/api.ts": {
-    "legacyFetch": 2
-  },
   "src/pages/admin/learning-diagnosis/LearningDiagnosisAdmin.tsx": {
     "browserDb": 12
   },
@@ -854,9 +823,6 @@
   },
   "src/pages/admin/shared/AdminEngine.tsx": {
     "browserDb": 3
-  },
-  "src/pages/admin/web-analytics/api.ts": {
-    "legacyFetch": 1
   },
   "src/pages/admission/admissionCaseData.ts": {
     "browserDb": 5
