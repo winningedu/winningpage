@@ -52,7 +52,9 @@ test("질문 머리글 버튼은 펼침 상태를 알린다", async () => {
 test("불러오는 동안 상태 안내가 role=status 로 보인다", () => {
   renderAdmin();
 
-  expect(screen.getByRole("status")).toHaveTextContent(
-    "학습진단 데이터를 불러오는 중입니다.",
-  );
+  expect(
+    screen.getByRole("status", {
+      name: "학습진단 데이터를 불러오는 중입니다.",
+    }),
+  ).toBeTruthy();
 });

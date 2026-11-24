@@ -14,6 +14,7 @@ import {
   TextInput,
   Toggle,
 } from "@/pages/admin/shared/formFields";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   type DiagnosisWrite,
   reportDiagnosisError,
@@ -495,11 +496,11 @@ export default function LearningDiagnosisAdmin() {
       </div>
 
       {loading ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-        >
-          학습진단 데이터를 불러오는 중입니다.
+        <div className="bg-white p-6 shadow-sm">
+          <AdminTableSkeleton
+            columns={4}
+            label="학습진단 데이터를 불러오는 중입니다."
+          />
         </div>
       ) : (
         <>
