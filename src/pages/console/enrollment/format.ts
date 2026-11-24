@@ -62,9 +62,20 @@ export function studentListPath(row: Pick<ClassRow, "classId" | "grade">) {
   return `${CONSOLE_BASE}/students?${params}`;
 }
 
+/**
+ * 미가입 학생 수(QA 52). 정원이 있으면 정원에서 총원을 뺀 빈자리와 명단 대기 수 중 큰 쪽, 없으면 명단 대기 수.
+ * 표, 요약 카드, 엑셀이 모두 이 값을 쓴다. 서버는 총원, 정원, 명단 대기 수만 내리고 이 값은 계산하지 않는다.
+ */
+export const unenrolledOf = (
+  r: Pick<ClassRow, "total" | "capacity" | "pendingCount">,
+) =>
+  r.capacity === null
+    ? r.pendingCount
+    : Math.max(r.capacity - r.total, r.pendingCount);
+
 export interface Totals {
   total: number;
-  /** 가입 전(미가입) 학생 수 합. */
+  /** 미가입 학생 수 합(반별 unenrolledOf 의 합). */
   pending: number;
   joined: number;
   services: Record<ServiceKey, number>;
@@ -84,7 +95,7 @@ export function totalsOf(rows: ClassRow[]): Totals {
   let capSum = 0;
   for (const r of rows) {
     total += r.total;
-    pending += r.pendingCount;
+    pending += unenrolledOf(r);
     joined += r.joined;
     for (const s of SERVICES) services[s.key] += r.services[s.key];
     if (r.capacity !== null) {
