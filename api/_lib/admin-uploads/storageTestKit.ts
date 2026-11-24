@@ -60,7 +60,7 @@ export function createFakeStorage(
             }
             return {
               data: {
-                signedUrl: `https://x.supabase.co/storage/v1/object/upload/sign/${bucket}/${path}?token=up`,
+                signedUrl: `https://storage.test/storage/v1/object/upload/sign/${bucket}/${path}?token=up`,
                 token: "up",
                 path,
               },
@@ -77,7 +77,7 @@ export function createFakeStorage(
             }
             return {
               data: {
-                signedUrl: `https://x.supabase.co/storage/v1/object/sign/${bucket}/${path}?token=read`,
+                signedUrl: `https://storage.test/storage/v1/object/sign/${bucket}/${path}?token=read`,
               },
               error: null,
             };
@@ -116,7 +116,7 @@ export function createFakeStorage(
             record("getPublicUrl", path);
             return {
               data: {
-                publicUrl: `https://x.supabase.co/storage/v1/object/public/${bucket}/${path}`,
+                publicUrl: `https://storage.test/storage/v1/object/public/${bucket}/${path}`,
               },
             };
           },

@@ -62,7 +62,7 @@ describe("POST /api/admin/uploads", () => {
       ext: "png",
     });
     expect(body.uploadUrl).toBe(
-      `https://x.supabase.co/storage/v1/object/upload/sign/admin-uploads-tmp/${body.path}?token=up`,
+      `https://storage.test/storage/v1/object/upload/sign/admin-uploads-tmp/${body.path}?token=up`,
     );
     expect(kit.fake.calls).toEqual([
       {

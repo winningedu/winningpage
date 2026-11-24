@@ -46,7 +46,7 @@ describe("POST /api/admin/uploads/preview", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
-      url: `https://x.supabase.co/storage/v1/object/sign/admin-uploads-tmp/${NAME}?token=read`,
+      url: `https://storage.test/storage/v1/object/sign/admin-uploads-tmp/${NAME}?token=read`,
     });
     expect(kit.fake.calls.find((c) => c.op === "createSignedUrl")).toEqual({
       bucket: "admin-uploads-tmp",

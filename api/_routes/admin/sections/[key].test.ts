@@ -169,7 +169,7 @@ describe("POST /api/admin/sections/:key", () => {
     const UUID = "123e4567-e89b-12d3-a456-426614174000";
     const NAME = `${UUID}.image_url.hero.png`;
     const tmpUrl = (name: string) =>
-      `https://x.supabase.co/storage/v1/object/sign/admin-uploads-tmp/${name}?token=t`;
+      `https://storage.test/storage/v1/object/sign/admin-uploads-tmp/${name}?token=t`;
     const fake = () => kit.fake as ReturnType<typeof createFakeStorage>;
 
     test("임시 URL 을 banners 로 옮기고 공개 URL 을 저장한다", async () => {
@@ -181,7 +181,7 @@ describe("POST /api/admin/sections/:key", () => {
         values: { title: "t", image_url: tmpUrl(NAME) },
       });
 
-      const publicUrl = `https://x.supabase.co/storage/v1/object/public/banners/landing/hero/${UUID}-hero.png`;
+      const publicUrl = `https://storage.test/storage/v1/object/public/banners/landing/hero/${UUID}-hero.png`;
       expect(r.status).toBe(201);
       expect(r.body).toMatchObject({ image_url: publicUrl });
       const insert = kit.db.calls.find((c) => c.op === "insert");

@@ -8,7 +8,7 @@ import { createFakeStorage } from "./storageTestKit.js";
 
 const U1 = "123e4567-e89b-12d3-a456-426614174000";
 const U2 = "223e4567-e89b-12d3-a456-426614174000";
-const SUPA = "https://x.supabase.co/storage/v1/object";
+const SUPA = "https://storage.test/storage/v1/object";
 const tmpUrl = (name: string) =>
   `${SUPA}/sign/admin-uploads-tmp/${name}?token=eyJ.a-b_c`;
 const pub = (path: string) => `${SUPA}/public/banners/${path}`;

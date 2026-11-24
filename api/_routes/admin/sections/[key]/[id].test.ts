@@ -99,7 +99,7 @@ describe("PATCH /api/admin/sections/:key/:id", () => {
     const UUID = "123e4567-e89b-12d3-a456-426614174000";
     const NAME = `${UUID}.image_url.hero.png`;
     const tmpUrl = (name: string) =>
-      `https://x.supabase.co/storage/v1/object/sign/admin-uploads-tmp/${name}?token=t`;
+      `https://storage.test/storage/v1/object/sign/admin-uploads-tmp/${name}?token=t`;
 
     test("수정에서도 임시 URL 을 옮기고 공개 URL 을 저장한다", async () => {
       kit.fake = createFakeStorage({ "admin-uploads-tmp": [NAME] });
@@ -110,7 +110,7 @@ describe("PATCH /api/admin/sections/:key/:id", () => {
         values: { image_url: tmpUrl(NAME) },
       });
 
-      const publicUrl = `https://x.supabase.co/storage/v1/object/public/banners/landing/hero/${UUID}-hero.png`;
+      const publicUrl = `https://storage.test/storage/v1/object/public/banners/landing/hero/${UUID}-hero.png`;
       expect(r.status).toBe(200);
       expect(kit.db.tables.banners[0]?.image_url).toBe(publicUrl);
     });
