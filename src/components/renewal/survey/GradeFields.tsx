@@ -6,10 +6,12 @@ import {
 import {
   type GradeField,
   gradeMaxOf,
+  MIDDLE_SUBJECT_FIELDS,
   mockFields,
   SUBJECT_FIELDS,
 } from "@/data/diagnosisSurveyV3";
 import { MOCK_GRADE_INPUT_RULE } from "@/data/renewalSurveyQuestions";
+import { ACHIEVEMENT_Q4, middleAverage } from "@/lib/diagnosis-v3/subjects";
 import { gradeBoundsOf, MOCK_MONTHS } from "@/lib/diagnosis-v3/validate";
 import GradeInputGrid, { type GradeInputRule } from "./GradeInputGrid";
 
@@ -38,17 +40,35 @@ const MONTHS = Array.from(
   (_, i) => MOCK_MONTHS.first + i,
 );
 
-/** q6 and q6r: one number cell named by the card title. */
+/**
+ * M3 q6 text: the mean of the six q6s cells, empty until all six are filled.
+ * The server recomputes it, this only shows the student what it will be.
+ */
+export function middleAverageText(q6s: unknown): string {
+  const cells = textFields(q6s);
+  const scores = Object.fromEntries(
+    Object.entries(cells).flatMap(([key, raw]) =>
+      raw.trim() === "" || Number.isNaN(Number(raw))
+        ? []
+        : [[key, Number(raw)] as const],
+    ),
+  );
+  return String(middleAverage(scores) ?? "");
+}
+
+/** q6 and q6r: one number cell named by the card title; q6 of M3 is read-only. */
 export function NumberField({
   title,
   q4,
   value,
   onChange,
+  readOnly = false,
 }: {
   title: string;
   q4: unknown;
   value: unknown;
   onChange: (value: string) => void;
+  readOnly?: boolean;
 }) {
   const rule = gradeRule(q4);
   return (
@@ -58,6 +78,7 @@ export function NumberField({
       autoComplete="off"
       aria-label={title}
       value={typeof value === "string" ? value : ""}
+      readOnly={readOnly}
       onChange={(event) => {
         const raw = event.target.value;
         if (raw === "" || rule.pattern.test(raw)) onChange(raw);
@@ -76,20 +97,25 @@ const toGroup = (key: string, fields: readonly GradeField[], mock = false) => ({
   })),
 });
 
-/** q6s: five subject cells in the q4 grade system. */
+/**
+ * q6s: five subject cells in the q4 grade system; M3 gets six 원점수 cells
+ * (with 역사) in the 성취평가제 range whatever q4 says.
+ */
 export function SubjectGradesField({
   q4,
+  middle,
   value,
   onChange,
 }: {
   q4: unknown;
+  middle: boolean;
   value: unknown;
   onChange: (value: Record<string, string>) => void;
 }) {
   return (
     <GradeInputGrid
-      groups={[toGroup("q6s", SUBJECT_FIELDS)]}
-      constraint={gradeRule(q4)}
+      groups={[toGroup("q6s", middle ? MIDDLE_SUBJECT_FIELDS : SUBJECT_FIELDS)]}
+      constraint={gradeRule(middle ? ACHIEVEMENT_Q4 : q4)}
       value={textFields(value)}
       onChange={onChange}
     />

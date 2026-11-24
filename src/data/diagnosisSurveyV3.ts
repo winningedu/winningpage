@@ -175,6 +175,15 @@ export const SUBJECT_FIELDS: readonly GradeField[] = [
   { key: "SCI", label: q8sLabel(5) },
 ];
 
+/**
+ * M3 q6s cells: the five above plus 역사 (customer answer 2026-11-24 학습진단
+ * 5번). No sheet cell names 역사; the key is not the mock 한국사 key HIST.
+ */
+export const MIDDLE_SUBJECT_FIELDS: readonly GradeField[] = [
+  ...SUBJECT_FIELDS,
+  { key: "HISTORY", label: "역사" },
+];
+
 /** 13 H14: 고1 sees 통합사회 and 통합과학 instead of the 탐구 labels. */
 const FIRST_YEAR_SCIENCE = (() => {
   const note = textCell(metaOf("q6m"), 7);

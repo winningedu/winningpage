@@ -20,6 +20,7 @@ import CascadingSelect, { type CascadeLevel } from "./CascadingSelect";
 import ConditionalTextInput from "./ConditionalTextInput";
 import {
   MockGradesField,
+  middleAverageText,
   NumberField,
   SubjectGradesField,
 } from "./GradeFields";
@@ -113,13 +114,19 @@ export default function SurveyQuestionList({
               <NumberField
                 title={question.title}
                 q4={answers.q4}
-                value={value}
+                value={
+                  id === "q6" && track === "M3"
+                    ? middleAverageText(answers.q6s)
+                    : value
+                }
+                readOnly={id === "q6" && track === "M3"}
                 onChange={(next) => onAnswer(id, next)}
               />
             )}
             {question.kind === "grades" && (
               <SubjectGradesField
                 q4={answers.q4}
+                middle={track === "M3"}
                 value={value}
                 onChange={(next) => onAnswer(id, next)}
               />
