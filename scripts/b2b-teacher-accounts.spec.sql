@@ -298,6 +298,12 @@ select pg_temp.expect_error('마지막 학교 관리자 삭제는 WC076 이고 �
   $$select * from public.fn_teacher_soft_delete(array[pg_temp.reg('ta', '담임셋', '01070000005', 'homeroom'), (select id from t1 where k = 'adm2')], null, pg_temp.fx('ta'))$$, 'WC076');
 select pg_temp.expect_int('실패한 삭제는 아무도 지우지 않는다',
   (select count(*) from public.teachers where phone = '01070000005' and deleted_at is not null), 0);
+select pg_temp.expect_error('본인 계정만 삭제하면 WC108',
+  $$select * from public.fn_teacher_soft_delete(array[(select id from t1 where k = 'c1')], (select id from au where k = 'c1'), pg_temp.fx('ta'))$$, 'WC108');
+select pg_temp.expect_error('본인 계정이 다른 교사와 섞이면 WC108 이고 다른 교사도 지워지지 않는다',
+  $$select * from public.fn_teacher_soft_delete(array[pg_temp.reg('ta', '담임넷', '01070000006', 'homeroom'), (select id from t1 where k = 'c1')], (select id from au where k = 'c1'), pg_temp.fx('ta'))$$, 'WC108');
+select pg_temp.expect_int('본인 삭제 거절은 아무도 지우지 않는다',
+  (select count(*) from public.teachers where (id = (select id from t1 where k = 'c1') or phone = '01070000006') and deleted_at is not null), 0);
 
 -- ---------------------------------------------------------------------
 -- fn_assignment_set

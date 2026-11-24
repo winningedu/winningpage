@@ -91,15 +91,11 @@ describe("POST /api/console/teachers/delete", () => {
     expect(kit.state.events).not.toContain("rpc:fn_teacher_soft_delete");
   });
 
-  test("본인 계정만 지우려 하면 409 SELF_CHANGE 이고 RPC, 감사 로그, Auth 삭제를 하지 않는다", async () => {
-    kit.state.rows.teachers = () => [
-      {
-        id: "t1",
-        tenant_id: "tenant-1",
-        profile_id: "profile-1",
-        deleted_at: null,
-      },
-    ];
+  test("DB 가 본인 계정 삭제를 WC108 로 거절하면 409 SELF_CHANGE 이고 감사 로그와 Auth 삭제를 하지 않는다", async () => {
+    kit.state.rpc.fn_teacher_soft_delete = () => ({
+      data: null,
+      error: { code: "WC108" },
+    });
 
     const r = await post({ teacherIds: ["t1"] });
 
@@ -110,27 +106,7 @@ describe("POST /api/console/teachers/delete", () => {
         message: "본인 계정은 삭제할 수 없습니다.",
       },
     });
-    expect(kit.state.events).not.toContain("rpc:fn_teacher_soft_delete");
     expect(kit.state.inserts).toHaveLength(0);
-    expect(kit.state.auth.deleteUser).not.toHaveBeenCalled();
-  });
-
-  test("본인 계정이 다른 교사와 섞여 있으면 409 이고 아무도 지우지 않는다", async () => {
-    kit.state.rows.teachers = () => [
-      ROWS[0],
-      {
-        id: "t3",
-        tenant_id: "tenant-1",
-        profile_id: "profile-1",
-        deleted_at: null,
-      },
-    ];
-
-    const r = await post({ teacherIds: ["t1", "t3"] });
-
-    expect(r.status).toBe(409);
-    expect(r.body).toMatchObject({ error: { code: "SELF_CHANGE" } });
-    expect(kit.state.events).not.toContain("rpc:fn_teacher_soft_delete");
     expect(kit.state.auth.deleteUser).not.toHaveBeenCalled();
   });
 
