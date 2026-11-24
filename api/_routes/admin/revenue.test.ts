@@ -6,6 +6,7 @@ import {
   callRoute,
   callsOf,
   createAdminFake,
+  firstQuery,
   problemCode,
   type Query,
 } from "../../_lib/adminRoute.testkit.js";
@@ -92,16 +93,13 @@ describe("조회", () => {
   test("기간, 정렬, 열을 계약대로 건다", async () => {
     const admin = setup();
     await get();
-    const query = admin.queries.find((q) => q.table === "admin_revenue_items");
-    expect(argsOf(query as Query, "select")?.[0]).toBe(
+    const query = firstQuery(admin, "admin_revenue_items");
+    expect(argsOf(query, "select")?.[0]).toBe(
       "order_item_id, order_id, paid_at, payer_name, payer_email, student_name, service_key, item_name, list_amount, discount_amount, paid_amount, refunded_amount, revenue_status, net_amount",
     );
-    expect(argsOf(query as Query, "gte")).toEqual(["paid_at", FROM]);
-    expect(argsOf(query as Query, "lt")).toEqual(["paid_at", TO]);
-    expect(argsOf(query as Query, "order")).toEqual([
-      "paid_at",
-      { ascending: false },
-    ]);
+    expect(argsOf(query, "gte")).toEqual(["paid_at", FROM]);
+    expect(argsOf(query, "lt")).toEqual(["paid_at", TO]);
+    expect(argsOf(query, "order")).toEqual(["paid_at", { ascending: false }]);
   });
 
   test("꽉 찬 1000행 페이지 다음 페이지를 계속 읽고 짧은 페이지에서 멈춘다", async () => {

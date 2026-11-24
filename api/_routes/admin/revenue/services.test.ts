@@ -5,6 +5,7 @@ import {
   argsOf,
   callRoute,
   createAdminFake,
+  firstQuery,
   problemCode,
 } from "../../../_lib/adminRoute.testkit.js";
 
@@ -76,12 +77,12 @@ describe("GET /api/admin/revenue/services", () => {
   test("활성 상품만 서비스 정렬 순서로 읽는다", async () => {
     const admin = setup();
     await callRoute(handler);
-    const query = admin.queries.find((q) => q.table === "products");
-    expect(argsOf(query!, "select")?.[0]).toBe(
+    const query = firstQuery(admin, "products");
+    expect(argsOf(query, "select")?.[0]).toBe(
       "service_key, service_name, service_sort_order",
     );
-    expect(argsOf(query!, "eq")).toEqual(["is_active", true]);
-    expect(argsOf(query!, "order")?.[0]).toBe("service_sort_order");
+    expect(argsOf(query, "eq")).toEqual(["is_active", true]);
+    expect(argsOf(query, "order")?.[0]).toBe("service_sort_order");
   });
 
   test("권한 행이 없으면 403 FORBIDDEN 이다", async () => {

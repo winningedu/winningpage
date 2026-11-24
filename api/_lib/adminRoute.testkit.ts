@@ -61,7 +61,17 @@ export function createRecorder(
   return { from, rpc, queries, rpcCalls };
 }
 
-/** 같은 테이블을 여러 번 읽는 쿼리 중 조건에 맞는 것만 모은다. */
+/** 테이블의 첫 쿼리. 없으면 테스트가 잘못된 것이라 던진다. */
+export function firstQuery(
+  recorder: { queries: Query[] },
+  table: string,
+): Query {
+  const query = recorder.queries.find((item) => item.table === table);
+  if (!query) throw new Error(`${table} 쿼리가 없습니다.`);
+  return query;
+}
+
+/** 같은 테이블을 여러 번 읽는 쿼리를 모은다. */
 export function queriesOn(
   recorder: { queries: Query[] },
   table: string,
