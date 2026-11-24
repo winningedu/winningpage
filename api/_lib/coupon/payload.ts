@@ -30,6 +30,11 @@ export const couponPayloadSchema = z
     created_at: z.unknown().optional(),
     org_code: z.unknown().optional(),
   })
+  // 소속 쿠폰은 조건형(auto)에만 얹는다. 발급형은 coupon_grants 로 대상을 따로 정한다(옛 화면 form.ts 와 같은 규칙).
+  .refine((v) => !(v.tenant_id !== null && v.grant_type === "granted"), {
+    path: ["tenant_id"],
+    message: "소속 쿠폰은 조건형만 쓸 수 있어요.",
+  })
   .transform(
     ({ id: _id, created_at: _createdAt, org_code: _orgCode, ...rest }) => rest,
   );

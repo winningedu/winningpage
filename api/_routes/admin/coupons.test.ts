@@ -266,6 +266,34 @@ describe("POST /api/admin/coupons", () => {
     expect(argsOf(firstQuery(admin, "coupons"), "insert")).toEqual([PAYLOAD]);
   });
 
+  test("소속 쿠폰에 발급형을 얹으면 tenant_id 경로의 400 VALIDATION_FAILED 이고 쓰지 않는다", async () => {
+    const admin = setup("edit");
+    const r = await post({
+      ...PAYLOAD,
+      tenant_id: TENANT_ID,
+      grant_type: "granted",
+    });
+    expect(r.status).toBe(400);
+    expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
+    expect((r.body as { errors: { path: string }[] }).errors).toEqual([
+      expect.objectContaining({ path: "tenant_id" }),
+    ]);
+    expect(admin.queries.map((q) => q.table)).not.toContain("coupons");
+  });
+
+  test("소속 쿠폰은 조건형이면 저장하고, 발급형은 소속이 없으면 저장한다", async () => {
+    adminTables.coupons = ok({ id: "new" });
+    const admin = setup("edit");
+    const auto = { ...PAYLOAD, tenant_id: TENANT_ID, grant_type: "auto" };
+    expect((await post(auto)).status).toBe(201);
+    const granted = { ...PAYLOAD, tenant_id: null, grant_type: "granted" };
+    expect((await post(granted)).status).toBe(201);
+    const inserts = admin.queries
+      .filter((q) => q.table === "coupons")
+      .map((q) => argsOf(q, "insert"));
+    expect(inserts).toEqual([[auto], [granted]]);
+  });
+
   test("DELETE 는 405 이고 아무것도 쓰지 않는다", async () => {
     const admin = setup("edit");
     const r = await callRoute(handler, { method: "DELETE" });
