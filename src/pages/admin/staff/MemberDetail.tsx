@@ -28,6 +28,7 @@ import {
   type RoleOption,
   staffKeys,
 } from "./api";
+import { LEVEL_CHOICES, type LevelDraft, sameDraft, toDraft } from "./levels";
 
 export const MEMBERS_PATH = "/admin/adminMembers";
 
@@ -47,15 +48,6 @@ const LEVEL_LABEL: Record<string, string> = Object.fromEntries(
   ),
 );
 
-const LEVEL_CHOICES: { value: Level | ""; label: string }[] = [
-  ...ADMIN_PERMISSION_LEVEL_OPTIONS.map((option) =>
-    typeof option === "object"
-      ? { value: option.value as Level, label: option.label }
-      : { value: option as Level, label: String(option) },
-  ),
-  { value: "", label: "미지정" },
-];
-
 export function formatDate(value?: string | null) {
   if (!value) return "-";
   const d = new Date(value);
@@ -64,19 +56,6 @@ export function formatDate(value?: string | null) {
 }
 
 type Tab = "info" | "perm";
-type OverrideDraft = Record<string, Level>;
-
-const toRecord = (items: PermissionItem[]): OverrideDraft =>
-  Object.fromEntries(items.map((item) => [item.resourceKey, item.level]));
-
-function sameOverrides(a: OverrideDraft, b: OverrideDraft) {
-  const keys = Object.keys(a);
-  return (
-    keys.length === Object.keys(b).length &&
-    keys.every((key) => a[key] === b[key])
-  );
-}
-
 interface Props {
   config: { title: string };
 }
@@ -170,10 +149,10 @@ function MemberDetail({
   const [roleDraft, setRoleDraft] = useState(member.role_id || "");
   const [deptDraft, setDeptDraft] = useState(member.department || "");
   const [statusDraft, setStatusDraft] = useState(member.status);
-  const [overrides, setOverrides] = useState<OverrideDraft>(() =>
-    toRecord(loadedOverrides),
+  const [overrides, setOverrides] = useState<LevelDraft>(() =>
+    toDraft(loadedOverrides),
   );
-  const effective = useMemo(() => toRecord(loadedEffective), [loadedEffective]);
+  const effective = useMemo(() => toDraft(loadedEffective), [loadedEffective]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Resource[]>();
@@ -227,7 +206,7 @@ function MemberDetail({
     roleDraft !== (member.role_id ?? "") ||
     deptDraft.trim() !== (member.department ?? "") ||
     statusDraft !== member.status ||
-    !sameOverrides(overrides, toRecord(loadedOverrides));
+    !sameDraft(overrides, toDraft(loadedOverrides));
   useUnsavedGuard(
     dirty,
     (next) => next.pathname === base || next.pathname.startsWith(`${base}/`),

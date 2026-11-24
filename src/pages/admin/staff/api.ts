@@ -157,3 +157,6 @@ export const fetchRoles = (signal?: AbortSignal) =>
   api.get("admin/roles", opts(signal)).json(rolesListSchema);
 
 export const deleteRole = (id: string) => api.delete(roleUrl(id));
+
+export const fetchRole = (id: string, signal?: AbortSignal) =>
+  api.get(roleUrl(id), opts(signal)).json(roleWithPermissionsSchema);

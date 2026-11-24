@@ -23,6 +23,7 @@ import {
   type RoleWithPermissions,
   roleKeys,
 } from "./api";
+import { RoleEditorRoute } from "./RoleEditor";
 
 // ---------------------------------------------------------------------------
 // 관리자 권한 관리(adminRoles): 권한 묶음 CRUD.
@@ -45,6 +46,8 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
   return (
     <Routes>
       <Route index element={<RoleList config={config} />} />
+      <Route path="new" element={<RoleEditorRoute config={config} />} />
+      <Route path=":roleId" element={<RoleEditorRoute config={config} />} />
       <Route path="*" element={<Navigate to={ROLES_PATH} replace />} />
     </Routes>
   );
