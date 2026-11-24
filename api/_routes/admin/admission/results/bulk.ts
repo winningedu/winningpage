@@ -36,12 +36,42 @@ export default defineHandler({
     }
     const { items } = parsed.data;
     const inserts = items.filter((item) => item.id === undefined);
+    const updates = items.filter((item) => item.id !== undefined);
+
+    // 아무것도 쓰기 전에 id 존재를 확인해, 없는 id 때문에 insert 만 반영되는 일을 막는다.
+    if (updates.length > 0) {
+      const ids = [...new Set(updates.map((item) => Number(item.id)))];
+      const { data, error } = await ctx.supabaseAdmin
+        .from("admission_results")
+        .select("id")
+        .in("id", ids);
+      if (error) throw new Error("admission_results id read failed");
+      const found = new Set((data ?? []).map((r) => r.id));
+      const missing = ids.filter((id) => !found.has(id));
+      if (missing.length > 0) {
+        sendError(
+          res,
+          "problem",
+          404,
+          `없는 id 가 있습니다: ${missing.join(", ")}`,
+          "NOT_FOUND",
+        );
+        return;
+      }
+    }
+
     if (inserts.length > 0) {
       const { error } = await ctx.supabaseAdmin
         .from("admission_results")
         .insert(inserts);
       if (error) throw new Error("admission_results insert failed");
     }
-    res.status(200).json({ inserted: inserts.length, updated: 0 });
+    if (updates.length > 0) {
+      const { error } = await ctx.supabaseAdmin
+        .from("admission_results")
+        .upsert(updates, { onConflict: "id" });
+      if (error) throw new Error("admission_results upsert failed");
+    }
+    res.status(200).json({ inserted: inserts.length, updated: updates.length });
   },
 });

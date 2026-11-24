@@ -7,6 +7,7 @@ import {
   createFakeAdmin,
   createKitState,
   type KitState,
+  matchRows,
 } from "../../../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
@@ -85,6 +86,54 @@ describe("POST /api/admin/admission/results/bulk", () => {
       { table: "admission_results", row: items },
     ]);
     expect(writes("upserts")).toHaveLength(0);
+  });
+
+  test("id 있는 행은 id 존재를 먼저 확인하고 insert 다음에 upsert(onConflict id) 한다", async () => {
+    kit.state.rows.admission_results = (f) =>
+      matchRows([{ id: 5 }, { id: 6 }, { id: 7 }], f);
+    const fresh = row({ university_key: "new" });
+    const items = [
+      row({ id: 5, university_key: "a" }),
+      fresh,
+      row({ id: 6, university_key: "b" }),
+    ];
+
+    const r = await call({ items });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ inserted: 1, updated: 2 });
+    expect(
+      kit.state.reads.filter(
+        (x) => x.table === "admission_results" && x.select !== undefined,
+      ),
+    ).toEqual([expect.objectContaining({ select: "id" })]);
+    expect(
+      kit.state.events.filter((e) => e.endsWith(":admission_results")),
+    ).toEqual(["insert:admission_results", "upsert:admission_results"]);
+    expect(writes("inserts")[0]?.row).toEqual([fresh]);
+    expect(writes("upserts")).toEqual([
+      {
+        table: "admission_results",
+        row: [items[0], items[2]],
+        onConflict: "id",
+      },
+    ]);
+  });
+
+  test("없는 id 가 하나라도 있으면 404 이고 insert 도 하지 않는다", async () => {
+    kit.state.rows.admission_results = (f) => matchRows([{ id: 5 }], f);
+
+    const r = await call({
+      items: [row({ university_key: "new" }), row({ id: 5 }), row({ id: 9 })],
+    });
+
+    expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({
+      code: "NOT_FOUND",
+      detail: "없는 id 가 있습니다: 9",
+    });
+    expect(kit.state.inserts).toHaveLength(0);
+    expect(kit.state.upserts).toHaveLength(0);
   });
 
   test("빈 items 는 DB 를 부르지 않고 0, 0", async () => {
