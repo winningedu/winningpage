@@ -23,6 +23,7 @@ export const routes: Record<string, RouteLoader> = {
   "admin/selfeval-recover": () => import("./admin/selfeval-recover.js"),
   "admin/selfeval-sessions": () => import("./admin/selfeval-sessions.js"),
   "admin/revenue": () => import("./admin/revenue.js"),
+  "admin/revenue/pending": () => import("./admin/revenue/pending.js"),
   "admin/revenue/services": () => import("./admin/revenue/services.js"),
   "admin/send-message": () => import("./admin/send-message.js"),
   "admin/service-credit-adjust": () =>
