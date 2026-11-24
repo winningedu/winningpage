@@ -153,6 +153,30 @@ test("등록 저장은 payload 를 POST 하고 목록으로 돌아온다", async
   );
 });
 
+test("수정 쿠폰을 기다리는 동안 폼 스켈레톤을 보이고 오면 폼으로 바뀐다", async () => {
+  let release: () => void = () => {};
+  on("GET", "admin/coupons/c1", async () => {
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { ...couponRow, title: "서버에서 받은 이름" };
+  });
+  renderCoupons("/admin/coupons/c1/edit");
+
+  expect(
+    await screen.findByRole("status", {
+      name: "쿠폰 정보를 불러오는 중입니다.",
+    }),
+  ).toBeVisible();
+  expect(screen.queryByRole("textbox", { name: "쿠폰 이름" })).toBeNull();
+
+  release();
+  expect(await screen.findByDisplayValue("서버에서 받은 이름")).toBeVisible();
+  expect(
+    screen.queryByRole("status", { name: "쿠폰 정보를 불러오는 중입니다." }),
+  ).toBeNull();
+});
+
 test("수정 저장은 id 를 경로로 PATCH 한다", async () => {
   on("GET", "admin/coupons/c1", couponRow);
   on("PATCH", "admin/coupons/c1", couponRow);

@@ -13,6 +13,7 @@ import {
   toastSuccess,
   toastWarning,
 } from "@/pages/admin/shared/adminToast";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import {
   type CouponRow,
   mappedErrorText,
@@ -68,11 +69,14 @@ export default function CouponFormPage() {
 
   if (!detail.data) {
     return (
-      <div
-        role="status"
-        className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
-      >
-        데이터를 불러오는 중입니다.
+      <div>
+        <h1 className="mb-5 text-2xl font-semibold text-foreground">
+          {TITLE} 수정
+        </h1>
+        <AdminDetailSkeleton
+          rows={FORM_KEYS.length + 1}
+          label="쿠폰 정보를 불러오는 중입니다."
+        />
       </div>
     );
   }
