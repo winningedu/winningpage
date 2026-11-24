@@ -1,4 +1,4 @@
-// 관리자 자기평가서 세션 목록과 상세(GET /api/admin/selfeval-sessions)의 순수 규칙.
+// 관리자 자기평가서 세션 목록(GET /api/admin/selfeval-sessions)과 상세(.../:id)의 순수 규칙.
 // 쿼리 파싱, 검색 필터 조립, 행 변환만 둔다. DB 호출은 핸들러가 한다.
 // 페이지 파싱과 ilike 이스케이프는 성장설계 운영 목록과 같은 규칙이라 그대로 가져다 쓴다.
 
@@ -11,33 +11,19 @@ export { escapeIlike };
 
 import type { ProfileSummary } from "../../growth/ops/list.js";
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export type SessionsQuery =
-  | { kind: "detail"; sessionId: string }
-  | {
-      kind: "list";
-      status: "draft" | "in_progress" | "completed" | "archived" | null;
-      q: string | null;
-      page: number;
-      pageSize: number;
-    };
+export type SessionsQuery = {
+  status: "draft" | "in_progress" | "completed" | "archived" | null;
+  q: string | null;
+  page: number;
+  pageSize: number;
+};
 
 type RawQuery = Record<string, string | string[] | undefined>;
 
 export function parseSessionsQuery(
   raw: RawQuery,
 ): { ok: true; query: SessionsQuery } | { ok: false; reason: string } {
-  const idRaw = Array.isArray(raw.sessionId) ? raw.sessionId[0] : raw.sessionId;
-  if (idRaw !== undefined && idRaw !== "") {
-    if (!UUID_RE.test(idRaw.trim()))
-      return { ok: false, reason: "sessionId 가 올바르지 않습니다." };
-    return { ok: true, query: { kind: "detail", sessionId: idRaw.trim() } };
-  }
-  const parsed = parseListQuery(raw);
-  if (!parsed.ok) return parsed;
-  return { ok: true, query: { kind: "list", ...parsed.query } };
+  return parseListQuery(raw);
 }
 
 /**
