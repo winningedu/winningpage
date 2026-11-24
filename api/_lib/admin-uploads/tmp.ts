@@ -1,7 +1,10 @@
 // 관리자 임시 업로드 규칙: 버킷 이름, 임시 객체 이름 만들기와 읽기, 허용 형식과 크기.
 // 브라우저는 이 이름을 만들지 않는다(서버가 정하고 돌려준다).
 
-import type { UploadField } from "../admin-sections/registry.js";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { getSection, type UploadField } from "../admin-sections/registry.js";
+import { RouteParamError } from "../handler.js";
+import { sendError } from "../httpResponse.js";
 
 export const TMP_BUCKET = "admin-uploads-tmp";
 export const PUBLIC_BUCKET = "banners";
@@ -164,4 +167,40 @@ export function validateUpload(
     };
   }
   return null;
+}
+
+/**
+ * 본문 section 으로 메뉴 권한 키를 정한다(권한 키 = 섹션 키). 모르는 섹션은 권한 판정보다 먼저
+ * 400 VALIDATION_FAILED 로 막아 403 으로 보이지 않게 한다(sectionPermissionKey 와 같다).
+ */
+export function uploadSectionKey(req: VercelRequest): string {
+  const key = (req.body as { section?: unknown } | undefined)?.section;
+  if (typeof key !== "string" || !getSection(key)) {
+    throw new RouteParamError("section", "알 수 없는 섹션입니다.");
+  }
+  return key;
+}
+
+const SAFE_PATH = /^[A-Za-z0-9/_.-]+$/;
+
+/**
+ * banners 삭제 경로 규칙: 안전한 글자만, 빈 구간과 . 와 .. 없음, 앞 슬래시 없음,
+ * 그리고 섹션 업로드 폴더 아래여야 한다.
+ */
+export function isDeletablePath(
+  path: string,
+  folders: readonly string[],
+): boolean {
+  if (!SAFE_PATH.test(path)) return false;
+  const segments = path.split("/");
+  if (segments.some((s) => s === "" || s === "." || s === "..")) return false;
+  return folders.some((folder) => path.startsWith(`${folder}/`));
+}
+
+export const UPLOAD_EXPIRED_MESSAGE =
+  "올린 파일이 만료됐어요. 파일을 다시 올려 주세요.";
+
+/** 임시 파일이 사라졌을 때(2시간 URL 만료, 24시간 정리) 409. 브라우저는 파일을 다시 올리게 한다. */
+export function sendUploadExpired(res: VercelResponse): void {
+  sendError(res, "problem", 409, UPLOAD_EXPIRED_MESSAGE, "UPLOAD_EXPIRED");
 }
