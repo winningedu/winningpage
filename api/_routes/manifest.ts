@@ -18,6 +18,7 @@ export const routes: Record<string, RouteLoader> = {
   "admin/inquiry-recover": () => import("./admin/inquiry-recover.js"),
   "admin/inquiry-sessions": () => import("./admin/inquiry-sessions.js"),
   "admin/invite-member": () => import("./admin/invite-member.js"),
+  "admin/me/permissions": () => import("./admin/me/permissions.js"),
   "admin/knowledge-bulk": () => import("./admin/knowledge-bulk.js"),
   "admin/selfeval-grant": () => import("./admin/selfeval-grant.js"),
   "admin/selfeval-recover": () => import("./admin/selfeval-recover.js"),
