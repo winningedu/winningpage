@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("../api", () => ({ postSearchPreview: vi.fn() }));
 
 import * as api from "../api";
+import { renderWithQuery } from "../testKit";
 import SearchPreview from "./SearchPreview";
 
 const config = {
@@ -16,7 +17,7 @@ beforeEach(() => {
 });
 
 async function openDialog() {
-  render(<SearchPreview config={config} />);
+  renderWithQuery(<SearchPreview config={config} />);
   fireEvent.click(screen.getByRole("button", { name: "검색 테스트" }));
   return screen.findByRole("dialog");
 }
@@ -24,26 +25,23 @@ async function openDialog() {
 describe("SearchPreview", () => {
   test("입력한 조건과 검색 방식으로 검색하고 결과 표를 그린다", async () => {
     vi.mocked(api.postSearchPreview).mockResolvedValue({
-      ok: true,
-      data: {
-        mode: "vector",
-        threshold: 0.5,
-        queryText: "q",
-        keywordQuery: null,
-        items: [
-          {
-            rank: 1,
-            id: "r1",
-            title: "마찰력 자료",
-            grade: "고2",
-            subject: "물리",
-            career_field: "공학",
-            similarity: 0.8,
-            passesThreshold: true,
-            wouldBeInjected: true,
-          },
-        ],
-      },
+      mode: "vector",
+      threshold: 0.5,
+      queryText: "q",
+      keywordQuery: null,
+      items: [
+        {
+          rank: 1,
+          id: "r1",
+          title: "마찰력 자료",
+          grade: "고2",
+          subject: "물리",
+          career_field: "공학",
+          similarity: 0.8,
+          passesThreshold: true,
+          wouldBeInjected: true,
+        },
+      ],
     });
     await openDialog();
     fireEvent.change(screen.getByLabelText("교과군 또는 과목"), {
@@ -67,10 +65,9 @@ describe("SearchPreview", () => {
   });
 
   test("검색이 실패하면 alert 로 알린다", async () => {
-    vi.mocked(api.postSearchPreview).mockResolvedValue({
-      ok: false,
-      message: "검색하지 못했습니다.",
-    });
+    vi.mocked(api.postSearchPreview).mockRejectedValue(
+      new Error("검색하지 못했습니다."),
+    );
     await openDialog();
     fireEvent.click(screen.getByRole("button", { name: "검색" }));
     expect((await screen.findByRole("alert")).textContent).toContain(

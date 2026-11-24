@@ -4,6 +4,7 @@
 // 기본은 학생 요청의 1차 경로인 하이브리드(뜻 검색과 단어 검색 결합)이고, 폴백 경로인
 // 벡터 검색으로 바꿔 비교할 수 있다.
 
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
 } from "@/pages/admin/shared/formFields";
 import type { SearchPreviewMode } from "../../../../../api/_lib/knowledge/preview.js";
 import { postSearchPreview, type SearchPreviewResult } from "../api";
+import { errorMessage } from "../errorMessage";
 import SearchResultTable from "./SearchResultTable";
 
 // 학생 요청의 학년 값과 같은 형식이다. 빈 값이면 학년 필터 없이 검색한다.
@@ -71,7 +73,6 @@ export default function SearchPreview({ config }: { config: PreviewConfig }) {
     knowledgeType === "topic_pattern",
   );
   const [mode, setMode] = useState<SearchPreviewMode>("hybrid");
-  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<SearchPreviewResult | null>(null);
 
@@ -79,22 +80,19 @@ export default function SearchPreview({ config }: { config: PreviewConfig }) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function runSearch() {
-    setBusy(true);
-    setMessage("");
-    const response = await postSearchPreview({
-      knowledgeType,
-      ...form,
-      includeOtherSubjects,
-      mode,
-    });
-    setBusy(false);
-    if (!response.ok) {
+  const search = useMutation({
+    mutationFn: postSearchPreview,
+    onSuccess: setResult,
+    onError: (error) => {
       setResult(null);
-      setMessage(response.message);
-      return;
-    }
-    setResult(response.data);
+      setMessage(errorMessage(error));
+    },
+  });
+  const busy = search.isPending;
+
+  function runSearch() {
+    setMessage("");
+    search.mutate({ knowledgeType, ...form, includeOtherSubjects, mode });
   }
 
   const isHybridResult = result?.mode === "hybrid";

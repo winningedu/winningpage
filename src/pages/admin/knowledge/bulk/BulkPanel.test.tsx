@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("./xlsxDownload", () => ({ downloadXlsx: vi.fn() }));
 
+import { renderWithQuery } from "../testKit";
 import BulkPanel from "./BulkPanel";
 import { downloadXlsx } from "./xlsxDownload";
 
@@ -14,7 +15,7 @@ const config = {
 };
 
 function renderPanel() {
-  return render(
+  return renderWithQuery(
     <BulkPanel
       config={config}
       rows={[

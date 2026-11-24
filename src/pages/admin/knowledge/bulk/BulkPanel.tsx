@@ -4,6 +4,7 @@
 // 0 이 될 때까지 반복한다. 단계 전이는 flow.ts, 판단은 plan.ts, 파싱은 xlsx.ts.
 // 이 파일은 버튼 두 개와 미리보기 Dialog 껍데기만 든다. 서버 호출 순서는 run.ts.
 
+import { useMutation } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { useReducer, useRef } from "react";
 import * as XLSX from "xlsx";
@@ -16,6 +17,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  postEmbedBackfill,
+  postKnowledgeBulk,
+  postKnowledgeDedupe,
+} from "../api";
 import ApplyProgress from "./ApplyProgress";
 import { dedupeSummary } from "./DedupeResult";
 import { bulkReducer, INITIAL_BULK_STATE, isBulkBusy } from "./flow";
@@ -48,7 +54,15 @@ export default function BulkPanel({
   const knowledgeType = String(config.fixedValues.knowledge_type);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [state, dispatch] = useReducer(bulkReducer, INITIAL_BULK_STATE);
-  const busy = isBulkBusy(state);
+  // 서버 호출은 useMutation 으로 돌리고, 호출 중이면 단계 전이와 별개로 버튼을 막는다.
+  const dedupeCall = useMutation({ mutationFn: postKnowledgeDedupe });
+  const bulkCall = useMutation({ mutationFn: postKnowledgeBulk });
+  const backfillCall = useMutation({ mutationFn: postEmbedBackfill });
+  const busy =
+    isBulkBusy(state) ||
+    dedupeCall.isPending ||
+    bulkCall.isPending ||
+    backfillCall.isPending;
   const draft = "parse" in state ? state : null;
   const dedupe = "dedupe" in state ? state.dedupe : null;
   const candidateCount = draft
@@ -91,7 +105,12 @@ export default function BulkPanel({
 
   function handleDedupe() {
     if (state.phase !== "parsed" && state.phase !== "checked") return;
-    void runDedupe({ knowledgeType, parse: state.parse, dispatch });
+    void runDedupe({
+      knowledgeType,
+      parse: state.parse,
+      dispatch,
+      dedupe: dedupeCall.mutateAsync,
+    });
   }
 
   function handleApply() {
@@ -102,6 +121,8 @@ export default function BulkPanel({
       selected: state.selected,
       dispatch,
       onReload,
+      bulk: bulkCall.mutateAsync,
+      backfill: () => backfillCall.mutateAsync(),
     });
   }
 
