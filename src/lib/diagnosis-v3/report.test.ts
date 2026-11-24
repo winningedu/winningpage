@@ -956,6 +956,27 @@ describe("16p 서비스 \u00b7 안내 (22 r115-r121)", () => {
     });
   });
 
+  test("context.excludedServices CALL: care no longer pins CALL and the next rank fills card 2 (item 1)", () => {
+    const closed = scoreDiagnosisV3(COUNSEL, {
+      ...CALC_EXAMPLE_CONTEXT,
+      excludedServices: ["CALL"],
+    });
+    expect(closed.scores.services.counselPinned).toBe(false);
+    expect(closed.pages.p16.title).toBe(COPY_TEXT.SVC_HEAD_2);
+    expect(closed.pages.p16.services).toHaveLength(2);
+    expect(closed.pages.p16.services.map((s) => s.code)).not.toContain("CALL");
+  });
+
+  test("context.excludedServices CALL: N수 gets the single GOAL card (item 1)", () => {
+    const nsu = scoreDiagnosisV3(
+      { ...validAnswers("H3"), q1: 6 },
+      { ...CALC_EXAMPLE_CONTEXT, excludedServices: ["CALL"] },
+    );
+    expect(nsu.scores.services.ranked.map((s) => s.code)).toEqual(["GOAL"]);
+    expect(nsu.pages.p16.services.map((s) => s.code)).toEqual(["GOAL"]);
+    expect(nsu.pages.p16.scope).toBe("NSU");
+  });
+
   test("N수 and 고3 후기 scope notes (07 C16-C21, 22 r118)", () => {
     const nsu = run({ ...validAnswers("H3"), q1: 6 }).pages.p16;
     expect(nsu.scope).toBe("NSU");

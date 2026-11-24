@@ -76,6 +76,7 @@ export const CALC_EXAMPLE_CONTEXT: DiagnosisV3Context = {
     year: 2026,
   },
   studentName: null,
+  excludedServices: [],
 };
 
 /** A full valid answer set for each track, built on CALC_EXAMPLE. */

@@ -304,6 +304,7 @@ function generate(rng: Rng, options: GenOptions = {}): Generated {
                 }
               : null,
           studentName: chance(rng, 0.5) ? "N" : null,
+          excludedServices: [],
         },
       };
     }
@@ -811,6 +812,25 @@ describe("98_전수검증 r11-r17", () => {
     }
   });
 
+  // item 1: a site that excludes CALL never shows it; 1 card only where GOAL and CALL were the only candidates
+  it("r16 closed site: with CALL excluded no CALL card, 2 cards except M3, N수 and 고3후기 which keep GOAL only", () => {
+    const problems: string[] = [];
+    for (const [index, r] of corpus().all.entries()) {
+      const closed = scoreDiagnosisV3(r.answers, {
+        ...r.context,
+        excludedServices: ["CALL"],
+      });
+      const cards = closed.pages.p16.services;
+      const scope = closed.scores.services.scope;
+      if (cards.some((card) => card.code === "CALL"))
+        problems.push("CALL " + index);
+      if (closed.scores.services.counselPinned) problems.push("pin " + index);
+      const expected = scope === "ALL" ? 2 : 1;
+      if (cards.length !== expected) problems.push("count " + index);
+    }
+    expect(problems).toEqual([]);
+  });
+
   // 98 r16 서비스 추천: always 2, care condition puts CALL first, no rank inversion
   it("r16 서비스 추천: always 2 cards, care puts CALL first, no rank inversion", () => {
     const problems: string[] = [];
@@ -821,16 +841,16 @@ describe("98_전수검증 r11-r17", () => {
         problems.push("count " + index);
       if (
         cards[0].code !== ranked[0].code ||
-        cards[1].code !== ranked[1].code
+        cards[1]?.code !== ranked[1]?.code
       ) {
         problems.push("cards differ from ranking " + index);
       }
       if (counselPinned && ranked[0].code !== "CALL")
         problems.push("pin " + index);
-      if (!counselPinned && ranked[0].fit < ranked[1].fit) {
+      if (!counselPinned && ranked[0].fit < (ranked[1]?.fit ?? 0)) {
         problems.push("inversion " + index);
       }
-      if (ranked[0].code === ranked[1].code) problems.push("same " + index);
+      if (ranked[0].code === ranked[1]?.code) problems.push("same " + index);
     }
     expect(problems).toEqual([]);
     expect(

@@ -153,6 +153,8 @@ export type DiagnosisV3Context = {
     readonly year: number;
   } | null;
   readonly studentName: string | null;
+  /** service codes the site does not offer (Schoolmentor: CALL); dropped from the 16p ranking */
+  readonly excludedServices: readonly ServiceCode[];
 };
 
 // ---------------------------------------------------------------------------
@@ -354,7 +356,7 @@ export type DiagnosisV3Scores = {
   readonly services: {
     /** 07 C16-C21 candidate scope */
     readonly scope: "ALL" | "M3" | "NSU" | "G3LATE";
-    readonly ranked: readonly [ServiceFit, ServiceFit];
+    readonly ranked: readonly [ServiceFit] | readonly [ServiceFit, ServiceFit];
     readonly counselPinned: boolean;
   };
   readonly urgency: {
@@ -938,7 +940,9 @@ export type Page16 = {
   /** 22 r116 */
   readonly preferences: readonly string[];
   /** 22 r117 */
-  readonly services: readonly [ServiceCard, ServiceCard];
+  readonly services:
+    | readonly [ServiceCard]
+    | readonly [ServiceCard, ServiceCard];
   /** 22 r118 */
   readonly scopeNote?: string;
   /** candidate scope behind scopeNote (07 B30); render layer picks the closed-site notice by it */
