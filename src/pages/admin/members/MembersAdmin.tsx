@@ -62,6 +62,8 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import MoveStudentForm, {
   type MoveTarget,
@@ -364,11 +366,11 @@ function MemberList({ config }: MembersAdminProps) {
       </div>
 
       {list.isPending ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
+        <div className="bg-white p-6 shadow-sm">
+          <AdminTableSkeleton
+            columns={config.columns.length}
+            label="회원 목록을 불러오는 중"
+          />
         </div>
       ) : (
         <AdminTable
@@ -411,14 +413,7 @@ function MemberDetailRoute({ config }: MembersAdminProps) {
   }
 
   if (member.isPending) {
-    return (
-      <div
-        role="status"
-        className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-      >
-        데이터를 불러오는 중입니다.
-      </div>
-    );
+    return <AdminDetailSkeleton rows={8} label="회원 정보를 불러오는 중" />;
   }
 
   if (member.isError) {
@@ -830,12 +825,7 @@ function MemberDetail({
 
         <TabsContent value={tab}>
           {detailLoading ? (
-            <div
-              role="status"
-              className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-            >
-              데이터를 불러오는 중입니다.
-            </div>
+            <AdminDetailSkeleton rows={6} label="탭 내용을 불러오는 중" />
           ) : activeTab && "pending" in activeTab && activeTab.pending ? (
             <div className="bg-white p-10 shadow-sm">
               <h2 className="text-lg font-semibold">{activeTab.label}</h2>
