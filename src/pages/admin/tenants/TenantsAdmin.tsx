@@ -54,7 +54,7 @@ import {
   tenantKeys,
   tenantPaths,
 } from "@/pages/admin/tenants/tenantQueries";
-import { useUnsavedGuard } from "@/pages/admin/tenants/useUnsavedGuard";
+import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 
 // ---------------------------------------------------------------------------
 // 기관 관리(tenants, 2026-09-22) — 목록 + 발급.

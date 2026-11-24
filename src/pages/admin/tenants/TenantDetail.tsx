@@ -30,7 +30,7 @@ import {
   tenantKeys,
   tenantPaths,
 } from "./tenantQueries";
-import { useUnsavedGuard } from "./useUnsavedGuard";
+import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 
 // ---------------------------------------------------------------------------
 // 본사 기관 상세(5번 본사 관리 화면, 사 #144, #159, 결정 r14, r15). 주소가 곧 화면이다:
