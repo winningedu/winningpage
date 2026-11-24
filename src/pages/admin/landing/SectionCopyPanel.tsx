@@ -1,8 +1,9 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 import type { SectionKey } from "@/components/landing/useHomeSectionCopy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/lib/supabase";
+import { ApiError, api } from "@/lib/http/client";
 
 // 랜딩에서 라벨(eyebrow)을 그리는 섹션만 라벨 입력창을 보인다.
 const SECTIONS_WITH_EYEBROW: SectionKey[] = ["services", "mentor"];
@@ -10,6 +11,13 @@ const SECTIONS_WITH_EYEBROW: SectionKey[] = ["services", "mentor"];
 const INPUT_CLASS = "h-9 w-full";
 
 type Status = { kind: "ok" | "error"; message: string } | null;
+
+type SectionCopy = {
+  section_key: string;
+  eyebrow: string | null;
+  title_main: string;
+  title_sub: string | null;
+};
 
 type SectionCopyPanelProps = { sectionKey: SectionKey };
 
@@ -20,52 +28,65 @@ export default function SectionCopyPanel({
   const [eyebrow, setEyebrow] = useState("");
   const [titleMain, setTitleMain] = useState("");
   const [titleSub, setTitleSub] = useState("");
-  const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<Status>(null);
   const hasEyebrow = SECTIONS_WITH_EYEBROW.includes(sectionKey);
 
-  useEffect(() => {
-    let mounted = true;
-    async function load() {
-      const { data } = await supabase
-        .from("home_section_copy")
-        .select("section_key, eyebrow, title_main, title_sub")
-        .eq("section_key", sectionKey)
-        .maybeSingle();
-      if (!mounted || !data) return;
-      setEyebrow(data.eyebrow ?? "");
-      setTitleMain(data.title_main);
-      setTitleSub(data.title_sub ?? "");
-    }
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, [sectionKey]);
+  const queryClient = useQueryClient();
+  const queryKey = ["admin", "home-section-copy", sectionKey];
 
-  async function handleSave() {
+  // 404 는 아직 저장한 행이 없다는 뜻이라 빈 입력창으로 둔다.
+  const { data } = useQuery({
+    queryKey,
+    queryFn: async ({ signal }) => {
+      try {
+        return await api
+          .get(`admin/home-section-copy/${sectionKey}`, { signal })
+          .json<SectionCopy>();
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (!data) return;
+    setEyebrow(data.eyebrow ?? "");
+    setTitleMain(data.title_main);
+    setTitleSub(data.title_sub ?? "");
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: (json: Omit<SectionCopy, "section_key">) =>
+      api
+        .put(`admin/home-section-copy/${sectionKey}`, { json })
+        .json<SectionCopy>(),
+    onSuccess: (row) => {
+      queryClient.setQueryData(queryKey, row);
+      setStatus({ kind: "ok", message: "저장했습니다." });
+    },
+    onError: (error) =>
+      setStatus({
+        kind: "error",
+        message: `저장하지 못했습니다. ${
+          error instanceof ApiError ? error.detail : error.message
+        }`,
+      }),
+  });
+
+  function handleSave() {
     const main = titleMain.trim();
     if (!main) {
       setStatus({ kind: "error", message: "큰제목을 입력하세요." });
       return;
     }
-    setSaving(true);
     setStatus(null);
-    const { error } = await supabase.from("home_section_copy").upsert(
-      {
-        section_key: sectionKey,
-        eyebrow: hasEyebrow ? eyebrow.trim() || null : null,
-        title_main: main,
-        title_sub: titleSub.trim() || null,
-      },
-      { onConflict: "section_key" },
-    );
-    setSaving(false);
-    setStatus(
-      error
-        ? { kind: "error", message: `저장하지 못했습니다. ${error.message}` }
-        : { kind: "ok", message: "저장했습니다." },
-    );
+    save.mutate({
+      eyebrow: hasEyebrow ? eyebrow.trim() || null : null,
+      title_main: main,
+      title_sub: titleSub.trim() || null,
+    });
   }
 
   const eyebrowId = useId();
@@ -107,7 +128,7 @@ export default function SectionCopyPanel({
         <Button
           type="button"
           size="lg"
-          disabled={saving}
+          disabled={save.isPending}
           onClick={handleSave}
           className="font-semibold"
         >

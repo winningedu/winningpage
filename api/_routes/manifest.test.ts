@@ -159,6 +159,27 @@ const vercelJson = JSON.parse(
 const alternation = (routes: Record<string, unknown>) =>
   `/api/((?:${Object.keys(routes).sort().join("|")})/?)`;
 
+describe("대괄호 라우트 키", () => {
+  // 대괄호가 있으면 구간 전체가 [영문] 이어야 한다(dispatch 의 PARAM_SEGMENT 와 같은 규칙).
+  const validSegment = (segment: string) =>
+    !/[[\]]/.test(segment) || /^\[[a-zA-Z]+\]$/.test(segment);
+
+  test("매니페스트 키의 대괄호는 구간 전체가 [영문] 이다", () => {
+    const bad = Object.values(manifests)
+      .flatMap((routes) => Object.keys(routes))
+      .filter((key) => !key.split("/").every(validSegment));
+
+    expect(bad).toEqual([]);
+  });
+
+  test("규칙이 구간 일부에 섞인 대괄호를 거른다", () => {
+    expect(["[key]", "plain", "a-b"].every(validSegment)).toBe(true);
+    expect(
+      ["a[key]", "[key]x", "[]", "[k1]", "[[key]]"].some(validSegment),
+    ).toBe(false);
+  });
+});
+
 describe("vercel.json 라우터 rewrite", () => {
   test("앞의 세 개가 30초, 60초, 기본 진입 함수로 보낸다", () => {
     expect(vercelJson.rewrites.slice(0, 3)).toEqual([

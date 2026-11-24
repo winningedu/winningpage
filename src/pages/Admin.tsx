@@ -1,10 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Download, Plus, RefreshCw } from "lucide-react";
 import {
   type CSSProperties,
   Fragment,
   useEffect,
-  useEffectEvent,
   useMemo,
   useState,
 } from "react";
@@ -76,6 +75,16 @@ import { mainConfigs } from "./admin/configs/main";
 import { memberConfigs } from "./admin/configs/member";
 import { revenueConfigs } from "./admin/configs/revenue";
 import { winningConfigs } from "./admin/configs/winning";
+import {
+  createSectionRow,
+  deleteSectionRow,
+  fetchExportChunk,
+  fetchSectionList,
+  markSectionReviewed,
+  sectionKeys,
+  updateSectionMeta,
+  updateSectionRow,
+} from "./admin/engine/api";
 import { GoalCutsListSummary } from "./admin/goal/GoalCutsPanels";
 import GrowthReportsAdmin from "./admin/growth/GrowthReportsAdmin";
 import HqDashboardAdmin from "./admin/hq-dashboard/HqDashboardAdmin";
@@ -123,7 +132,13 @@ import WebAnalyticsAdmin from "./admin/web-analytics/WebAnalyticsAdmin";
 
 // CSV 청크 내보내기 1회 요청 크기. PostgREST 기본 응답 상한이 1,000행이라 이보다
 // 크게 잡아도 잘려 나온다 — 43k행이면 44회 왕복이다.
-const EXPORT_CHUNK = 1000;
+const HIDDEN_PAGE_SLUGS = [
+  "admission-susi",
+  "admission-jungsi",
+  "admission-essay",
+  "winning-faq",
+];
+
 const SEARCH_DEBOUNCE_MS = 300;
 
 // 어드민 대분류 — 노션 「관리자 페이지 > 메뉴 및 기능 정리」 기획표(2026-08-22
@@ -764,16 +779,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
   // 관리 열 ⚙️(메타 전용 모달)이 열려 있는 행. null이면 닫힘 — mode는
   // 'list'로 그대로 두고 오버레이만 뜬다(목록 셀 [수정]과 같은 1뎁스 UX).
   const [metaEditRow, setMetaEditRow] = useState<AdminRow | null>(null);
-  const [rows, setRows] = useState<AdminRow[]>([]);
   const [keyword, setKeyword] = useState("");
   // 서버 페이지네이션 탭에서 실제로 서버로 나가는 검색어. keyword는 타이핑마다
   // 바뀌므로 그대로 쓰면 글자당 한 번씩 조회가 나간다 — 디바운스한 값만 넘긴다.
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
-  // 서버 페이지네이션 탭의 전체 건수(select count). 전량 로드 탭은 rows.length가
-  // 곧 전체라 이 값을 쓰지 않는다.
-  const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(false);
   // CSV 청크 내보내기 진행 상태. null이면 진행 중 아님.
   const [exporting, setExporting] = useState<{
     done: number;
@@ -794,6 +804,53 @@ export function AdminSectionRoute({ section }: { section: string }) {
   );
 
   const config = CONFIGS[activeKey];
+  const queryClient = useQueryClient();
+
+  // 목록은 서버(/api/admin/sections)에서 받는다. 서버 페이지네이션 탭은 page 와 q 가 키에 들어가
+  // 바뀔 때마다 다시 받고, 그 외 탭은 섹션 키 하나로 전량을 받는다.
+  const paginate = Boolean(config.serverPaginate);
+  const listParams = paginate ? { page, q: searchTerm } : undefined;
+  const listEnabled = !config.custom && !config.comingSoon;
+  const listQuery = useQuery({
+    queryKey: sectionKeys.list(activeKey, listParams),
+    queryFn: ({ signal }) => fetchSectionList(activeKey, listParams, signal),
+    enabled: listEnabled,
+    refetchOnWindowFocus: false,
+  });
+  const listData = listQuery.isError ? undefined : listQuery.data;
+  const rows = useMemo<AdminRow[]>(() => {
+    const items = listData?.items ?? [];
+    return activeKey === "pageContents"
+      ? items.filter((row) => !HIDDEN_PAGE_SLUGS.includes(row.slug))
+      : items;
+  }, [listData, activeKey]);
+  // 서버 페이지네이션 탭의 전체 건수. 전량 로드 탭은 rows.length가 곧 전체다.
+  const totalCount = paginate ? (listData?.total ?? 0) : rows.length;
+  const loading = listEnabled && listQuery.isFetching;
+  // 목록 쿼리를 무효화해 다시 받는다(등록, 수정, 삭제 뒤와 [초기화]).
+  function loadRows() {
+    return queryClient.invalidateQueries({
+      queryKey: sectionKeys.section(activeKey),
+    });
+  }
+
+  // 쓰기 요청. 목록 갱신(invalidate)과 토스트는 호출부가 순서대로 처리한다.
+  const reviewMutation = useMutation({
+    mutationFn: (id: string) => markSectionReviewed(activeKey, id),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string | number) => deleteSectionRow(activeKey, id),
+  });
+  const metaMutation = useMutation({
+    mutationFn: ({
+      id,
+      values,
+    }: {
+      id: string | number;
+      values: Record<string, unknown>;
+    }) => updateSectionMeta(activeKey, id, values),
+  });
+
   const ListSummaryComponent = config.listSummaryKey
     ? LIST_SUMMARY_REGISTRY[config.listSummaryKey]
     : null;
@@ -854,113 +911,6 @@ export function AdminSectionRoute({ section }: { section: string }) {
     reviewStaleMonths,
   ]);
 
-  // 목록 조회 쿼리(필터 + 검색 + 정렬)를 한 곳에서 만든다 — loadRows와 CSV 청크
-  // 내보내기가 같은 조건을 봐야 "화면에서 본 것"과 "받은 파일"이 어긋나지 않는다.
-  // 범위(.range)와 count는 호출부가 붙인다.
-  // exactOptionalPropertyTypes: 호출부(loadRows)가 `count: paginate ? "exact" : undefined`로
-  // undefined를 명시적으로 넘기므로 undefined도 프로퍼티 타입에 포함한다.
-  function buildListQuery({ count }: { count?: "exact" | undefined } = {}) {
-    // 목록만 조인 뷰에서 읽는 섹션이 있다(config.listTable, QA 272). 쓰기 경로는
-    // 아래 saveRow/deleteRow 가 그대로 config.table 을 쓴다 — 조인 뷰는 쓰기가 안 된다.
-    let query = supabase
-      .from(config.listTable || config.table)
-      .select("*", count ? { count } : undefined);
-
-    if (config.fixedCategories) {
-      query = query.in("category", config.fixedCategories);
-    }
-
-    if (config.fixedValues) {
-      for (const [key, value] of Object.entries(config.fixedValues)) {
-        query = query.eq(key, value);
-      }
-    }
-
-    // 서버 검색은 서버 페이지네이션 탭에만 있다. 그 외 탭은 전량을 들고 있으므로
-    // 예전처럼 filteredRows가 클라이언트에서 거른다.
-    if (config.serverPaginate && searchTerm && config.searchColumns?.length) {
-      // PostgREST or()는 콤마로 조건을, 괄호로 그룹을 끊는다. 검색어에 그 문자가
-      // 들어오면 구문 자체가 깨지고, %·_ 는 ilike 와일드카드로 새는 값이다.
-      const safe = searchTerm.replace(/[,()%_\\*]/g, " ").trim();
-      if (safe) {
-        query = query.or(
-          config.searchColumns
-            .map((column) => `${column}.ilike.%${safe}%`)
-            .join(","),
-        );
-      }
-    }
-
-    const orderColumn = config.order || "created_at";
-
-    if (Array.isArray(config.orderBy)) {
-      // 테이블별 정렬 오버라이드 — 선언한 설정에만 적용되고 다른 탭은 아래 기본 분기를 그대로 탄다
-      for (const [column, ascending] of config.orderBy) {
-        query = query.order(column, { ascending });
-      }
-    } else if (config.fixedCategories) {
-      query = query
-        .order("is_pinned", { ascending: false })
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: false });
-    } else {
-      query = query.order(orderColumn, {
-        ascending: orderColumn === "sort_order",
-      });
-    }
-
-    return query;
-  }
-
-  async function loadRows() {
-    setLoading(true);
-
-    if (config.custom || config.comingSoon) {
-      setRows([]);
-      setTotalCount(0);
-      setLoading(false);
-      return;
-    }
-
-    // 서버 페이지네이션 탭(입결 43,170행)은 현재 페이지 PAGE_SIZE행만 받는다.
-    // 예전에는 모든 탭이 select('*')로 전량을 끌어와 PostgREST 기본 1,000행
-    // 상한에 걸렸고(그래서 43k행 중 1,000행만 보였다), PAGE_SIZE는 그렇게 받아온
-    // 배열을 화면에서 자르는 클라이언트 슬라이스일 뿐이었다.
-    const paginate = Boolean(config.serverPaginate);
-    let query = buildListQuery({ count: paginate ? "exact" : undefined });
-
-    if (paginate) {
-      const from = (page - 1) * PAGE_SIZE;
-      query = query.range(from, from + PAGE_SIZE - 1);
-    }
-
-    const { data, error, count } = await query;
-
-    setLoading(false);
-
-    if (error) {
-      reportAdminError(`${config.title} 조회 실패`, error);
-      setRows([]);
-      setTotalCount(0);
-      return;
-    }
-
-    const hiddenPageSlugs = [
-      "admission-susi",
-      "admission-jungsi",
-      "admission-essay",
-      "winning-faq",
-    ];
-
-    const nextRows =
-      activeKey === "pageContents"
-        ? (data || []).filter((row) => !hiddenPageSlugs.includes(row.slug))
-        : data || [];
-
-    setRows(nextRows);
-    setTotalCount(paginate ? (count ?? 0) : nextRows.length);
-  }
-
   // "이 조합의 컷 만들기"(§4-3-C-4) 전용 — 다른 섹션으로 이동하면서 그 섹션의
   // 등록 폼을 프리필값과 함께 바로 연다. 일반 changeTab과 분리한 이유: 프리필값은
   // location.state로 실어야 목적지 인스턴스(마운트 시점)가 읽을 수 있다 — 지금
@@ -983,27 +933,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
     return () => clearTimeout(timer);
   }, [keyword]);
 
-  // 조회 트리거. 서버 페이지네이션 탭만 page/searchTerm 변화에 반응한다 —
-  // 그 외 탭은 아래 두 값이 상수라 예전처럼 탭 전환 시 1회만 조회한다.
-  const serverPage = config.serverPaginate ? page : 0;
-  const serverTerm = config.serverPaginate ? searchTerm : "";
-
-  // 실제 조회 트리거는 activeKey/serverPage/serverTerm 세 값이고, loadRows는 그 시점의
-  // 클로저를 그대로 쓴다(useEffectEvent로 감싸 매 렌더 새로 생성되는 loadRows를 deps에서 뺀다).
-  // 트리거 값을 인자로 넘겨 exhaustive-deps가 이 effect의 실사용 의존성으로 인식하게 한다.
-  const onRowsTriggerChange = useEffectEvent(
-    (
-      _activeKey: typeof activeKey,
-      _serverPage: number,
-      _serverTerm: string,
-    ) => {
-      loadRows();
-    },
-  );
-
+  // 조회 실패는 목록을 비우고 안내만 한 번 띄운다.
+  const listError = listQuery.error;
   useEffect(() => {
-    onRowsTriggerChange(activeKey, serverPage, serverTerm);
-  }, [activeKey, serverPage, serverTerm]);
+    if (listError) reportAdminError(`${config.title} 조회 실패`, listError);
+  }, [listError, config.title]);
 
   // 삭제 등으로 총 건수가 줄어 현재 페이지가 범위를 벗어나면 마지막 페이지로 당긴다.
   useEffect(() => {
@@ -1120,85 +1054,27 @@ export function AdminSectionRoute({ section }: { section: string }) {
       }
     }
 
-    // QA 행337 — sort_order를 특정 값으로 지정해 저장하면 그 값(과 그 뒤로 이어지는
-    // 연속 구간)을 이미 쓰고 있는 다른 행들을 +1씩 밀어 "정확히 그 자리에 꽂힌다"는
-    // 기대를 만족시킨다. getNextSortOrder(formFields.tsx)는 신규 등록 시 max+1만
-    // 계산해 이 재배열을 대신하지 않는다. sort_order 필드가 없는 섹션(대다수
-    // custom:true 포함)은 손대지 않는다 — 클라이언트 처리만, DB 함수/마이그레이션 없음.
-    const hasSortOrderField = config.fields?.some(
-      (field) => field.key === "sort_order",
-    );
-    if (hasSortOrderField && Number.isFinite(Number(payload.sort_order))) {
-      const targetSortOrder = Number(payload.sort_order);
-      let conflictQuery = supabase
-        .from(config.table)
-        .select("id, sort_order")
-        .gte("sort_order", targetSortOrder)
-        .order("sort_order", { ascending: true });
-      if (mode !== "create" && editingRow) {
-        conflictQuery = conflictQuery.neq("id", editingRow.id);
-      }
-      const { data: conflictRows, error: conflictError } = await conflictQuery;
-      if (conflictError) {
-        reportAdminError("순서 재배열 조회 실패", conflictError);
-        return;
-      }
+    // id 는 경로로 보낸다. 값에 실으면 서버가 거부한다.
+    delete payload.id;
 
-      // 지정값부터 빈틈없이 이어지는 구간만 민다(1,2,3,5 중 2를 지정하면 2·3만
-      // 밀고 5는 그대로 둔다 — 이미 3과 5 사이가 비어 있어 충돌하지 않는다).
-      const shiftTargets: { id: string; sort_order: number }[] = [];
-      let expected = targetSortOrder;
-      for (const conflictRow of conflictRows || []) {
-        if (Number(conflictRow.sort_order) !== expected) break;
-        shiftTargets.push(conflictRow);
-        expected += 1;
-      }
-
-      // 충돌 최소화를 위해 큰 값부터 역순으로 민다.
-      for (const shiftRow of shiftTargets.slice().reverse()) {
-        const { error: shiftError } = await supabase
-          .from(config.table)
-          .update({ sort_order: Number(shiftRow.sort_order) + 1 })
-          .eq("id", shiftRow.id);
-        if (shiftError) {
-          reportAdminError("순서 재배열 실패", shiftError);
-          return;
-        }
-      }
-    }
-
-    let savedRow = null;
-
-    if (mode === "create") {
-      const { data, error } = await supabase
-        .from(config.table)
-        .insert(payload)
-        .select("*")
-        .single();
-
-      if (error) {
-        reportAdminError("등록 실패", error, buildFieldLabels(config));
-        return;
-      }
-
-      savedRow = data;
-    } else {
-      const { data, error } = await supabase
-        .from(config.table)
-        .update(payload)
-        // mode !== 'create'인 이 분기는 editRow/openMetaEditFromRow(setMode('edit'))와
-        // openRowSection(mode 'list' 유지, 섹션 모달 오버레이)이 전부 setEditingRow(row)를
-        // 먼저 호출하는 계약 위에서만 도달한다 — editingRow는 항상 채워져 있다.
-        .eq("id", editingRow!.id)
-        .select("*")
-        .single();
-
-      if (error) {
-        reportAdminError("수정 실패", error, buildFieldLabels(config));
-        return;
-      }
-
-      savedRow = data;
+    // 등록, 수정은 서버가 처리한다. sort_order 를 지정한 저장이 이미 쓰는 행들을 +1씩 미는
+    // 재배열(QA 행337)도 서버 몫이라 여기서는 값만 보낸다.
+    let savedRow: AdminRow;
+    try {
+      savedRow =
+        mode === "create"
+          ? await createSectionRow(activeKey, payload)
+          : // mode !== 'create'인 이 분기는 editRow/openMetaEditFromRow(setMode('edit'))와
+            // openRowSection(mode 'list' 유지, 섹션 모달 오버레이)이 전부 setEditingRow(row)를
+            // 먼저 호출하는 계약 위에서만 도달한다 — editingRow는 항상 채워져 있다.
+            await updateSectionRow(activeKey, editingRow!.id, payload);
+    } catch (error) {
+      reportAdminError(
+        mode === "create" ? "등록 실패" : "수정 실패",
+        error as Error,
+        buildFieldLabels(config),
+      );
+      return;
     }
 
     if (shouldRequestWinningEmbedding(config, savedRow)) {
@@ -1223,13 +1099,12 @@ export function AdminSectionRoute({ section }: { section: string }) {
   // 않는다. 쓰기 권한은 기존 is_admin 정책(winning_assessment_knowledge_admin_all)이다.
   async function markReviewed(row: { id?: unknown }) {
     if (typeof row.id !== "string") return;
-    const { error } = await supabase
-      .from(config.table)
-      .update({ last_reviewed_at: new Date().toISOString() })
-      .eq("id", row.id);
-
-    if (error) {
-      reportAdminError("검토 완료 표시 실패", error);
+    // AdminTable 에 disabled 속성이 없어 진행 중 중복 클릭은 여기서 막는다.
+    if (reviewMutation.isPending) return;
+    try {
+      await reviewMutation.mutateAsync(row.id);
+    } catch (error) {
+      reportAdminError("검토 완료 표시 실패", error as Error);
       return;
     }
 
@@ -1248,13 +1123,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
       return;
     }
 
-    const { error } = await supabase
-      .from(config.table)
-      .delete()
-      .eq("id", row.id);
-
-    if (error) {
-      reportAdminError("삭제 실패", error, buildFieldLabels(config));
+    if (deleteMutation.isPending) return;
+    try {
+      await deleteMutation.mutateAsync(row.id);
+    } catch (error) {
+      reportAdminError("삭제 실패", error as Error, buildFieldLabels(config));
       return;
     }
 
@@ -1340,15 +1213,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
     delete payload.created_at;
     delete payload.updated_at;
 
-    const { error } = await supabase
-      .from(config.table)
-      .update(payload)
-      .eq("id", row.id)
-      .select("*")
-      .single();
-
-    if (error) {
-      reportAdminError("수정 실패", error, buildFieldLabels(config));
+    if (metaMutation.isPending) return false;
+    try {
+      await metaMutation.mutateAsync({ id: row.id, values: payload });
+    } catch (error) {
+      reportAdminError("수정 실패", error as Error, buildFieldLabels(config));
       return false;
     }
 
@@ -1395,7 +1264,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
     }
 
     // 서버 페이지네이션 탭은 rows가 현재 페이지 10행뿐이라 그대로 쓰면 10행짜리
-    // 파일이 나온다. 목록과 같은 조건(buildListQuery)으로 서버에서 EXPORT_CHUNK행씩
+    // 파일이 나온다. 목록과 같은 조건으로 서버에서 청크 단위로
     // 끊어 받아, 청크마다 CSV 줄로 접어 모은다 — 43k행 행 객체를 한꺼번에 메모리에
     // 쌓지 않고, await 사이마다 진행률이 화면에 갱신된다.
     if (exporting) return;
@@ -1419,25 +1288,25 @@ export function AdminSectionRoute({ section }: { section: string }) {
     const parts: string[] = [];
     let done = 0;
 
-    for (let from = 0; from < totalCount; from += EXPORT_CHUNK) {
-      const { data, error } = await buildListQuery().range(
-        from,
-        from + EXPORT_CHUNK - 1,
-      );
-
-      if (error) {
+    // 서버가 EXPORT_CHUNK행씩 끊어 주고 next 가 null 이면 끝이다. 목록과 같은 검색어를 보낸다.
+    for (let from: number | null = 0; from !== null; ) {
+      let chunk: Awaited<ReturnType<typeof fetchExportChunk>>;
+      try {
+        chunk = await fetchExportChunk(activeKey, from, searchTerm);
+      } catch (error) {
         closeNote();
         setExporting(null);
-        reportAdminError("CSV 내보내기 실패", error);
+        reportAdminError("CSV 내보내기 실패", error as Error);
         return;
       }
 
       // 빈 청크는 그 사이에 행이 지워졌다는 뜻 — 더 받아봐야 소용없다.
-      if (!data || data.length === 0) break;
+      if (chunk.items.length === 0) break;
 
-      parts.push(csvBody(data, config.columns));
-      done += data.length;
+      parts.push(csvBody(chunk.items, config.columns));
+      done += chunk.items.length;
       setExporting({ done, total: totalCount });
+      from = chunk.next;
     }
 
     closeNote();
