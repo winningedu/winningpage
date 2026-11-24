@@ -1,15 +1,17 @@
 import type { MiddlewareFunction } from "react-router";
 import { redirect } from "react-router";
+import { z } from "zod";
 import type { GateableProgram } from "@/config/programs";
 import { site } from "@/config/site";
 import { ADMIN_SECTION_KEYS } from "@/pages/admin/adminSectionKeys";
 import {
+  type AdminPermissionMap,
+  adminPermissionsQueryOptions,
   canAccessSection,
-  fetchAdminPermissions,
-  fetchIsSuperAdmin,
 } from "./adminPermissions";
 import { getAppSettingBool } from "./appSettings";
 import { isOnboardingDone } from "./goalOnboarding";
+import { ApiError, api } from "./http/client";
 import { markProgramEntry } from "./programEntry";
 import { entitlementQueryOptions, queryClient } from "./queryClient";
 import { getCached, setCached } from "./routeMiddlewareCache";
@@ -111,10 +113,16 @@ async function assertAdminSectionAccess(request: Request, userId: string) {
   const sectionKey = adminSectionKeyFromUrl(request);
   if (!sectionKey) return;
 
-  const [permissions, isSuperAdmin] = await Promise.all([
-    fetchAdminPermissions(userId),
-    fetchIsSuperAdmin(userId),
-  ]);
+  // 못 읽으면 빈 맵과 일반 관리자로 닫는다(fail-closed).
+  let permissions: AdminPermissionMap = new Map();
+  let isSuperAdmin = false;
+  try {
+    ({ permissions, isSuper: isSuperAdmin } = await queryClient.fetchQuery(
+      adminPermissionsQueryOptions(userId),
+    ));
+  } catch (error) {
+    console.error("어드민 권한 조회 실패:", error);
+  }
 
   if (canAccessSection(permissions, isSuperAdmin, sectionKey)) return;
 
@@ -128,6 +136,8 @@ async function assertAdminSectionAccess(request: Request, userId: string) {
 
   throw new AdminForbiddenError();
 }
+
+const activationResponseSchema = z.object({ status: z.string().nullable() });
 
 // 2) /admin, /demo, /demo/:demoKey — role=admin 확인(ProtectedAdmin.jsx 이관).
 export const requireAdminMiddleware: MiddlewareFunction = async ({
@@ -153,20 +163,20 @@ export const requireAdminMiddleware: MiddlewareFunction = async ({
     return assertAdminSectionAccess(request, user.id);
   }
 
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (error) {
-    throw new AdminForbiddenError();
+  // 관리자 판정은 서버가 한다: 권한 조회가 성공하면 관리자, 403 이면 관리자가 아니다.
+  // 그 밖의 실패(401, 500, 네트워크, 시간 초과, 스키마)는 판정 불가라 캐시하지 않고 막는다.
+  let isAdmin = false;
+  try {
+    await queryClient.fetchQuery(adminPermissionsQueryOptions(user.id));
+    isAdmin = true;
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 403) {
+      throw new AdminForbiddenError();
+    }
   }
 
-  const role = profile?.role ?? null;
-
-  if (role === "admin") {
-    setCached(user.id, "admin-role", role);
+  if (isAdmin) {
+    setCached(user.id, "admin-role", "admin");
     return assertAdminSectionAccess(request, user.id);
   }
 
@@ -191,16 +201,19 @@ export const requireAdminMiddleware: MiddlewareFunction = async ({
   // active 가 되면 admin_members_sync_role 트리거가 profiles.role 을 'admin' 으로
   // 올린다(20260822000014) — 기존 RLS 수백 곳이 여전히 is_admin() 을 쓰므로 그
   // 축까지 올라가야 화면이 실제로 데이터를 읽는다.
-  const { data: activated, error: activateError } = await supabase.rpc(
-    "fn_activate_admin_member",
-  );
+  // 활성화는 쓰기라 GET 과 분리된 POST 다. 실패는 활성화 안 됨과 같이 다룬다.
+  const activated = await api
+    .post("admin/me/activate")
+    .json(activationResponseSchema)
+    .catch(() => null);
 
-  if (!activateError && activated?.status === "active") {
+  if (activated?.status === "active") {
     setCached(user.id, "admin-role", "admin");
     return assertAdminSectionAccess(request, user.id);
   }
 
-  setCached(user.id, "admin-role", role);
+  // 관리자가 아님을 캐시한다(예전에는 실제 role 을 넣었다). null 이면 위 캐시 분기에서 막힌다.
+  setCached(user.id, "admin-role", null);
   throw new AdminForbiddenError();
 };
 

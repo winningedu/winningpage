@@ -1,6 +1,7 @@
 // GET, POST /api/admin/sections/:key 계약 검증.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { SECTIONS } from "../../../_lib/admin-sections/registry.js";
 import {
   createSectionAdmin,
   createSectionDb,
@@ -114,6 +115,16 @@ describe("GET /api/admin/sections/:key", () => {
     expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
   });
 
+  test("q 는 100자까지만 받는다", async () => {
+    seedAdmin(kit.state, "view", "admissionResults");
+    kit.db.tables.admission_results = [];
+    const over = await get({ key: "admissionResults", q: "가".repeat(101) });
+    expect(over.status).toBe(400);
+    expect(kit.db.calls).toHaveLength(0);
+    const edge = await get({ key: "admissionResults", q: "가".repeat(100) });
+    expect(edge.status).toBe(200);
+  });
+
   test("page 가 1 보다 작으면 400", async () => {
     seedAdmin(kit.state, "view", "admissionResults");
     kit.db.tables.admission_results = [];
@@ -196,6 +207,21 @@ describe("POST /api/admin/sections/:key", () => {
       values: { category: "jungsi" },
     });
     expect(good.status).toBe(201);
+  });
+
+  test("allowCreate 가 꺼진 섹션은 등록을 거절한다", async () => {
+    seedAdmin(kit.state, "edit", "faqs");
+    kit.db.tables.faqs = [];
+    const entry = SECTIONS.faqs;
+    entry.allowCreate = false;
+    try {
+      expect((await post("faqs", { values: { question: "q" } })).status).toBe(
+        400,
+      );
+    } finally {
+      entry.allowCreate = true;
+    }
+    expect(kit.db.tables.faqs).toHaveLength(0);
   });
 
   test("등록 불가, 읽기 전용 섹션은 400", async () => {

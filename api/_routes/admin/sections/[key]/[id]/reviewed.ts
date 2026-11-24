@@ -5,6 +5,7 @@
 import {
   failWrite,
   notAllowed,
+  scopeToSection,
   sectionOf,
   sectionPermissionKey,
   sendNotFound,
@@ -25,10 +26,14 @@ export default defineHandler({
     const entry = sectionOf(req);
     if (!entry.knowledgeReview)
       notAllowed("이 섹션은 검토 완료를 쓰지 않습니다.");
-    const { data, error } = await ctx.supabaseAdmin
-      .from(entry.table)
-      .update({ last_reviewed_at: new Date().toISOString() })
-      .eq("id", String(req.query.id ?? ""))
+    if (!entry.allowUpdate) notAllowed("이 섹션은 수정할 수 없습니다.");
+    const { data, error } = await scopeToSection(
+      ctx.supabaseAdmin
+        .from(entry.table)
+        .update({ last_reviewed_at: new Date().toISOString() })
+        .eq("id", String(req.query.id ?? "")),
+      entry,
+    )
       .select("*")
       .maybeSingle();
     if (error) {

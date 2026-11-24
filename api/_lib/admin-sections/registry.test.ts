@@ -50,20 +50,62 @@ describe("섹션 레지스트리", () => {
   test.each(
     Object.entries(SECTIONS) as [SectionKey, (typeof SECTIONS)[SectionKey]][],
   )(
-    "%s writable 은 테이블 Update 키에서 보호 컬럼과 목록 전용 컬럼을 뺀 것과 같다",
+    "%s columns 는 테이블 Update 키에서 보호 컬럼과 목록 전용 컬럼을 뺀 것과 같고 writable 은 그 부분집합이다",
     (_key, entry) => {
       if (entry.readOnly) {
+        expect(entry.columns).toEqual([]);
         expect(entry.writable).toEqual([]);
         return;
       }
+      expect(entry.columns).toEqual(
+        expect.arrayContaining([...entry.writable]),
+      );
       const expected = updateKeys(entry.table).filter(
         (column) =>
           !PROTECTED.includes(column) &&
           !(entry.listOnlyColumns ?? []).includes(column),
       );
-      expect([...entry.writable].sort()).toEqual(expected.sort());
+      expect([...entry.columns].sort()).toEqual(expected.sort());
     },
   );
+
+  test("premiumConsults writable 은 폼 필드(운영 메모, 상태, 읽기 전용 신청 정보)와 같다", () => {
+    expect([...SECTIONS.premiumConsults.writable].sort()).toEqual([
+      "admin_note",
+      "email",
+      "message",
+      "name",
+      "phone",
+      "service",
+      "status",
+    ]);
+  });
+
+  test("refundRequests 는 승인 여부와 처리 결과 컬럼을 쓸 수 없다(상태, 금액은 폼 필드)", () => {
+    const { writable } = SECTIONS.refundRequests;
+    for (const column of [
+      "approval_status",
+      "completed_at",
+      "processed_by",
+      "toss_cancel",
+      "gross_amount",
+    ]) {
+      expect(writable).not.toContain(column);
+    }
+    expect(writable).toContain("status");
+    expect(writable).toContain("admin_memo");
+  });
+
+  test("지식 DB 두 섹션은 embedding, search_text 를 쓸 수 없다", () => {
+    for (const key of [
+      "winningSuhaengTopicDb",
+      "winningSuhaengResourceDb",
+    ] as const) {
+      expect(SECTIONS[key].writable).not.toContain("embedding");
+      expect(SECTIONS[key].writable).not.toContain("search_text");
+      expect(SECTIONS[key].columns).toContain("embedding");
+    }
+  });
 
   test("섹션별 특수 설정", () => {
     expect(SECTIONS.admissionSusiJungsi.fixedCategories).toEqual([

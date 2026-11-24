@@ -1,65 +1,71 @@
 // 매출 및 결제 화면의 기간 조회는 브라우저 시간대의 하루 경계를 UTC 순간으로 바꿔 보낸다.
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const zone = vi.hoisted(() => ({ current: "Asia/Seoul" }));
-const calls = vi.hoisted(() => ({
-  gte: [] as string[],
-  lt: [] as string[],
-}));
-
+const get = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/time/zone", () => ({
   browserTimeZone: () => zone.current,
 }));
 
-vi.mock("@/lib/supabase", () => ({
-  supabase: {
-    from: () => {
-      const proxy: unknown = new Proxy(
-        {},
-        {
-          get(_t, prop) {
-            if (prop === "then") {
-              return (resolve: (v: unknown) => void) =>
-                resolve({ data: [], error: null, count: 0 });
-            }
-            if (prop === "gte") {
-              return (_col: string, value: string) => {
-                calls.gte.push(value);
-                return proxy;
-              };
-            }
-            if (prop === "lt") {
-              return (_col: string, value: string) => {
-                calls.lt.push(value);
-                return proxy;
-              };
-            }
-            return () => proxy;
-          },
-        },
-      );
-      return proxy;
-    },
-  },
+vi.mock("@/lib/http/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/http/client")>()),
+  api: { get },
 }));
 
 import RevenueAdmin from "./RevenueAdmin";
 
 beforeEach(() => {
-  calls.gte.length = 0;
-  calls.lt.length = 0;
+  get.mockReset();
+  get.mockImplementation((path: string) => ({
+    json: async () => {
+      if (path === "admin/revenue") return { items: [] };
+      if (path === "admin/revenue/services") return { items: [] };
+      return { approvalWaiting: 0, processWaiting: 0 };
+    },
+  }));
 });
+
+// 호출 순서는 [이번 달, 선택 기간] 이다.
+function revenueRanges() {
+  return get.mock.calls
+    .filter(([path]) => path === "admin/revenue")
+    .map(([, options]) => ({
+      from: options.searchParams.from as string,
+      toExclusive: options.searchParams.to as string,
+    }));
+}
+
+function renderAt(url: string) {
+  return render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <MemoryRouter initialEntries={[url]}>
+        <RevenueAdmin />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
 
 afterEach(cleanup);
 
 async function search(from: string, to: string) {
-  render(<RevenueAdmin />);
+  renderAt("/admin/revenue");
   await screen.findByText("이 기간에 결제 내역이 없습니다.");
-  calls.gte.length = 0;
-  calls.lt.length = 0;
+  get.mockClear();
   fireEvent.change(screen.getByLabelText("조회 시작일"), {
     target: { value: from },
   });
@@ -67,9 +73,11 @@ async function search(from: string, to: string) {
     target: { value: to },
   });
   fireEvent.click(screen.getByRole("button", { name: "조회" }));
+  await waitFor(() =>
+    expect(revenueRanges().some((range) => range.from.length > 0)).toBe(true),
+  );
   await screen.findByText("이 기간에 결제 내역이 없습니다.");
-  // 호출 순서는 [이번 달, 선택 기간] 이다.
-  return { from: calls.gte[1], toExclusive: calls.lt[1] };
+  return revenueRanges().at(-1) as { from: string; toExclusive: string };
 }
 
 test("서울 11월 한 달은 [10-31T15:00Z, 11-30T15:00Z) 로 조회한다", async () => {

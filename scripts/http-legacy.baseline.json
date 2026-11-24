@@ -33,10 +33,6 @@
     "legacyError": 1,
     "okSuccess": 2
   },
-  "api/_routes/admin/access-logs.ts": {
-    "legacyError": 3,
-    "okSuccess": 2
-  },
   "api/_routes/admin/ai-telemetry-pricing.ts": {
     "legacyError": 2,
     "okSuccess": 1
@@ -137,30 +133,7 @@
     "legacyError": 2,
     "okSuccess": 1
   },
-  "api/_routes/admin/tenants/member-purge-preview.ts": {
-    "legacyError": 4,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/tenants/member-purge.ts": {
-    "legacyError": 6,
-    "okSuccess": 1
-  },
   "api/_routes/admin/tenants/move-student.ts": {
-    "legacyError": 5,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/tenants/purge-logs.ts": {
-    "legacyError": 2,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/tenants/school-admin.ts": {
-    "legacyError": 3
-  },
-  "api/_routes/admin/tenants/school-admins.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/tenants/student-usage.ts": {
     "legacyError": 5,
     "okSuccess": 1
   },
@@ -424,6 +397,13 @@
   "api/_routes/find-account-by-phone.ts": {
     "legacyError": 4,
     "okSuccess": 2
+  },
+  "api/_routes/goal/admin/resend-report.ts": {
+    "legacyError": 4
+  },
+  "api/_routes/goal/admin/reset-student.ts": {
+    "legacyError": 4,
+    "okSuccess": 1
   },
   "api/_routes/goal/advice.ts": {
     "legacyError": 7,
@@ -822,12 +802,6 @@
   "src/hooks/useTermsDocs.ts": {
     "browserDb": 1
   },
-  "src/lib/adminAccessLog.ts": {
-    "browserDb": 1
-  },
-  "src/lib/adminPermissions.ts": {
-    "browserDb": 2
-  },
   "src/lib/admissionResultsQueries.ts": {
     "browserDb": 4
   },
@@ -860,6 +834,9 @@
   },
   "src/lib/entitlement.ts": {
     "legacyFetch": 1
+  },
+  "src/lib/goal/goalCutBackfill.ts": {
+    "browserDb": 4
   },
   "src/lib/goal/universitySearch.ts": {
     "browserDb": 2
@@ -913,9 +890,6 @@
   "src/lib/queryClient.ts": {
     "legacyFetch": 2
   },
-  "src/lib/routeMiddleware.ts": {
-    "browserDb": 2
-  },
   "src/lib/selfeval/api.ts": {
     "legacyFetch": 1
   },
@@ -964,14 +938,15 @@
   "src/pages/TeacherResetPassword.tsx": {
     "legacyFetch": 1
   },
-  "src/pages/admin/access-logs/api.ts": {
-    "legacyFetch": 1
-  },
   "src/pages/admin/admission/AdmissionPanels.tsx": {
     "browserDb": 6
   },
-  "src/pages/admin/coupons/CouponAdmin.tsx": {
-    "browserDb": 14
+  "src/pages/admin/goal/GoalCutsPanels.tsx": {
+    "browserDb": 8
+  },
+  "src/pages/admin/goal/GoalStudentsAdmin.tsx": {
+    "browserDb": 10,
+    "legacyFetch": 2
   },
   "src/pages/admin/growth/GrowthReportsAdmin.tsx": {
     "browserDb": 1
@@ -1008,9 +983,6 @@
   "src/pages/admin/premium-book/PremiumBookAdmin.tsx": {
     "browserDb": 11
   },
-  "src/pages/admin/revenue/RevenueAdmin.tsx": {
-    "browserDb": 4
-  },
   "src/pages/admin/selfeval/SelfevalSessionsAdmin.tsx": {
     "browserDb": 1
   },
@@ -1034,25 +1006,7 @@
   "src/pages/admin/telemetry/api.ts": {
     "legacyFetch": 1
   },
-  "src/pages/admin/tenants/MemberPurgeAdmin.tsx": {
-    "browserDb": 1
-  },
   "src/pages/admin/tenants/MoveStudentForm.tsx": {
-    "legacyFetch": 1
-  },
-  "src/pages/admin/tenants/ServiceSettingsPanel.tsx": {
-    "browserDb": 3
-  },
-  "src/pages/admin/tenants/StudentUsageAdmin.tsx": {
-    "browserDb": 1
-  },
-  "src/pages/admin/tenants/TenantDetail.tsx": {
-    "browserDb": 3
-  },
-  "src/pages/admin/tenants/TenantsAdmin.tsx": {
-    "browserDb": 3
-  },
-  "src/pages/admin/tenants/api.ts": {
     "legacyFetch": 1
   },
   "src/pages/admin/web-analytics/api.ts": {

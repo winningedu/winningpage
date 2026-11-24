@@ -124,7 +124,6 @@ const WIRED_SCREENS: Array<[name: string, dir: string]> = [
   ["MentorApplicationsAdmin", "mentor"],
   ["AdminMembersAdmin", "staff"],
   ["AdminRolesAdmin", "staff"],
-  ["CouponAdmin", "coupons"],
 ];
 
 test.each(WIRED_SCREENS)("%s 가 훅을 쓴다", (name, dir) => {

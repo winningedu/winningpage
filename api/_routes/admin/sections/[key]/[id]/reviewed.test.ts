@@ -43,7 +43,12 @@ describe("POST /api/admin/sections/:key/:id/reviewed", () => {
   test("last_reviewed_at 한 컬럼만 지금 시각(UTC ISO)으로 고친다", async () => {
     seedAdmin(kit.state, "edit", "winningSuhaengTopicDb");
     kit.db.tables.winning_assessment_knowledge_items = [
-      { id: "k1", content: "c", last_reviewed_at: null },
+      {
+        id: "k1",
+        knowledge_type: "topic_pattern",
+        content: "c",
+        last_reviewed_at: null,
+      },
     ];
     const r = await post("winningSuhaengTopicDb", "k1");
     expect(r.status).toBe(200);
@@ -54,6 +59,22 @@ describe("POST /api/admin/sections/:key/:id/reviewed", () => {
     expect(kit.db.calls.find((c) => c.op === "update")?.values).toEqual({
       last_reviewed_at: "2026-11-24T01:02:03.000Z",
     });
+  });
+
+  test("다른 지식 구분의 행은 검토 완료할 수 없고 행은 그대로다", async () => {
+    seedAdmin(kit.state, "edit", "winningSuhaengTopicDb");
+    kit.db.tables.winning_assessment_knowledge_items = [
+      {
+        id: "r1",
+        knowledge_type: "verified_resource",
+        last_reviewed_at: null,
+      },
+    ];
+    const r = await post("winningSuhaengTopicDb", "r1");
+    expect(r.status).toBe(404);
+    expect(
+      kit.db.tables.winning_assessment_knowledge_items?.[0]?.last_reviewed_at,
+    ).toBeNull();
   });
 
   test("knowledgeReview 섹션이 아니면 400", async () => {

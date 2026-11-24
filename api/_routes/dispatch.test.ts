@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { describe, expect, test, vi } from "vitest";
 import { dispatch } from "./dispatch.js";
+import { routes as manifestRoutes } from "./manifest.js";
 
 const makeReq = (url: string | undefined, query: object = {}) =>
   ({ url, query }) as unknown as VercelRequest;
@@ -129,6 +130,42 @@ describe("경로 파라미터", () => {
     },
   );
 
+  test.each([
+    "/api/admin/sections/[key]",
+    "/api/admin/sections/[key]/[id]",
+    "/api/admin/sections/[key]/export",
+    "/api/admin/sections/%5Bkey%5D",
+    "/api/admin/sections/%5Bkey%5D/%5Bid%5D",
+  ])(
+    "원문 키에 대괄호가 있는 %s 는 쿼리 값이 있어도 로더 없이 404 다",
+    async (url) => {
+      const handler = vi.fn();
+      const loader = vi.fn(async () => ({ default: handler }));
+      const { res } = await run(
+        {
+          "admin/sections/[key]": loader,
+          "admin/sections/[key]/[id]": loader,
+          "admin/sections/[key]/export": loader,
+        },
+        `${url}?key=adminMembers`,
+        { key: "adminMembers" },
+      );
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(loader).not.toHaveBeenCalled();
+      expect(handler).not.toHaveBeenCalled();
+    },
+  );
+
+  test("정확한 키 분기는 대괄호 키를 건너뛴다", async () => {
+    // 원문 키 검사를 지나도 정확한 키로는 패턴 라우트에 닿지 않아야 한다
+    const loader = vi.fn(async () => ({ default: vi.fn() }));
+    const { res } = await run({ "a/[key]": loader }, "/api/a/[key]");
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(loader).not.toHaveBeenCalled();
+  });
+
   test("구간 수가 다르면 404 다", async () => {
     const handler = vi.fn();
     const routes = { "a/[key]/[id]": loaderOf(handler) };
@@ -147,6 +184,64 @@ describe("경로 파라미터", () => {
     });
 
     expect(req.query).toEqual({ key: "q" });
+  });
+});
+
+// 실제 매니페스트 키를 그대로 쓰되 로더만 키 이름을 기록하는 가짜로 바꿔, 어느 핸들러에 닿는지 본다.
+describe("기관 경로: 글자 그대로인 키가 [id] 보다 먼저다", () => {
+  const reach = async (url: string) => {
+    const hit: string[] = [];
+    const routes = Object.fromEntries(
+      Object.keys(manifestRoutes).map((key) => [
+        key,
+        async () => ({ default: () => void hit.push(key) }),
+      ]),
+    );
+    const req = makeReq(url, {});
+    await dispatch(routes as never, req, makeRes());
+    return { hit, req };
+  };
+
+  test.each([
+    "member-purge",
+    "purge-logs",
+    "school-admins",
+    "student-usage",
+    "school-admin",
+    "member-purge-preview",
+    "move-student",
+  ])(
+    "/api/admin/tenants/%s 는 자기 핸들러에 닿고 [id] 에 닿지 않는다",
+    async (name) => {
+      const { hit, req } = await reach(`/api/admin/tenants/${name}`);
+
+      expect(hit).toEqual([`admin/tenants/${name}`]);
+      expect(req.query).toEqual({});
+    },
+  );
+
+  test("uuid 는 [id] 에 닿고 id 가 req.query 에 담긴다", async () => {
+    const id = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
+    const { hit, req } = await reach(`/api/admin/tenants/${id}`);
+
+    expect(hit).toEqual(["admin/tenants/[id]"]);
+    expect(req.query).toEqual({ id });
+  });
+
+  test("/:id/service-settings 는 서비스 설정 핸들러에 닿는다", async () => {
+    const id = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
+    const { hit, req } = await reach(
+      `/api/admin/tenants/${id}/service-settings?id=forged`,
+    );
+
+    expect(hit).toEqual(["admin/tenants/[id]/service-settings"]);
+    expect(req.query).toEqual({ id });
+  });
+
+  test("목록 /api/admin/tenants 는 그대로 목록 핸들러다", async () => {
+    const { hit } = await reach("/api/admin/tenants");
+
+    expect(hit).toEqual(["admin/tenants"]);
   });
 });
 

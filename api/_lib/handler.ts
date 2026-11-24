@@ -227,8 +227,8 @@ export interface DefineHandlerOptions<
   ) => Promise<void>;
 }
 
-/** 검증 실패면 400 을 보내고 null, 통과하면 파싱된 값을 돌려준다. */
-function parseOrReject(
+/** 검증 실패면 400 을 보내고 null, 통과하면 파싱된 값을 돌려준다. 메서드마다 입력이 다른 라우트가 직접 쓴다. */
+export function parseOrReject(
   res: VercelResponse,
   shape: ErrorShape,
   schema: ZodSchema,

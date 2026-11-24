@@ -4,7 +4,6 @@ import {
   type CSSProperties,
   Fragment,
   useEffect,
-  useEffectEvent,
   useMemo,
   useState,
 } from "react";
@@ -30,10 +29,10 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import { Toaster, toast } from "@/components/ui/toast";
+import { useAuth } from "@/context/AuthProvider";
 import {
+  adminPermissionsQueryOptions,
   canAccessSection,
-  fetchAdminPermissions,
-  fetchIsSuperAdmin,
 } from "@/lib/adminPermissions";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { supabase } from "@/lib/supabase";
@@ -521,31 +520,22 @@ function AdminSidebar({ activeKey }: { activeKey: string }) {
   //
   // 빈 목록으로 시작한다 — 전부 그렸다가 지우면 권한 없는 메뉴가 한 번 번쩍인다.
   // 라우트 가드가 이미 같은 조회를 마친 뒤라(캐시 TTL 15초) 실제로는 즉시 채워진다.
-  const [menuGroups, setMenuGroups] = useState<typeof MENU_GROUPS>([]);
-
-  const loadMenuGroups = useEffectEvent(async () => {
-    const { data } = await supabase.auth.getSession();
-    const userId = data.session?.user?.id;
-    if (!userId) return;
-
-    const [permissions, isSuperAdmin] = await Promise.all([
-      fetchAdminPermissions(userId),
-      fetchIsSuperAdmin(userId),
-    ]);
-
-    setMenuGroups(
-      MENU_GROUPS.map((group) => ({
-        ...group,
-        items: group.items.filter((item) =>
-          canAccessSection(permissions, isSuperAdmin, item.key),
-        ),
-      })).filter((group) => group.items.length > 0),
-    );
+  const { userId } = useAuth();
+  const { data: access } = useQuery({
+    ...adminPermissionsQueryOptions(userId ?? ""),
+    enabled: !!userId,
   });
 
-  useEffect(() => {
-    loadMenuGroups();
-  }, []);
+  // 못 읽거나 읽는 중이면 그리지 않는다(fail-closed).
+  const menuGroups = useMemo(() => {
+    if (!access) return [];
+    return MENU_GROUPS.map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        canAccessSection(access.permissions, access.isSuper, item.key),
+      ),
+    })).filter((group) => group.items.length > 0);
+  }, [access]);
 
   const allOpen = menuGroups.every((group) => open.has(group.title));
 
@@ -1645,7 +1635,7 @@ export function AdminLayout() {
   // 사이드바 하이라이트용 activeKey — 라우팅 매칭(어느 config를 쓸지 결정하는 것)에는
   // 관여하지 않는다. 그건 App.jsx의 개별 <Route path={key}> 매칭이 이미 끝낸 일이고,
   // 여기서는 그 결과인 URL을 보고 "지금 어느 메뉴가 눌려 있어 보여야 하는가"만 고른다.
-  // 상세 경로(goalStudents/:id)에서도 첫 구간이 메뉴 키다.
+  // 하위 경로(tenants/123, coupons/c1/edit)에서도 첫 구간이 메뉴 키다.
   const activeKey =
     location.pathname.replace(/^\/admin\/?/, "").split("/")[0] ||
     ADMIN_DEFAULT_SECTION_KEY;
