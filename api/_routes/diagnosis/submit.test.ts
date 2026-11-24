@@ -301,6 +301,17 @@ describe("diagnosis/submit scoring", () => {
     });
   });
 
+  test("M3 q6 sent by the client is replaced by the mean of the six scores", async () => {
+    const log = setup();
+    const answers = { ...validAnswers("M3"), q6: 1 };
+    const res = await post({ attemptId: ATTEMPT, answers });
+    expect(res.status).toBe(200);
+    expect(engine.score.mock.calls[0]?.[0]).toMatchObject({ q6: 80 });
+    expect(log.upserts[0]?.row).toMatchObject({
+      snapshot: { answers: { q6: 80 } },
+    });
+  });
+
   test("a track without q15 skips the admission query", async () => {
     setup();
     const res = await post({ attemptId: ATTEMPT, answers: validAnswers("M3") });
