@@ -162,23 +162,23 @@ export default function TenantOverview({
 
   const summary = useQuery({
     queryKey: ["hqDashboard", "summary", includeInternal],
-    queryFn: () => fetchHqSummary(includeInternal),
+    queryFn: ({ signal }) => fetchHqSummary(includeInternal, signal),
   });
   const tenants = useQuery({
     queryKey: ["hqDashboard", "tenants", includeInternal],
-    queryFn: () => fetchHqTenants(includeInternal),
+    queryFn: ({ signal }) => fetchHqTenants(includeInternal, signal),
   });
 
   const usage = useQuery({
     queryKey: ["hqDashboard", "usage", includeInternal],
-    queryFn: () => fetchHqUsage(includeInternal),
+    queryFn: ({ signal }) => fetchHqUsage(includeInternal, signal),
   });
   const [openTenantId, setOpenTenantId] = useState<string | null>(null);
 
-  const rows = tenants.data?.tenants ?? [];
+  const rows = tenants.data?.items ?? [];
   const usageByTenant = useMemo(() => {
     const map = new Map<string, HqUsageRow[]>();
-    for (const u of usage.data?.usage ?? [])
+    for (const u of usage.data?.items ?? [])
       map.set(u.tenantId, [...(map.get(u.tenantId) ?? []), u]);
     return map;
   }, [usage.data]);

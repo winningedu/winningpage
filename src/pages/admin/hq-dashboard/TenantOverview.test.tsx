@@ -166,11 +166,11 @@ beforeEach(() => {
   });
   vi.mocked(api.fetchHqTenants).mockResolvedValue({
     asOf: "2026-11-23T01:30:00.000Z",
-    tenants: ROWS,
+    items: ROWS,
   });
   vi.mocked(api.fetchHqUsage).mockResolvedValue({
     asOf: "2026-11-23T01:30:00.000Z",
-    usage: USAGE,
+    items: USAGE,
   });
 });
 
@@ -222,7 +222,7 @@ describe("시범기간(결정 117)", () => {
   test("계약 상태 필터에 시범기간 중이 있고, 표에 상태와 시범 날짜를 보인다", async () => {
     vi.mocked(api.fetchHqTenants).mockResolvedValue({
       asOf: "2026-11-23T01:30:00.000Z",
-      tenants: [
+      items: [
         ...ROWS,
         row({
           tenantId: "t-4",
@@ -269,22 +269,37 @@ describe("QA, 관리자 계정 포함 스위치", () => {
   test("기본은 빼고 읽고, 켜면 주소에 includeInternal=1 을 두고 포함해서 다시 읽는다", async () => {
     renderAt("/admin/hqDashboard");
     await screen.findByText("가람중");
-    expect(api.fetchHqSummary).toHaveBeenLastCalledWith(false);
-    expect(api.fetchHqTenants).toHaveBeenLastCalledWith(false);
+    expect(api.fetchHqSummary).toHaveBeenLastCalledWith(
+      false,
+      expect.any(AbortSignal),
+    );
+    expect(api.fetchHqTenants).toHaveBeenLastCalledWith(
+      false,
+      expect.any(AbortSignal),
+    );
     fireEvent.click(
       screen.getByRole("checkbox", { name: "QA, 관리자 계정 포함" }),
     );
     await waitFor(() =>
-      expect(api.fetchHqTenants).toHaveBeenLastCalledWith(true),
+      expect(api.fetchHqTenants).toHaveBeenLastCalledWith(
+        true,
+        expect.any(AbortSignal),
+      ),
     );
-    expect(api.fetchHqSummary).toHaveBeenLastCalledWith(true);
+    expect(api.fetchHqSummary).toHaveBeenLastCalledWith(
+      true,
+      expect.any(AbortSignal),
+    );
     expect(search().get("includeInternal")).toBe("1");
   });
 
   test("주소에 includeInternal=1 이 있으면 켜진 채로 시작한다", async () => {
     renderAt("/admin/hqDashboard?includeInternal=1");
     await screen.findByText("가람중");
-    expect(api.fetchHqTenants).toHaveBeenLastCalledWith(true);
+    expect(api.fetchHqTenants).toHaveBeenLastCalledWith(
+      true,
+      expect.any(AbortSignal),
+    );
     expect(
       (
         screen.getByRole("checkbox", {
@@ -358,7 +373,7 @@ describe("기관 표와 URL 검색 파라미터", () => {
   test("20건을 넘으면 쪽을 나누고 쪽 번호는 주소에 남는다", async () => {
     vi.mocked(api.fetchHqTenants).mockResolvedValue({
       asOf: "2026-11-23T01:30:00.000Z",
-      tenants: Array.from({ length: 25 }, (_, i) =>
+      items: Array.from({ length: 25 }, (_, i) =>
         row({ tenantId: `t${i}`, name: `기관${String(i).padStart(2, "0")}` }),
       ),
     });
@@ -462,7 +477,10 @@ describe("서비스 사용량과 한도(Q6)", () => {
   test("사용량도 포함 스위치를 따라 읽는다", async () => {
     renderAt("/admin/hqDashboard?includeInternal=1");
     await screen.findByText("가람중");
-    expect(api.fetchHqUsage).toHaveBeenLastCalledWith(true);
+    expect(api.fetchHqUsage).toHaveBeenLastCalledWith(
+      true,
+      expect.any(AbortSignal),
+    );
   });
 
   test("사용량을 불러오지 못하면 오류를 보이고 기관 표는 그대로 보인다", async () => {

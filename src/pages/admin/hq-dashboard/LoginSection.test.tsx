@@ -28,7 +28,6 @@ import LoginSection from "./LoginSection";
 
 function stats(over: Partial<LoginStatsResponse> = {}): LoginStatsResponse {
   return {
-    ok: true,
     from: "2026-11-01",
     to: "2026-11-23",
     grain: "day",
@@ -87,7 +86,6 @@ const ITEM: LoginLogResponse["items"][number] = {
 
 function log(over: Partial<LoginLogResponse> = {}): LoginLogResponse {
   return {
-    ok: true,
     from: "2026-11-01",
     to: "2026-11-23",
     includeInternal: false,
