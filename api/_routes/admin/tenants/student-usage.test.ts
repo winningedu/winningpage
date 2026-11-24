@@ -10,7 +10,12 @@ import {
   matchRows,
 } from "../../../_lib/console/consoleTestKit.js";
 
-const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
+const kit = vi.hoisted(() => ({
+  state: null as unknown as KitState,
+  // 관리자 본인 토큰으로 만든 클라이언트(auth.uid() 가 관리자). 쓰기는 여기로만 나가야 한다.
+  userState: null as unknown as KitState,
+  userClientTokens: [] as string[],
+}));
 
 vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   getEnv: (...keys: string[]) => {
@@ -19,6 +24,13 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   },
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
+}));
+
+vi.mock("../../../_lib/supabaseUser.js", () => ({
+  createSupabaseUserClient: (token: string) => {
+    kit.userClientTokens.push(token);
+    return createFakeAdmin(kit.userState);
+  },
 }));
 
 import handler from "./student-usage.js";
@@ -57,6 +69,8 @@ function usageState(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   process.env.SITE = "schoolmentor";
+  kit.userState = createKitState();
+  kit.userClientTokens.length = 0;
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
   kit.state.rpc.fn_admin_effective_permissions = () => ({
@@ -275,5 +289,127 @@ describe("GET /api/admin/tenants/student-usage", () => {
     const r = await get({ profileId: STUDENT });
 
     expect(r.status).toBe(500);
+  });
+});
+
+describe("PUT /api/admin/tenants/student-usage", () => {
+  const PROFILE_B = "6c2d3b4c-5e6f-4071-9b8c-0d1e2f3a4b5c";
+  const put = (body: unknown) => callHandler(handler, body, "PUT");
+
+  const ROWS = [
+    { profile_id: STUDENT, program_key: "diagnose", monthly_limit: 5 },
+    { profile_id: PROFILE_B, program_key: "diagnose", monthly_limit: 5 },
+    {
+      profile_id: STUDENT,
+      program_key: "target",
+      monthly_limit: null,
+      term_limit: 2,
+    },
+  ];
+
+  beforeEach(() => {
+    kit.state.rpc.fn_admin_effective_permissions = () => ({
+      data: [{ resource_key: "serviceCreditAdjust", level: "edit" }],
+      error: null,
+    });
+  });
+
+  test("view 권한이면 403 이고 쓰지 않는다", async () => {
+    kit.state.rpc.fn_admin_effective_permissions = () => ({
+      data: [{ resource_key: "serviceCreditAdjust", level: "view" }],
+      error: null,
+    });
+
+    const r = await put({ rows: ROWS });
+
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ status: 403, code: "FORBIDDEN" });
+    expect(kit.userClientTokens).toHaveLength(0);
+    expect(kit.userState.upserts).toHaveLength(0);
+  });
+
+  test("edit 권한이면 관리자 토큰 클라이언트로 열 묶음마다 upsert 하고 updated_by 를 서버가 채운다", async () => {
+    const r = await put({ rows: ROWS });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ saved: 3 });
+    // 변경 이력 트리거가 auth.uid() 를 변경자로 남기므로 service_role 로 쓰지 않는다.
+    expect(kit.userClientTokens).toEqual(["token"]);
+    expect(kit.state.upserts).toHaveLength(0);
+    expect(kit.userState.upserts).toEqual([
+      {
+        table: "student_usage_overrides",
+        row: [
+          { ...ROWS[0], updated_by: "hq-1" },
+          { ...ROWS[1], updated_by: "hq-1" },
+        ],
+        onConflict: "profile_id,program_key",
+      },
+      {
+        table: "student_usage_overrides",
+        row: [{ ...ROWS[2], updated_by: "hq-1" }],
+        onConflict: "profile_id,program_key",
+      },
+    ]);
+  });
+
+  test("클라이언트가 보낸 updated_by 는 무시한다", async () => {
+    await put({ rows: [{ ...ROWS[0], updated_by: "someone-else" }] });
+
+    const sent = kit.userState.upserts[0]?.row as unknown as
+      | { updated_by: string }[]
+      | undefined;
+    expect(sent?.[0]?.updated_by).toBe("hq-1");
+  });
+
+  test("첫 오류에서 멈추고 500 이다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    kit.userState.insertErrors.student_usage_overrides = { code: "42501" };
+
+    const r = await put({ rows: ROWS });
+
+    expect(r.status).toBe(500);
+    expect(kit.userState.upserts).toHaveLength(1);
+  });
+
+  test.each([
+    ["본문 없음", undefined],
+    ["빈 rows", { rows: [] }],
+    ["rows 가 배열이 아님", { rows: ROWS[0] }],
+    ["uuid 가 아닌 profile_id", { rows: [{ ...ROWS[0], profile_id: "s-1" }] }],
+    ["모르는 program_key", { rows: [{ ...ROWS[0], program_key: "x" }] }],
+    ["0 한도", { rows: [{ ...ROWS[0], monthly_limit: 0 }] }],
+    ["32768 한도", { rows: [{ ...ROWS[0], term_limit: 32768 }] }],
+    ["소수 한도", { rows: [{ ...ROWS[0], monthly_limit: 1.5 }] }],
+    ["문자열 한도", { rows: [{ ...ROWS[0], monthly_limit: "3" }] }],
+    [
+      "한도 칸이 둘 다 없음",
+      { rows: [{ profile_id: STUDENT, program_key: "diagnose" }] },
+    ],
+  ])("%s 이면 400 이고 쓰지 않는다", async (_label, body) => {
+    const r = await put(body);
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ status: 400, code: "VALIDATION_FAILED" });
+    expect(kit.userState.upserts).toHaveLength(0);
+  });
+
+  test("스쿨멘토가 아닌 사이트에서는 404 이고 쓰지 않는다", async () => {
+    delete process.env.SITE;
+
+    const r = await put({ rows: ROWS });
+
+    expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({ code: "NOT_FOUND" });
+    expect(kit.userState.upserts).toHaveLength(0);
+  });
+
+  test("QA 계정은 쓰지 못한다", async () => {
+    kit.state.rows.qa_accounts = () => ({ profile_id: "hq-1" });
+
+    const r = await put({ rows: ROWS });
+
+    expect(r.status).toBe(403);
+    expect(kit.userState.upserts).toHaveLength(0);
   });
 });
