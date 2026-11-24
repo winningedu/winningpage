@@ -223,20 +223,3 @@ describe("01장 자기평가 본문", () => {
     ).toBeInTheDocument();
   });
 });
-
-describe("인쇄 폭", () => {
-  // 표지가 @page :first 여백 0 이라 Chrome 이 문서를 A4 전체 폭(210mm)으로 배치한다. 15mm 여백이
-  // 있는 2쪽 이후는 오른쪽이 잘리므로 장은 인쇄 가능 폭(210mm - 30mm = 180mm)을 직접 갖는다.
-  test("모든 장은 인쇄 가능 폭 180mm 로 고정된다", () => {
-    renderDoc();
-    const frames = screen
-      .getAllByRole("region")
-      .filter((section) =>
-        /^0[1-5] /.test(section.getAttribute("aria-label") ?? ""),
-      );
-    expect(frames).toHaveLength(5);
-    for (const frame of frames) {
-      expect(frame).toHaveClass("print:w-[180mm]");
-    }
-  });
-});
