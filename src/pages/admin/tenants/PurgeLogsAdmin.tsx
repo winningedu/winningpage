@@ -1,5 +1,5 @@
 import { Download } from "lucide-react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -9,8 +9,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ApiError } from "@/lib/http/client";
 import { downloadCsv, formatValue } from "@/pages/admin/shared/csvExport";
-import { fetchPurgeLogs, type PurgeLogEntry } from "./api";
+import { type PurgeLogEntry, usePurgeLogs } from "./purgeQueries";
 
 // ---------------------------------------------------------------------------
 // 삭제 로그(사 #163, #177). 서버가 이름과 연락처 없이 내려 주는 목록을 그대로 보인다. 회원번호는 길어서 펼쳐서 본다.
@@ -42,24 +43,14 @@ function toCsvRow(log: PurgeLogEntry) {
 }
 
 export default function PurgeLogsAdmin() {
-  const [logs, setLogs] = useState<PurgeLogEntry[]>([]);
-  const [error, setError] = useState("");
+  const query = usePurgeLogs();
+  const logs = query.data?.items ?? [];
+  const error = query.error
+    ? query.error instanceof ApiError
+      ? query.error.detail
+      : "삭제 로그를 불러오지 못했어요."
+    : "";
   const [opened, setOpened] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    let active = true;
-    fetchPurgeLogs().then((result) => {
-      if (!active) return;
-      if (!result.ok) {
-        setError(result.message);
-        return;
-      }
-      setLogs(result.data.logs);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   function toggle(id: string) {
     setOpened((prev) => {

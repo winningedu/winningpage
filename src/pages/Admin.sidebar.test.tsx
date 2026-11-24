@@ -83,6 +83,16 @@ beforeEach(() => {
   state.allowed = new Set(["popups", "banners", "admissionGuidelines"]);
 });
 
+describe("AdminSidebar 하위 경로", () => {
+  it("/admin/coupons/c1/edit 에서도 쿠폰관리 항목이 현재 섹션으로 강조된다", async () => {
+    state.allowed = new Set(["coupons", "banners"]);
+    renderShell("/admin/coupons/c1/edit");
+
+    const current = await screen.findByRole("link", { name: "쿠폰관리" });
+    expect(current).toHaveAttribute("aria-current", "page");
+  });
+});
+
 describe("AdminSidebar 메뉴", () => {
   it("메뉴 항목은 링크이고 현재 섹션에만 aria-current 가 붙는다", async () => {
     renderShell("/admin/banners");
@@ -93,6 +103,13 @@ describe("AdminSidebar 메뉴", () => {
     expect(other).toHaveAttribute("href", "/admin/popups");
     expect(current).toHaveAttribute("aria-current", "page");
     expect(other).not.toHaveAttribute("aria-current");
+  });
+
+  it("하위 경로(/admin/banners/123)에서도 해당 메뉴에 현재 표시가 남는다", async () => {
+    renderShell("/admin/banners/123");
+
+    const current = await screen.findByRole("link", { name: "메인 배너 관리" });
+    expect(current).toHaveAttribute("aria-current", "page");
   });
 
   it("그룹 토글은 aria-expanded 를 노출하고 누르면 접히고 펼쳐진다", async () => {

@@ -52,16 +52,6 @@ export function overridePayloads(
   );
 }
 
-/** supabase-js upsert 는 첫 행의 열만 쓰므로, 같은 열 묶음의 행끼리 모아 한 번씩 보낸다. */
-export function groupByColumns(rows: OverrideRow[]): OverrideRow[][] {
-  const groups = new Map<string, OverrideRow[]>();
-  for (const row of rows) {
-    const columns = Object.keys(row).sort().join(",");
-    groups.set(columns, [...(groups.get(columns) ?? []), row]);
-  }
-  return [...groups.values()];
-}
-
 /** 기관 설정으로 되돌리기: 6개 서비스 두 한도를 모두 null 로 보낸다(DELETE 권한이 없다). */
 export function resetPayloads(
   profileIds: string[],

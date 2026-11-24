@@ -1,5 +1,6 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -25,9 +26,10 @@ import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import {
   fetchSchoolAdmins,
   type IssuedSchoolAdmin,
+  type IssueSchoolAdminBody,
   issueSchoolAdmin,
-  type SchoolAdminList,
 } from "./api";
+import { errorDetail, tenantKeys } from "./tenantQueries";
 
 // ---------------------------------------------------------------------------
 // 기관 상세의 전체 관리자 탭(사 #159, 결정 102.6). 목록은 읽기만 하고(주소, 발급일, 등록취소일),
@@ -67,32 +69,36 @@ export default function SchoolAdminPanel({
   tenantId,
   tenantName,
 }: SchoolAdminPanelProps) {
-  const [list, setList] = useState<SchoolAdminList | null>(null);
-  const [loadError, setLoadError] = useState("");
+  const queryClient = useQueryClient();
   const [form, setForm] = useState<IssueForm>(EMPTY_FORM);
-  const [issuing, setIssuing] = useState(false);
   const [formError, setFormError] = useState("");
   const [issued, setIssued] = useState<IssuedSchoolAdmin | null>(null);
 
-  const load = useCallback(async () => {
-    const result = await fetchSchoolAdmins(tenantId);
-    if (!result.ok) {
-      setLoadError(result.message);
-      return;
-    }
-    setLoadError("");
-    setList(result.data);
-  }, [tenantId]);
+  const listQuery = useQuery({
+    queryKey: tenantKeys.schoolAdmins(tenantId),
+    queryFn: ({ signal }) => fetchSchoolAdmins(tenantId, signal),
+  });
+  const list = listQuery.data;
+  const loadError = listQuery.isError ? errorDetail(listQuery.error) : "";
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const issueMutation = useMutation({
+    mutationFn: (body: IssueSchoolAdminBody) => issueSchoolAdmin(body),
+    onSuccess: (result) => {
+      setForm(EMPTY_FORM);
+      setIssued(result);
+      return queryClient.invalidateQueries({
+        queryKey: tenantKeys.schoolAdmins(tenantId),
+      });
+    },
+    onError: (error) => setFormError(errorDetail(error)),
+  });
+  const issuing = issueMutation.isPending;
 
   function setField(key: keyof IssueForm, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function issue() {
+  function issue() {
     if (issuing) return;
     const name = form.name.trim();
     const phone = form.phone.trim();
@@ -101,11 +107,10 @@ export default function SchoolAdminPanel({
       return;
     }
     setFormError("");
-    setIssuing(true);
     const landline = form.landline.trim();
     const email = form.email.trim();
     const position = form.position.trim();
-    const result = await issueSchoolAdmin({
+    issueMutation.mutate({
       tenantId,
       name,
       phone,
@@ -113,14 +118,6 @@ export default function SchoolAdminPanel({
       ...(email ? { email } : {}),
       ...(position ? { position } : {}),
     });
-    setIssuing(false);
-    if (!result.ok) {
-      setFormError(result.message);
-      return;
-    }
-    setForm(EMPTY_FORM);
-    setIssued(result.data);
-    await load();
   }
 
   return (
@@ -263,7 +260,7 @@ export default function SchoolAdminPanel({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {!list || list.admins.length === 0 ? (
+            {!list || list.items.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={9}
@@ -273,7 +270,7 @@ export default function SchoolAdminPanel({
                 </TableCell>
               </TableRow>
             ) : (
-              list.admins.map((admin) => (
+              list.items.map((admin) => (
                 <TableRow key={admin.id} className="border-b border-gray-100">
                   <TableCell className="whitespace-normal px-3 py-3 font-medium">
                     {admin.name}

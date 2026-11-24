@@ -1,6 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -20,46 +27,99 @@ import {
 } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthProvider";
 import { adminPermissionsQueryOptions } from "@/lib/adminPermissions";
-import { supabase } from "@/lib/supabase";
+import { ApiError } from "@/lib/http/client";
 import {
   ActionButton,
   Field,
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
-import {
-  fetchMemberPurgePreview,
-  type PurgePreview,
-  type PurgeResult,
-  runMemberPurge,
-} from "./api";
 import { deletionDdayText, tenantToday } from "./contract";
+import {
+  type ContractTenant,
+  type PurgeResult,
+  useContractTenants,
+  useMemberPurge,
+  usePurgePreview,
+} from "./purgeQueries";
 
 // ---------------------------------------------------------------------------
 // 계약 종료 회원 삭제(사 #162, #176, 결정 102.1, 102.3, 102.4). 기관을 고르면 미리보기(가린 이름, 학년, 반, 번호,
 // 유료 전환 보호 표시)를 읽는다. 삭제는 고른 학생 번호만 서버에 보내고, 서버가 실행 때 보호를 다시 본다.
 // ---------------------------------------------------------------------------
 
-interface ContractTenant {
-  id: string;
-  code: string;
-  name: string;
-  contract_end_date: string;
-  time_zone: string;
+const errorText = (error: unknown, fallback: string) =>
+  error instanceof ApiError ? error.detail : fallback;
+
+// 고른 기관은 주소(:tenantId)에 둔다. 없으면 기관만 고르는 화면이다.
+export default function MemberPurgeAdmin() {
+  // 이동은 스플랫 앞까지의 경로 기준이다. 하위 라우트 안에서 "."는 스플랫까지 포함한다.
+  const { pathname } = useLocation();
+  const { "*": rest = "" } = useParams();
+  const base = pathname
+    .slice(0, pathname.length - rest.length)
+    .replace(/\/+$/, "");
+  return (
+    <Routes>
+      <Route index element={<PurgeScreen base={base} />} />
+      <Route path=":tenantId" element={<PurgeScreen base={base} />} />
+    </Routes>
+  );
 }
 
-export default function MemberPurgeAdmin() {
-  const [tenants, setTenants] = useState<ContractTenant[]>([]);
-  const [tenantId, setTenantId] = useState("");
-  const [preview, setPreview] = useState<PurgePreview | null>(null);
+function PurgeScreen({ base }: { base: string }) {
+  const { tenantId = "" } = useParams();
+  const navigate = useNavigate();
+  const tenantsQuery = useContractTenants();
+  const tenants = tenantsQuery.data ?? [];
+
+  function choose(id: string) {
+    navigate(id ? `${base}/${id}` : base);
+  }
+
+  return (
+    <div>
+      <h1 className="mb-6 text-2xl font-semibold">계약 종료 회원 삭제</h1>
+      <div className="mb-6 max-w-sm bg-white p-6 shadow-sm">
+        <Field label="기관">
+          <Select value={tenantId} onChange={choose}>
+            <option value="">기관을 고르세요</option>
+            {tenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {tenant.name} ({tenant.code})
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+      {tenantsQuery.error && (
+        <div role="alert" className="mb-4 text-sm font-medium text-red-600">
+          기관 목록을 불러오지 못했어요.
+        </div>
+      )}
+      {/* 기관을 바꾸면 선택, 결과, 확인창 상태를 새로 시작한다. */}
+      {tenantId && (
+        <PurgePanel key={tenantId} tenantId={tenantId} tenants={tenants} />
+      )}
+    </div>
+  );
+}
+
+function PurgePanel({
+  tenantId,
+  tenants,
+}: {
+  tenantId: string;
+  tenants: ContractTenant[];
+}) {
+  const previewQuery = usePurgePreview(tenantId || undefined);
+  const preview = previewQuery.data ?? null;
+  const purge = useMemberPurge();
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [error, setError] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [typedName, setTypedName] = useState("");
-  const [running, setRunning] = useState(false);
   const [result, setResult] = useState<PurgeResult | null>(null);
-  // 가장 최근에 미리보기를 요청한 기관. 늦게 도착한 옛 기관의 응답은 버린다.
-  const requestedTenant = useRef("");
+  const running = purge.isPending;
   const cancelRef = useRef<HTMLButtonElement>(null);
   // 서버도 tenants edit 권한을 본다. 읽는 중이거나 못 읽었으면 막아 둔다(fail-closed).
   const { userId } = useAuth();
@@ -69,51 +129,19 @@ export default function MemberPurgeAdmin() {
   });
   const canEdit = access?.permissions.get("tenants") === "edit";
 
+  // 미리보기가 새로 오면(처음, 삭제 뒤 다시 읽기) 유료 전환이 아닌 학생을 기본으로 고른다.
   useEffect(() => {
-    let active = true;
-    supabase
-      .from("tenants")
-      .select("id, code, name, contract_end_date, time_zone")
-      .not("contract_end_date", "is", null)
-      .order("name")
-      .then(({ data, error: loadError }) => {
-        if (!active) return;
-        if (loadError) {
-          setError("기관 목록을 불러오지 못했어요.");
-          return;
-        }
-        setTenants((data ?? []) as ContractTenant[]);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  async function loadPreview(id: string) {
-    requestedTenant.current = id;
-    setPreview(null);
-    setSelected(new Set());
-    if (!id) return;
-    const loaded = await fetchMemberPurgePreview(id);
-    if (requestedTenant.current !== id) return;
-    if (!loaded.ok) {
-      setError(loaded.message);
-      return;
-    }
-    setPreview(loaded.data);
+    if (!preview) return;
     setSelected(
-      new Set(
-        loaded.data.students.filter((s) => !s.protected).map((s) => s.id),
-      ),
+      new Set(preview.students.filter((s) => !s.protected).map((s) => s.id)),
     );
-  }
+  }, [preview]);
 
-  async function choose(id: string) {
-    setTenantId(id);
-    setError("");
-    setResult(null);
-    await loadPreview(id);
-  }
+  const error = purge.error
+    ? errorText(purge.error, "삭제하지 못했어요.")
+    : previewQuery.error
+      ? errorText(previewQuery.error, "미리보기를 불러오지 못했어요.")
+      : "";
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -128,21 +156,16 @@ export default function MemberPurgeAdmin() {
 
   async function run() {
     if (running) return;
-    setRunning(true);
-    setError("");
-    const purged = await runMemberPurge({
-      tenantId,
-      targetIds: [...selected],
-    });
-    setRunning(false);
+    setResult(null);
+    try {
+      setResult(
+        await purge.mutateAsync({ tenantId, targetIds: [...selected] }),
+      );
+    } catch {
+      // 실패 안내는 purge.error 로 보인다.
+    }
     setConfirming(false);
     setTypedName("");
-    if (!purged.ok) {
-      setError(purged.message);
-      return;
-    }
-    setResult(purged.data);
-    await loadPreview(tenantId);
   }
 
   // 삭제 가능일(유예 종료 다음 날)이 되기 전, 또는 유예 종료일을 모르면 실행할 수 없다.
@@ -160,20 +183,7 @@ export default function MemberPurgeAdmin() {
       : null;
 
   return (
-    <div>
-      <h1 className="mb-6 text-2xl font-semibold">계약 종료 회원 삭제</h1>
-      <div className="mb-6 max-w-sm bg-white p-6 shadow-sm">
-        <Field label="기관">
-          <Select value={tenantId} onChange={choose}>
-            <option value="">기관을 고르세요</option>
-            {tenants.map((tenant) => (
-              <option key={tenant.id} value={tenant.id}>
-                {tenant.name} ({tenant.code})
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </div>
+    <>
       {error && (
         <div role="alert" className="mb-4 text-sm font-medium text-red-600">
           {error}
@@ -345,6 +355,6 @@ export default function MemberPurgeAdmin() {
           </Table>
         </div>
       )}
-    </div>
+    </>
   );
 }

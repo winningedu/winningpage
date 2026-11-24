@@ -1,7 +1,9 @@
 // 매출 및 결제 화면의 접근성과 표 구조. 탭, 기간 입력, 표 머리글, 상태 안내를 검증한다.
 
 import "@testing-library/jest-dom/vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { afterEach, expect, test, vi } from "vitest";
 
 const row = (id: string, service: string, name: string) => ({
@@ -21,49 +23,59 @@ const row = (id: string, service: string, name: string) => ({
   net_amount: 1000,
 });
 
-const tables: Record<string, unknown[]> = {
-  products: [
-    { service_key: "goal", service_name: "목표관리", service_sort_order: 1 },
-    { service_key: "mentor", service_name: "콜멘토", service_sort_order: 2 },
-  ],
-  admin_revenue_items: [
-    row("1", "goal", "목표결제자"),
-    row("2", "mentor", "멘토결제자"),
-  ],
-};
+const get = vi.hoisted(() => vi.fn());
 
-function chain(table: string) {
-  const proxy: unknown = new Proxy(
-    {},
-    {
-      get(_t, prop) {
-        if (prop === "then") {
-          return (resolve: (v: unknown) => void) =>
-            resolve({ data: tables[table] ?? [], error: null, count: 0 });
-        }
-        return () => proxy;
-      },
-    },
-  );
-  return proxy;
-}
-
-vi.mock("@/lib/supabase", () => ({
-  supabase: { from: (table: string) => chain(table) },
+vi.mock("@/lib/http/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/http/client")>()),
+  api: { get },
 }));
 
-import RevenueAdmin from "./RevenueAdmin";
+let revenueItems: unknown[] = [];
 
-afterEach(() => {
-  cleanup();
-  tables.admin_revenue_items = [
+function mockApi() {
+  revenueItems = [
     row("1", "goal", "목표결제자"),
     row("2", "mentor", "멘토결제자"),
   ];
+  get.mockImplementation((path: string) => ({
+    json: async () => {
+      if (path === "admin/revenue") return { items: revenueItems };
+      if (path === "admin/revenue/services")
+        return {
+          items: [
+            { key: "goal", label: "목표관리" },
+            { key: "mentor", label: "콜멘토" },
+          ],
+        };
+      return { approvalWaiting: 0, processWaiting: 0 };
+    },
+  }));
+}
+
+import RevenueAdmin from "./RevenueAdmin";
+
+function renderScreen() {
+  mockApi();
+  return render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <MemoryRouter>
+        <RevenueAdmin />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+afterEach(() => {
+  cleanup();
+  get.mockReset();
 });
 
 test("서비스 탭은 role=tab 이고 누르면 해당 서비스 행만 남는다", async () => {
-  render(<RevenueAdmin />);
+  renderScreen();
 
   expect(await screen.findByText("목표결제자")).toBeInTheDocument();
   expect(screen.getByText("멘토결제자")).toBeInTheDocument();
@@ -79,7 +91,7 @@ test("서비스 탭은 role=tab 이고 누르면 해당 서비스 행만 남는�
 });
 
 test("기간 날짜 입력에 이름이 있다", async () => {
-  render(<RevenueAdmin />);
+  renderScreen();
   await screen.findByText("목표결제자");
 
   expect(screen.getByLabelText("조회 시작일")).toHaveAttribute("type", "date");
@@ -87,7 +99,7 @@ test("기간 날짜 입력에 이름이 있다", async () => {
 });
 
 test("표 머리글은 열 머리글이고 데이터가 없으면 안내를 보인다", async () => {
-  render(<RevenueAdmin />);
+  renderScreen();
   await screen.findByText("목표결제자");
 
   const heads = screen.getAllByRole("columnheader", { name: "결제일시" });
@@ -95,7 +107,7 @@ test("표 머리글은 열 머리글이고 데이터가 없으면 안내를 보�
 });
 
 test("선택 기간 매출 타일은 작은 카드다", async () => {
-  render(<RevenueAdmin />);
+  renderScreen();
   await screen.findByText("목표결제자");
 
   const tile = screen.getByText("선택 기간 매출").closest('[data-slot="card"]');
@@ -103,7 +115,7 @@ test("선택 기간 매출 타일은 작은 카드다", async () => {
 });
 
 test("불러오는 동안 상태 안내가 role=status 로 보인다", () => {
-  render(<RevenueAdmin />);
+  renderScreen();
 
   expect(screen.getByRole("status")).toHaveTextContent(
     "데이터를 불러오는 중입니다.",
