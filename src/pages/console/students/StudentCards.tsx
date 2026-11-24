@@ -1,9 +1,9 @@
 // W6 휴대폰 카드 목록. 이름은 줄여 쓰지 않고 줄바꿈한다.
 
-import { Button } from "@/components/ui/button";
 import Chip from "../Chip";
 import NameCell from "../NameCell";
 import { useGradeLabel } from "../useConsoleMe";
+import EditIconButton from "./EditIconButton";
 import RateCell from "./RateCell";
 import ServiceIcons from "./ServiceIcons";
 import SpecialReasons from "./SpecialReasons";
@@ -14,7 +14,6 @@ import UrgencyChip from "./UrgencyChip";
 interface StudentCardsProps {
   rows: StudentRow[];
   academy: boolean;
-  showEdit: boolean;
   showReasons: boolean;
   thresholds: SpecialThresholds;
   onOpen: (studentId: string) => void;
@@ -24,7 +23,6 @@ interface StudentCardsProps {
 export default function StudentCards({
   rows,
   academy,
-  showEdit,
   showReasons,
   thresholds,
   onOpen,
@@ -48,19 +46,24 @@ export default function StudentCards({
                 <Chip tone="Neutral">미가입</Chip>
               </span>
             ) : (
-              <button
-                type="button"
-                onClick={() => onOpen(row.studentId)}
-                className="flex flex-col gap-1 text-left"
-              >
-                <NameCell name={row.displayName} />
-                <span className="text-app-caption text-ink">
-                  {`${gradeClassOf(row, academy, gradeLabel)} ${numberOf(row)}`}
-                </span>
-                <span className="text-app-caption text-ink-sub">
-                  {joinedLabel(row.joinedAt)}
-                </span>
-              </button>
+              <span className="flex items-start gap-1">
+                <button
+                  type="button"
+                  onClick={() => onOpen(row.studentId)}
+                  className="flex flex-col gap-1 text-left"
+                >
+                  <NameCell name={row.displayName} />
+                  <span className="text-app-caption text-ink">
+                    {`${gradeClassOf(row, academy, gradeLabel)} ${numberOf(row)}`}
+                  </span>
+                  <span className="text-app-caption text-ink-sub">
+                    {joinedLabel(row.joinedAt)}
+                  </span>
+                </button>
+                {row.canEdit && (
+                  <EditIconButton onClick={() => onEdit(row.studentId)} />
+                )}
+              </span>
             )}
             <span className="flex w-[4.75rem] shrink-0 flex-col items-start gap-1">
               <span className="text-app-caption text-ink-sub">
@@ -84,16 +87,6 @@ export default function StudentCards({
               reasons={row.specialReasons}
               thresholds={thresholds}
             />
-          )}
-          {showEdit && row.canEdit && !row.pending && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onEdit(row.studentId)}
-              className="h-11 w-full rounded-lg bg-surface-muted text-sm font-medium text-primary"
-            >
-              편집하기
-            </Button>
           )}
         </li>
       ))}

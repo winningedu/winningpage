@@ -58,6 +58,8 @@ const noServices = {
   inquiry: false,
 };
 
+const EDIT_NAME = "학년, 반 바꾸기";
+
 const student = (n: number, over: Record<string, unknown> = {}) => ({
   studentId: `s${n}`,
   displayName: n === 1 ? "김서연" : "이서준",
@@ -193,7 +195,7 @@ describe("W6 학생 관리 default", () => {
     expect(within(row).getByText("보통")).toBeTruthy();
     expect(within(row).getByText("72%")).toBeTruthy();
     expect(within(row).getByText("6/6")).toBeTruthy();
-    expect(within(row).getByRole("button", { name: "편집하기" })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: EDIT_NAME })).toBeTruthy();
     const second = screen.getByText("이서준").closest("tr") as HTMLElement;
     expect(within(second).getByText("번호 미입력")).toBeTruthy();
     expect(within(second).getByText("0/6")).toBeTruthy();
@@ -230,7 +232,7 @@ describe("W6 학생 관리 미가입", () => {
     expect(within(row).getByText("2학년 3반")).toBeTruthy();
     const real = screen.getByText("김서연").closest("tr") as HTMLElement;
     expect(within(real).queryByText("미가입")).toBeNull();
-    expect(within(real).getByRole("button", { name: "편집하기" })).toBeTruthy();
+    expect(within(real).getByRole("button", { name: EDIT_NAME })).toBeTruthy();
     expect(calls.some((c) => c.key.includes("/students/detail"))).toBe(false);
   });
 });
@@ -360,7 +362,7 @@ describe("W6 학생 관리 역할과 조회", () => {
     );
   });
 
-  it("전체 관리자는 전체를 보고 편집하기 없이, 반은 학년을 고른 뒤에만 열린다", async () => {
+  it("전체 관리자는 전체를 보고 이름 옆 아이콘으로 고치며, 반은 학년을 고른 뒤에만 열린다", async () => {
     stubPage(
       {
         "GET /api/console/students?page=1": {
@@ -374,7 +376,7 @@ describe("W6 학생 관리 역할과 조회", () => {
     renderRoutes(routes, "/teacher/students");
 
     expect(await screen.findByText("김*연")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "편집하기" })).toBeNull();
+    expect(screen.getByRole("button", { name: EDIT_NAME })).toBeTruthy();
     const select = screen.getByLabelText("반") as HTMLSelectElement;
     expect(select.disabled).toBe(true);
     expect(screen.getByText("학년을 먼저 골라요")).toBeTruthy();
@@ -477,7 +479,7 @@ describe("W6 학생 관리 휴대폰", () => {
     expect(screen.queryByRole("columnheader")).toBeNull();
     expect(screen.getByText("2학년 3반 1번")).toBeTruthy();
     expect(screen.getAllByText("학습진단 긴급도").length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "편집하기" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: EDIT_NAME })).toHaveLength(2);
   });
 });
 
@@ -657,12 +659,54 @@ describe("W6a 학생 상세", () => {
   });
 });
 
+describe("QA 50 이름 옆 학년, 반 바꾸기 아이콘", () => {
+  it("편집 열 없이 이름 칸에 아이콘이 있고, 이름 버튼은 상세를, 아이콘은 편집 창을 따로 연다", async () => {
+    stubPage();
+    renderRoutes(routes, "/teacher/students");
+
+    const row = (await screen.findByText("김서연")).closest(
+      "tr",
+    ) as HTMLElement;
+    const icon = within(row).getByRole("button", { name: EDIT_NAME });
+    const nameButton = within(row).getByText("김서연").closest("button");
+    expect(nameButton?.contains(icon)).toBe(false);
+    expect(row.querySelectorAll("td")).toHaveLength(5);
+    expect(
+      screen.getAllByRole("columnheader").map((h) => h.textContent),
+    ).not.toContain("편집하기");
+
+    fireEvent.click(icon);
+    expect(await screen.findByText("학생 정보 편집")).toBeTruthy();
+    expect(
+      screen.queryByText(
+        "학생 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeNull();
+  });
+
+  it("canEdit 이 아니거나 가입 전 줄에는 아이콘이 없다", async () => {
+    stubPage({
+      [LIST_URL]: {
+        body: listBody([
+          student(1),
+          student(2, { canEdit: false }),
+          student(3, { displayName: "최*도", pending: true, canEdit: false }),
+        ]),
+      },
+    });
+    renderRoutes(routes, "/teacher/students");
+
+    await screen.findByText("김서연");
+    expect(screen.getAllByRole("button", { name: EDIT_NAME })).toHaveLength(1);
+  });
+});
+
 const PATCH_URL = "PATCH /api/console/students/enrollment";
 
 async function openEdit() {
   renderRoutes(routes, "/teacher/students");
   const row = (await screen.findByText("김서연")).closest("tr") as HTMLElement;
-  fireEvent.click(within(row).getByRole("button", { name: "편집하기" }));
+  fireEvent.click(within(row).getByRole("button", { name: EDIT_NAME }));
   return await screen.findByRole("dialog");
 }
 
