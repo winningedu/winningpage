@@ -271,3 +271,39 @@ describe("check-http-legacy legacyError", () => {
     expect(counts()).toEqual({});
   });
 });
+
+describe("check-http-legacy okSuccess", () => {
+  test.each([
+    ["res.status(200).json({ ok: true });"],
+    ["res.json({ ok: true, data });"],
+    ["res.status(201).json({ ok: true });"],
+    ["res.json({ ok });"],
+    ["res.json({ ok: result.ok });"],
+    ["fooRes.json({ ok: true });"],
+  ])("ok 멤버가 있는 성공 본문을 잡는다: %s", (code) => {
+    put("api/a.ts", `${code}\n`);
+    expect(counts()).toEqual({ "api/a.ts": { okSuccess: 1 } });
+  });
+
+  test("오류 상태의 ok:false 는 legacyError로만 센다", () => {
+    put("api/a.ts", "res.status(400).json({ ok: false });\n");
+    expect(counts()).toEqual({ "api/a.ts": { legacyError: 1 } });
+  });
+
+  test.each([
+    ["res.status(200).json({ id: 1 });"],
+    ["res.json({ items });"],
+    ["res.json({ data: { ok: true } });"],
+    ["res.json(ok);"],
+    ["other.json({ ok: true });"],
+    ["res.send({ ok: true });"],
+  ])("ok 멤버가 없거나 응답이 아니면 세지 않는다: %s", (code) => {
+    put("api/a.ts", `${code}\n`);
+    expect(counts()).toEqual({});
+  });
+
+  test("src/ 파일은 세지 않는다", () => {
+    put("src/a.ts", "res.json({ ok: true });\n");
+    expect(counts()).toEqual({});
+  });
+});

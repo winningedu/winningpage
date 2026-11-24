@@ -164,6 +164,20 @@ function isLegacyError(call, sf) {
   return r !== null && isErrorStatus(r.status);
 }
 
+// 성공 본문(.json, 오류 상태 아님)에 ok 멤버가 있는지 본다.
+function isOkSuccess(call, sf) {
+  const r = responseCall(call, sf);
+  if (r === null || r.method !== "json" || isErrorStatus(r.status)) {
+    return false;
+  }
+  if (r.arg === undefined || !ts.isObjectLiteralExpression(r.arg)) return false;
+  return r.arg.properties.some(
+    (p) =>
+      (ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)) &&
+      p.name.getText(sf) === "ok",
+  );
+}
+
 const RULES = {
   browserDb: { scope: "src", match: isBrowserDb },
   legacyFetch: {
@@ -176,6 +190,7 @@ const RULES = {
     match: isLegacyError,
     exempt: /^api\/_lib\/httpResponse\.ts$/,
   },
+  okSuccess: { scope: "api", match: isOkSuccess },
 };
 
 function analyze(file, text) {
