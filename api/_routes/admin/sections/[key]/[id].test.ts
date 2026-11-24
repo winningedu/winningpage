@@ -8,6 +8,7 @@ import {
   type SectionDb,
   seedAdmin,
 } from "../../../../_lib/admin-sections/sectionTestKit.js";
+import { createFakeStorage } from "../../../../_lib/admin-uploads/storageTestKit.js";
 import {
   callHandler,
   createKitState,
@@ -17,11 +18,15 @@ import {
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   db: null as unknown as SectionDb,
+  fake: null as unknown as { storage: unknown },
 }));
 
 vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
   isSupabaseConfigError: () => false,
-  createSupabaseAdmin: () => createSectionAdmin(kit.state, kit.db),
+  createSupabaseAdmin: () => ({
+    ...createSectionAdmin(kit.state, kit.db),
+    storage: kit.fake.storage,
+  }),
 }));
 
 import handler from "./[id].js";
@@ -32,6 +37,7 @@ const call = (method: string, key: string, id: string, body?: unknown) =>
 beforeEach(() => {
   kit.state = createKitState();
   kit.db = createSectionDb({});
+  kit.fake = createFakeStorage();
 });
 
 describe("GET /api/admin/sections/:key/:id", () => {
@@ -87,6 +93,53 @@ describe("PATCH /api/admin/sections/:key/:id", () => {
     const update = kit.db.calls.find((c) => c.op === "update");
     expect(update?.values).toEqual({ question: "new" });
     expect(update?.filters).toEqual([["id", "eq", "f1"]]);
+  });
+
+  describe("임시 업로드", () => {
+    const UUID = "123e4567-e89b-12d3-a456-426614174000";
+    const NAME = `${UUID}.image_url.hero.png`;
+    const tmpUrl = (name: string) =>
+      `https://storage.test/storage/v1/object/sign/admin-uploads-tmp/${name}?token=t`;
+
+    test("수정에서도 임시 URL 을 옮기고 공개 URL 을 저장한다", async () => {
+      kit.fake = createFakeStorage({ "admin-uploads-tmp": [NAME] });
+      seedAdmin(kit.state, "edit", "banners");
+      kit.db.tables.banners = [{ id: "b1", image_url: "old" }];
+
+      const r = await call("PATCH", "banners", "b1", {
+        values: { image_url: tmpUrl(NAME) },
+      });
+
+      const publicUrl = `https://storage.test/storage/v1/object/public/banners/landing/hero/${UUID}-hero.png`;
+      expect(r.status).toBe(200);
+      expect(kit.db.tables.banners[0]?.image_url).toBe(publicUrl);
+    });
+
+    test("이미 옮긴 파일을 다시 저장해도 성공한다", async () => {
+      kit.fake = createFakeStorage({
+        banners: [`landing/hero/${UUID}-hero.png`],
+      });
+      seedAdmin(kit.state, "edit", "banners");
+      kit.db.tables.banners = [{ id: "b1", image_url: "old" }];
+      const r = await call("PATCH", "banners", "b1", {
+        values: { image_url: tmpUrl(NAME) },
+      });
+      expect(r.status).toBe(200);
+    });
+
+    test("임시 파일이 사라졌으면 409 UPLOAD_EXPIRED 이고 행은 그대로", async () => {
+      seedAdmin(kit.state, "edit", "banners");
+      kit.db.tables.banners = [{ id: "b1", image_url: "old", sort_order: 1 }];
+
+      const r = await call("PATCH", "banners", "b1", {
+        values: { sort_order: 1, image_url: tmpUrl(NAME) },
+      });
+
+      expect(r.status).toBe(409);
+      expect(r.body).toMatchObject({ code: "UPLOAD_EXPIRED" });
+      expect(kit.db.calls).toHaveLength(0);
+      expect(kit.db.tables.banners[0]?.image_url).toBe("old");
+    });
   });
 
   test("맞는 행이 없으면 404", async () => {

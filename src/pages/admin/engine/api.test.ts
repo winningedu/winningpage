@@ -10,11 +10,16 @@ const http = vi.hoisted(() => ({
 vi.mock("@/lib/http/client", () => ({ api: http }));
 
 import {
+  completeRefund,
   createSectionRow,
   deleteSectionRow,
   fetchExportChunk,
   fetchSectionList,
+  issueUpload,
   markSectionReviewed,
+  previewUpload,
+  removeUploads,
+  requestEmbedding,
   sectionKeys,
   updateSectionMeta,
   updateSectionRow,
@@ -129,5 +134,76 @@ describe("fetchExportChunk", () => {
       },
     );
     expect(chunk).toEqual({ items: [{ id: 1 }], next: 1000 });
+  });
+});
+
+describe("업로드 호출", () => {
+  it("issueUpload 는 section, field, 파일 정보를 POST admin/uploads 로 보낸다", async () => {
+    http.post.mockReturnValue(reply({ path: "p", uploadUrl: "u" }));
+
+    const issued = await issueUpload("notices", {
+      field: "image",
+      fileName: "a.png",
+      contentType: "image/png",
+      size: 10,
+    });
+
+    expect(http.post).toHaveBeenCalledWith("admin/uploads", {
+      json: {
+        section: "notices",
+        field: "image",
+        fileName: "a.png",
+        contentType: "image/png",
+        size: 10,
+      },
+    });
+    expect(issued).toEqual({ path: "p", uploadUrl: "u" });
+  });
+
+  it("previewUpload 는 임시 파일의 읽기 주소를 돌려준다", async () => {
+    http.post.mockReturnValue(reply({ url: "https://tmp/read" }));
+
+    const url = await previewUpload("notices", "p");
+
+    expect(http.post).toHaveBeenCalledWith("admin/uploads/preview", {
+      json: { section: "notices", path: "p" },
+    });
+    expect(url).toBe("https://tmp/read");
+  });
+
+  it("removeUploads 는 DELETE admin/uploads 에 section 과 paths 를 싣는다", async () => {
+    http.delete.mockResolvedValue(undefined);
+
+    await removeUploads("notices", ["a.png", "b.png"]);
+
+    expect(http.delete).toHaveBeenCalledWith("admin/uploads", {
+      json: { section: "notices", paths: ["a.png", "b.png"] },
+    });
+  });
+});
+
+describe("completeRefund", () => {
+  it("POST complete-refund 에 refundRequestId 를 보낸다", async () => {
+    http.post.mockReturnValue(reply({ alreadyCompleted: true }));
+
+    const result = await completeRefund(12);
+
+    expect(http.post).toHaveBeenCalledWith("complete-refund", {
+      json: { refundRequestId: 12 },
+    });
+    expect(result).toEqual({ alreadyCompleted: true });
+  });
+});
+
+describe("requestEmbedding", () => {
+  it("embed-one 을 60초 제한으로 POST 한다", async () => {
+    http.post.mockReturnValue(reply({ action: "embed-one" }));
+
+    await requestEmbedding("k1");
+
+    expect(http.post).toHaveBeenCalledWith("performance/admin-embed", {
+      json: { action: "embed-one", id: "k1" },
+      timeout: 60_000,
+    });
   });
 });

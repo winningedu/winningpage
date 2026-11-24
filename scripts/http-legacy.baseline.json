@@ -99,11 +99,6 @@
   "api/_routes/check-service-access.ts": {
     "legacyError": 4
   },
-  "api/_routes/complete-refund.ts": {
-    "legacyError": 13,
-    "outsideHandler": 1,
-    "okSuccess": 2
-  },
   "api/_routes/confirm-payment.ts": {
     "legacyError": 16,
     "outsideHandler": 1
@@ -479,9 +474,6 @@
     "legacyError": 3,
     "okSuccess": 1
   },
-  "api/_routes/performance/admin-embed.ts": {
-    "legacyError": 4
-  },
   "api/_routes/performance/analyze-guide.ts": {
     "legacyError": 2
   },
@@ -829,9 +821,6 @@
   },
   "src/lib/signupEmailAuth.ts": {
     "browserDb": 1
-  },
-  "src/pages/Admin.tsx": {
-    "legacyFetch": 2
   },
   "src/pages/AdmissionBoard.tsx": {
     "browserDb": 2

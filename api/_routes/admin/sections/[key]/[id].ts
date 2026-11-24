@@ -1,7 +1,7 @@
 // GET, PATCH, DELETE /api/admin/sections/:key/:id
 //
 // 한 행 읽기(목록용 뷰가 아니라 table), 수정, 삭제. 수정 규칙은 [key].ts 의 등록과 같다
-// (id 의 구간 밀기에서는 자기 행을 뺀다). 스토리지 정리는 브라우저가 한다(B4).
+// (id 의 구간 밀기에서는 자기 행을 뺀다). 임시 업로드는 저장 전에 banners 로 옮기고, 옛 파일 삭제는 DELETE /api/admin/uploads 다.
 
 import {
   buildPayload,
@@ -15,6 +15,7 @@ import {
   shiftSortOrder,
   valuesOf,
 } from "../../../../_lib/admin-sections/query.js";
+import { promoteForWrite } from "../../../../_lib/admin-uploads/promote.js";
 import { defineHandler } from "../../../../_lib/handler.js";
 
 export const config = { runtime: "nodejs" };
@@ -72,7 +73,9 @@ export default defineHandler({
       sendRejectedPayload(res, built);
       return;
     }
-    const { payload } = built;
+    // 임시 업로드를 먼저 옮긴다. 파일이 없으면 409 로 끝나 DB 는 건드리지 않는다.
+    const payload = await promoteForWrite(res, admin, entry, built.payload);
+    if (!payload) return;
     if (entry.shiftSortOrder && Number.isFinite(Number(payload.sort_order))) {
       await shiftSortOrder(admin, entry, Number(payload.sort_order), id);
     }

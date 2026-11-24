@@ -16,6 +16,7 @@ import {
   valuesOf,
 } from "../../../_lib/admin-sections/query.js";
 import { SECTION_PAGE_SIZE } from "../../../_lib/admin-sections/registry.js";
+import { promoteForWrite } from "../../../_lib/admin-uploads/promote.js";
 import { defineHandler } from "../../../_lib/handler.js";
 
 export const config = { runtime: "nodejs" };
@@ -60,7 +61,9 @@ export default defineHandler({
       sendRejectedPayload(res, built);
       return;
     }
-    const { payload } = built;
+    // 임시 업로드를 먼저 옮긴다. 파일이 없으면 409 로 끝나 DB 는 건드리지 않는다.
+    const payload = await promoteForWrite(res, admin, entry, built.payload);
+    if (!payload) return;
     if (entry.shiftSortOrder && Number.isFinite(Number(payload.sort_order))) {
       await shiftSortOrder(admin, entry, Number(payload.sort_order));
     }

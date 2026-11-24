@@ -6,7 +6,13 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { SITES } from "../../../src/config/sites.js";
 import { PROTECTED_COLUMNS, SECTION_PAGE_SIZE, SECTIONS } from "./registry.js";
 
-type Field = { key: string };
+interface Field {
+  key: string;
+  type?: string;
+  folder?: string;
+  accept?: string;
+  imageSpec?: { maxMB?: number };
+}
 interface BrowserConfig {
   custom?: boolean;
   comingSoon?: boolean;
@@ -108,6 +114,38 @@ function sampleForm(config: BrowserConfig) {
   return form;
 }
 
+const UPLOAD_KIND: Record<string, "image" | "file"> = {
+  image: "image",
+  multiImage: "image",
+  blockEditor: "image",
+  file: "file",
+  multiFile: "file",
+};
+
+// 업로드 필드 규칙을 AdminEngine uploadImage 와 같게 config 에서 뽑는다(레지스트리 uploads 의 기대값).
+function derivedUploads(config: BrowserConfig) {
+  const uploads: Record<
+    string,
+    { kind: string; folder: string; accept?: string[]; maxBytes?: number }
+  > = {};
+  for (const field of config.fields ?? []) {
+    const kind = UPLOAD_KIND[field.type ?? ""];
+    if (!kind) continue;
+    const accept = field.accept
+      ?.split(",")
+      .map((ext) => ext.trim().replace(/^\./, "").toLowerCase())
+      .filter(Boolean);
+    const maxMB = field.imageSpec?.maxMB;
+    uploads[field.key] = {
+      kind,
+      folder: field.folder ?? (kind === "file" ? "notice-files" : "admin"),
+      ...(accept ? { accept } : {}),
+      ...(maxMB ? { maxBytes: maxMB * 1024 * 1024 } : {}),
+    };
+  }
+  return uploads;
+}
+
 // config 를 사이트마다 새로 불러오고 AdminEngine 까지 올려서 첫 import 가 느리다.
 vi.setConfig({ testTimeout: 60_000 });
 
@@ -172,6 +210,17 @@ describe.each(Object.keys(SITES))(
           shiftSortOrder: fieldKeys.includes("sort_order"),
         };
         expect({ key, ...actual }).toEqual({ key, ...expected });
+      }
+    });
+
+    test("uploads 는 브라우저 config 의 업로드 필드와 정확히 같다", async () => {
+      const configs = await engineConfigs();
+      for (const [key, entry] of Object.entries(SECTIONS)) {
+        const config = configs[key] as BrowserConfig;
+        expect({ key, uploads: entry.uploads }).toEqual({
+          key,
+          uploads: derivedUploads(config),
+        });
       }
     });
 
