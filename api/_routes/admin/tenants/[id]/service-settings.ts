@@ -14,6 +14,7 @@ import {
   type HandlerCtx,
   parseOrReject,
 } from "../../../../_lib/handler.js";
+import { sendError } from "../../../../_lib/httpResponse.js";
 import { SERVICE_CREDIT_PROGRAMS } from "../../../../_lib/service-credit/programs.js";
 import { createSupabaseUserClient } from "../../../../_lib/supabaseUser.js";
 
@@ -33,7 +34,13 @@ const limit = z.number().int().min(1).max(MAX_LIMIT).nullable();
 
 // updated_by 와 updated_at 은 서버가 채운다(보낸 값은 버려진다).
 const putBodySchema = z
-  .object({
+  .strictObject({
+    // 표 칸을 되돌려 보내는 클라이언트를 받아 주되 값은 쓰지 않는다(변경자와 시각은 서버가 채운다).
+    tenant_id: z.unknown().optional(),
+    id: z.unknown().optional(),
+    created_at: z.unknown().optional(),
+    updated_at: z.unknown().optional(),
+    updated_by: z.unknown().optional(),
     program_key: z
       .string()
       .refine((key) =>
@@ -92,7 +99,14 @@ async function saveSetting(
   const { id: tenantId } = idParsed.value as z.output<typeof idSchema>;
   const parsed = parseOrReject(res, "problem", putBodySchema, req.body);
   if (!parsed) return;
-  const row = parsed.value as z.output<typeof putBodySchema>;
+  const {
+    tenant_id: _tenant,
+    id: _id,
+    created_at: _created,
+    updated_at: _updatedAt,
+    updated_by: _updatedBy,
+    ...row
+  } = parsed.value as z.output<typeof putBodySchema>;
 
   const { data, error } = await createSupabaseUserClient(getBearerToken(req))
     .from("tenant_service_settings")
@@ -107,6 +121,11 @@ async function saveSetting(
     )
     .select(SETTING_COLUMNS)
     .single();
+  // 없는 기관이면 FK 위반이다.
+  if (error?.code === "23503") {
+    sendError(res, "problem", 404, "기관을 찾을 수 없어요.", "NOT_FOUND");
+    return;
+  }
   if (error) throw new Error("service setting upsert failed");
   res.status(200).json(data);
 }

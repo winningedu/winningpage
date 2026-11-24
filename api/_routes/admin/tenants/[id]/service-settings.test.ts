@@ -259,6 +259,48 @@ describe("PUT /api/admin/tenants/:id/service-settings", () => {
     expect(kit.userClientTokens).toHaveLength(0);
   });
 
+  test.each(["tenant_id", "updated_at", "updated_by", "created_at", "id"])(
+    "표 칸 %s 을 보내도 거절하지 않고 클라이언트 값은 쓰지 않는다",
+    async (key) => {
+      const r = await put({ ...ROW, [key]: "client-value" });
+
+      expect(r.status).toBe(200);
+      expect(kit.userState.upserts[0]?.row).not.toMatchObject({
+        [key]: "client-value",
+      });
+    },
+  );
+
+  test.each(["is_admin", "created_by", "extra"])(
+    "화면이 만들지 않는 칸 %s 은 400 이고 쓰지 않는다",
+    async (key) => {
+      const r = await put({ ...ROW, [key]: "x" });
+
+      expect(r.status).toBe(400);
+      expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+      expect(kit.userClientTokens).toHaveLength(0);
+    },
+  );
+
+  test("none 권한이면 403 이고 쓰지 않는다", async () => {
+    grant("none");
+
+    const r = await put(ROW);
+
+    expect(r.status).toBe(403);
+    expect(kit.userState.upserts).toHaveLength(0);
+    expect(kit.state.upserts).toHaveLength(0);
+  });
+
+  test("없는 기관(FK 23503)이면 404 NOT_FOUND 이다", async () => {
+    kit.userState.insertErrors.tenant_service_settings = { code: "23503" };
+
+    const r = await put(ROW);
+
+    expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({ status: 404, code: "NOT_FOUND" });
+  });
+
   test("끄기(enabled false)도 행은 그대로 upsert 한다", async () => {
     await put({ ...ROW, enabled: false });
 

@@ -57,41 +57,44 @@ const text = z.string().nullable();
 // 형식 규칙은 form.ts 와 같다. 칸은 tenantPayload 가 돌려주는 것 그대로이고 비운 선택 항목은 null 이다.
 const patchBodySchema = z.object({
   updatedAt: z.string().min(1),
-  values: z.object({
-    name: z.string().trim().min(1),
-    region: z.string(),
-    org_type: z.string(),
-    tier: z.string(),
-    contract_start_date: date,
-    contract_end_date: date,
-    term_months: z.union([z.literal(3), z.literal(6)]).nullable(),
-    mou_status: text,
-    grace_ends_on: date,
-    trial_start_date: date,
-    trial_end_date: date,
-    contact_name: text,
-    contact_phone: z
-      .string()
-      .regex(/^[0-9-]+$/)
-      .nullable(),
-    contact_mobile: z
-      .string()
-      .regex(/^[0-9-]+$/)
-      .nullable(),
-    contact_email: z
-      .string()
-      .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)
-      .nullable(),
-    address: text,
-    main_phone: z
-      .string()
-      .regex(/^[0-9-]+$/)
-      .nullable(),
-    homepage: z
-      .string()
-      .regex(/^https?:\/\/\S+$/)
-      .nullable(),
-  }),
+  // 목록 밖 칸(code, is_catch_all 등)은 쓰기 허용 목록을 넘으므로 .strict() 로 400 이다.
+  values: z
+    .object({
+      name: z.string().trim().min(1),
+      region: z.string(),
+      org_type: z.string(),
+      tier: z.string(),
+      contract_start_date: date,
+      contract_end_date: date,
+      term_months: z.union([z.literal(3), z.literal(6)]).nullable(),
+      mou_status: text,
+      grace_ends_on: date,
+      trial_start_date: date,
+      trial_end_date: date,
+      contact_name: text,
+      contact_phone: z
+        .string()
+        .regex(/^[0-9-]+$/)
+        .nullable(),
+      contact_mobile: z
+        .string()
+        .regex(/^[0-9-]+$/)
+        .nullable(),
+      contact_email: z
+        .string()
+        .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)
+        .nullable(),
+      address: text,
+      main_phone: z
+        .string()
+        .regex(/^[0-9-]+$/)
+        .nullable(),
+      homepage: z
+        .string()
+        .regex(/^https?:\/\/\S+$/)
+        .nullable(),
+    })
+    .strict(),
 });
 
 async function readTenant(

@@ -174,13 +174,28 @@ describe("PATCH /api/admin/tenants/:id", () => {
     expect(kit.state.updates).toHaveLength(0);
   });
 
-  test("목록에 없는 칸(code, is_catch_all)은 버리고 쓰지 않는다", async () => {
-    await patch({
-      ...BODY,
-      values: { ...VALUES, code: "ZZZZ9999", is_catch_all: true },
-    });
+  test.each([
+    ["code", "ZZZZ9999"],
+    ["is_catch_all", true],
+    ["id", "8a2d3b4c-5e6f-4071-9b8c-0d1e2f3a4b5c"],
+    ["updated_at", "1999-01-01T00:00:00Z"],
+    ["time_zone", "x"],
+  ])("목록에 없는 칸 %s 은 400 이고 쓰지 않는다", async (key, value) => {
+    const r = await patch({ ...BODY, values: { ...VALUES, [key]: value } });
 
-    expect(kit.userState.updates[0]?.values).toEqual(VALUES);
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(kit.userClientTokens).toHaveLength(0);
+  });
+
+  test("none 권한이면 403 이고 쓰지 않는다", async () => {
+    grant("none");
+
+    const r = await patch(BODY);
+
+    expect(r.status).toBe(403);
+    expect(kit.userState.updates).toHaveLength(0);
+    expect(kit.state.updates).toHaveLength(0);
   });
 
   test("바뀐 행이 없고 기관도 없으면 404 NOT_FOUND", async () => {
