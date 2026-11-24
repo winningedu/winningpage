@@ -13,7 +13,6 @@ describe("parseSessionsQuery", () => {
     expect(parseSessionsQuery({})).toEqual({
       ok: true,
       query: {
-        kind: "list",
         status: null,
         q: null,
         page: 1,
@@ -22,22 +21,18 @@ describe("parseSessionsQuery", () => {
     });
   });
 
-  it("sessionId 가 있으면 상세 조회다", () => {
-    expect(parseSessionsQuery({ sessionId: SID })).toEqual({
+  it("sessionId 는 무시한다", () => {
+    expect(parseSessionsQuery({ sessionId: SID, status: "draft" })).toEqual({
       ok: true,
-      query: { kind: "detail", sessionId: SID },
+      query: { status: "draft", q: null, page: 1, pageSize: 20 },
     });
-  });
-
-  it("sessionId 가 uuid 가 아니면 거부한다", () => {
-    expect(parseSessionsQuery({ sessionId: "x" }).ok).toBe(false);
   });
 
   it("status 가 허용 값이 아니면 거부한다", () => {
     expect(parseSessionsQuery({ status: "deleted" }).ok).toBe(false);
     const r = parseSessionsQuery({ status: "archived", q: " 김 " });
-    expect(r.ok && r.query.kind === "list" && r.query.status).toBe("archived");
-    expect(r.ok && r.query.kind === "list" && r.query.q).toBe("김");
+    expect(r.ok && r.query.status).toBe("archived");
+    expect(r.ok && r.query.q).toBe("김");
   });
 });
 
