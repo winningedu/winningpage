@@ -305,6 +305,11 @@ export async function callHandler(
       captured.body = payload;
       return res;
     },
+    // problem 모양 응답은 res.end(JSON 문자열)로 쓴다.
+    end(payload: string) {
+      captured.body = JSON.parse(payload);
+      return res;
+    },
   } as unknown as VercelResponse;
   await handler(
     {

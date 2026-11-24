@@ -6,6 +6,8 @@ export const routes: Record<string, RouteLoader> = {
   "admin/ai-telemetry": () => import("./admin/ai-telemetry.js"),
   "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
   "admin/growth-grant": () => import("./admin/growth-grant.js"),
+  "admin/home-section-copy/[sectionKey]": () =>
+    import("./admin/home-section-copy/[sectionKey].js"),
   "admin/hq-dashboard/summary": () => import("./admin/hq-dashboard/summary.js"),
   "admin/hq-dashboard/tenants": () => import("./admin/hq-dashboard/tenants.js"),
   "admin/hq-dashboard/usage": () => import("./admin/hq-dashboard/usage.js"),
@@ -27,6 +29,7 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/service-credit-adjust.js"),
   "admin/service-credit-summary": () =>
     import("./admin/service-credit-summary.js"),
+  "admin/tenant-options": () => import("./admin/tenant-options.js"),
   "admin/tenants/member-purge": () => import("./admin/tenants/member-purge.js"),
   "admin/tenants/member-purge-preview": () =>
     import("./admin/tenants/member-purge-preview.js"),
