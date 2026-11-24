@@ -14,7 +14,7 @@ import {
 // 원칙은 값 레벨 import 방향에 대한 것이라, 이 타입 전용 import로는
 // 깨지지 않는다(admissionDoc.ts → admissionParsing.ts 방향 값 import는
 // 여전히 없음).
-import type { AdmissionDoc, Block, SectionKey, Warning } from "./admissionDoc";
+import type { AdmissionDoc, Block, SectionKey, Warning } from "./admissionDoc.js";
 
 export function clean(value) {
   return String(value || "").trim();
