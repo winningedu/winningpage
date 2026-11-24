@@ -143,3 +143,100 @@ export async function shiftSortOrder(
     if (updateError) throw new Error(`${entry.table} sort_order shift failed`);
   }
 }
+
+export interface MappedDbError {
+  status: number;
+  code: string;
+  detail: string;
+  /** 컬럼 이름(23514 는 제약 이름)만. 값은 절대 싣지 않는다. */
+  columns: string[];
+}
+
+// 유니크 인덱스가 식이면 details 에 coalesce(title, ''::text) 처럼 식이 실린다. 첫 식별자를 컬럼으로 본다.
+const SQL_NOISE = new Set([
+  "coalesce",
+  "lower",
+  "upper",
+  "trim",
+  "btrim",
+  "both",
+  "from",
+  "text",
+  "int",
+  "integer",
+]);
+
+/** `Key (a, coalesce(b, ''::text))=(값)` 의 괄호 안 컬럼 목록. 값 부분은 읽지 않는다(adminErrors.ts 와 같은 해석). */
+function uniqueKeyColumns(details: string | undefined): string[] {
+  const inner = details?.match(/Key \((.*?)\)=\(/)?.[1];
+  if (!inner) return [];
+  // 최상위 콤마로만 자른다. coalesce(x, '') 안쪽 콤마에 걸리면 안 된다.
+  const parts: string[] = [];
+  let depth = 0;
+  let buffer = "";
+  for (const char of inner) {
+    if (char === "(") depth += 1;
+    if (char === ")") depth -= 1;
+    if (char === "," && depth === 0) {
+      parts.push(buffer);
+      buffer = "";
+      continue;
+    }
+    buffer += char;
+  }
+  parts.push(buffer);
+  return parts.flatMap((part) => {
+    const token = (part.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) ?? []).find(
+      (name) => !SQL_NOISE.has(name.toLowerCase()),
+    );
+    return token ? [token] : [];
+  });
+}
+
+interface DbErrorLike {
+  code?: string;
+  message?: string;
+  details?: string;
+}
+
+/**
+ * 쓰기 DB 오류를 응답으로 바꾼다. 원문 message, details 는 보내지 않는다(details 에 중복된 값이 있다).
+ * 문구는 화면 adminErrors.ts 의 기본 안내와 같다. 모르는 오류는 null(호출부가 던져 500 이 된다).
+ */
+export function mapDbError(
+  error: DbErrorLike | null | undefined,
+): MappedDbError | null {
+  switch (error?.code) {
+    case "23505":
+      return {
+        status: 409,
+        code: "DB_UNIQUE_VIOLATION",
+        detail: "이미 등록된 값입니다(중복).",
+        columns: uniqueKeyColumns(error.details),
+      };
+    case "23502": {
+      const column = error.message?.match(
+        /null value in column "([^"]+)"/,
+      )?.[1];
+      return {
+        status: 400,
+        code: "DB_NOT_NULL_VIOLATION",
+        detail: "필수 값이 비어 있습니다. 항목을 모두 입력해 주세요.",
+        columns: column ? [column] : [],
+      };
+    }
+    case "23514": {
+      const constraint = error.message?.match(
+        /violates check constraint "([^"]+)"/,
+      )?.[1];
+      return {
+        status: 400,
+        code: "DB_CHECK_VIOLATION",
+        detail: "입력값이 저장 조건을 벗어났습니다. 값을 다시 확인해 주세요.",
+        columns: constraint ? [constraint] : [],
+      };
+    }
+    default:
+      return null;
+  }
+}

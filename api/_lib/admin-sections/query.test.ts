@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "vitest";
 import { createKitState } from "../console/consoleTestKit.js";
-import { buildListQuery, shiftSortOrder } from "./query.js";
+import { buildListQuery, mapDbError, shiftSortOrder } from "./query.js";
 import { SECTIONS } from "./registry.js";
 import { createSectionAdmin, createSectionDb } from "./sectionTestKit.js";
 
@@ -140,5 +140,60 @@ describe("shiftSortOrder", () => {
     await expect(
       shiftSortOrder(admin as never, SECTIONS.faqs, 2),
     ).rejects.toThrow();
+  });
+});
+
+describe("mapDbError", () => {
+  test("23505 는 409 와 겹친 컬럼 이름만 돌려주고 값은 싣지 않는다", () => {
+    const mapped = mapDbError({
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "x_idx"',
+      details:
+        "Key (coalesce(title, ''::text), sort_order)=(비밀제목, 3) already exists.",
+    });
+    expect(mapped).toEqual({
+      status: 409,
+      code: "DB_UNIQUE_VIOLATION",
+      detail: "이미 등록된 값입니다(중복).",
+      columns: ["title", "sort_order"],
+    });
+    expect(JSON.stringify(mapped)).not.toContain("비밀제목");
+  });
+
+  test("23502 는 400 과 비어 있는 컬럼", () => {
+    expect(
+      mapDbError({
+        code: "23502",
+        message:
+          'null value in column "school_name" of relation "t" violates not-null constraint',
+        details: "Failing row contains (개인정보).",
+      }),
+    ).toEqual({
+      status: 400,
+      code: "DB_NOT_NULL_VIOLATION",
+      detail: "필수 값이 비어 있습니다. 항목을 모두 입력해 주세요.",
+      columns: ["school_name"],
+    });
+  });
+
+  test("23514 는 400 과 제약 이름", () => {
+    expect(
+      mapDbError({
+        code: "23514",
+        message:
+          'new row for relation "coupons" violates check constraint "coupons_rate_check"',
+        details: "Failing row contains (secret).",
+      }),
+    ).toEqual({
+      status: 400,
+      code: "DB_CHECK_VIOLATION",
+      detail: "입력값이 저장 조건을 벗어났습니다. 값을 다시 확인해 주세요.",
+      columns: ["coupons_rate_check"],
+    });
+  });
+
+  test("그 밖의 오류와 오류 없음은 null", () => {
+    expect(mapDbError({ code: "42703", message: "x" })).toBeNull();
+    expect(mapDbError(null)).toBeNull();
   });
 });
