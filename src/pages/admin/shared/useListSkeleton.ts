@@ -13,12 +13,13 @@ interface ListQueryState {
 export function useListSkeleton(
   query: ListQueryState,
   queryKey: QueryKey,
+  activatedAt?: number,
 ): boolean {
   const hash = hashKey(queryKey);
   const [active, setActive] = useState(() => ({ hash, at: Date.now() }));
   const current = active.hash === hash ? active : { hash, at: Date.now() };
   if (current !== active) setActive(current);
-  return (
-    query.isPending || (query.isFetching && query.dataUpdatedAt < current.at)
-  );
+  // 이동 시작 시각을 아는 화면은 그 시각을 활성화 시각으로 쓴다(선받기가 마운트보다 먼저다).
+  const at = activatedAt ?? current.at;
+  return query.isPending || (query.isFetching && query.dataUpdatedAt < at);
 }

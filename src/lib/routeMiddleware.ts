@@ -7,6 +7,7 @@ import {
   ADMIN_ENGINE_SECTION_KEYS,
   ADMIN_SECTION_KEYS,
 } from "@/pages/admin/adminSectionKeys";
+import { startListNavigation } from "@/pages/admin/engine/listNavigation";
 import {
   parseListPageAndQ,
   sectionListQueryOptions,
@@ -164,7 +165,7 @@ function prefetchAdminEngineList(request: Request) {
   }
 
   const options = sectionListQueryOptions(key, parseListPageAndQ(searchParams));
-  void queryClient.prefetchQuery({ ...options, staleTime: Infinity });
+  startListNavigation(queryClient, options);
   return options.queryKey;
 }
 
