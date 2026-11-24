@@ -3,7 +3,14 @@ import { redirect } from "react-router";
 import { z } from "zod";
 import type { GateableProgram } from "@/config/programs";
 import { site } from "@/config/site";
-import { ADMIN_SECTION_KEYS } from "@/pages/admin/adminSectionKeys";
+import {
+  ADMIN_ENGINE_SECTION_KEYS,
+  ADMIN_SECTION_KEYS,
+} from "@/pages/admin/adminSectionKeys";
+import {
+  parseListPageAndQ,
+  sectionListQueryOptions,
+} from "@/pages/admin/engine/sectionList";
 import {
   type AdminPermissionMap,
   adminPermissionsQueryOptions,
@@ -139,6 +146,26 @@ async function assertAdminSectionAccess(request: Request, userId: string) {
 
 const activationResponseSchema = z.object({ status: z.string().nullable() });
 
+/**
+ * 엔진 섹션 목록 주소(/admin/<키>, 끝 슬래시 허용)면 목록 요청을 미리 시작하고 그 쿼리 옵션을 돌려준다.
+ * /new, /:id, 커스텀 섹션, /admin 자체는 목록 화면이 아니라 null 이다.
+ *
+ * 권한 응답을 기다리는 동안 목록이 같이 나가도록 await 하지 않는다. 이 미들웨어는 이동마다 다시 돌아서
+ * (검색어를 칠 때마다 주소가 바뀐다) 이미 받은 목록을 또 받으면 안 되므로 staleTime: Infinity 로
+ * 데이터가 없거나 무효화됐을 때만 받게 한다. 진행 중인 요청은 TanStack Query 가 한 번만 보낸다.
+ */
+function prefetchAdminEngineList(request: Request) {
+  const { pathname, searchParams } = new URL(request.url);
+  const key = pathname.match(/^\/admin\/([^/]+)\/?$/)?.[1];
+  if (!key || !(ADMIN_ENGINE_SECTION_KEYS as readonly string[]).includes(key)) {
+    return null;
+  }
+
+  const options = sectionListQueryOptions(key, parseListPageAndQ(searchParams));
+  void queryClient.prefetchQuery({ ...options, staleTime: Infinity });
+  return options.queryKey;
+}
+
 // 2) /admin, /demo, /demo/:demoKey — role=admin 확인(ProtectedAdmin.jsx 이관).
 export const requireAdminMiddleware: MiddlewareFunction = async ({
   request,
@@ -154,20 +181,36 @@ export const requireAdminMiddleware: MiddlewareFunction = async ({
     throw loginRedirect(request);
   }
 
-  const cachedRole = getCached<string | null>(user.id, "admin-role");
+  const listKey = prefetchAdminEngineList(request);
+
+  try {
+    await checkAdminAccess(request, user.id);
+  } catch (error) {
+    // 리다이렉트나 AdminForbiddenError 로 끝나면 선받기한 목록을 버린다. 남겨 두면 캐시된 403 이
+    // 나중에 허용된 뒤 Admin.tsx 의 listQuery.error 로 올라와 토스트가 뜬다. 한 곳에서만 처리한다.
+    if (listKey) {
+      void queryClient.cancelQueries({ queryKey: listKey, exact: true });
+      queryClient.removeQueries({ queryKey: listKey, exact: true });
+    }
+    throw error;
+  }
+};
+
+async function checkAdminAccess(request: Request, userId: string) {
+  const cachedRole = getCached<string | null>(userId, "admin-role");
 
   if (cachedRole !== undefined) {
     if (cachedRole !== "admin") {
       throw new AdminForbiddenError();
     }
-    return assertAdminSectionAccess(request, user.id);
+    return assertAdminSectionAccess(request, userId);
   }
 
   // 관리자 판정은 서버가 한다: 권한 조회가 성공하면 관리자, 403 이면 관리자가 아니다.
   // 그 밖의 실패(401, 500, 네트워크, 시간 초과, 스키마)는 판정 불가라 캐시하지 않고 막는다.
   let isAdmin = false;
   try {
-    await queryClient.fetchQuery(adminPermissionsQueryOptions(user.id));
+    await queryClient.fetchQuery(adminPermissionsQueryOptions(userId));
     isAdmin = true;
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 403) {
@@ -176,8 +219,8 @@ export const requireAdminMiddleware: MiddlewareFunction = async ({
   }
 
   if (isAdmin) {
-    setCached(user.id, "admin-role", "admin");
-    return assertAdminSectionAccess(request, user.id);
+    setCached(userId, "admin-role", "admin");
+    return assertAdminSectionAccess(request, userId);
   }
 
   // 초대받은 관리자의 첫 진입 — 안전망이다.
@@ -208,14 +251,14 @@ export const requireAdminMiddleware: MiddlewareFunction = async ({
     .catch(() => null);
 
   if (activated?.status === "active") {
-    setCached(user.id, "admin-role", "admin");
-    return assertAdminSectionAccess(request, user.id);
+    setCached(userId, "admin-role", "admin");
+    return assertAdminSectionAccess(request, userId);
   }
 
   // 관리자가 아님을 캐시한다(예전에는 실제 role 을 넣었다). null 이면 위 캐시 분기에서 막힌다.
-  setCached(user.id, "admin-role", null);
+  setCached(userId, "admin-role", null);
   throw new AdminForbiddenError();
-};
+}
 
 // 2b) /signup/* — 가입 오픈 여부 확인(app_settings.signup_enabled, WC074 게이트).
 // 값이 true가 아니면(false는 물론 null=미확인도) 막는다 — "확인 못 했으니 일단
