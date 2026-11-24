@@ -106,6 +106,12 @@ jobs:
       - name: time zone literals
         run: npm run check:time-zone
 
+      # PR #491 HTTP 표준으로 옮기지 않은 호출(브라우저 DB 직접 호출, apiFetch,
+      # 레거시 오류 응답, defineHandler 밖 엔드포인트, ok 성공 본문)이 늘면 막는다.
+      # 영역 이관 PR이 baseline을 0까지 줄인다.
+      - name: http legacy
+        run: npm run check:http-legacy
+
   # type-coverage 는 타입 검사를 처음부터 다시 해서 38초에서 70초가 걸린다.
   # static 잡에 두면 그 잡이 가장 늦게 끝나므로 따로 떼어 동시에 돌린다.
   type-coverage:
