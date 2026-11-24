@@ -514,6 +514,24 @@ describe("EvalsAdmin 응답 전 대기", () => {
     ).toBeNull();
     expect(screen.queryByRole("table")).toBeNull();
   });
+
+  test("실행 탭은 이력 응답 전에 스켈레톤을 보이고 실행 폼은 아직 없다", async () => {
+    on("GET", RUNS, () => new Promise(() => {}));
+    renderAdmin("/evals?tab=run");
+    expect(
+      await screen.findByRole("status", { name: "평가 설정을 불러오는 중" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "실행" })).toBeNull();
+  });
+
+  test("이력 탭은 이력 응답 전에 스켈레톤을 보이고 표는 아직 없다", async () => {
+    on("GET", RUNS, () => new Promise(() => {}));
+    renderAdmin("/evals?tab=history");
+    expect(
+      await screen.findByRole("status", { name: "실행 이력을 불러오는 중" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
 });
 
 describe("EvalsAdmin 주소의 탭과 지식 유형", () => {
