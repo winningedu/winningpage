@@ -9,6 +9,7 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import {
   fetchRole,
   fetchRoles,
@@ -20,7 +21,13 @@ import {
   type RoleWithPermissions,
   roleKeys,
 } from "./api";
-import { LEVEL_CHOICES, type LevelDraft, toDraft, toItems } from "./levels";
+import {
+  LEVEL_CHOICES,
+  type LevelDraft,
+  sameDraft,
+  toDraft,
+  toItems,
+} from "./levels";
 
 const ROLES_PATH = "/admin/adminRoles";
 
@@ -105,6 +112,8 @@ function RoleEditor({ role, resources }: EditorProps) {
   const queryClient = useQueryClient();
   // 등록 중 권한 항목 저장이 실패해도 묶음은 이미 만들어졌다. 다시 저장할 때 또 만들지 않도록 기억한다.
   const roleIdRef = useRef(role?.id ?? "");
+  // 저장이 끝나 목록으로 가는 이동은 막지 않는다. 캐시가 갱신되기 전이라 dirty 가 아직 참이다.
+  const doneRef = useRef(false);
   const stageRef = useRef<"role" | "permissions">("role");
   const [nameDraft, setNameDraft] = useState(role?.name ?? "");
   const [descDraft, setDescDraft] = useState(role?.description ?? "");
@@ -112,7 +121,13 @@ function RoleEditor({ role, resources }: EditorProps) {
     toDraft(role?.permissions ?? []),
   );
 
-  // 대분류 에서 메뉴. admin_resources 는 sort_order 로 이미 정렬돼 있어 삽입 순서가
+  const dirty =
+    nameDraft.trim() !== (role?.name ?? "") ||
+    descDraft.trim() !== (role?.description ?? "") ||
+    !sameDraft(permDraft, toDraft(role?.permissions ?? []));
+  useUnsavedGuard(dirty, () => doneRef.current);
+
+  // 대분류별 메뉴. admin_resources 는 sort_order 로 이미 정렬돼 있어 삽입 순서가
   // 곧 표시 순서다(Map 은 삽입 순서를 보존한다).
   const grouped = useMemo(() => {
     const map = new Map<string, Resource[]>();
@@ -143,6 +158,7 @@ function RoleEditor({ role, resources }: EditorProps) {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: roleKeys.all });
+      doneRef.current = true;
       navigate(ROLES_PATH);
       toastSuccess("저장했습니다.");
     },
