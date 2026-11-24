@@ -18,21 +18,28 @@ describe("adminRoutes 하위 주소가 있는 섹션", () => {
     "members",
     "adminMembers",
     "adminRoles",
+    "growthReports",
+    "inquirySessions",
+    "selfevalSessions",
+    "serviceCreditAdjust",
   ])("%s 는 하위 주소를 받는 splat 경로 하나로 등록된다", (key) => {
     expect(paths).toContain(`${key}/*`);
     expect(paths).not.toContain(key);
   });
 
   test("나머지 섹션은 리터럴 경로 그대로다", () => {
-    expect(paths).toContain("serviceCreditAdjust");
     expect(paths).toContain("revenue");
-    expect(paths.filter((path) => path?.endsWith("/*"))).toEqual([
-      "tenants/*",
-      "members/*",
-      "memberPurge/*",
-      "coupons/*",
+    expect(paths.filter((path) => path?.endsWith("/*")).sort()).toEqual([
       "adminMembers/*",
       "adminRoles/*",
+      "coupons/*",
+      "growthReports/*",
+      "inquirySessions/*",
+      "memberPurge/*",
+      "members/*",
+      "selfevalSessions/*",
+      "serviceCreditAdjust/*",
+      "tenants/*",
     ]);
   });
 });

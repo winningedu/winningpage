@@ -24,12 +24,15 @@ export const routes: Record<string, RouteLoader> = {
   "admin/hq-dashboard/usage": () => import("./admin/hq-dashboard/usage.js"),
   "admin/growth-recover": () => import("./admin/growth-recover.js"),
   "admin/growth-reports": () => import("./admin/growth-reports.js"),
+  "admin/growth-reports/[id]": () => import("./admin/growth-reports/[id].js"),
   "admin/hq-dashboard/logins": () => import("./admin/hq-dashboard/logins.js"),
   "admin/hq-dashboard/b2c": () => import("./admin/hq-dashboard/b2c.js"),
   "admin/hq-dashboard/trends": () => import("./admin/hq-dashboard/trends.js"),
   "admin/inquiry-grant": () => import("./admin/inquiry-grant.js"),
   "admin/inquiry-recover": () => import("./admin/inquiry-recover.js"),
   "admin/inquiry-sessions": () => import("./admin/inquiry-sessions.js"),
+  "admin/inquiry-sessions/[id]": () =>
+    import("./admin/inquiry-sessions/[id].js"),
   "admin/invite-member": () => import("./admin/invite-member.js"),
   "admin/me/permissions": () => import("./admin/me/permissions.js"),
   "admin/knowledge-bulk": () => import("./admin/knowledge-bulk.js"),
@@ -53,6 +56,8 @@ export const routes: Record<string, RouteLoader> = {
   "admin/selfeval-grant": () => import("./admin/selfeval-grant.js"),
   "admin/selfeval-recover": () => import("./admin/selfeval-recover.js"),
   "admin/selfeval-sessions": () => import("./admin/selfeval-sessions.js"),
+  "admin/selfeval-sessions/[id]": () =>
+    import("./admin/selfeval-sessions/[id].js"),
   "admin/revenue": () => import("./admin/revenue.js"),
   "admin/revenue/pending": () => import("./admin/revenue/pending.js"),
   "admin/revenue/services": () => import("./admin/revenue/services.js"),
@@ -69,6 +74,7 @@ export const routes: Record<string, RouteLoader> = {
   "admin/staff/[profileId]": () => import("./admin/staff/[profileId].js"),
   "admin/staff/[profileId]/permissions": () =>
     import("./admin/staff/[profileId]/permissions.js"),
+  "admin/students/search": () => import("./admin/students/search.js"),
   "admin/tenant-options": () => import("./admin/tenant-options.js"),
   "admin/tenants": () => import("./admin/tenants.js"),
   "admin/tenants/[id]": () => import("./admin/tenants/[id].js"),
