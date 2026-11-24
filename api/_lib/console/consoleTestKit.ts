@@ -51,9 +51,9 @@ export interface KitState {
   /** from() 마다 한 건. order(열, { ascending }) 와 limit(n) 을 건 경우 값이 채워진다. */
   reads: {
     table: string;
-    /** select(열 목록) 에 넘긴 문자열. */
-    columns?: string | undefined;
     orderBy?: { column: string; ascending: boolean };
+    /** select(열 목록)에 준 문자열. */
+    select?: string;
     limit?: number;
     /** range(from, to) 를 건 경우의 양 끝(포함). */
     range?: { from: number; to: number };
@@ -178,6 +178,7 @@ export function createFakeAdmin(state: KitState) {
       const chain: Record<string, unknown> = {};
       let updating = false;
       let deleting = false;
+      let upserting = false;
       const read: KitState["reads"][number] = { table };
       state.reads.push(read);
       const result = () => {
@@ -185,6 +186,9 @@ export function createFakeAdmin(state: KitState) {
           ? state.updateErrors[table]?.(filters)
           : undefined;
         if (updateError) return { data: null, error: updateError };
+        if (upserting && state.insertErrors[table]) {
+          return { data: null, error: state.insertErrors[table] };
+        }
         if (deleting && state.deleteErrors[table]) {
           return { data: null, error: state.deleteErrors[table] };
         }
@@ -210,7 +214,7 @@ export function createFakeAdmin(state: KitState) {
         return { data: sorted.slice(0, read.limit), error: null };
       };
       chain.select = (columns?: string) => {
-        read.columns = columns;
+        if (typeof columns === "string") read.select = columns;
         return chain;
       };
       chain.eq = (col: string, value: unknown) => {
@@ -250,6 +254,7 @@ export function createFakeAdmin(state: KitState) {
         return chain;
       };
       chain.maybeSingle = async () => result();
+      chain.single = async () => result();
       // biome-ignore lint/suspicious/noThenProperty: Supabase 쿼리 빌더처럼 await 할 수 있어야 한다.
       chain.then = (resolve: (r: unknown) => unknown) => resolve(result());
       chain.update = (values: Record<string, unknown>) => {
@@ -270,7 +275,16 @@ export function createFakeAdmin(state: KitState) {
       ) => {
         state.events.push(`upsert:${table}`);
         state.upserts.push({ table, row, onConflict: options?.onConflict });
-        return Promise.resolve({ error: state.insertErrors[table] ?? null });
+        // upsert(...).select().single() 로 저장된 행을 읽는 호출부도 흉내 낸다.
+        return Object.assign(
+          Promise.resolve({ error: state.insertErrors[table] ?? null }),
+          {
+            select: () => {
+              upserting = true;
+              return chain;
+            },
+          },
+        );
       };
       chain.insert = (row: Record<string, unknown>) => {
         state.events.push(`insert:${table}`);

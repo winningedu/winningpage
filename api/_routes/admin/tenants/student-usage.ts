@@ -1,21 +1,67 @@
 // GET /api/admin/tenants/student-usage?profileId=
+// PUT /api/admin/tenants/student-usage  { rows: [{ profile_id, program_key, monthly_limit?, term_limit? }] }
 //
 // 본사가 서비스이용횟수조정 화면에서 학생 한 명의 6개 서비스 사용 상태를 본다(사 #166, 결정 r5, r6).
 // 상태는 fn_tenant_usage_state(service_role 전용)가 정본이고, 기관 설정과 학생별 조정은 입력칸을 채우도록
-// 원값 그대로 함께 돌려준다. 쓰기는 이 라우트가 아니라 브라우저 RLS 로 한다(변경 이력이 변경자를 남긴다).
-// 권한: 로그인 + HQ 권한 serviceCreditAdjust view 이상과 tenants view 이상(기관 설정은 RLS 가 tenants view 로 제한한다).
+// 원값 그대로 함께 돌려준다.
+// PUT 은 학생별 조정(student_usage_overrides)을 upsert 한다. 변경 이력 트리거가 auth.uid() 를 변경자로 남기고 RLS 가 메뉴 권한이라
+// 관리자 본인 토큰 클라이언트로 쓴다(service_role 이면 이력이 system 으로 남는다).
+// 권한: 관리자 + 메뉴 serviceCreditAdjust(GET view, PUT edit, defineHandler)와 GET 은 tenants view 이상(기관 설정은 RLS 가 tenants view 로 제한한다).
 // 스쿨멘토 전용(위닝은 404).
 
-import { hasAdminViewPermission } from "../../../_lib/console/proxy.js";
-import { defineHandler } from "../../../_lib/handler.js";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { z } from "zod";
+import { getBearerToken } from "../../../_lib/adminAuth.js";
+import { assertSectionPermission } from "../../../_lib/adminPermission.js";
+import {
+  defineHandler,
+  type HandlerCtx,
+  parseOrReject,
+} from "../../../_lib/handler.js";
 import { sendError } from "../../../_lib/httpResponse.js";
-import { isUuid } from "../../../_lib/service-credit/adjust.js";
 import { SERVICE_CREDIT_PROGRAMS } from "../../../_lib/service-credit/programs.js";
 import { isSchoolmentorSite } from "../../../_lib/site.js";
+import { createSupabaseUserClient } from "../../../_lib/supabaseUser.js";
 
 export const config = { runtime: "nodejs" };
 
-const RESOURCE_KEYS = ["serviceCreditAdjust", "tenants"];
+const MAX_ROWS = 5000;
+const MAX_LIMIT = 32767; // smallint 한도(DB 제약 > 0)
+
+const getQuerySchema = z.object({ profileId: z.guid() });
+
+const limit = z.number().int().min(1).max(MAX_LIMIT).nullable().optional();
+
+// 고친 칸(dirty)만 보낸다. 안 보낸 칸은 기존 조정을 덮지 않으므로 둘 다 없는 행은 의미가 없다.
+const putBodySchema = z.object({
+  rows: z
+    .array(
+      z
+        .object({
+          profile_id: z.guid(),
+          program_key: z
+            .string()
+            .refine((key) =>
+              SERVICE_CREDIT_PROGRAMS.some(
+                (program) => program.programKey === key,
+              ),
+            ),
+          monthly_limit: limit,
+          term_limit: limit,
+          // 진짜 칼럼이라 스냅샷에 실려 올 수 있다. 받되 쓰지 않고 서버가 채운다.
+          updated_by: z.unknown().optional(),
+          updated_at: z.unknown().optional(),
+        })
+        // 테이블에 없는 키(created_at, id 등)는 400 으로 막는다.
+        .strict()
+        .refine(
+          (row) =>
+            row.monthly_limit !== undefined || row.term_limit !== undefined,
+        ),
+    )
+    .min(1)
+    .max(MAX_ROWS),
+});
 
 interface UsageStateRow {
   allowed: boolean;
@@ -37,47 +83,79 @@ interface LimitRow {
   term_limit: number | null;
 }
 
-async function hasAllViewPermissions(
-  admin: Parameters<typeof hasAdminViewPermission>[0],
-  userId: string,
+// supabase-js upsert 는 첫 행의 열만 쓰므로, 같은 열 묶음의 행끼리 모아 한 번씩 보낸다.
+function groupByColumns<T extends Record<string, unknown>>(rows: T[]): T[][] {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const columns = Object.keys(row).sort().join(",");
+    groups.set(columns, [...(groups.get(columns) ?? []), row]);
+  }
+  return [...groups.values()];
+}
+
+async function writeOverrides(
+  req: VercelRequest,
+  res: VercelResponse,
+  ctx: HandlerCtx,
 ) {
-  for (const key of RESOURCE_KEYS)
-    if (!(await hasAdminViewPermission(admin, userId, key))) return false;
-  return true;
+  const parsed = parseOrReject(res, "problem", putBodySchema, req.body);
+  if (!parsed) return;
+  const { rows } = parsed.value as z.output<typeof putBodySchema>;
+
+  const userClient = createSupabaseUserClient(getBearerToken(req));
+  for (const group of groupByColumns(
+    rows.map((row) => ({
+      profile_id: row.profile_id,
+      program_key: row.program_key,
+      // 안 보낸 칸은 키째 빼야 기존 조정을 덮지 않는다(열 묶음도 키로 가른다).
+      ...(row.monthly_limit !== undefined && {
+        monthly_limit: row.monthly_limit,
+      }),
+      ...(row.term_limit !== undefined && { term_limit: row.term_limit }),
+      updated_by: ctx.userId as string,
+    })),
+  )) {
+    const { error } = await userClient
+      .from("student_usage_overrides")
+      .upsert(group, { onConflict: "profile_id,program_key" });
+    // 없는 학생이면 외래키 위반이다. 서버 오류가 아니라 찾을 수 없음으로 돌려준다.
+    if (error?.code === "23503") {
+      sendError(res, "problem", 404, "학생을 찾을 수 없어요.", "NOT_FOUND");
+      return;
+    }
+    if (error) throw new Error("student usage override upsert failed");
+  }
+  res.status(200).json({ saved: rows.length });
 }
 
 export default defineHandler({
-  methods: ["GET"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  unhandledMessage: "학생 이용 현황을 불러오지 못했습니다.",
-  unhandledCode: "INTERNAL",
+  methods: ["GET", "PUT"],
+  auth: "admin",
+  errorShape: "problem",
+  permission: { key: "serviceCreditAdjust" },
+  unhandledMessage: "학생 이용 현황을 처리하지 못했습니다.",
   logLabel: "[admin/tenants/student-usage]",
   headers: { "Cache-Control": "no-store" },
   handler: async (req, res, ctx) => {
     if (!isSchoolmentorSite()) {
-      sendError(res, "coded", 404, "찾을 수 없어요.", "NOT_FOUND");
+      sendError(res, "problem", 404, "찾을 수 없어요.", "NOT_FOUND");
       return;
     }
-    if (
-      !(await hasAllViewPermissions(ctx.supabaseAdmin, ctx.userId as string))
-    ) {
-      sendError(
-        res,
-        "coded",
-        403,
-        "이용 횟수 조정 권한이 없습니다.",
-        "FORBIDDEN",
-      );
+    if (req.method === "PUT") {
+      await writeOverrides(req, res, ctx);
       return;
     }
+    // 기관 설정은 tenants 메뉴 권한으로 보호되므로 두 번째 키를 같은 helper 로 본다.
+    await assertSectionPermission(
+      ctx.supabaseAdmin,
+      ctx.userId as string,
+      "tenants",
+      "view",
+    );
 
-    const profileId = req.query.profileId;
-    if (typeof profileId !== "string" || !isUuid(profileId)) {
-      sendError(res, "coded", 400, "학생을 확인해 주세요.", "BAD_REQUEST");
-      return;
-    }
+    const parsed = parseOrReject(res, "problem", getQuerySchema, req.query);
+    if (!parsed) return;
+    const { profileId } = parsed.value as z.output<typeof getQuerySchema>;
 
     const { data: profile, error: profileError } = await ctx.supabaseAdmin
       .from("profiles")
@@ -86,7 +164,7 @@ export default defineHandler({
       .maybeSingle();
     if (profileError) throw new Error("profile read failed");
     if (!profile) {
-      sendError(res, "coded", 404, "학생을 찾을 수 없어요.", "NOT_FOUND");
+      sendError(res, "problem", 404, "학생을 찾을 수 없어요.", "NOT_FOUND");
       return;
     }
     const tenantId = (profile as { tenant_id: string | null }).tenant_id;
@@ -134,7 +212,6 @@ export default defineHandler({
     const overrideRows = (overrides.data ?? []) as LimitRow[];
 
     res.status(200).json({
-      ok: true,
       tenant: tenant
         ? { id: tenant.id, name: tenant.name, isCatchAll: tenant.is_catch_all }
         : null,

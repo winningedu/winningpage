@@ -122,7 +122,6 @@ const WIRED_SCREENS: Array<[name: string, dir: string]> = [
   ["MentorApplicationsAdmin", "mentor"],
   ["AdminMembersAdmin", "staff"],
   ["AdminRolesAdmin", "staff"],
-  ["CouponAdmin", "coupons"],
   ["GoalStudentsAdmin", "goal"],
 ];
 

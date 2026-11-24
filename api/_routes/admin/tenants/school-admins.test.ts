@@ -1,5 +1,5 @@
 // GET /api/admin/tenants/school-admins 계약 검증(사 #159, 결정 102.6). 본사 권한 tenants view 이상만 읽고,
-// 기관의 학교 관리자만 주소, 발급일, 등록취소일과 함께 돌려준다.
+// 기관의 학교 관리자만 주소, 발급일, 등록취소일과 함께 { address, items } 로 돌려준다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -84,6 +84,7 @@ beforeEach(() => {
   process.env.SITE = "schoolmentor";
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
+  kit.state.rows.profiles = () => ({ role: "admin" });
   kit.state.rpc.fn_admin_effective_permissions = () => ({
     data: [{ resource_key: "tenants", level: "view" }],
     error: null,
@@ -112,7 +113,7 @@ describe("GET /api/admin/tenants/school-admins", () => {
     const r = await get({ tenantId: TENANT_7 });
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(r.body).toMatchObject({ status: 403, code: "FORBIDDEN" });
     expect(kit.state.reads.map((x) => x.table)).not.toContain("teachers");
   });
 
@@ -122,8 +123,8 @@ describe("GET /api/admin/tenants/school-admins", () => {
     const r = await get({ tenantId: TENANT_7 });
 
     expect(r.status).toBe(200);
-    const body = r.body as { admins: { id: string }[] };
-    expect(body.admins.map((a) => a.id)).toEqual(["t-1", "t-2"]);
+    const body = r.body as { items: { id: string }[] };
+    expect(body.items.map((a) => a.id)).toEqual(["t-1", "t-2"]);
   });
 
   test("그 기관의 학교 관리자만 주소와 함께 돌려주고 담임과 다른 기관은 뺀다", async () => {
@@ -133,17 +134,17 @@ describe("GET /api/admin/tenants/school-admins", () => {
     expect(r.headers["Cache-Control"]).toBe("no-store");
     const body = r.body as {
       address: string | null;
-      admins: { id: string }[];
+      items: { id: string }[];
     };
     expect(body.address).toBe("서울시 중구 1");
-    expect(body.admins.map((a) => a.id)).toEqual(["t-1", "t-2"]);
+    expect(body.items.map((a) => a.id)).toEqual(["t-1", "t-2"]);
   });
 
   test("발급일과 등록취소일을 읽기 값으로 싣고 취소하지 않은 관리자는 null 이다", async () => {
     const r = await get({ tenantId: TENANT_7 });
 
-    const { admins } = r.body as { admins: Record<string, unknown>[] };
-    expect(admins[0]).toMatchObject({
+    const { items } = r.body as { items: Record<string, unknown>[] };
+    expect(items[0]).toMatchObject({
       name: "박관리",
       phone: "01099998888",
       landline: "0212345678",
@@ -153,7 +154,7 @@ describe("GET /api/admin/tenants/school-admins", () => {
       issuedAt: "2026-11-05T05:00:00Z",
       canceledAt: null,
     });
-    expect(admins[1]).toMatchObject({
+    expect(items[1]).toMatchObject({
       loginId: null,
       canceledAt: "2026-10-21T05:00:00Z",
     });
@@ -177,15 +178,15 @@ describe("GET /api/admin/tenants/school-admins", () => {
 
     const r = await get({ tenantId: TENANT_7 });
 
-    const { admins } = r.body as { admins: Record<string, unknown>[] };
-    expect(admins[0]).toMatchObject({ id: "t-5", canceledAt: null });
+    const { items } = r.body as { items: Record<string, unknown>[] };
+    expect(items[0]).toMatchObject({ id: "t-5", canceledAt: null });
   });
 
   test("tenantId 가 UUID 가 아니면 400 이고 아무것도 읽지 않는다", async () => {
     const r = await get({ tenantId: "tenant-7" });
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(r.body).toMatchObject({ status: 400, code: "VALIDATION_FAILED" });
     expect(kit.state.reads.map((x) => x.table)).not.toContain("teachers");
   });
 
@@ -193,6 +194,6 @@ describe("GET /api/admin/tenants/school-admins", () => {
     const r = await get();
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(r.body).toMatchObject({ status: 400, code: "VALIDATION_FAILED" });
   });
 });

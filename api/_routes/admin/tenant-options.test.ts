@@ -58,7 +58,7 @@ describe("GET /api/admin/tenant-options", () => {
       ],
     });
     expect(kit.state.orders).toEqual([{ table: "tenants", column: "name" }]);
-    expect(kit.state.reads.find((x) => x.table === "tenants")?.columns).toBe(
+    expect(kit.state.reads.find((x) => x.table === "tenants")?.select).toBe(
       "id, name, org_type, is_catch_all",
     );
   });

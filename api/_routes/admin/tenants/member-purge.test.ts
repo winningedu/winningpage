@@ -1,4 +1,4 @@
-// POST /api/admin/tenants/member-purge 계약 검증(사 #162, #176). 본사 tenants edit 권한만, 기관 하나만,
+// POST /api/admin/tenants/member-purge 계약 검증(사 #162, #176). 본사 memberPurge(tenants 별칭) edit 권한만, 기관 하나만,
 // 유예가 끝났을 때만 익명화하고 로그의 실행자는 그 본사 관리자다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -36,6 +36,7 @@ beforeEach(() => {
   vi.stubEnv("SITE", "schoolmentor");
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
+  kit.state.rows.profiles = () => ({ role: "admin" });
   kit.state.rpc.fn_admin_effective_permissions = () => ({
     data: [{ resource_key: "tenants", level: "edit" }],
     error: null,
@@ -79,7 +80,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
     const r = await post(BODY);
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(r.body).toMatchObject({ status: 403, code: "FORBIDDEN" });
     expect(anonymizeArgs).toHaveLength(0);
   });
 
@@ -101,7 +102,8 @@ describe("POST /api/admin/tenants/member-purge", () => {
 
     expect(r.status).toBe(409);
     expect(r.body).toMatchObject({
-      error: { code: "NOT_YET" },
+      status: 409,
+      code: "NOT_YET",
       graceEndsOn: "2026-12-01",
     });
   });
@@ -111,7 +113,6 @@ describe("POST /api/admin/tenants/member-purge", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
-      ok: true,
       deleted: 3,
       excluded: 1,
       skipped: 2,
@@ -137,6 +138,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
     const r = await post(body);
 
     expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
     expect(anonymizeArgs).toHaveLength(0);
   });
 
@@ -165,7 +167,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
     const r = await post(body);
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
     expect(anonymizeArgs).toHaveLength(0);
   });
 
@@ -187,6 +189,16 @@ describe("POST /api/admin/tenants/member-purge", () => {
     const r = await post(BODY);
 
     expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({ code: "NOT_FOUND" });
+    expect(anonymizeArgs).toHaveLength(0);
+  });
+
+  test("QA 계정은 지우지 못한다", async () => {
+    kit.state.rows.qa_accounts = () => ({ profile_id: "hq-1" });
+
+    const r = await post(BODY);
+
+    expect(r.status).toBe(403);
     expect(anonymizeArgs).toHaveLength(0);
   });
 
