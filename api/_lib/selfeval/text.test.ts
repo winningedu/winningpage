@@ -160,6 +160,28 @@ describe("findPlanExpressions", () => {
     expect(findPlanExpressions("발표할예정")).toEqual(["할 예정"]);
     expect(findPlanExpressions("값을 비교함.")).toEqual([]);
   });
+
+  it("문장 끝이 고자 함 이면 고자 함 을 사전 표현 뒤에 돌려준다", () => {
+    expect(findPlanExpressions("원인을 밝히고자 함.")).toEqual(["고자 함"]);
+    expect(findPlanExpressions("원인을 밝히고자함.")).toEqual(["고자 함"]);
+    expect(findPlanExpressions("원인을 밝히고자 함")).toEqual(["고자 함"]);
+    expect(
+      findPlanExpressions("값을 정리함. 원인을 밝히고자 함. 발표할 예정."),
+    ).toEqual(["할 예정", "고자 함"]);
+  });
+
+  it("문장 중간의 고자 는 목적 표현이라 세지 않는다", () => {
+    expect(findPlanExpressions("원인을 확인하고자 실험을 진행함.")).toEqual([]);
+    expect(
+      findPlanExpressions("원인을 밝히고자 함을 알림. 값을 비교함."),
+    ).toEqual([]);
+  });
+
+  it("고자 함 이 여러 문장 끝에 있어도 한 번만 돌려준다", () => {
+    expect(
+      findPlanExpressions("원인을 밝히고자 함. 값을 비교하고자 함."),
+    ).toEqual(["고자 함"]);
+  });
 });
 
 describe("ensureTerminalPunctuation", () => {

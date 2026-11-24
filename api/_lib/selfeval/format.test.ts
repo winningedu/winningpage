@@ -69,8 +69,17 @@ describe("runFormatChecks", () => {
     }
   });
 
-  it("고자 함 은 계획 표현으로 세지 않는다", () => {
-    const text = `${hundred} ${hundred} ${hundred} 원인을 밝히고자 함.`;
+  it("문장 끝이 고자 함 이면 계획 표현으로 세고 찾은 표현을 적는다", () => {
+    for (const end of ["원인을 밝히고자 함.", "원인을 밝히고자함."]) {
+      const text = `${hundred} ${hundred} ${hundred} ${end}`;
+      const c = byKey(run({ text, targetChars: null }), "no_plan_expression");
+      expect(c.pass, end).toBe(false);
+      expect(c.detail, end).toContain("고자 함");
+    }
+  });
+
+  it("문장 중간의 고자 는 목적 표현이라 계획 표현으로 세지 않는다", () => {
+    const text = `${hundred} ${hundred} ${hundred} 원인을 확인하고자 실험을 진행함.`;
     expect(
       byKey(run({ text, targetChars: null }), "no_plan_expression").pass,
     ).toBe(true);

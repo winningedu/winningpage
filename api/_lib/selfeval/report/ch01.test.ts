@@ -70,22 +70,15 @@ describe("buildCh01", () => {
 });
 
 describe("buildCover", () => {
-  it("shows grade, final save date, tier, subject title and used steps without a student name", () => {
+  it("shows grade, final save date, subject title and used steps without a student name", () => {
     const cover = buildCover(sampleInput());
     expect(cover).toEqual({
       gradeLabel: "고등학교 1학년",
       savedAt: "2026. 11. 10",
-      serviceTier: "individual",
       subjectTitle: "수학 자기평가서",
       academicYear: 2026,
       steps: sampleInput().steps,
     });
-  });
-
-  it("leaves the tier null when it is not set and never invents a label", () => {
-    expect(
-      buildCover(sampleInput({ serviceTier: null })).serviceTier,
-    ).toBeNull();
   });
 
   it("titles a non subject session by its activity name", () => {

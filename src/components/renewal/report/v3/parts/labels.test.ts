@@ -8,7 +8,7 @@ const cell = (sheet: string, r: number, c: number) =>
 
 describe("v3 report labels trace to the sheets", () => {
   it("school subject labels follow 22_리포트요소 D44 in order", () => {
-    const { HIST: _hist, ...school } = SUBJECT_LABELS;
+    const { HIST: _hist, HISTORY: _history, ...school } = SUBJECT_LABELS;
     expect(cell("22_리포트요소", 44, 3)).toContain(
       `과목 = ${Object.values(school).join("\u00b7")}`,
     );

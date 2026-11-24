@@ -175,6 +175,15 @@ export const SUBJECT_FIELDS: readonly GradeField[] = [
   { key: "SCI", label: q8sLabel(5) },
 ];
 
+/**
+ * M3 q6s cells: the five above plus 역사 (customer answer 2026-11-24 학습진단
+ * 5번). No sheet cell names 역사; the key is not the mock 한국사 key HIST.
+ */
+export const MIDDLE_SUBJECT_FIELDS: readonly GradeField[] = [
+  ...SUBJECT_FIELDS,
+  { key: "HISTORY", label: "역사" },
+];
+
 /** 13 H14: 고1 sees 통합사회 and 통합과학 instead of the 탐구 labels. */
 const FIRST_YEAR_SCIENCE = (() => {
   const note = textCell(metaOf("q6m"), 7);
@@ -186,13 +195,34 @@ const FIRST_YEAR_SCIENCE = (() => {
 /** q1 ordinal of 고등학교 1학년 (14 r8). */
 const FIRST_YEAR_GRADE = 3;
 
+/** q1 ordinals of 고등학교 2학년 and 3학년 (14 r9, r10). */
+const LATER_YEAR_GRADES: readonly number[] = [4, 5];
+
+/**
+ * 고객 답 2026-11-24 학습진단 3번: from school year 2027, 고2 and 고3 also see
+ * 통합사회 and 통합과학. N수 keeps the 탐구 labels.
+ */
+const INTEGRATED_LABEL_FROM_SCHOOL_YEAR = 2027;
+
 /**
  * q6m cells: the q6s subjects plus 한국사 (judge-report R3: six cells, 한국사
- * collected but not judged; no sheet cell names it).
+ * collected but not judged; no sheet cell names it). Labels only: the
+ * judgment keys stay SOC and SCI. diagnosedAt is an ISO date; January and
+ * February belong to the previous school year (judge-report R13).
  */
-export function mockFields(grade: unknown): readonly GradeField[] {
+export function mockFields(
+  grade: unknown,
+  diagnosedAt: string,
+): readonly GradeField[] {
   const fields = [...SUBJECT_FIELDS, { key: "HIST", label: "한국사" }];
-  if (grade !== FIRST_YEAR_GRADE) return fields;
+  const year = Number(diagnosedAt.slice(0, 4));
+  const schoolYear = Number(diagnosedAt.slice(5, 7)) <= 2 ? year - 1 : year;
+  const integrated =
+    grade === FIRST_YEAR_GRADE ||
+    (typeof grade === "number" &&
+      LATER_YEAR_GRADES.includes(grade) &&
+      schoolYear >= INTEGRATED_LABEL_FROM_SCHOOL_YEAR);
+  if (!integrated) return fields;
   return fields.map((field) =>
     field.key === "SOC" || field.key === "SCI"
       ? { ...field, label: FIRST_YEAR_SCIENCE[field.key] }
