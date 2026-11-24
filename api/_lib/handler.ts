@@ -228,7 +228,7 @@ export interface DefineHandlerOptions<
 }
 
 /** 검증 실패면 400 을 보내고 null, 통과하면 파싱된 값을 돌려준다. */
-function parseOrReject(
+export function parseOrReject(
   res: VercelResponse,
   shape: ErrorShape,
   schema: ZodSchema,

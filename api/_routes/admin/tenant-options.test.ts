@@ -31,8 +31,8 @@ beforeEach(() => {
   kit.state = createKitState();
   kit.state.rows.profiles = () => ({ role: "admin" });
   kit.state.rows.tenants = () => [
-    { id: "t-1", name: "가 학원" },
-    { id: "t-2", name: "나 학원" },
+    { id: "t-1", name: "가 학원", org_type: "academy", is_catch_all: false },
+    { id: "t-2", name: "나 학원", org_type: "school", is_catch_all: true },
   ];
   grant("tenants", "view");
 });
@@ -42,17 +42,25 @@ afterEach(() => {
 });
 
 describe("GET /api/admin/tenant-options", () => {
-  test("id 와 이름을 이름순으로 돌려준다", async () => {
+  test("id, 이름, 기관 유형, 기타 여부를 이름순으로 돌려준다", async () => {
     const r = await get();
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
       items: [
-        { id: "t-1", name: "가 학원" },
-        { id: "t-2", name: "나 학원" },
+        {
+          id: "t-1",
+          name: "가 학원",
+          org_type: "academy",
+          is_catch_all: false,
+        },
+        { id: "t-2", name: "나 학원", org_type: "school", is_catch_all: true },
       ],
     });
     expect(kit.state.orders).toEqual([{ table: "tenants", column: "name" }]);
+    expect(kit.state.reads.find((x) => x.table === "tenants")?.columns).toBe(
+      "id, name, org_type, is_catch_all",
+    );
   });
 
   test("배너 수정 권한만 있고 tenants 권한이 없으면 403 이고 읽지 않는다", async () => {

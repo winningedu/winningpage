@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
-import { sendError } from "../httpResponse.js";
+import { type ErrorShape, sendError } from "../httpResponse.js";
 import { QA_ACCOUNT_MESSAGE } from "../qaAccount.js";
 import type { ConsoleActor } from "./actor.js";
 import { maskName } from "./maskName.js";
@@ -162,6 +162,8 @@ export function sendEnrollmentRpcError(
   res: VercelResponse,
   error: { code?: string; details?: string | null } | null | undefined,
   occupant?: OccupantContext,
+  // 기본은 기존 라우트가 쓰는 coded 이고, problem 으로 옮긴 라우트만 바꿔 넘긴다.
+  shape: ErrorShape = "coded",
 ): boolean {
   const mapped = error?.code ? MAPPED[error.code] : undefined;
   if (!mapped) return false;
@@ -176,7 +178,7 @@ export function sendEnrollmentRpcError(
           },
         }
       : undefined;
-  sendError(res, "coded", mapped.status, mapped.message, mapped.code, extra);
+  sendError(res, shape, mapped.status, mapped.message, mapped.code, extra);
   return true;
 }
 

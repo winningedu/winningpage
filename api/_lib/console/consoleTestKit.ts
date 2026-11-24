@@ -51,6 +51,8 @@ export interface KitState {
   /** from() 마다 한 건. order(열, { ascending }) 와 limit(n) 을 건 경우 값이 채워진다. */
   reads: {
     table: string;
+    /** select(열 목록) 에 넘긴 문자열. */
+    columns?: string | undefined;
     orderBy?: { column: string; ascending: boolean };
     limit?: number;
     /** range(from, to) 를 건 경우의 양 끝(포함). */
@@ -207,7 +209,10 @@ export function createFakeAdmin(state: KitState) {
           : data;
         return { data: sorted.slice(0, read.limit), error: null };
       };
-      chain.select = () => chain;
+      chain.select = (columns?: string) => {
+        read.columns = columns;
+        return chain;
+      };
       chain.eq = (col: string, value: unknown) => {
         filters[col] = value;
         return chain;
