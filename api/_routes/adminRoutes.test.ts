@@ -61,6 +61,7 @@ const AUDIT_EXPECTATIONS: Record<string, string> = {
   "admin/knowledge-search.ts": 'audit: { action: "view" }',
   "admin/knowledge-dedupe.ts": 'audit: { action: "view" }',
   "admin/uploads/preview.ts": 'audit: { action: "view" }',
+  "admin/mentor-applications/[id]/proof-url.ts": 'audit: { action: "view" }',
 };
 
 describe("checkAdminRouteSource", () => {

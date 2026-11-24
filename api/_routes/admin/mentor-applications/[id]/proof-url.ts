@@ -20,6 +20,7 @@ export default defineHandler({
   auth: "admin",
   errorShape: "problem",
   permission: { key: "mentorApplications", level: "view" },
+  audit: { action: "view" },
   unhandledMessage: "증빙 파일을 처리하지 못했어요.",
   logLabel: "[admin/mentor-applications/id/proof-url]",
   headers: { "Cache-Control": "no-store" },
