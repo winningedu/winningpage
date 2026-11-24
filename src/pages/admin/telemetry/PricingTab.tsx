@@ -1,10 +1,16 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   ActionButton,
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
-import { type PricingResponse, putPricing } from "./api";
+import {
+  errorMessage,
+  type PricingResponse,
+  putPricing,
+  telemetryKeys,
+} from "./api";
 import { formatDate, NO_DATA } from "./format";
 import {
   emptyPricingRow,
@@ -26,9 +32,23 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
       : [emptyPricingRow()],
   );
   const [updatedAt, setUpdatedAt] = useState(initial.updatedAt);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: putPricing,
+    onSuccess: (data) => {
+      setRows(fromPricing(data.pricing));
+      setUpdatedAt(new Date().toISOString());
+      setSaved(true);
+      queryClient.invalidateQueries({ queryKey: telemetryKeys.pricing() });
+    },
+    onError: (e) => {
+      setError(errorMessage(e));
+      setSaved(false);
+    },
+  });
+  const busy = mutation.isPending;
 
   function patch(index: number, change: Partial<PricingRow>) {
     setSaved(false);
@@ -37,7 +57,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
     );
   }
 
-  async function save() {
+  function save() {
     if (busy) return;
     const body = toPricingBody(rows);
     if (!body.ok) {
@@ -45,18 +65,8 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
       setSaved(false);
       return;
     }
-    setBusy(true);
     setError("");
-    const result = await putPricing(body.pricing);
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.message);
-      setSaved(false);
-      return;
-    }
-    setRows(fromPricing(result.data.pricing));
-    setUpdatedAt(new Date().toISOString());
-    setSaved(true);
+    mutation.mutate(body.pricing);
   }
 
   return (

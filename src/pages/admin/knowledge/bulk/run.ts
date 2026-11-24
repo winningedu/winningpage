@@ -2,15 +2,15 @@
 // 진행과 결과를 bulkFlow 액션으로 알린다. 화면에 보이는 진행 문구와 오류 문구는 여기서 만든다.
 
 import { MAX_BULK_ROWS } from "../../../../../api/_lib/knowledge/bulk.js";
-import type { DedupeResult } from "../../../../../api/_lib/knowledge/dedupe.js";
-import {
-  postEmbedBackfill,
-  postKnowledgeBulk,
-  postKnowledgeDedupe,
-} from "../api";
-import { runBackfillUntilDone } from "./backfillLoop";
+import type {
+  DedupeItem,
+  DedupeResult,
+} from "../../../../../api/_lib/knowledge/dedupe.js";
+import { errorMessage } from "../errorMessage";
+import { type BackfillRound, runBackfillUntilDone } from "./backfillLoop";
 import type { BulkAction } from "./flow";
 import {
+  type BulkRequest,
   buildBulkRequests,
   buildDedupeItems,
   chunk,
@@ -24,14 +24,22 @@ const DEDUPE_CHUNK = 50;
 
 type Dispatch = (action: BulkAction) => void;
 
+// 서버 호출은 화면이 react-query useMutation 의 mutateAsync 로 넘긴다(실패는 예외).
+type BulkApplyResult = { inserted: number; updated: number; ids: string[] };
+
 export async function runDedupe({
   knowledgeType,
   parse,
   dispatch,
+  dedupe,
 }: {
   knowledgeType: string;
   parse: KnowledgeParseResult;
   dispatch: Dispatch;
+  dedupe: (request: {
+    knowledgeType: string;
+    items: DedupeItem[];
+  }) => Promise<DedupeResult[]>;
 }): Promise<void> {
   const items = buildDedupeItems(parse);
   const merged = new Map<number, DedupeResult>();
@@ -39,15 +47,17 @@ export async function runDedupe({
   dispatch({ type: "dedupeStarted", progress: progressText() });
   for (const part of chunk(items, DEDUPE_CHUNK)) {
     dispatch({ type: "progress", text: progressText() });
-    const result = await postKnowledgeDedupe(knowledgeType, part);
-    if (!result.ok) {
+    let found: DedupeResult[];
+    try {
+      found = await dedupe({ knowledgeType, items: part });
+    } catch (error) {
       dispatch({
         type: "dedupeFailed",
-        message: `중복 검사에 실패했습니다: ${result.message}`,
+        message: `중복 검사에 실패했습니다: ${errorMessage(error)}`,
       });
       return;
     }
-    for (const found of result.data) merged.set(found.rowNo, found);
+    for (const result of found) merged.set(result.rowNo, result);
   }
   dispatch({
     type: "dedupeSucceeded",
@@ -63,12 +73,16 @@ export async function runApply({
   selected,
   dispatch,
   onReload,
+  bulk,
+  backfill,
 }: {
   knowledgeType: string;
   parse: KnowledgeParseResult;
   selected: ReadonlySet<number>;
   dispatch: Dispatch;
   onReload: () => void;
+  bulk: (request: BulkRequest) => Promise<BulkApplyResult>;
+  backfill: () => Promise<BackfillRound>;
 }): Promise<void> {
   const requests = buildBulkRequests(
     knowledgeType,
@@ -89,21 +103,29 @@ export async function runApply({
   dispatch({ type: "applyStarted", progress: applyText() });
   for (const request of requests) {
     dispatch({ type: "progress", text: applyText() });
-    const result = await postKnowledgeBulk(request);
-    if (!result.ok) return fail(result.message);
-    inserted += result.data.inserted;
-    updated += result.data.updated;
+    let result: BulkApplyResult;
+    try {
+      result = await bulk(request);
+    } catch (error) {
+      return fail(errorMessage(error));
+    }
+    inserted += result.inserted;
+    updated += result.updated;
   }
   dispatch({ type: "progress", text: "임베딩 중" });
-  const backfill = await runBackfillUntilDone(postEmbedBackfill, (p) =>
-    dispatch({
-      type: "progress",
-      text: `임베딩 중 ${p.embedded}건 완료 (${p.rounds}회차)`,
-    }),
-  );
-  if (!backfill.ok) return fail(backfill.message);
+  let summary: Awaited<ReturnType<typeof runBackfillUntilDone>>;
+  try {
+    summary = await runBackfillUntilDone(backfill, (p) =>
+      dispatch({
+        type: "progress",
+        text: `임베딩 중 ${p.embedded}건 완료 (${p.rounds}회차)`,
+      }),
+    );
+  } catch (error) {
+    return fail(errorMessage(error));
+  }
   onReload();
-  const { embedded, lastFailed } = backfill.data;
+  const { embedded, lastFailed } = summary;
   const failedNote =
     lastFailed > 0
       ? ` 임베딩 실패 ${lastFailed}건은 목록에서 사유를 확인하세요.`

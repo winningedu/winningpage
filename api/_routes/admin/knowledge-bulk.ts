@@ -7,41 +7,47 @@
 // 이어서 부른다.
 //
 // 요청 { knowledgeType, inserts: [{ ...fields }], updates: [{ id, ...fields }] }  합계 최대 500건
-// 응답 200 { ok, inserted, updated, ids }   ids 는 신규 id 뒤에 수정 id 순서다.
-// 오류(coded): 400 INVALID_BODY, 404 NOT_FOUND(수정 대상 id 가 이 메뉴에 없음),
-//   401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL
+// 응답 200 { inserted, updated, ids }   ids 는 신규 id 뒤에 수정 id 순서다.
+// 오류(problem): 400 VALIDATION_FAILED(테이블 컬럼이 아닌 키 포함), 404 NOT_FOUND(수정 대상 id 가 이 메뉴에 없음),
+//   401/403, 405, 500
+// 권한: knowledgeType 이 가리키는 메뉴(winningSuhaengTopicDb, winningSuhaengResourceDb)의 edit.
+// 쓰기 경계: 옛 RLS 는 is_admin 전체라 insert 와 update 만 남기고 delete 는 없다. embedding, search_text 는
+//   쓰지 않는다(BULK_WRITABLE_FIELDS 와 강제 컬럼만). 임베딩은 admin-embed 가 채운다.
 //
 // 단일 트랜잭션이 아니다. 신규 insert 는 한 요청이라 원자적이지만, 수정은 행마다
 // update 라 중간에 실패하면 앞의 행은 반영된 채로 남는다(입결정보 청크 반영과 같은 성질).
-// 핸들러 본문은 테스트하지 않는다. 판단과 변환은 api/_lib/knowledge/bulk.ts.
+// 판단과 변환은 api/_lib/knowledge/bulk.ts, 계약 검증은 knowledge-bulk.test.ts.
 
+import type { VercelResponse } from "@vercel/node";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
+import { knowledgeBodySchema } from "../../_lib/knowledge/bodySchema.js";
 import { validateBulkBody } from "../../_lib/knowledge/bulk.js";
+import { knowledgeSectionKey } from "../../_lib/knowledge/permission.js";
 
 const KNOWLEDGE_TABLE = "winning_assessment_knowledge_items";
+
+function sendNotInMenu(res: VercelResponse, ids: string[]): void {
+  sendError(
+    res,
+    "problem",
+    404,
+    `이 메뉴에 없는 id 가 있습니다: ${ids.slice(0, 5).join(", ")}`,
+    "NOT_FOUND",
+  );
+}
 
 export default defineHandler({
   methods: ["POST"],
   auth: "admin",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  authFailureExtra: { ok: false },
+  errorShape: "problem",
+  permission: { key: knowledgeSectionKey },
+  body: knowledgeBodySchema(validateBulkBody),
   unhandledMessage: "엑셀 일괄 반영에 실패했습니다.",
-  unhandledCode: "INTERNAL",
-  unhandledExtra: { ok: false },
   logLabel: "admin/knowledge-bulk",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const parsed = validateBulkBody(req.body);
-    if (!parsed.ok) {
-      sendError(res, "coded", 400, parsed.reason, "INVALID_BODY", {
-        ok: false,
-      });
-      return;
-    }
-    const { knowledgeType, inserts, updates } = parsed.body;
+  handler: async (_req, res, ctx) => {
+    const { knowledgeType, inserts, updates } = ctx.body;
     const db = ctx.supabaseAdmin;
 
     // 수정 대상이 전부 이 메뉴(knowledge_type) 행인지 먼저 본다. 다른 메뉴 행을
@@ -57,14 +63,7 @@ export default defineHandler({
       const found = new Set((data ?? []).map((row) => row.id));
       const missing = ids.filter((id) => !found.has(id));
       if (missing.length > 0) {
-        sendError(
-          res,
-          "coded",
-          404,
-          `이 메뉴에 없는 id 가 있습니다: ${missing.slice(0, 5).join(", ")}`,
-          "NOT_FOUND",
-          { ok: false },
-        );
+        sendNotInMenu(res, missing);
         return;
       }
     }
@@ -89,17 +88,22 @@ export default defineHandler({
 
     const updatedIds: string[] = [];
     for (const { id, patch } of updates) {
-      const { error } = await db
+      const { data, error } = await db
         .from(KNOWLEDGE_TABLE)
         .update(patch as Record<string, unknown>)
         .eq("id", id)
-        .eq("knowledge_type", knowledgeType);
+        .eq("knowledge_type", knowledgeType)
+        .select("id");
       if (error) throw new Error(`수정 실패(${id}): ${error.message}`);
+      // 확인 뒤 다른 요청이 행을 지웠거나 메뉴를 옮긴 경우. 앞 행은 이미 반영됐다(트랜잭션 없음).
+      if (!data || data.length === 0) {
+        sendNotInMenu(res, [id]);
+        return;
+      }
       updatedIds.push(id);
     }
 
     res.status(200).json({
-      ok: true,
       inserted: insertedIds.length,
       updated: updatedIds.length,
       ids: [...insertedIds, ...updatedIds],

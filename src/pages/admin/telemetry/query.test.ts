@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   type AiTelemetryQuery,
-  aiTelemetryQueryReducer,
   buildCallsSearch,
   buildCitationsSearch,
   buildSummarySearch,
-  createInitialQuery,
   defaultRange,
+  readQuery,
+  withFilters,
+  withPage,
+  withTab,
 } from "./query";
 
 const zone = vi.hoisted(() => ({ value: "Asia/Seoul" }));
@@ -32,12 +34,13 @@ describe("defaultRange", () => {
   });
 });
 
-describe("aiTelemetryQueryReducer", () => {
-  const initial = createInitialQuery(NOW);
+describe("주소 검색 파라미터", () => {
+  const read = (search: string) => readQuery(new URLSearchParams(search), NOW);
 
-  test("초기 상태는 요약 탭, 기본 기간, 빈 필터, 1페이지다", () => {
-    expect(initial.tab).toBe("summary");
-    expect(initial.applied).toMatchObject({
+  test("주소가 비면 요약 탭, 기본 기간, 빈 필터, 1페이지다", () => {
+    const state = read("");
+    expect(state.tab).toBe("summary");
+    expect(state.applied).toEqual({
       from: "2026-09-08",
       to: "2026-10-07",
       service: "",
@@ -46,73 +49,78 @@ describe("aiTelemetryQueryReducer", () => {
       retriedOnly: false,
       kind: "",
     });
-    expect(initial.page).toBe(1);
-    expect(initial.pageSize).toBe(20);
+    expect(state.page).toBe(1);
+    expect(state.pageSize).toBe(20);
   });
 
-  test("입력 중인 필터는 조회를 누르기 전까지 적용되지 않는다", () => {
-    const typed = aiTelemetryQueryReducer(initial, {
-      type: "setService",
-      service: "growth",
-    });
-    expect(typed.draft.service).toBe("growth");
-    expect(typed.applied.service).toBe("");
-  });
-
-  test("조회를 누르면 입력값이 적용되고 1페이지로 돌아간다", () => {
-    let state: AiTelemetryQuery = { ...initial, page: 4 };
-    state = aiTelemetryQueryReducer(state, {
-      type: "setRange",
-      from: "2026-10-01",
-      to: "2026-10-05",
-    });
-    state = aiTelemetryQueryReducer(state, {
-      type: "setFeature",
-      feature: "x",
-    });
-    state = aiTelemetryQueryReducer(state, {
-      type: "setStatus",
-      status: "error",
-    });
-    state = aiTelemetryQueryReducer(state, {
-      type: "setRetriedOnly",
-      retriedOnly: true,
-    });
-    state = aiTelemetryQueryReducer(state, { type: "setKind", kind: "embed" });
-    state = aiTelemetryQueryReducer(state, { type: "submit" });
+  test("주소의 값을 그대로 읽는다", () => {
+    const state = read(
+      "tab=calls&from=2026-10-01&to=2026-10-05&service=growth&feature=r&status=error&retried=1&kind=embed&page=3",
+    );
+    expect(state.tab).toBe("calls");
+    expect(state.page).toBe(3);
     expect(state.applied).toEqual({
       from: "2026-10-01",
       to: "2026-10-05",
-      service: "",
-      feature: "x",
+      service: "growth",
+      feature: "r",
       status: "error",
       retriedOnly: true,
       kind: "embed",
     });
-    expect(state.page).toBe(1);
   });
 
-  test("탭을 바꿔도 적용된 필터와 페이지는 유지된다", () => {
-    const state = aiTelemetryQueryReducer(
-      { ...initial, page: 3 },
-      { type: "setTab", tab: "calls" },
+  test.each(["page=0", "page=-1", "page=1.5", "page=abc"])(
+    "잘못된 %s 는 1페이지로 읽는다",
+    (search) => expect(read(search).page).toBe(1),
+  );
+
+  test("모르는 탭은 요약으로 읽는다", () => {
+    expect(read("tab=nope").tab).toBe("summary");
+  });
+
+  test("withFilters 는 필터를 적고 빈 값은 지우고 page 를 지운다", () => {
+    const next = withFilters(
+      new URLSearchParams("tab=calls&page=4&service=growth&retried=1"),
+      {
+        from: "2026-10-01",
+        to: "2026-10-05",
+        service: "",
+        feature: " x ",
+        status: "",
+        retriedOnly: false,
+        kind: "embed",
+      },
     );
-    expect(state.tab).toBe("calls");
-    expect(state.page).toBe(3);
-    expect(state.applied).toEqual(initial.applied);
+    expect(Object.fromEntries(next)).toEqual({
+      tab: "calls",
+      from: "2026-10-01",
+      to: "2026-10-05",
+      feature: "x",
+      kind: "embed",
+    });
   });
 
-  test("페이지는 1 미만으로 내려가지 않는다", () => {
-    const state = aiTelemetryQueryReducer(initial, {
-      type: "setPage",
-      page: -2,
+  test("withTab 은 필터와 page 를 두고 요약이면 tab 을 지운다", () => {
+    const base = new URLSearchParams("from=2026-10-01&page=3");
+    expect(Object.fromEntries(withTab(base, "calls"))).toEqual({
+      from: "2026-10-01",
+      page: "3",
+      tab: "calls",
     });
-    expect(state.page).toBe(1);
+    expect(
+      withTab(new URLSearchParams("tab=calls"), "summary").has("tab"),
+    ).toBe(false);
+  });
+
+  test("withPage 는 1 미만으로 내려가지 않고 1쪽이면 page 를 지운다", () => {
+    expect(withPage(new URLSearchParams(), 4).get("page")).toBe("4");
+    expect(withPage(new URLSearchParams("page=4"), -2).has("page")).toBe(false);
   });
 });
 
 describe("search 빌더", () => {
-  const initial = createInitialQuery(NOW);
+  const initial = readQuery(new URLSearchParams(), NOW);
   const filtered: AiTelemetryQuery = {
     ...initial,
     page: 2,

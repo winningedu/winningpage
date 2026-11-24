@@ -33,14 +33,6 @@
     "legacyError": 1,
     "okSuccess": 2
   },
-  "api/_routes/admin/ai-telemetry-pricing.ts": {
-    "legacyError": 2,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/ai-telemetry.ts": {
-    "legacyError": 2,
-    "okSuccess": 4
-  },
   "api/_routes/admin/hq-dashboard/b2c.ts": {
     "legacyError": 3,
     "okSuccess": 1
@@ -63,22 +55,6 @@
   },
   "api/_routes/admin/hq-dashboard/usage.ts": {
     "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/knowledge-bulk.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/knowledge-dedupe.ts": {
-    "legacyError": 2,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/knowledge-eval.ts": {
-    "legacyError": 5,
-    "okSuccess": 3
-  },
-  "api/_routes/admin/knowledge-search.ts": {
-    "legacyError": 2,
     "okSuccess": 1
   },
   "api/_routes/admin/web-analytics.ts": {
@@ -867,13 +843,6 @@
   "src/pages/admin/hq-dashboard/api.ts": {
     "legacyFetch": 2
   },
-  "src/pages/admin/knowledge/api.ts": {
-    "legacyFetch": 1
-  },
-  "src/pages/admin/knowledge/evals/api.ts": {
-    "browserDb": 6,
-    "legacyFetch": 1
-  },
   "src/pages/admin/learning-diagnosis/LearningDiagnosisAdmin.tsx": {
     "browserDb": 12
   },
@@ -885,9 +854,6 @@
   },
   "src/pages/admin/shared/AdminEngine.tsx": {
     "browserDb": 3
-  },
-  "src/pages/admin/telemetry/api.ts": {
-    "legacyFetch": 1
   },
   "src/pages/admin/web-analytics/api.ts": {
     "legacyFetch": 1

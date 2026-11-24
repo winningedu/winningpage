@@ -1,12 +1,13 @@
 // 검색 테스트 다이얼로그는 검색 중에 닫히지 않고, 바깥을 눌러서는 닫히지 않는다.
 
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("../api", () => ({ postSearchPreview: vi.fn() }));
 
 import * as api from "../api";
+import { renderWithQuery } from "../testKit";
 import SearchPreview from "./SearchPreview";
 
 const config = {
@@ -17,7 +18,7 @@ const config = {
 const TITLE = "위닝 수행 주제 DB 검색 테스트";
 
 async function openDialog() {
-  render(<SearchPreview config={config} />);
+  renderWithQuery(<SearchPreview config={config} />);
   fireEvent.click(screen.getByRole("button", { name: "검색 테스트" }));
   return screen.findByRole("dialog", { name: TITLE });
 }

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -8,9 +9,11 @@ import {
 } from "@/components/ui/table";
 import { ActionButton } from "@/pages/admin/shared/formFields";
 import {
+  evalKeys,
+  failureText,
   type GoldenQuery,
   listGoldenQueries,
-  setGoldenQueryActive,
+  patchGoldenQuery,
 } from "./api";
 import ErrorBox from "./ErrorBox";
 import type { KnowledgeType } from "./form";
@@ -23,38 +26,38 @@ export default function QueriesTab({
 }: {
   knowledgeType: KnowledgeType;
 }) {
-  const [items, setItems] = useState<GoldenQuery[] | null>(null);
-  const [error, setError] = useState("");
+  const queryClient = useQueryClient();
+  const [toggleError, setToggleError] = useState("");
   const [editing, setEditing] = useState<GoldenQuery | "new" | null>(null);
 
-  const reload = useCallback(() => {
-    listGoldenQueries(knowledgeType).then((result) => {
-      if (!result.ok) {
-        setError(result.message);
-        return;
-      }
-      setError("");
-      setItems(result.data);
+  const list = useQuery({
+    queryKey: evalKeys.queries(knowledgeType),
+    queryFn: ({ signal }) => listGoldenQueries(knowledgeType, signal),
+  });
+  const items = list.data ?? null;
+  const error = list.error
+    ? failureText("문제집 조회", list.error)
+    : toggleError;
+  const reload = () =>
+    queryClient.invalidateQueries({
+      queryKey: evalKeys.queries(knowledgeType),
     });
-  }, [knowledgeType]);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  // 삭제는 비활성으로 한다. 지난 실행 이력의 질의 id 가 계속 뜻을 갖게 하려는 선택이다.
+  const toggle = useMutation({
+    mutationFn: (item: GoldenQuery) =>
+      patchGoldenQuery(item.id, knowledgeType, { is_active: !item.is_active }),
+    onSuccess: () => {
+      setToggleError("");
+      return reload();
+    },
+    onError: (e) => setToggleError(failureText("질의 상태 변경", e)),
+  });
 
   const titles = useResourceTitles(
     (items ?? []).flatMap((item) => item.expected_resource_ids),
   );
   const activeCount = (items ?? []).filter((item) => item.is_active).length;
-
-  async function toggleActive(item: GoldenQuery) {
-    const result = await setGoldenQueryActive(item.id, !item.is_active);
-    if (!result.ok) {
-      setError(result.message);
-      return;
-    }
-    reload();
-  }
 
   return (
     <div className="bg-white p-6 shadow-sm">
@@ -119,7 +122,8 @@ export default function QueriesTab({
                     </ActionButton>
                     <ActionButton
                       variant={item.is_active ? "danger" : "light"}
-                      onClick={() => toggleActive(item)}
+                      onClick={() => toggle.mutate(item)}
+                      disabled={toggle.isPending}
                     >
                       {item.is_active ? "비활성" : "다시 활성"}
                     </ActionButton>
