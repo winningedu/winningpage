@@ -53,7 +53,8 @@ const adminRoutes: RouteObject[] = [
         ),
       },
       ...ADMIN_SECTION_KEYS.map((key) => ({
-        path: key,
+        // 섹션이 하위 경로(예: coupons/:id/edit)를 가질 수 있게 \`/*\`를 붙인다.
+        path: `${key}/*`,
         lazy: async () => {
           const { AdminSectionRoute } = await import("@/pages/Admin");
           // biome-ignore lint/correctness/noComponentHookFactories: 라우트 정의는 모듈 로드 때 한 번만 만들어져 렌더마다 새 컴포넌트가 생기지 않는다
