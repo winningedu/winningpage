@@ -16,6 +16,18 @@ export const routes: Record<string, RouteLoader> = {
   "admin/coupons/redemptions/[id]/void": () =>
     import("./admin/coupons/redemptions/[id]/void.js"),
   "admin/coupons/user-search": () => import("./admin/coupons/user-search.js"),
+  "admin/learning-diagnosis/questions": () =>
+    import("./admin/learning-diagnosis/questions.js"),
+  "admin/learning-diagnosis/questions/[id]": () =>
+    import("./admin/learning-diagnosis/questions/[id].js"),
+  "admin/learning-diagnosis/options": () =>
+    import("./admin/learning-diagnosis/options.js"),
+  "admin/learning-diagnosis/options/[id]": () =>
+    import("./admin/learning-diagnosis/options/[id].js"),
+  "admin/learning-diagnosis/programs": () =>
+    import("./admin/learning-diagnosis/programs.js"),
+  "admin/learning-diagnosis/programs/[id]": () =>
+    import("./admin/learning-diagnosis/programs/[id].js"),
   "admin/growth-grant": () => import("./admin/growth-grant.js"),
   "admin/home-section-copy/[sectionKey]": () =>
     import("./admin/home-section-copy/[sectionKey].js"),

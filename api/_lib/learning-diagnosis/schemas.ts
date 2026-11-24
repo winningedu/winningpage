@@ -33,3 +33,16 @@ export const optionPatchSchema = z.strictObject({
 export function withOptionText<T extends { label: string }>(body: T) {
   return { ...body, option_text: body.label };
 }
+
+export const programBodySchema = z.strictObject({
+  title: z.string().trim().min(1),
+  badge: z.string(),
+  description: z.string(),
+  primary_button_text: z.string(),
+  primary_button_link: z.string(),
+  secondary_button_text: z.string(),
+  secondary_button_link: z.string(),
+  icon: z.string(),
+  is_active: z.boolean(),
+  sort_order: z.int(),
+});
