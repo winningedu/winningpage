@@ -15,6 +15,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import {
   type DirectoryRow,
   fetchStaffDetail,
@@ -67,6 +68,14 @@ type OverrideDraft = Record<string, Level>;
 
 const toRecord = (items: PermissionItem[]): OverrideDraft =>
   Object.fromEntries(items.map((item) => [item.resourceKey, item.level]));
+
+function sameOverrides(a: OverrideDraft, b: OverrideDraft) {
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => a[key] === b[key])
+  );
+}
 
 interface Props {
   config: { title: string };
@@ -176,6 +185,8 @@ function MemberDetail({
     return map;
   }, [resources]);
 
+  const base = `${MEMBERS_PATH}/${member.profile_id}`;
+
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: staffKeys.all });
 
@@ -211,9 +222,18 @@ function MemberDetail({
     onError: (error) => reportAdminError("저장 실패", error),
   });
 
-  const saving = saveInfo.isPending || savePermissions.isPending;
+  // 고친 폼이 있으면 이 관리자 화면을 나갈 때 묻는다. 같은 관리자의 탭 이동은 막지 않는다.
+  const dirty =
+    roleDraft !== (member.role_id ?? "") ||
+    deptDraft.trim() !== (member.department ?? "") ||
+    statusDraft !== member.status ||
+    !sameOverrides(overrides, toRecord(loadedOverrides));
+  useUnsavedGuard(
+    dirty,
+    (next) => next.pathname === base || next.pathname.startsWith(`${base}/`),
+  );
 
-  const base = `${MEMBERS_PATH}/${member.profile_id}`;
+  const saving = saveInfo.isPending || savePermissions.isPending;
 
   return (
     <div>
