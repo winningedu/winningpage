@@ -125,10 +125,6 @@
     "legacyError": 3,
     "okSuccess": 2
   },
-  "api/_routes/admin/send-message.ts": {
-    "legacyError": 6,
-    "okSuccess": 1
-  },
   "api/_routes/admin/service-credit-adjust.ts": {
     "legacyError": 6,
     "okSuccess": 1
@@ -143,10 +139,6 @@
   },
   "api/_routes/admin/tenants/member-purge.ts": {
     "legacyError": 6,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/tenants/move-student.ts": {
-    "legacyError": 5,
     "okSuccess": 1
   },
   "api/_routes/admin/tenants/purge-logs.ts": {
