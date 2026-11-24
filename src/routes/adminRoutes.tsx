@@ -7,6 +7,7 @@ import { requireAdminMiddleware } from "@/lib/routeMiddleware";
 // 주석 참고 — /admin에 들어가지 않는 사용자의 초기 번들에 CONFIGS를 얹지 않기 위함이다.
 import {
   ADMIN_DEFAULT_SECTION_KEY,
+  ADMIN_ENGINE_SECTION_KEYS,
   ADMIN_SECTION_KEYS,
 } from "@/pages/admin/adminSectionKeys";
 
@@ -52,6 +53,24 @@ const SPLAT_SECTION_KEYS: ReadonlySet<string> = new Set([
   "premiumBookPages",
 ]);
 
+const ENGINE_SECTION_KEYS: ReadonlySet<string> = new Set(
+  ADMIN_ENGINE_SECTION_KEYS,
+);
+
+// 엔진 섹션의 하위 주소는 splat 하나가 아니라 명시 경로(new, :id)로 둔다. 주소 모양이 라우트 표에
+// 그대로 보이고, "/admin/popups/a/b" 같은 엉뚱한 하위 주소는 아래 "*" 로 기본 섹션에 되돌아간다.
+// 목록에서 폼으로 옮기면 섹션이 다시 마운트되지만, 목록 상태는 주소(검색값)에 있어 잃지 않는다.
+function sectionRoute(path: string, key: string): RouteObject {
+  return {
+    path,
+    lazy: async () => {
+      const { AdminSectionRoute } = await import("@/pages/Admin");
+      // biome-ignore lint/correctness/noComponentHookFactories: 라우트 정의는 모듈 로드 때 한 번만 만들어져 렌더마다 새 컴포넌트가 생기지 않는다
+      return { Component: () => <AdminSectionRoute section={key} /> };
+    },
+  };
+}
+
 const adminRoutes: RouteObject[] = [
   {
     path: "/admin",
@@ -69,14 +88,15 @@ const adminRoutes: RouteObject[] = [
           <Navigate to={`/admin/${ADMIN_DEFAULT_SECTION_KEY}`} replace />
         ),
       },
-      ...ADMIN_SECTION_KEYS.map((key) => ({
-        path: SPLAT_SECTION_KEYS.has(key) ? `${key}/*` : key,
-        lazy: async () => {
-          const { AdminSectionRoute } = await import("@/pages/Admin");
-          // biome-ignore lint/correctness/noComponentHookFactories: 라우트 정의는 모듈 로드 때 한 번만 만들어져 렌더마다 새 컴포넌트가 생기지 않는다
-          return { Component: () => <AdminSectionRoute section={key} /> };
-        },
-      })),
+      ...ADMIN_SECTION_KEYS.flatMap((key) =>
+        ENGINE_SECTION_KEYS.has(key)
+          ? [
+              sectionRoute(key, key),
+              sectionRoute(`${key}/new`, key),
+              sectionRoute(`${key}/:id`, key),
+            ]
+          : [sectionRoute(SPLAT_SECTION_KEYS.has(key) ? `${key}/*` : key, key)],
+      ),
       // 목표관리 학생 상세. 같은 섹션 컴포넌트가 :id 로 상세를 그린다(새로고침해도 API 에서 읽는다).
       {
         path: "goalStudents/:id",
