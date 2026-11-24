@@ -14,9 +14,9 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { z } from "zod";
 import {
-  type AdminWriteAction,
+  type AdminAuditAction,
   isAuditableMethod,
-  scheduleAdminWriteAudit,
+  scheduleAdminAudit,
 } from "./accessLog/adminWrite.js";
 import { resolveAdmin, resolveWinningAdmin } from "./adminAuth.js";
 import {
@@ -208,11 +208,11 @@ export interface DefineHandlerOptions<
     level?: AdminLevel;
   };
   /**
-   * auth:"admin" 전용 감사 행. permission 이 있는 라우트의 쓰기 요청(GET, HEAD 제외)은 응답 뒤에
-   * admin_access_logs 에 한 줄을 남긴다(성공, 실패 모두). false 면 라우트가 직접 남기므로 자동 행을 끈다.
-   * { action } 은 메서드 기본값(POST create, PATCH, PUT update, DELETE delete)을 바꾼다.
+   * auth:"admin" 전용 감사 행. permission 이 있는 라우트의 요청(HEAD 제외)은 응답 뒤에
+   * admin_access_logs 에 한 줄을 남긴다(성공, 실패 모두). false 면 자동 행을 끈다(라우트가 직접 남기는 경우).
+   * { action } 은 메서드 기본값(GET view, POST create, PATCH, PUT update, DELETE delete)을 바꾼다.
    */
-  audit?: false | { action: AdminWriteAction };
+  audit?: false | { action: AdminAuditAction };
   /** 미처리 예외(500) 응답 문구 — 라우트마다 달라 필수로 받는다. */
   unhandledMessage: string;
   /** errorShape가 "coded"일 때만 쓰는 500 코드. */
@@ -570,7 +570,7 @@ export function defineHandler<
       ) {
         const actor = auditActor;
         const requestedKey = auditKey;
-        scheduleAdminWriteAudit(() => ctx.supabaseAdmin, {
+        scheduleAdminAudit(() => ctx.supabaseAdmin, {
           req,
           statusCode: res.statusCode,
           actor,

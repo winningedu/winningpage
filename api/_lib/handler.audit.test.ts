@@ -1,4 +1,4 @@
-// auth:"admin" 라우트의 쓰기 요청이 admin_access_logs 에 감사 행을 자동으로 남기는지 검증한다.
+// auth:"admin" 라우트의 쓰기와 조회(GET) 요청이 admin_access_logs 에 감사 행을 자동으로 남기는지 검증한다.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, test, vi } from "vitest";
@@ -106,7 +106,7 @@ function route(
   errorShape: ErrorShape = "problem",
 ) {
   const options = {
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
     auth: "admin",
     errorShape,
     unhandledMessage: "처리하지 못했어요.",
@@ -150,7 +150,7 @@ describe("동작 기본값", () => {
     const r = await call(route(), {
       method: "POST",
       url: "/api/admin/things?x=1",
-      headers: { "x-vercel-id": "icn1::abc" },
+      headers: { "x-vercel-id": "icn1::abc", "x-forwarded-for": "203.0.113.7" },
     });
     expect(r.status).toBe(200);
     expect(auditRows()).toEqual([
@@ -168,6 +168,7 @@ describe("동작 기본값", () => {
           method: "POST",
           status: 200,
           requestId: "icn1::abc",
+          ip: "203.0.113.7",
         },
       },
     ]);
@@ -242,9 +243,116 @@ describe("종료 경로마다 한 줄", () => {
   });
 });
 
+describe("조회(GET)", () => {
+  test("목록 GET 은 대상 없이 view 행을 남기고 route 에 쿼리를 싣지 않는다", async () => {
+    const r = await call(route(), {
+      method: "GET",
+      url: "/api/admin/members?q=홍길동&page=2",
+      query: { q: "홍길동", page: "2" },
+      headers: { "x-vercel-id": "icn1::get", "x-forwarded-for": "198.51.100.4" },
+    });
+    expect(r.status).toBe(200);
+    expect(auditRows()).toEqual([
+      {
+        profile_id: "admin-1",
+        actor_email: "boss@example.com",
+        actor_kind: "hq",
+        action: "view",
+        resource_key: "members",
+        target_id: null,
+        reason: null,
+        row_count: null,
+        meta: {
+          route: "/api/admin/members",
+          method: "GET",
+          status: 200,
+          requestId: "icn1::get",
+          ip: "198.51.100.4",
+        },
+      },
+    ]);
+  });
+
+  test("상세 GET 은 경로의 uuid 를 target_id 로 남긴다", async () => {
+    await call(route(), {
+      method: "GET",
+      url: `/api/admin/members/${UUID}`,
+      query: { id: UUID },
+    });
+    expect(auditRows()[0]).toMatchObject({ action: "view", target_id: UUID });
+  });
+
+  test("view 권한도 없어 403 인 GET 도 남긴다", async () => {
+    grant([]);
+    const r = await call(route(), { method: "GET" });
+    expect(r.status).toBe(403);
+    expect(auditRows()).toHaveLength(1);
+    expect(auditMeta().status).toBe(403);
+  });
+
+  test("핸들러가 보낸 404 GET 도 남긴다", async () => {
+    const r = await call(
+      route({}, async (_req, res) => {
+        res.status(404).json({ code: "NOT_FOUND" });
+      }),
+      { method: "GET", url: `/api/admin/members/${UUID}`, query: { id: UUID } },
+    );
+    expect(r.status).toBe(404);
+    expect(auditRows()[0]).toMatchObject({ action: "view", target_id: UUID });
+    expect(auditMeta().status).toBe(404);
+  });
+
+  test("적재가 실패해도 GET 응답은 그대로다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    kit.state.insertErrors.admin_access_logs = { message: "db down" };
+    const r = await call(route(), { method: "GET" });
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ id: "r1" });
+  });
+});
+
+describe("접속지 IP", () => {
+  test("x-forwarded-for 의 첫 값을 쓴다", async () => {
+    await call(route(), {
+      method: "GET",
+      headers: { "x-forwarded-for": " 203.0.113.9 , 10.0.0.1" },
+    });
+    expect(auditMeta().ip).toBe("203.0.113.9");
+  });
+
+  test("헤더가 없으면 ip 는 null 이고 행은 남는다", async () => {
+    const r = await call(route(), { method: "POST" });
+    expect(r.status).toBe(200);
+    expect(auditMeta()).toHaveProperty("ip", null);
+  });
+
+  test("meta 에는 route, method, status, requestId, ip 만 싣는다", async () => {
+    await call(route(), {
+      method: "GET",
+      headers: { "user-agent": "Mozilla/5.0", "x-forwarded-for": "203.0.113.9" },
+      query: { q: "홍길동" },
+    });
+    expect(Object.keys(auditMeta()).sort()).toEqual(
+      ["ip", "method", "requestId", "route", "status"],
+    );
+  });
+});
+
 describe("남기지 않는 경우", () => {
-  test("GET 은 남기지 않는다", async () => {
-    await call(route(), { method: "GET" });
+  test("HEAD 는 남기지 않는다", async () => {
+    await call(route(), { method: "HEAD" });
+    expect(auditRows()).toEqual([]);
+  });
+
+  test("토큰이 없는 GET 은 401 이고 남기지 않는다", async () => {
+    kit.state.user = null;
+    const r = await call(route(), { method: "GET" });
+    expect(r.status).toBe(401);
+    expect(auditRows()).toEqual([]);
+  });
+
+  test("audit:false 인 GET 라우트는 남기지 않는다", async () => {
+    await call(route({ audit: false }), { method: "GET" });
     expect(auditRows()).toEqual([]);
   });
 
