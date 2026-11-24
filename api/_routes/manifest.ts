@@ -14,6 +14,8 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/coupons/redemption-void.js"),
   "admin/coupons/user-search": () => import("./admin/coupons/user-search.js"),
   "admin/growth-grant": () => import("./admin/growth-grant.js"),
+  "admin/home-section-copy/[sectionKey]": () =>
+    import("./admin/home-section-copy/[sectionKey].js"),
   "admin/hq-dashboard/summary": () => import("./admin/hq-dashboard/summary.js"),
   "admin/hq-dashboard/tenants": () => import("./admin/hq-dashboard/tenants.js"),
   "admin/hq-dashboard/usage": () => import("./admin/hq-dashboard/usage.js"),
@@ -27,6 +29,14 @@ export const routes: Record<string, RouteLoader> = {
   "admin/inquiry-sessions": () => import("./admin/inquiry-sessions.js"),
   "admin/invite-member": () => import("./admin/invite-member.js"),
   "admin/knowledge-bulk": () => import("./admin/knowledge-bulk.js"),
+  "admin/sections/[key]": () => import("./admin/sections/[key].js"),
+  "admin/sections/[key]/[id]": () => import("./admin/sections/[key]/[id].js"),
+  "admin/sections/[key]/[id]/meta": () =>
+    import("./admin/sections/[key]/[id]/meta.js"),
+  "admin/sections/[key]/[id]/reviewed": () =>
+    import("./admin/sections/[key]/[id]/reviewed.js"),
+  "admin/sections/[key]/export": () =>
+    import("./admin/sections/[key]/export.js"),
   "admin/selfeval-grant": () => import("./admin/selfeval-grant.js"),
   "admin/selfeval-recover": () => import("./admin/selfeval-recover.js"),
   "admin/selfeval-sessions": () => import("./admin/selfeval-sessions.js"),
@@ -38,6 +48,7 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/service-credit-adjust.js"),
   "admin/service-credit-summary": () =>
     import("./admin/service-credit-summary.js"),
+  "admin/tenant-options": () => import("./admin/tenant-options.js"),
   "admin/tenants/member-purge": () => import("./admin/tenants/member-purge.js"),
   "admin/tenants/member-purge-preview": () =>
     import("./admin/tenants/member-purge-preview.js"),

@@ -67,12 +67,18 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+vi.mock("./admin/engine/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./admin/engine/api")>()),
+  fetchSectionList: vi.fn(async () => ({ items: [], total: 0 })),
+}));
+
 vi.mock("./admin/shared/adminSession", () => ({
   getFreshSupabaseAccessTokenOrSignOut: async () => "token",
 }));
 
 import { Toaster } from "@/components/ui/toast";
 import { AdminSectionRoute } from "./Admin";
+import { TestQueryProvider } from "./admin/engine/testQuery";
 import { ConfirmAdminHost } from "./admin/shared/confirmAdmin";
 
 beforeEach(() => {
@@ -87,10 +93,12 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
   it("적용에 실패하면 DB 원문 없이 되돌려지지 않는다는 안내만 토스트로 보인다", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     render(
-      <MemoryRouter initialEntries={["/admin/goalUniversityCuts"]}>
-        <AdminSectionRoute section="goalUniversityCuts" />
-        <Toaster />
-      </MemoryRouter>,
+      <TestQueryProvider>
+        <MemoryRouter initialEntries={["/admin/goalUniversityCuts"]}>
+          <AdminSectionRoute section="goalUniversityCuts" />
+          <Toaster />
+        </MemoryRouter>
+      </TestQueryProvider>,
     );
 
     fireEvent.click(
@@ -115,10 +123,12 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
   it("청크 적용에 실패하면 실패한 행 범위와 DB 오류 코드 안내를 함께 보인다", async () => {
     vi.spyOn(window, "alert").mockImplementation(() => {});
     render(
-      <MemoryRouter initialEntries={["/admin/goalUniversityCuts"]}>
-        <AdminSectionRoute section="goalUniversityCuts" />
-        <Toaster />
-      </MemoryRouter>,
+      <TestQueryProvider>
+        <MemoryRouter initialEntries={["/admin/goalUniversityCuts"]}>
+          <AdminSectionRoute section="goalUniversityCuts" />
+          <Toaster />
+        </MemoryRouter>
+      </TestQueryProvider>,
     );
 
     fireEvent.click(
@@ -142,11 +152,13 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(
-      <MemoryRouter initialEntries={["/admin/admissionGuidelines"]}>
-        <AdminSectionRoute section="admissionGuidelines" />
-        <Toaster />
-        <ConfirmAdminHost />
-      </MemoryRouter>,
+      <TestQueryProvider>
+        <MemoryRouter initialEntries={["/admin/admissionGuidelines"]}>
+          <AdminSectionRoute section="admissionGuidelines" />
+          <Toaster />
+          <ConfirmAdminHost />
+        </MemoryRouter>
+      </TestQueryProvider>,
     );
 
     fireEvent.change(await screen.findByLabelText("새 공개 연도"), {

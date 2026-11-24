@@ -39,6 +39,15 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+vi.mock("./admin/engine/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./admin/engine/api")>()),
+  fetchSectionList: vi.fn(() =>
+    state.hang
+      ? new Promise<never>(() => {})
+      : Promise.resolve({ items: [], total: 0 }),
+  ),
+}));
+
 vi.mock("./admin/shared/adminSession", () => ({
   getFreshSupabaseAccessTokenOrSignOut: async () => "token",
 }));

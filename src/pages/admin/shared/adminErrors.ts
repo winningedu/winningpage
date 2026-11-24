@@ -30,6 +30,7 @@
 // ---------------------------------------------------------------------------
 
 import { toast } from "@/components/ui/toast";
+import { ApiError } from "@/lib/http/client";
 
 // Supabase PostgrestError 등 message/code를 갖는 임의 오류 객체를 느슨하게 받는다 —
 // 호출부가 던지는 값이 항상 Error 인스턴스는 아니다(예: { message, code } 리터럴).
@@ -258,12 +259,36 @@ export function withChunkRows(title: string, error: unknown): string {
   return error instanceof AdminChunkError ? `${title}(${error.rows}행)` : title;
 }
 
+// 서버가 DB 제약 위반을 problem 으로 바꿔 보낸 경우(DB_UNIQUE_VIOLATION 등). columns 확장 멤버로
+// SQLSTATE 경로와 같은 라벨 문구를 만든다. 그 밖의 ApiError 는 서버가 쓴 detail 을 그대로 보인다.
+function mapApiErrorMessage(error: ApiError, labels: AdminFieldLabels): string {
+  const columns = error.problem?.columns;
+  if (Array.isArray(columns) && columns.every((c) => typeof c === "string")) {
+    const first = columns[0];
+    const detailed =
+      error.code === "DB_NOT_NULL_VIOLATION" && first
+        ? describeConstraint(
+            { code: "23502", message: `null value in column "${first}"` },
+            labels,
+          )
+        : error.code === "DB_UNIQUE_VIOLATION"
+          ? describeConstraint(
+              { code: "23505", details: `Key (${columns.join(", ")})=(` },
+              labels,
+            )
+          : null;
+    if (detailed) return detailed;
+  }
+  return error.detail;
+}
+
 function mapAdminErrorMessage(
   error: AdminErrorLike | null | undefined,
   labels: AdminFieldLabels = {},
 ): string {
   if (!error) return GENERIC_FAILURE;
   if (error instanceof AdminApiError) return error.detail;
+  if (error instanceof ApiError) return mapApiErrorMessage(error, labels);
 
   const detailed = describeConstraint(error, labels);
   if (detailed) return detailed;

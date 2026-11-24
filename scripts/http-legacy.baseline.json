@@ -933,7 +933,6 @@
     "browserDb": 1
   },
   "src/pages/Admin.tsx": {
-    "browserDb": 8,
     "legacyFetch": 2
   },
   "src/pages/AdmissionBoard.tsx": {
@@ -981,8 +980,8 @@
   "src/pages/admin/admission/AdmissionPanels.tsx": {
     "browserDb": 6
   },
-  "src/pages/admin/configs/bannersForm.tsx": {
-    "browserDb": 1
+  "src/pages/admin/coupons/CouponAdmin.tsx": {
+    "browserDb": 14
   },
   "src/pages/admin/goal/GoalCutsPanels.tsx": {
     "browserDb": 8
@@ -1013,9 +1012,6 @@
     "browserDb": 6,
     "legacyFetch": 1
   },
-  "src/pages/admin/landing/SectionCopyPanel.tsx": {
-    "browserDb": 2
-  },
   "src/pages/admin/learning-diagnosis/LearningDiagnosisAdmin.tsx": {
     "browserDb": 12
   },
@@ -1028,6 +1024,9 @@
   },
   "src/pages/admin/premium-book/PremiumBookAdmin.tsx": {
     "browserDb": 11
+  },
+  "src/pages/admin/revenue/RevenueAdmin.tsx": {
+    "browserDb": 4
   },
   "src/pages/admin/selfeval/SelfevalSessionsAdmin.tsx": {
     "browserDb": 1
