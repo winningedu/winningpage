@@ -14,8 +14,8 @@ export type ProgramKey = (typeof SERVICE_PROGRAMS)[number]["key"];
 
 export interface UsageDefaults {
   [programKey: string]: {
-    monthly_limit?: number;
-    term_limit_by_term_months?: Record<string, number>;
+    monthly_limit?: number | undefined;
+    term_limit_by_term_months?: Record<string, number> | undefined;
   };
 }
 

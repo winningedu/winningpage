@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   fireEvent,
   render,
@@ -5,6 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("./api", () => ({
@@ -13,6 +15,7 @@ vi.mock("./api", () => ({
 }));
 
 import { Toaster } from "@/components/ui/toast";
+import { ApiError } from "@/lib/http/client";
 import * as api from "./api";
 import SchoolAdminPanel from "./SchoolAdminPanel";
 
@@ -40,13 +43,22 @@ const CANCELED = {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(api.fetchSchoolAdmins).mockResolvedValue({
-    ok: true,
-    data: { address: "서울시 중구 1", admins: [ADMIN, CANCELED] },
+    address: "서울시 중구 1",
+    items: [ADMIN, CANCELED],
   });
 });
 
+function withQuery(ui: ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return <QueryClientProvider client={client}>{ui}</QueryClientProvider>;
+}
+
 function renderPanel() {
-  return render(<SchoolAdminPanel tenantId="tenant-7" tenantName="한빛고" />);
+  return render(
+    withQuery(<SchoolAdminPanel tenantId="tenant-7" tenantName="한빛고" />),
+  );
 }
 
 function fill(label: string, value: string) {
@@ -58,7 +70,10 @@ describe("SchoolAdminPanel", () => {
     renderPanel();
 
     expect(await screen.findByText("박관리")).toBeTruthy();
-    expect(api.fetchSchoolAdmins).toHaveBeenCalledWith("tenant-7");
+    expect(api.fetchSchoolAdmins).toHaveBeenCalledWith(
+      "tenant-7",
+      expect.any(AbortSignal),
+    );
     const row = screen.getByText("박관리").closest("tr") as HTMLElement;
     expect(within(row).getByText("서울시 중구 1")).toBeTruthy();
     expect(within(row).getByText("ABCD2345XY7Z9K")).toBeTruthy();
@@ -82,8 +97,8 @@ describe("SchoolAdminPanel", () => {
 
   test("발급 폼의 기관 칸은 읽기 전용 기관 이름이고 입력한 값을 tenantId 와 함께 보낸다", async () => {
     vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
-      ok: true,
-      data: { loginId: "NEWLOGIN2345AB", tempPassword: "Tmp-pass-1" },
+      loginId: "NEWLOGIN2345AB",
+      tempPassword: "Tmp-pass-1",
     });
     renderPanel();
     await screen.findByText("박관리");
@@ -115,8 +130,8 @@ describe("SchoolAdminPanel", () => {
 
   test("임시 비밀번호는 모달에 한 번만 보이고 닫으면 다시 볼 수 없다", async () => {
     vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
-      ok: true,
-      data: { loginId: "NEWLOGIN2345AB", tempPassword: "Tmp-pass-1" },
+      loginId: "NEWLOGIN2345AB",
+      tempPassword: "Tmp-pass-1",
     });
     renderPanel();
     await screen.findByText("박관리");
@@ -139,8 +154,8 @@ describe("SchoolAdminPanel", () => {
 
   test("임시 비밀번호 모달은 제목을 접근 가능한 이름으로 가진 alertdialog 다", async () => {
     vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
-      ok: true,
-      data: { loginId: "NEWLOGIN2345AB", tempPassword: "Tmp-pass-1" },
+      loginId: "NEWLOGIN2345AB",
+      tempPassword: "Tmp-pass-1",
     });
     renderPanel();
     await screen.findByText("박관리");
@@ -157,8 +172,8 @@ describe("SchoolAdminPanel", () => {
 
   test("임시 비밀번호 모달은 Esc 와 바깥 누름으로 닫히지 않고 확인으로만 닫힌다", async () => {
     vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
-      ok: true,
-      data: { loginId: "NEWLOGIN2345AB", tempPassword: "Tmp-pass-1" },
+      loginId: "NEWLOGIN2345AB",
+      tempPassword: "Tmp-pass-1",
     });
     renderPanel();
     await screen.findByText("박관리");
@@ -185,10 +200,13 @@ describe("SchoolAdminPanel", () => {
   });
 
   test("발급이 실패하면 서버 문구를 보이고 모달은 열지 않는다", async () => {
-    vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
-      ok: false,
-      message: "이미 쓰는 전화번호예요.",
-    });
+    vi.mocked(api.issueSchoolAdmin).mockRejectedValue(
+      new ApiError({
+        status: 409,
+        code: "CONFLICT",
+        detail: "이미 쓰는 전화번호예요.",
+      }),
+    );
     renderPanel();
     await screen.findByText("박관리");
     fill("이름", "김새로");
@@ -197,6 +215,41 @@ describe("SchoolAdminPanel", () => {
 
     expect(await screen.findByText("이미 쓰는 전화번호예요.")).toBeTruthy();
     expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  test("목록 조회가 실패하면 서버 문구를 알림으로 보인다", async () => {
+    vi.mocked(api.fetchSchoolAdmins).mockRejectedValue(
+      new ApiError({
+        status: 403,
+        code: "FORBIDDEN",
+        detail: "이 메뉴를 볼 권한이 없어요.",
+      }),
+    );
+    renderPanel();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "이 메뉴를 볼 권한이 없어요.",
+    );
+  });
+
+  test("발급 중에는 발급 버튼이 잠긴다", async () => {
+    let finish: (value: { loginId: string }) => void = () => {};
+    vi.mocked(api.issueSchoolAdmin).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    renderPanel();
+    await screen.findByText("박관리");
+    fill("이름", "김새로");
+    fill("전화번호", "010-1111-2222");
+    fireEvent.click(screen.getByRole("button", { name: "발급" }));
+
+    expect(
+      await screen.findByRole("button", { name: "발급 중..." }),
+    ).toBeDisabled();
+    finish({ loginId: "NEWLOGIN2345AB" });
+    await screen.findByRole("alertdialog");
   });
 
   test("이름이나 전화번호가 비면 서버를 부르지 않는다", async () => {
@@ -212,14 +265,16 @@ describe("SchoolAdminPanel", () => {
   describe("복사 안내", () => {
     async function openIssuedDialog() {
       vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
-        ok: true,
-        data: { loginId: "NEWLOGIN2345AB", tempPassword: "Tmp-pass-1" },
+        loginId: "NEWLOGIN2345AB",
+        tempPassword: "Tmp-pass-1",
       });
       render(
-        <>
-          <SchoolAdminPanel tenantId="tenant-7" tenantName="한빛고" />
-          <Toaster />
-        </>,
+        withQuery(
+          <>
+            <SchoolAdminPanel tenantId="tenant-7" tenantName="한빛고" />
+            <Toaster />
+          </>,
+        ),
       );
       await screen.findByText("박관리");
       fill("이름", "김새로");
