@@ -136,6 +136,28 @@ describe("api", () => {
     ]);
   });
 
+  test("problem 바디의 status 가 실제 응답과 달라도 ApiError.status 는 응답 상태를 따른다", async () => {
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            type: "about:blank",
+            title: "Bad Request",
+            status: 400,
+            detail: "게이트웨이 오류예요.",
+            code: "UPSTREAM",
+          }),
+          {
+            status: 502,
+            headers: { "content-type": "application/problem+json" },
+          },
+        ),
+    );
+    const error = await api.get("x").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(502);
+  });
+
   test("problem 이 아닌 500 은 HTTP_500 과 응답 헤더 supportCode 로 변환된다", async () => {
     stubFetch(
       async () =>

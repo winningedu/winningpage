@@ -62,7 +62,7 @@ export const api = ky.create({
           if (parsed.success) {
             const problem = parsed.data;
             return new ApiError({
-              status: problem.status,
+              status: error.response.status,
               code: problem.code,
               detail: problem.detail,
               title: problem.title,
