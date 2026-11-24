@@ -213,3 +213,79 @@ describe("DELETE /api/admin/sections/:key/:id", () => {
     expect(kit.db.tables.refunds).toHaveLength(1);
   });
 });
+
+describe("섹션 밖 행은 id 를 알아도 건드릴 수 없다(고정 값, 고정 구분 필터)", () => {
+  const topic = { id: "t1", knowledge_type: "topic_pattern", title: "주제" };
+  const resource = {
+    id: "r1",
+    knowledge_type: "verified_resource",
+    title: "자료",
+  };
+  const essay = { id: "e1", category: "essay", title: "논술" };
+  const susi = { id: "s1", category: "susi", title: "수시" };
+
+  beforeEach(() => {
+    kit.db.tables.winning_assessment_knowledge_items = [
+      { ...topic },
+      { ...resource },
+    ];
+    kit.db.tables.admission_posts = [{ ...essay }, { ...susi }];
+  });
+
+  test("winningSuhaengTopicDb 로 자료 행을 읽을 수 없다", async () => {
+    seedAdmin(kit.state, "view", "winningSuhaengTopicDb");
+    expect((await call("GET", "winningSuhaengTopicDb", "r1")).status).toBe(404);
+    expect((await call("GET", "winningSuhaengTopicDb", "t1")).status).toBe(200);
+  });
+
+  test("winningSuhaengTopicDb 로 자료 행을 고치거나 지울 수 없고 행은 그대로다", async () => {
+    seedAdmin(kit.state, "edit", "winningSuhaengTopicDb");
+    const patched = await call("PATCH", "winningSuhaengTopicDb", "r1", {
+      values: { title: "바꿈" },
+    });
+    expect(patched.status).toBe(404);
+    const deleted = await call("DELETE", "winningSuhaengTopicDb", "r1");
+    expect(deleted.status).toBe(404);
+    expect(kit.db.tables.winning_assessment_knowledge_items).toEqual([
+      topic,
+      resource,
+    ]);
+  });
+
+  test("winningSuhaengResourceDb 는 주제 행을 건드릴 수 없다", async () => {
+    seedAdmin(kit.state, "edit", "winningSuhaengResourceDb");
+    expect((await call("GET", "winningSuhaengResourceDb", "t1")).status).toBe(
+      404,
+    );
+    expect(
+      (
+        await call("PATCH", "winningSuhaengResourceDb", "t1", {
+          values: { title: "바꿈" },
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (await call("DELETE", "winningSuhaengResourceDb", "t1")).status,
+    ).toBe(404);
+    expect(kit.db.tables.winning_assessment_knowledge_items?.[0]).toEqual(
+      topic,
+    );
+  });
+
+  test("admissionSusiJungsi 로 논술 행을 읽거나 고치거나 지울 수 없다", async () => {
+    seedAdmin(kit.state, "edit", "admissionSusiJungsi");
+    expect((await call("GET", "admissionSusiJungsi", "e1")).status).toBe(404);
+    expect(
+      (
+        await call("PATCH", "admissionSusiJungsi", "e1", {
+          values: { title: "바꿈", category: "susi" },
+        })
+      ).status,
+    ).toBe(404);
+    expect((await call("DELETE", "admissionSusiJungsi", "e1")).status).toBe(
+      404,
+    );
+    expect(kit.db.tables.admission_posts?.[0]).toEqual(essay);
+    expect((await call("GET", "admissionSusiJungsi", "s1")).status).toBe(200);
+  });
+});

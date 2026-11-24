@@ -7,6 +7,7 @@ import {
   buildPayload,
   failWrite,
   notAllowed,
+  scopeToSection,
   sectionOf,
   sectionPermissionKey,
   sendNotFound,
@@ -34,10 +35,13 @@ export default defineHandler({
       sendRejectedPayload(res, built);
       return;
     }
-    const { data, error } = await ctx.supabaseAdmin
-      .from(entry.table)
-      .update(built.payload)
-      .eq("id", String(req.query.id ?? ""))
+    const { data, error } = await scopeToSection(
+      ctx.supabaseAdmin
+        .from(entry.table)
+        .update(built.payload)
+        .eq("id", String(req.query.id ?? "")),
+      entry,
+    )
       .select("*")
       .maybeSingle();
     if (error) {

@@ -17,6 +17,29 @@ interface ListOptions {
   count?: boolean;
 }
 
+interface Scopable<Q> {
+  in(column: string, values: readonly unknown[]): Q;
+  eq(column: string, value: unknown): Q;
+}
+
+/**
+ * 한 행 읽기, 수정, 삭제에 섹션 소속 조건(고정 구분, 고정 값)을 건다. 같은 테이블을 나눠 쓰는 섹션
+ * (지식 DB 두 종류, 수시와 정시 글)이 id 만 알면 서로의 행을 읽고 지우지 못하게 한다. 목록과 같은 조건이다.
+ */
+export function scopeToSection<Q extends Scopable<Q>>(
+  query: Q,
+  entry: SectionEntry,
+): Q {
+  let scoped = query;
+  if (entry.fixedCategories) {
+    scoped = scoped.in("category", entry.fixedCategories);
+  }
+  for (const [column, value] of Object.entries(entry.fixedValues ?? {})) {
+    scoped = scoped.eq(column, value);
+  }
+  return scoped;
+}
+
 /**
  * 목록과 내보내기가 같은 조건을 보게 하는 쿼리. 범위(range)는 호출부가 붙인다.
  * 조건, 검색 이스케이프, 정렬은 Admin.tsx buildListQuery 와 같다.
