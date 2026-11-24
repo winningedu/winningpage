@@ -49,11 +49,24 @@ export default defineHandler({
     if (entry.readOnly) notAllowed("이 섹션은 읽기 전용입니다.");
 
     if (req.method === "DELETE") {
-      const { error } = await admin.from(entry.table).delete().eq("id", id);
+      // 서비스 롤은 RLS 를 건너뛰므로 예전 RLS 가 삭제를 막던 섹션은 서버가 막는다.
+      if (!entry.allowDelete) notAllowed("이 섹션은 삭제할 수 없습니다.");
+      const { data, error } = await admin
+        .from(entry.table)
+        .delete()
+        .eq("id", id)
+        .select("id");
       if (error) throw new Error("section delete failed");
+      // 지운 행이 없으면 성공처럼 보이지 않게 404 로 알린다.
+      if (!data || data.length === 0) {
+        sendNotFound(res);
+        return;
+      }
       res.status(204).end();
       return;
     }
+
+    if (!entry.allowUpdate) notAllowed("이 섹션은 수정할 수 없습니다.");
 
     const built = buildPayload(entry, valuesOf(req), { fixed: true });
     if (!built.ok) {

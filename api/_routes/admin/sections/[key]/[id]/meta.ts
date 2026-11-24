@@ -28,6 +28,7 @@ export default defineHandler({
   handler: async (req, res, ctx) => {
     const entry = sectionOf(req);
     if (!entry.meta) notAllowed("이 섹션은 메타 편집을 쓰지 않습니다.");
+    if (!entry.allowUpdate) notAllowed("이 섹션은 수정할 수 없습니다.");
     const built = buildPayload(entry, valuesOf(req));
     if (!built.ok) {
       sendRejectedPayload(res, built);

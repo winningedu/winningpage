@@ -154,7 +154,7 @@ class Builder {
       if (range) affected = affected.slice(range[0], range[1] + 1);
     }
     const count = this.call.count ? total : null;
-    if (op === "delete" || (op !== "select" && !this.returning)) {
+    if (op !== "select" && !this.returning) {
       return { data: null, error: null, count };
     }
     if (this.mode === "many") return { data: affected, error: null, count };

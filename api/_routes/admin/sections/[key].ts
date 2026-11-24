@@ -52,7 +52,7 @@ export default defineHandler({
       return;
     }
 
-    if (entry.readOnly || entry.noCreate) {
+    if (entry.readOnly || entry.noCreate || !entry.allowCreate) {
       notAllowed("이 섹션은 등록할 수 없습니다.");
     }
     const built = buildPayload(entry, valuesOf(req), { fixed: true });

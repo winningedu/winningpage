@@ -1,6 +1,7 @@
 // GET, PATCH, DELETE /api/admin/sections/:key/:id 계약 검증.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { SECTIONS } from "../../../../_lib/admin-sections/registry.js";
 import {
   createSectionAdmin,
   createSectionDb,
@@ -59,6 +60,22 @@ describe("GET /api/admin/sections/:key/:id", () => {
 });
 
 describe("PATCH /api/admin/sections/:key/:id", () => {
+  test("allowUpdate 가 꺼진 섹션은 수정을 거절한다", async () => {
+    seedAdmin(kit.state, "edit", "faqs");
+    kit.db.tables.faqs = [{ id: "f1", question: "old" }];
+    const entry = SECTIONS.faqs;
+    entry.allowUpdate = false;
+    try {
+      const r = await call("PATCH", "faqs", "f1", {
+        values: { question: "n" },
+      });
+      expect(r.status).toBe(400);
+    } finally {
+      entry.allowUpdate = true;
+    }
+    expect(kit.db.tables.faqs[0]?.question).toBe("old");
+  });
+
   test("고친 행을 돌려주고 보호 컬럼은 뗀다", async () => {
     seedAdmin(kit.state, "edit", "faqs");
     kit.db.tables.faqs = [{ id: "f1", question: "old", sort_order: 5 }];
@@ -156,10 +173,34 @@ describe("DELETE /api/admin/sections/:key/:id", () => {
     expect(kit.db.tables.faqs.map((row) => row.id)).toEqual(["f2"]);
   });
 
-  test("이미 없는 행도 204(멱등)", async () => {
+  test("지울 행이 없으면 404 NOT_FOUND(0행 삭제를 204 로 숨기지 않는다)", async () => {
     seedAdmin(kit.state, "edit", "faqs");
     kit.db.tables.faqs = [];
-    expect((await call("DELETE", "faqs", "gone")).status).toBe(204);
+    const r = await call("DELETE", "faqs", "gone");
+    expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  test("refundRequests 는 삭제할 수 없다(관리자 RLS 에 삭제 정책이 없었다)", async () => {
+    seedAdmin(kit.state, "edit", "refundRequests");
+    kit.db.tables.refund_requests = [{ id: "q1", status: "requested" }];
+    const r = await call("DELETE", "refundRequests", "q1");
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(kit.db.tables.refund_requests).toHaveLength(1);
+  });
+
+  test("allowDelete 가 꺼진 섹션은 삭제를 거절한다", async () => {
+    seedAdmin(kit.state, "edit", "faqs");
+    kit.db.tables.faqs = [{ id: "f1" }];
+    const entry = SECTIONS.faqs;
+    entry.allowDelete = false;
+    try {
+      expect((await call("DELETE", "faqs", "f1")).status).toBe(400);
+    } finally {
+      entry.allowDelete = true;
+    }
+    expect(kit.db.tables.faqs).toHaveLength(1);
   });
 
   test("보기 권한이면 403, 읽기 전용 섹션이면 400", async () => {

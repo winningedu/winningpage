@@ -37,6 +37,10 @@ export interface SectionEntry {
   viewCountEditable: boolean;
   /** config.fields 에 sort_order 가 있으면 지정한 자리로 꽂도록 뒤를 민다. */
   shiftSortOrder: boolean;
+  /** 예전 브라우저 RLS 가 관리자에게 허용하던 동작만 true. 서비스 롤은 RLS 를 건너뛰므로 서버가 막는다(registry.policy.test.ts 가 정책과 대조). */
+  allowCreate: boolean;
+  allowUpdate: boolean;
+  allowDelete: boolean;
   /** 서버가 받는 컬럼. 테이블 Update 키에서 보호 컬럼과 listOnlyColumns 를 뺀 것(읽기 전용 섹션은 비어 있다). */
   writable: readonly string[];
 }
@@ -62,6 +66,9 @@ type SectionInput<T extends keyof Tables | keyof Views> = {
   listOnlyColumns?: readonly string[];
   viewCountEditable?: boolean;
   shiftSortOrder?: boolean;
+  allowCreate: boolean;
+  allowUpdate: boolean;
+  allowDelete: boolean;
   // 없는 컬럼 이름을 적으면 tsc 가 막는다.
   writable: readonly WritableColumn<T>[];
 };
@@ -82,9 +89,15 @@ function section<T extends keyof Tables | keyof Views>(
   };
 }
 
+// 관리자 RLS 정책이 FOR ALL 이거나 등록, 수정, 삭제를 모두 열어 둔 테이블.
+const OPS_ALL = { allowCreate: true, allowUpdate: true, allowDelete: true };
+// 관리자 쓰기 정책이 없는 뷰.
+const OPS_NONE = { allowCreate: false, allowUpdate: false, allowDelete: false };
+
 export const SECTIONS = {
   specialHighschool: section({
     table: "special_highschool_cases",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: [
@@ -100,18 +113,21 @@ export const SECTIONS = {
   }),
   specialHighschoolRates: section({
     table: "special_highschool_acceptance_rates",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: ["is_active", "rate", "sort_order", "year"],
   }),
   acceptanceRates: section({
     table: "admission_acceptance_rates",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: ["is_active", "rate", "sort_order", "year"],
   }),
   admissionCaseLogos: section({
     table: "admission_case_logos",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: [
@@ -126,6 +142,7 @@ export const SECTIONS = {
   }),
   admissionGuidelines: section({
     table: "admission_university_resources",
+    ...OPS_ALL,
     order: "university_name",
     meta: true,
     writable: [
@@ -165,12 +182,14 @@ export const SECTIONS = {
   }),
   admissionUniversities: section({
     table: "admission_universities",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: ["is_active", "name", "region", "sort_order", "special_group"],
   }),
   admissionResults: section({
     table: "admission_results",
+    ...OPS_ALL,
     searchColumns: ["university_name", "department_name", "admission_track"],
     order: "result_year",
     orderBy: [
@@ -211,6 +230,7 @@ export const SECTIONS = {
   }),
   trendingDepartments: section({
     table: "trending_departments",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: [
@@ -225,6 +245,7 @@ export const SECTIONS = {
   }),
   admissionSusiJungsi: section({
     table: "admission_posts",
+    ...OPS_ALL,
     fixedCategories: ["susi", "jungsi"],
     order: "sort_order",
     shiftSortOrder: true,
@@ -246,6 +267,7 @@ export const SECTIONS = {
   }),
   notices: section({
     table: "notices",
+    ...OPS_ALL,
     order: "sort_order",
     orderBy: [
       ["is_pinned", false],
@@ -271,6 +293,7 @@ export const SECTIONS = {
   }),
   companyNews: section({
     table: "company_news",
+    ...OPS_ALL,
     order: "sort_order",
     orderBy: [
       ["is_pinned", false],
@@ -296,6 +319,7 @@ export const SECTIONS = {
   }),
   galleries: section({
     table: "galleries",
+    ...OPS_ALL,
     order: "created_at",
     viewCountEditable: true,
     writable: [
@@ -316,12 +340,14 @@ export const SECTIONS = {
   }),
   columnCategories: section({
     table: "column_categories",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: ["is_active", "label", "sort_order"],
   }),
   faqs: section({
     table: "faqs",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: [
@@ -335,24 +361,28 @@ export const SECTIONS = {
   }),
   mentorApplyFaqs: section({
     table: "mentor_apply_faqs",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: ["answer", "is_active", "is_notice", "question", "sort_order"],
   }),
   mentorApplyCopy: section({
     table: "mentor_apply_copy",
+    ...OPS_ALL,
     order: "sort_order",
     noCreate: true,
     writable: ["copy_key", "copy_value", "label", "sort_order"],
   }),
   learningDiagnosisV2SurveyCopy: section({
     table: "learning_diagnosis_v2_survey_copy",
+    ...OPS_ALL,
     order: "sort_order",
     noCreate: true,
     writable: ["copy_key", "copy_value", "label", "sort_order"],
   }),
   goalUniversityCuts: section({
     table: "goal_university_cuts",
+    ...OPS_ALL,
     searchColumns: ["university_name", "department_name"],
     orderBy: [
       ["university_name", true],
@@ -376,6 +406,7 @@ export const SECTIONS = {
   }),
   popups: section({
     table: "popups",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: [
@@ -393,6 +424,7 @@ export const SECTIONS = {
   }),
   banners: section({
     table: "banners",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: [
@@ -412,6 +444,7 @@ export const SECTIONS = {
   }),
   sideBanners: section({
     table: "home_side_banners",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: [
@@ -431,12 +464,14 @@ export const SECTIONS = {
   }),
   footerImages: section({
     table: "footer_operator_images",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: ["image_url", "is_active", "sort_order", "tenant_id", "title"],
   }),
   universityAcceptances: section({
     table: "university_acceptances",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: [
@@ -451,6 +486,7 @@ export const SECTIONS = {
   }),
   programCategories: section({
     table: "program_categories",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: [
@@ -466,6 +502,7 @@ export const SECTIONS = {
   }),
   mentorStrategies: section({
     table: "home_mentor_strategies",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: [
@@ -486,6 +523,7 @@ export const SECTIONS = {
   }),
   pageContents: section({
     table: "page_contents",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: [
@@ -506,6 +544,7 @@ export const SECTIONS = {
   }),
   premiumConsults: section({
     table: "premium_consult_requests",
+    ...OPS_ALL,
     order: "created_at",
     noCreate: true,
     writable: [
@@ -520,6 +559,7 @@ export const SECTIONS = {
   }),
   enrollments: section({
     table: "enrollments",
+    ...OPS_ALL,
     listTable: "admin_enrollment_entries",
     order: "created_at",
     readOnly: true,
@@ -529,12 +569,17 @@ export const SECTIONS = {
   }),
   refunds: section({
     table: "refunds",
+    ...OPS_ALL,
     order: "requested_at",
     readOnly: true,
     writable: [],
   }),
   refundRequests: section({
     table: "refund_requests",
+    // 관리자 정책이 SELECT, UPDATE 뿐이라 예전 브라우저 삭제는 0행이었다.
+    allowCreate: false,
+    allowUpdate: true,
+    allowDelete: false,
     noCreate: true,
     writable: [
       "admin_memo",
@@ -572,6 +617,7 @@ export const SECTIONS = {
   }),
   refundLedger: section({
     table: "admin_refund_ledger",
+    ...OPS_NONE,
     order: "completed_at",
     readOnly: true,
     noCreate: true,
@@ -579,6 +625,7 @@ export const SECTIONS = {
   }),
   winningSuhaengTopicDb: section({
     table: "winning_assessment_knowledge_items",
+    ...OPS_ALL,
     fixedValues: { knowledge_type: "topic_pattern" },
     order: "created_at",
     knowledgeReview: true,
@@ -606,6 +653,7 @@ export const SECTIONS = {
   }),
   winningSuhaengResourceDb: section({
     table: "winning_assessment_knowledge_items",
+    ...OPS_ALL,
     fixedValues: { knowledge_type: "verified_resource" },
     order: "created_at",
     knowledgeReview: true,
@@ -633,6 +681,7 @@ export const SECTIONS = {
   }),
   winningBaseData: section({
     table: "winning_base_data",
+    ...OPS_ALL,
     order: "sort_order",
     shiftSortOrder: true,
     writable: [
@@ -647,6 +696,7 @@ export const SECTIONS = {
   }),
   winningDbInputs: section({
     table: "winning_db_inputs",
+    ...OPS_ALL,
     order: "created_at",
     writable: ["input_type", "memo", "parsed_data", "raw_data", "title"],
   }),
