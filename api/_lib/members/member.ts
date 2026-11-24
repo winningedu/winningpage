@@ -21,6 +21,25 @@ export async function withTenantName(
   return { ...profile, tenant_name: data?.name ?? "" };
 }
 
+/** 회원이 있는지 확인하고 id 와 member_type 만 돌려준다. 없으면 404 를 보내고 null. */
+export async function findMemberStub(
+  admin: SupabaseClient,
+  res: VercelResponse,
+  id: string,
+): Promise<{ id: string; member_type: string | null } | null> {
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id, member_type")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error("profile read failed");
+  if (!data) {
+    sendMemberNotFound(res);
+    return null;
+  }
+  return data;
+}
+
 export function sendMemberNotFound(res: VercelResponse): void {
   sendError(res, "problem", 404, "회원을 찾을 수 없습니다.", "NOT_FOUND");
 }
