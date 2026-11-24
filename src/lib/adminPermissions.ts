@@ -38,7 +38,7 @@ const permissionsResponseSchema = z.object({
 });
 
 /**
- * GET /api/admin/me/permissions — 내 최종 권한 맵과 최고 관리자 여부.
+ * GET /api/admin/me/permissions: 내 최종 권한 맵과 최고 관리자 여부.
  *
  * 라우트 가드와 사이드바가 같은 키를 쓰므로 15초 안에는 요청 하나를 나눠 쓴다
  * (예전 routeMiddlewareCache TTL 과 같은 창). 못 읽으면 호출부가 빈 맵으로 닫는다(fail-closed).
