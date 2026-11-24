@@ -8,6 +8,7 @@ export const routes: Record<string, RouteLoader> = {
   "admin/coupons": () => import("./admin/coupons.js"),
   "admin/coupons/detail": () => import("./admin/coupons/detail.js"),
   "admin/coupons/redemptions": () => import("./admin/coupons/redemptions.js"),
+  "admin/coupons/grants": () => import("./admin/coupons/grants.js"),
   "admin/growth-grant": () => import("./admin/growth-grant.js"),
   "admin/hq-dashboard/summary": () => import("./admin/hq-dashboard/summary.js"),
   "admin/hq-dashboard/tenants": () => import("./admin/hq-dashboard/tenants.js"),

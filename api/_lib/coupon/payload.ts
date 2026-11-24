@@ -2,7 +2,7 @@
 
 import type { VercelResponse } from "@vercel/node";
 import { z } from "zod";
-import { sendError } from "../httpResponse.js";
+import { parseInput } from "./parseInput.js";
 
 export const couponPayloadSchema = z.strictObject({
   slug: z.string().trim().min(1),
@@ -23,28 +23,9 @@ export const couponPayloadSchema = z.strictObject({
 
 export type CouponPayload = z.output<typeof couponPayloadSchema>;
 
-/**
- * 한 파일이 GET 과 POST 를 함께 받으면 defineHandler 의 body 옵션을 쓸 수 없어(GET 에는 본문이 없다) 핸들러 안에서 검증한다.
- * 실패 바디는 defineHandler 의 검증 실패와 같은 모양(400 VALIDATION_FAILED, errors)이다.
- */
 export function parseCouponPayload(
   res: VercelResponse,
   body: unknown,
 ): CouponPayload | null {
-  const parsed = couponPayloadSchema.safeParse(body);
-  if (parsed.success) return parsed.data;
-  sendError(
-    res,
-    "problem",
-    400,
-    "요청 값이 올바르지 않아요.",
-    "VALIDATION_FAILED",
-    {
-      errors: parsed.error.issues.map((issue) => ({
-        path: issue.path.map(String).join("."),
-        message: issue.message,
-      })),
-    },
-  );
-  return null;
+  return parseInput(res, couponPayloadSchema, body);
 }
