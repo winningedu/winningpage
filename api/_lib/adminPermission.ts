@@ -5,7 +5,7 @@
 //   경로 파라미터가 메뉴 키면 함수로 준다: permission: { key: (req) => String(req.query.key ?? "") }
 //   level 을 생략하면 GET, HEAD 는 view, 나머지 메서드는 edit 를 요구한다. 읽기 POST 처럼 다르게
 //   요구할 때만 level 을 적는다.
-//   실패는 403 FORBIDDEN, 조회 오류는 500 INTERNAL_ERROR 이고 라우트의 errorShape 를 따른다.
+//   거부는 403 FORBIDDEN, 조회 오류는 미처리 예외 500(problem 이면 INTERNAL_ERROR)이고 라우트의 errorShape 를 따른다.
 //   QA 계정 쓰기 차단(resolveAdmin)이 이 판정보다 먼저 돈다.
 //
 // 판정은 화면과 같다: 최고 관리자 전용 메뉴는 fn_is_super_admin, 별칭 메뉴는 사이트 플래그,
@@ -21,8 +21,27 @@ import { getSiteKey } from "./site.js";
 
 export type AdminLevel = "view" | "edit";
 
-/** 조회 자체가 실패하면 권한 없음으로 오인하지 않도록 예외를 던진다. */
-export async function hasSectionPermission(
+/** 메뉴 권한 없음. defineHandler 가 403 FORBIDDEN 으로 바꾼다. */
+export class SectionPermissionDeniedError extends Error {
+  constructor() {
+    super("이 메뉴를 쓸 권한이 없습니다.");
+    this.name = "SectionPermissionDeniedError";
+  }
+}
+
+/** 권한이 없으면 SectionPermissionDeniedError, 조회 자체가 실패하면 일반 예외를 던진다(권한 없음으로 오인하지 않게). */
+export async function assertSectionPermission(
+  admin: SupabaseClient,
+  profileId: string,
+  sectionKey: string,
+  level: AdminLevel,
+): Promise<void> {
+  if (!(await hasSectionPermission(admin, profileId, sectionKey, level))) {
+    throw new SectionPermissionDeniedError();
+  }
+}
+
+async function hasSectionPermission(
   admin: SupabaseClient,
   profileId: string,
   sectionKey: string,

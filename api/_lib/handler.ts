@@ -14,7 +14,11 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { z } from "zod";
 import { resolveAdmin, resolveWinningAdmin } from "./adminAuth.js";
-import { type AdminLevel, hasSectionPermission } from "./adminPermission.js";
+import {
+  type AdminLevel,
+  assertSectionPermission,
+  SectionPermissionDeniedError,
+} from "./adminPermission.js";
 import { type ConsoleActor, resolveConsoleActor } from "./console/actor.js";
 import { isAuthorizedCron } from "./cronAuth.js";
 import { resolveUser } from "./httpAuth.js";
@@ -85,9 +89,6 @@ const AUTH_REQUIRED_CODE = "UNAUTHENTICATED";
 
 const METHOD_NOT_ALLOWED_CODE = "METHOD_NOT_ALLOWED";
 const FORBIDDEN_CODE = "FORBIDDEN";
-const INTERNAL_ERROR_CODE = "INTERNAL_ERROR";
-const NO_SECTION_PERMISSION_MESSAGE = "이 메뉴를 쓸 권한이 없습니다.";
-const PERMISSION_LOOKUP_FAILED_MESSAGE = "관리자 권한 확인에 실패했습니다.";
 
 const VALIDATION_FAILED_CODE = "VALIDATION_FAILED";
 const VALIDATION_FAILED_MESSAGE = "요청 값이 올바르지 않아요.";
@@ -399,39 +400,14 @@ export function defineHandler<
 
         if (opts.permission) {
           const { key, level } = opts.permission;
-          let allowed: boolean;
-          try {
-            allowed = await hasSectionPermission(
-              ctx.supabaseAdmin,
-              admin.userId,
-              typeof key === "function" ? key(req) : key,
-              level ??
-                (READ_ONLY_METHODS.has(req.method ?? "") ? "view" : "edit"),
-            );
-          } catch (error) {
-            console.error(
-              `${opts.logLabel || "handler"} permission error:`,
-              error,
-            );
-            sendError(
-              res,
-              opts.errorShape,
-              500,
-              PERMISSION_LOOKUP_FAILED_MESSAGE,
-              INTERNAL_ERROR_CODE,
-            );
-            return;
-          }
-          if (!allowed) {
-            sendError(
-              res,
-              opts.errorShape,
-              403,
-              NO_SECTION_PERMISSION_MESSAGE,
-              FORBIDDEN_CODE,
-            );
-            return;
-          }
+          // 거부는 SectionPermissionDeniedError(403), 조회 오류는 일반 예외(500)로 아래 catch 가 응답한다.
+          await assertSectionPermission(
+            ctx.supabaseAdmin,
+            admin.userId,
+            typeof key === "function" ? key(req) : key,
+            level ??
+              (READ_ONLY_METHODS.has(req.method ?? "") ? "view" : "edit"),
+          );
         }
       } else if (opts.auth === "winningAdmin") {
         const admin = await resolveWinningAdmin(
@@ -496,16 +472,19 @@ export function defineHandler<
       }
       if (
         error instanceof InvalidTimeZoneError ||
-        error instanceof TimeZoneRequiredError
+        error instanceof TimeZoneRequiredError ||
+        error instanceof SectionPermissionDeniedError
       ) {
         sendError(
           res,
           opts.errorShape,
-          400,
+          error instanceof SectionPermissionDeniedError ? 403 : 400,
           error.message,
-          error instanceof InvalidTimeZoneError
-            ? INVALID_TIME_ZONE_CODE
-            : TIME_ZONE_REQUIRED_CODE,
+          error instanceof SectionPermissionDeniedError
+            ? FORBIDDEN_CODE
+            : error instanceof InvalidTimeZoneError
+              ? INVALID_TIME_ZONE_CODE
+              : TIME_ZONE_REQUIRED_CODE,
           opts.authFailureExtra,
         );
         return;
