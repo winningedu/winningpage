@@ -88,7 +88,9 @@ test("더보기를 누르면 상세 주소로 이동해 직원 정보를 보인�
   const { router } = renderMembers();
 
   fireEvent.click(
-    (await screen.findAllByRole("button", { name: "더보기" }))[0]!,
+    (
+      await screen.findAllByRole("button", { name: "더보기" })
+    )[0] as HTMLElement,
   );
 
   expect(await screen.findByText("010-1111-2222")).toBeInTheDocument();
@@ -166,7 +168,9 @@ test("목록으로를 누르면 목록 주소로 돌아간다", async () => {
 test("브라우저 뒤로가기는 목록으로 돌아간다", async () => {
   const { router } = renderMembers();
   fireEvent.click(
-    (await screen.findAllByRole("button", { name: "더보기" }))[0]!,
+    (
+      await screen.findAllByRole("button", { name: "더보기" })
+    )[0] as HTMLElement,
   );
   await screen.findByText("010-1111-2222");
 

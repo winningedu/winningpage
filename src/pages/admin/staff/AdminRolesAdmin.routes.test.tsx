@@ -93,7 +93,9 @@ test("등록하기를 누르면 new 주소로 이동해 빈 편집 화면을 보
 test("수정을 누르면 그 묶음의 주소로 이동해 저장된 값을 채운다", async () => {
   const { router } = renderRoles();
 
-  fireEvent.click((await screen.findAllByRole("button", { name: "수정" }))[0]!);
+  fireEvent.click(
+    (await screen.findAllByRole("button", { name: "수정" }))[0] as HTMLElement,
+  );
 
   expect(await screen.findByText("권한 묶음 수정")).toBeInTheDocument();
   expect(router.state.location.pathname).toBe("/admin/adminRoles/r1");
@@ -150,7 +152,9 @@ test("취소를 누르면 목록으로 돌아간다", async () => {
 
 test("브라우저 뒤로가기는 목록으로 돌아간다", async () => {
   const { router } = renderRoles();
-  fireEvent.click((await screen.findAllByRole("button", { name: "수정" }))[0]!);
+  fireEvent.click(
+    (await screen.findAllByRole("button", { name: "수정" }))[0] as HTMLElement,
+  );
   await screen.findByText("권한 묶음 수정");
 
   await act(async () => {

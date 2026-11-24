@@ -20,7 +20,6 @@ import {
   type DirectoryRow,
   fetchStaffDetail,
   fetchStaffList,
-  type Level,
   type PermissionItem,
   patchStaff,
   putStaffPermissions,
