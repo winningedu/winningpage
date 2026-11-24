@@ -29,12 +29,18 @@ import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
 import { usePageParam } from "../usePageParam";
 import BulkDeleteDialog from "./BulkDeleteDialog";
 import ConnectPreviewPanel from "./ConnectPreviewPanel";
+import DeleteClassDialog from "./DeleteClassDialog";
 import DeleteDialog from "./DeleteDialog";
 import EditNameDialog from "./EditNameDialog";
 import IssueDialog from "./IssueDialog";
 import RegisterChoiceDialog from "./RegisterChoiceDialog";
 import RegisterDialog from "./RegisterDialog";
-import { gradeGroupLabel, type RosterRow, type TeacherSummary } from "./roster";
+import {
+  classText,
+  gradeGroupLabel,
+  type RosterRow,
+  type TeacherSummary,
+} from "./roster";
 
 const PAGE_SIZE = 50;
 const ALL = { value: "", label: "전체" };
@@ -83,6 +89,7 @@ type DialogState =
   | { kind: "register" }
   | { kind: "bulk" }
   | { kind: "edit" | "delete"; teacherId: string }
+  | { kind: "deleteClass"; row: RosterRow }
   | { kind: "issue"; teacherId?: string };
 
 export default function TeacherRosterPage() {
@@ -125,6 +132,7 @@ export default function TeacherRosterPage() {
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
     void queryClient.invalidateQueries({ queryKey: ["console", "teachers"] });
+    void queryClient.invalidateQueries({ queryKey: ["console", "classes"] });
   };
   const closeAndRefresh = () => {
     setDialog(null);
@@ -288,6 +296,21 @@ export default function TeacherRosterPage() {
                         />
                       </TableCell>
                       <TableCell>
+                        {!item.teacher &&
+                          item.classId &&
+                          item.activeStudents === 0 && (
+                            <span className="flex justify-end">
+                              <Button
+                                type="button"
+                                onClick={() =>
+                                  setDialog({ kind: "deleteClass", row: item })
+                                }
+                                className={smallButton}
+                              >
+                                삭제
+                              </Button>
+                            </span>
+                          )}
                         {item.teacher && (
                           <span className="flex justify-end gap-2">
                             <Button
@@ -372,6 +395,21 @@ export default function TeacherRosterPage() {
       {dialog?.kind === "delete" && target && (
         <DeleteDialog
           teacher={target}
+          onDeleted={closeAndRefresh}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === "deleteClass" && dialog.row.classId && (
+        <DeleteClassDialog
+          classId={dialog.row.classId}
+          label={classText(
+            {
+              grade: dialog.row.grade,
+              groupName: dialog.row.groupName,
+              name: dialog.row.className ?? "",
+            },
+            gradeLabel,
+          )}
           onDeleted={closeAndRefresh}
           onClose={() => setDialog(null)}
         />
