@@ -911,6 +911,9 @@
   "src/lib/performance/submission.ts": {
     "legacyFetch": 2
   },
+  "src/lib/phoneVerification.ts": {
+    "legacyFetch": 1
+  },
   "src/lib/products.ts": {
     "browserDb": 2
   },
@@ -994,14 +997,24 @@
   "src/pages/admin/growth/GrowthReportsAdmin.tsx": {
     "browserDb": 1
   },
+  "src/pages/admin/growth/api.ts": {
+    "legacyFetch": 1
+  },
   "src/pages/admin/hq-dashboard/api.ts": {
     "legacyFetch": 2
   },
   "src/pages/admin/inquiry/InquirySessionsAdmin.tsx": {
     "browserDb": 1
   },
+  "src/pages/admin/inquiry/api.ts": {
+    "legacyFetch": 1
+  },
+  "src/pages/admin/knowledge/api.ts": {
+    "legacyFetch": 1
+  },
   "src/pages/admin/knowledge/evals/api.ts": {
-    "browserDb": 6
+    "browserDb": 6,
+    "legacyFetch": 1
   },
   "src/pages/admin/landing/SectionCopyPanel.tsx": {
     "browserDb": 2
@@ -1025,8 +1038,12 @@
   "src/pages/admin/selfeval/SelfevalSessionsAdmin.tsx": {
     "browserDb": 1
   },
+  "src/pages/admin/selfeval/api.ts": {
+    "legacyFetch": 1
+  },
   "src/pages/admin/service-credit/api.ts": {
-    "browserDb": 1
+    "browserDb": 1,
+    "legacyFetch": 1
   },
   "src/pages/admin/shared/AdminEngine.tsx": {
     "browserDb": 3
@@ -1058,6 +1075,9 @@
   },
   "src/pages/admin/tenants/TenantsAdmin.tsx": {
     "browserDb": 3
+  },
+  "src/pages/admin/tenants/api.ts": {
+    "legacyFetch": 1
   },
   "src/pages/admin/web-analytics/api.ts": {
     "legacyFetch": 1
@@ -1135,6 +1155,9 @@
   },
   "src/pages/signup/school/EmailVerifyField.tsx": {
     "browserDb": 1
+  },
+  "src/pages/signup/school/api.ts": {
+    "legacyFetch": 1
   },
   "src/pages/special/specialHighschoolData.ts": {
     "browserDb": 1
