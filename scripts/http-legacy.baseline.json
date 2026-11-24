@@ -137,30 +137,7 @@
     "legacyError": 2,
     "okSuccess": 1
   },
-  "api/_routes/admin/tenants/member-purge-preview.ts": {
-    "legacyError": 4,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/tenants/member-purge.ts": {
-    "legacyError": 6,
-    "okSuccess": 1
-  },
   "api/_routes/admin/tenants/move-student.ts": {
-    "legacyError": 5,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/tenants/purge-logs.ts": {
-    "legacyError": 2,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/tenants/school-admin.ts": {
-    "legacyError": 3
-  },
-  "api/_routes/admin/tenants/school-admins.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/tenants/student-usage.ts": {
     "legacyError": 5,
     "okSuccess": 1
   },
@@ -1058,25 +1035,7 @@
   "src/pages/admin/telemetry/api.ts": {
     "legacyFetch": 1
   },
-  "src/pages/admin/tenants/MemberPurgeAdmin.tsx": {
-    "browserDb": 1
-  },
   "src/pages/admin/tenants/MoveStudentForm.tsx": {
-    "legacyFetch": 1
-  },
-  "src/pages/admin/tenants/ServiceSettingsPanel.tsx": {
-    "browserDb": 3
-  },
-  "src/pages/admin/tenants/StudentUsageAdmin.tsx": {
-    "browserDb": 1
-  },
-  "src/pages/admin/tenants/TenantDetail.tsx": {
-    "browserDb": 3
-  },
-  "src/pages/admin/tenants/TenantsAdmin.tsx": {
-    "browserDb": 3
-  },
-  "src/pages/admin/tenants/api.ts": {
     "legacyFetch": 1
   },
   "src/pages/admin/web-analytics/api.ts": {
