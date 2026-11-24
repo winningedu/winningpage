@@ -33,3 +33,9 @@ on conflict (id) do update
 set public = excluded.public,
     file_size_limit = excluded.file_size_limit,
     allowed_mime_types = excluded.allowed_mime_types;
+
+-- 실행 기록
+-- 2026-11-24 dev gjowqdiopinhixfivnkx (supabase CLI 2.122.0): 실행 전 admin-uploads-tmp 0행,
+--   실행 후 1행(public false, file_size_limit 52428800, allowed_mime_types 20개).
+--   다시 실행해도 행 수 1, updated_at 2026-11-24 10:40:53.559692+00 그대로(변경 없음).
+-- Winning prod, Schoolmentor prod: 아직 실행하지 않음(R2 prod 배포 때 소유자 승인 뒤).
