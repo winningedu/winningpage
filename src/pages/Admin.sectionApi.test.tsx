@@ -1,16 +1,10 @@
 import "@testing-library/jest-dom/vitest";
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const engine = vi.hoisted(() => ({
   fetchSectionList: vi.fn(),
+  fetchSectionRow: vi.fn(),
   createSectionRow: vi.fn(),
   updateSectionRow: vi.fn(),
   updateSectionMeta: vi.fn(),
@@ -63,21 +57,19 @@ vi.mock("./admin/shared/adminSession", () => ({
 
 import { Toaster } from "@/components/ui/toast";
 import { ApiError } from "@/lib/http/client";
-import { AdminSectionRoute } from "./Admin";
-import { TestQueryProvider } from "./admin/engine/testQuery";
+import { renderSectionRoutes } from "./admin/engine/testRouter";
 import { ConfirmAdminHost } from "./admin/shared/confirmAdmin";
 import { downloadCsvText } from "./admin/shared/csvExport";
 
 function renderSection(section: string) {
-  return render(
-    <TestQueryProvider>
-      <MemoryRouter initialEntries={[`/admin/${section}`]}>
-        <AdminSectionRoute section={section} />
+  return renderSectionRoutes(section, `/admin/${section}`, {
+    extras: (
+      <>
         <Toaster />
         <ConfirmAdminHost />
-      </MemoryRouter>
-    </TestQueryProvider>,
-  );
+      </>
+    ),
+  });
 }
 
 beforeEach(() => {
@@ -185,6 +177,11 @@ describe("섹션 쓰기", () => {
         created_at: "2026-11-01T00:00:00Z",
       }),
     );
+    engine.fetchSectionRow.mockResolvedValue({
+      ...POPUP,
+      is_active: true,
+      created_at: "2026-11-01T00:00:00Z",
+    });
     engine.updateSectionRow.mockResolvedValue(POPUP);
     renderSection("popups");
     await screen.findByText("가을 팝업");

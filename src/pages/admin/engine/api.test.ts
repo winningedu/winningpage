@@ -15,6 +15,7 @@ import {
   deleteSectionRow,
   fetchExportChunk,
   fetchSectionList,
+  fetchSectionRow,
   issueUpload,
   markSectionReviewed,
   previewUpload,
@@ -205,5 +206,29 @@ describe("requestEmbedding", () => {
       json: { action: "embed-one", id: "k1" },
       timeout: 60_000,
     });
+  });
+});
+
+describe("fetchSectionRow", () => {
+  it("id 를 경로에 인코딩해 GET 하고 signal 을 넘긴다", async () => {
+    http.get.mockReturnValue(reply({ id: "a/b", title: "x" }));
+    const signal = new AbortController().signal;
+
+    const row = await fetchSectionRow("popups", "a/b", signal);
+
+    expect(http.get).toHaveBeenCalledWith("admin/sections/popups/a%2Fb", {
+      signal,
+    });
+    expect(row).toEqual({ id: "a/b", title: "x" });
+  });
+
+  it("행 쿼리 키는 섹션 키 아래에 둔다(섹션 무효화가 함께 닿는다)", () => {
+    expect(sectionKeys.row("popups", 7)).toEqual([
+      "admin",
+      "sections",
+      "popups",
+      "row",
+      "7",
+    ]);
   });
 });

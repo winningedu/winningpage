@@ -17,6 +17,9 @@ export type SectionPageParams = { page: number; q: string };
 export const sectionKeys = {
   // 섹션 하나의 목록 쿼리 전부(페이지, 검색어 변형 포함)를 무효화할 때 쓴다.
   section: (key: string) => ["admin", "sections", key] as const,
+  // 수정 화면이 id 로 받는 행 하나.
+  row: (key: string, id: string | number) =>
+    [...sectionKeys.section(key), "row", String(id)] as const,
   list: (key: string, params?: SectionPageParams) =>
     params
       ? ([...sectionKeys.section(key), params] as const)
@@ -38,6 +41,14 @@ export function fetchSectionList(
       ...(signal ? { signal } : {}),
     })
     .json(listSchema);
+}
+
+export function fetchSectionRow(
+  key: string,
+  id: string | number,
+  signal?: AbortSignal,
+) {
+  return api.get(one(key, id), signal ? { signal } : {}).json(rowSchema);
 }
 
 export function createSectionRow(key: string, values: Record<string, unknown>) {
