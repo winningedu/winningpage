@@ -14,7 +14,7 @@
 
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
@@ -203,8 +203,12 @@ function analyze(file, text) {
   );
   const side = file.startsWith("src/") ? "src" : "api";
   const found = {};
+  let callsDefineHandler = false;
   visit(sf, (node) => {
     if (!ts.isCallExpression(node)) return;
+    if (node.expression.getText(sf) === "defineHandler") {
+      callsDefineHandler = true;
+    }
     for (const [category, rule] of Object.entries(RULES)) {
       if (rule.scope !== side || rule.exempt?.test(file)) continue;
       if (!rule.match(node, sf)) continue;
@@ -216,7 +220,39 @@ function analyze(file, text) {
       });
     }
   });
-  return found;
+  return { found, callsDefineHandler };
+}
+
+const MANIFESTS = [
+  "api/_routes/manifest.ts",
+  "api/_routes/manifest-30.ts",
+  "api/_routes/manifest-60.ts",
+];
+const STANDALONE_ENDPOINT =
+  /^api\/([^_/][^/]*|cron\/[^/]+|performance\/[^/]+)\.ts$/;
+
+// 매니페스트의 import("./x.js") 지정자를 api/_routes/x.ts 경로로 바꾼다.
+function manifestTargets(root, manifest) {
+  let text;
+  try {
+    text = readFileSync(join(root, manifest), "utf8");
+  } catch {
+    return [];
+  }
+  const sf = ts.createSourceFile(manifest, text, ts.ScriptTarget.Latest, true);
+  const targets = [];
+  visit(sf, (node) => {
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments[0] !== undefined &&
+      ts.isStringLiteralLike(node.arguments[0])
+    ) {
+      const spec = node.arguments[0].text.replace(/\.js$/, ".ts");
+      targets.push(posix.join(posix.dirname(manifest), spec));
+    }
+  });
+  return targets;
 }
 
 export function scan(root) {
@@ -228,9 +264,21 @@ export function scan(root) {
     .filter((f) => /^(src|api)\//.test(f))
     .filter((f) => /\.(ts|tsx|js|mjs)$/.test(f))
     .filter((f) => !EXEMPT.some((re) => re.test(f)));
+  const endpoints = new Set([
+    ...MANIFESTS.flatMap((m) => manifestTargets(root, m)),
+    ...files.filter(
+      (f) => STANDALONE_ENDPOINT.test(f) && !/^api\/router(-\d+)?\.ts$/.test(f),
+    ),
+  ]);
   const hits = {};
   for (const file of files) {
-    const found = analyze(file, readFileSync(join(root, file), "utf8"));
+    const { found, callsDefineHandler } = analyze(
+      file,
+      readFileSync(join(root, file), "utf8"),
+    );
+    if (endpoints.has(file) && !callsDefineHandler) {
+      found.outsideHandler = [{ line: 1, text: "defineHandler 호출 없음" }];
+    }
     if (Object.keys(found).length > 0) hits[file] = found;
   }
   return hits;

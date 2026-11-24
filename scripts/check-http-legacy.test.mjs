@@ -87,7 +87,7 @@ describe("check-http-legacy browserDb", () => {
   });
 
   test("api/ 파일의 supabase 호출은 세지 않는다(browserDb는 src만)", () => {
-    put("api/a.ts", 'supabase.from("x").select();\n');
+    put("api/_lib/a.ts", 'supabase.from("x").select();\n');
     expect(run().code).toBe(0);
   });
 
@@ -212,7 +212,7 @@ describe("check-http-legacy legacyFetch", () => {
   });
 
   test("api/ 파일의 fetch 는 세지 않는다", () => {
-    put("api/a.ts", 'fetch("/api/x");\napiFetch("/api/y");\n');
+    put("api/_lib/a.ts", 'fetch("/api/x");\napiFetch("/api/y");\n');
     expect(run().code).toBe(0);
   });
 });
@@ -243,8 +243,8 @@ describe("check-http-legacy legacyError", () => {
     ['fooRes.status(400).json({ error: "x" });'],
     ['ctx.res.status(400).json({ error: "x" });'],
   ])("레거시 오류 응답을 잡는다: %s", (code) => {
-    put("api/a.ts", `${code}\n`);
-    expect(counts()).toEqual({ "api/a.ts": { legacyError: 1 } });
+    put("api/_lib/a.ts", `${code}\n`);
+    expect(counts()).toEqual({ "api/_lib/a.ts": { legacyError: 1 } });
   });
 
   test.each([
@@ -259,7 +259,7 @@ describe("check-http-legacy legacyError", () => {
     ["const body = await r.json();"],
     ['const body = await res.json({ detail: "x" }, 500);'],
   ])("레거시 오류가 아니면 세지 않는다: %s", (code) => {
-    put("api/a.ts", `${code}\n`);
+    put("api/_lib/a.ts", `${code}\n`);
     expect(counts()).toEqual({});
   });
 
@@ -281,13 +281,13 @@ describe("check-http-legacy okSuccess", () => {
     ["res.json({ ok: result.ok });"],
     ["fooRes.json({ ok: true });"],
   ])("ok 멤버가 있는 성공 본문을 잡는다: %s", (code) => {
-    put("api/a.ts", `${code}\n`);
-    expect(counts()).toEqual({ "api/a.ts": { okSuccess: 1 } });
+    put("api/_lib/a.ts", `${code}\n`);
+    expect(counts()).toEqual({ "api/_lib/a.ts": { okSuccess: 1 } });
   });
 
   test("오류 상태의 ok:false 는 legacyError로만 센다", () => {
-    put("api/a.ts", "res.status(400).json({ ok: false });\n");
-    expect(counts()).toEqual({ "api/a.ts": { legacyError: 1 } });
+    put("api/_lib/a.ts", "res.status(400).json({ ok: false });\n");
+    expect(counts()).toEqual({ "api/_lib/a.ts": { legacyError: 1 } });
   });
 
   test.each([
@@ -298,12 +298,68 @@ describe("check-http-legacy okSuccess", () => {
     ["other.json({ ok: true });"],
     ["res.send({ ok: true });"],
   ])("ok 멤버가 없거나 응답이 아니면 세지 않는다: %s", (code) => {
-    put("api/a.ts", `${code}\n`);
+    put("api/_lib/a.ts", `${code}\n`);
     expect(counts()).toEqual({});
   });
 
   test("src/ 파일은 세지 않는다", () => {
     put("src/a.ts", "res.json({ ok: true });\n");
+    expect(counts()).toEqual({});
+  });
+});
+
+describe("check-http-legacy outsideHandler", () => {
+  const manifest = (entries) =>
+    `export const routes = {\n${entries
+      .map(([key, path]) => `  "${key}": () => import("${path}"),`)
+      .join("\n")}\n};\n`;
+  const wrapped = "export default defineHandler({ errorShape: 'problem' });\n";
+  const plain = "export default function handler(req, res) {}\n";
+
+  test.each([["manifest.ts"], ["manifest-30.ts"], ["manifest-60.ts"]])(
+    "%s 가 가리키는 파일이 defineHandler 를 안 부르면 1로 센다",
+    (name) => {
+      put(`api/_routes/${name}`, manifest([["a/b", "./a/b.js"]]));
+      put("api/_routes/a/b.ts", plain);
+      expect(counts()).toEqual({ "api/_routes/a/b.ts": { outsideHandler: 1 } });
+    },
+  );
+
+  test("defineHandler 를 부르는 엔드포인트는 세지 않는다", () => {
+    put("api/_routes/manifest.ts", manifest([["a", "./a.js"]]));
+    put("api/_routes/a.ts", wrapped);
+    expect(counts()).toEqual({});
+  });
+
+  test("같은 파일에 sendError 가 여러 번 있어도 outsideHandler 는 1이다", () => {
+    put("api/_routes/manifest.ts", manifest([["a", "./a.js"]]));
+    put(
+      "api/_routes/a.ts",
+      `${plain}res.status(400).json({});\nres.status(500).json({});\n`,
+    );
+    expect(counts()).toEqual({
+      "api/_routes/a.ts": { legacyError: 2, outsideHandler: 1 },
+    });
+  });
+
+  test("단독 엔드포인트 api/*.ts, cron, performance 는 세고 router 와 _lib 는 안 센다", () => {
+    put("api/report-pdf.ts", plain);
+    put("api/cron/daily.ts", plain);
+    put("api/performance/clean.ts", plain);
+    put("api/cron/ok.ts", wrapped);
+    put("api/router.ts", plain);
+    put("api/router-30.ts", plain);
+    put("api/_lib/helper.ts", plain);
+    put("api/_routes/unreferenced.ts", plain);
+    expect(counts()).toEqual({
+      "api/report-pdf.ts": { outsideHandler: 1 },
+      "api/cron/daily.ts": { outsideHandler: 1 },
+      "api/performance/clean.ts": { outsideHandler: 1 },
+    });
+  });
+
+  test("매니페스트가 없거나 없는 파일을 가리켜도 죽지 않는다", () => {
+    put("api/_routes/manifest.ts", manifest([["gone", "./gone.js"]]));
     expect(counts()).toEqual({});
   });
 });
