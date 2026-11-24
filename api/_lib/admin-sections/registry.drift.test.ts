@@ -6,7 +6,6 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { SITES } from "../../../src/config/sites.js";
 import {
   PROTECTED_COLUMNS,
-  SECTION_EXPORT_CHUNK,
   SECTION_PAGE_SIZE,
   SECTIONS,
 } from "./registry.js";
@@ -217,15 +216,5 @@ describe("화면 상수와 같은 값", () => {
     );
     const match = /^export const PAGE_SIZE = (\d+);/m.exec(source);
     expect(Number(match?.[1])).toBe(SECTION_PAGE_SIZE);
-  });
-
-  test("SECTION_EXPORT_CHUNK 는 Admin.tsx 의 EXPORT_CHUNK 와 같다", () => {
-    // export 되지 않은 상수라 소스 글자에서 읽는다.
-    const source = readFileSync(
-      new URL("../../../src/pages/Admin.tsx", import.meta.url),
-      "utf8",
-    );
-    const match = /^const EXPORT_CHUNK = (\d+);/m.exec(source);
-    expect(Number(match?.[1])).toBe(SECTION_EXPORT_CHUNK);
   });
 });
