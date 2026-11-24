@@ -73,6 +73,7 @@ let rpcArgs: Record<string, unknown>[] = [];
 beforeEach(() => {
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
+  kit.state.rows.profiles = () => ({ role: "admin" });
   rpcArgs = [];
   kit.state.rpc.fn_admin_effective_permissions = () => ({
     data: [{ resource_key: "hqDashboard", level: "view" }],
@@ -112,12 +113,23 @@ describe("권한과 입력", () => {
     });
     const res = await get();
     expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ code: "FORBIDDEN" });
     expect(kit.state.events).not.toContain("rpc:fn_hq_tenant_overview");
   });
 
-  test("GET 이 아니면 405", async () => {
+  test("hqDashboard 편집 권한이어도 읽을 수 있다", async () => {
+    kit.state.rpc.fn_admin_effective_permissions = () => ({
+      data: [{ resource_key: "hqDashboard", level: "edit" }],
+      error: null,
+    });
+    const res = await get();
+    expect(res.status).toBe(200);
+  });
+
+  test("GET 이 아니면 405 problem", async () => {
     const res = await callHandler(handler, {}, "POST");
     expect(res.status).toBe(405);
+    expect(res.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
   });
 
   test("기본은 QA, 관리자 계정을 뺀다(p_include_internal false)", async () => {
@@ -134,6 +146,7 @@ describe("권한과 입력", () => {
   test("includeInternal 이 1, 0 이 아니면 400", async () => {
     const res = await get({ includeInternal: "yes" });
     expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: "VALIDATION_FAILED" });
   });
 
   test("기관 현황 조회가 실패하면 500", async () => {
@@ -199,13 +212,15 @@ function useGoalFixture(
   kit.state.rpc.fn_hq_tenant_students = () => ({ data: students, error: null });
   // 목표 기록의 하루 기준은 학생의 시간대(profiles.time_zone)다. 기본은 서울.
   kit.state.rows.profiles = (f) =>
-    matchRows(
-      students.map((x) => ({
-        id: x.profile_id,
-        time_zone: zones[x.profile_id] ?? "Asia/Seoul",
-      })),
-      f,
-    );
+    f.id === "hq-1"
+      ? { role: "admin" }
+      : matchRows(
+          students.map((x) => ({
+            id: x.profile_id,
+            time_zone: zones[x.profile_id] ?? "Asia/Seoul",
+          })),
+          f,
+        );
   kit.state.rows.goal_students = (f) => matchRows(goalRows, f);
   kit.state.rows.goal_daily_records = (f) => matchRows(recordRows, f);
 }
@@ -215,9 +230,10 @@ describe("기관 목록", () => {
     const res = await get();
     expect(res.status).toBe(200);
     expect(res.headers["Cache-Control"]).toBe("no-store");
+    expect(res.body).not.toHaveProperty("ok");
+    expect(res.body).not.toHaveProperty("tenants");
     expect(res.body).toMatchObject({
-      ok: true,
-      tenants: [
+      items: [
         {
           tenantId: "t-a",
           name: "한빛고",
@@ -256,7 +272,7 @@ describe("기관 목록", () => {
     });
     const res = await get();
     expect(res.body).toMatchObject({
-      tenants: [
+      items: [
         {
           trialStartDate: "2026-11-20",
           trialEndDate: "2026-12-19",
@@ -293,8 +309,7 @@ describe("기관 목록", () => {
       [...records("s-100", 2), ...records("s-50", 1), ...records("s-25", 0.5)],
     );
     const res = await get();
-    const tenants = (res.body as { tenants: Record<string, unknown>[] })
-      .tenants;
+    const tenants = (res.body as { items: Record<string, unknown>[] }).items;
     // (100 + 50 + 25) / 3 = 58.33
     expect(tenants[0]).toMatchObject({
       tenantId: "t-a",
@@ -339,8 +354,7 @@ describe("기관 목록", () => {
       { "s-la": "America/Los_Angeles" },
     );
     const res = await get();
-    const tenants = (res.body as { tenants: Record<string, unknown>[] })
-      .tenants;
+    const tenants = (res.body as { items: Record<string, unknown>[] }).items;
     // 서울: 일요일 실제 4 / 이상 목표 12 = 33%. 로스앤젤레스: 창이 11-15~11-21 이라 0%.
     expect(tenants[0]).toMatchObject({ tenantId: "t-a", goalRateAverage: 33 });
     expect(tenants[1]).toMatchObject({ tenantId: "t-b", goalRateAverage: 0 });
@@ -361,7 +375,7 @@ describe("기관 목록", () => {
     );
     const res = await get();
     expect(
-      (res.body as { tenants: Record<string, unknown>[] }).tenants[0],
+      (res.body as { items: Record<string, unknown>[] }).items[0],
     ).toMatchObject({
       goalRateAverage: 100,
       goalUserCount: 250,
