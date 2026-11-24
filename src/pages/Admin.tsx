@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Download, Plus, RefreshCw } from "lucide-react";
 import {
   type CSSProperties,
@@ -29,10 +30,10 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import { Toaster, toast } from "@/components/ui/toast";
+import { useAuth } from "@/context/AuthProvider";
 import {
+  adminPermissionsQueryOptions,
   canAccessSection,
-  fetchAdminPermissions,
-  fetchIsSuperAdmin,
 } from "@/lib/adminPermissions";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { supabase } from "@/lib/supabase";
@@ -504,31 +505,22 @@ function AdminSidebar({ activeKey }: { activeKey: string }) {
   //
   // 빈 목록으로 시작한다 — 전부 그렸다가 지우면 권한 없는 메뉴가 한 번 번쩍인다.
   // 라우트 가드가 이미 같은 조회를 마친 뒤라(캐시 TTL 15초) 실제로는 즉시 채워진다.
-  const [menuGroups, setMenuGroups] = useState<typeof MENU_GROUPS>([]);
-
-  const loadMenuGroups = useEffectEvent(async () => {
-    const { data } = await supabase.auth.getSession();
-    const userId = data.session?.user?.id;
-    if (!userId) return;
-
-    const [permissions, isSuperAdmin] = await Promise.all([
-      fetchAdminPermissions(userId),
-      fetchIsSuperAdmin(userId),
-    ]);
-
-    setMenuGroups(
-      MENU_GROUPS.map((group) => ({
-        ...group,
-        items: group.items.filter((item) =>
-          canAccessSection(permissions, isSuperAdmin, item.key),
-        ),
-      })).filter((group) => group.items.length > 0),
-    );
+  const { userId } = useAuth();
+  const { data: access } = useQuery({
+    ...adminPermissionsQueryOptions(userId ?? ""),
+    enabled: !!userId,
   });
 
-  useEffect(() => {
-    loadMenuGroups();
-  }, []);
+  // 못 읽거나 읽는 중이면 그리지 않는다(fail-closed).
+  const menuGroups = useMemo(() => {
+    if (!access) return [];
+    return MENU_GROUPS.map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        canAccessSection(access.permissions, access.isSuper, item.key),
+      ),
+    })).filter((group) => group.items.length > 0);
+  }, [access]);
 
   const allOpen = menuGroups.every((group) => open.has(group.title));
 

@@ -181,6 +181,30 @@ describe("SensitiveActionGate", () => {
     );
   });
 
+  test("로그 적재에 실패하면 안내만 보이고 onGranted 는 부르지 않는다", async () => {
+    log.write.mockResolvedValue({
+      ok: false,
+      message: "접근 기록을 남기지 못해 중단했습니다. 잠시 후 다시 시도하세요.",
+    });
+    openGate();
+    fireEvent.change(await screen.findByLabelText("관리자 비밀번호"), {
+      target: { value: "pw-1234" },
+    });
+    fireEvent.change(screen.getByLabelText(/사유/), {
+      target: { value: "월간 정산" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(
+      await screen.findByText(
+        "접근 기록을 남기지 못해 중단했습니다. 잠시 후 다시 시도하세요.",
+      ),
+    ).toBeTruthy();
+    expect(onGranted).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("관리자 비밀번호")).toBeTruthy();
+  });
+
   test("사유가 비어 있으면 안내만 보이고 검증과 승인은 일어나지 않는다", async () => {
     openGate();
     fireEvent.change(await screen.findByLabelText("관리자 비밀번호"), {

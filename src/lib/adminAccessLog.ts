@@ -11,6 +11,7 @@
 //    깨진 전례가 있다.
 // ---------------------------------------------------------------------------
 
+import { ApiError, api } from "./http/client";
 import { supabase } from "./supabase";
 
 export type AdminAccessAction = "download" | "unmask";
@@ -33,9 +34,6 @@ export type AdminAccessLogClient = {
       email: string;
       password: string;
     }) => Promise<{ error: unknown }>;
-  };
-  from: (table: string) => {
-    insert: (values: Record<string, unknown>) => Promise<{ error: unknown }>;
   };
 };
 
@@ -94,32 +92,28 @@ export async function verifyAdminPassword(
  */
 export async function writeAdminAccessLog(
   entry: AdminAccessLogEntry,
-  client: AdminAccessLogClient = defaultClient(),
 ): Promise<GateResult> {
   const reason = entry.reason.trim();
   if (!reason) return { ok: false, message: "사유를 입력하세요." };
 
-  const { data, error: userError } = await client.auth.getUser();
-  const user = data?.user;
-
-  if (userError || !user?.id || !user.email) {
-    return {
-      ok: false,
-      message: "로그인 정보를 확인할 수 없습니다. 다시 로그인해 주세요.",
-    };
-  }
-
-  const { error } = await client.from("admin_access_logs").insert({
-    profile_id: user.id,
-    actor_email: user.email,
-    action: entry.action,
-    resource_key: entry.resourceKey,
-    reason,
-    row_count: entry.rowCount ?? null,
-    target_id: entry.targetId ?? null,
-  });
-
-  if (error) {
+  try {
+    // 본인 id 와 이메일은 서버가 토큰에서 채운다. 보내지 않는다.
+    await api.post("admin/access-logs", {
+      json: {
+        action: entry.action,
+        resourceKey: entry.resourceKey,
+        reason,
+        ...(entry.rowCount !== undefined ? { rowCount: entry.rowCount } : {}),
+        ...(entry.targetId !== undefined ? { targetId: entry.targetId } : {}),
+      },
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      return {
+        ok: false,
+        message: "로그인 정보를 확인할 수 없습니다. 다시 로그인해 주세요.",
+      };
+    }
     console.error("개인정보 접근 로그 적재 실패", error);
     return {
       ok: false,
