@@ -1,3 +1,4 @@
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   Card,
@@ -18,7 +19,12 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
-import { type PerQueryResult, postRun, type RunResponse } from "./api";
+import {
+  errorText,
+  type PerQueryResult,
+  postRun,
+  type RunResponse,
+} from "./api";
 import ErrorBox from "./ErrorBox";
 import {
   EMPTY_PARAM_DRAFT,
@@ -76,30 +82,31 @@ export default function RunTab({
   const [note, setNote] = useState("");
   const [result, setResult] = useState<RunResponse | null>(null);
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
 
-  async function run() {
+  const runMutation = useMutation({
+    mutationFn: postRun,
+    onSuccess: (data) => {
+      setResult(data);
+      onSaved();
+    },
+    onError: (e) => setMessage(errorText(e)),
+  });
+  const busy = runMutation.isPending;
+
+  function run() {
     if (busy) return;
     const parsed = toParamOverrides(params);
     if (!parsed.ok) {
       setMessage(parsed.message);
       return;
     }
-    setBusy(true);
     setMessage("");
-    const response = await postRun({
+    runMutation.mutate({
       knowledgeType,
       mode,
       params: parsed.overrides,
       ...(note.trim() ? { note } : {}),
     });
-    setBusy(false);
-    if (!response.ok) {
-      setMessage(response.message);
-      return;
-    }
-    setResult(response.data);
-    onSaved();
   }
 
   return (
