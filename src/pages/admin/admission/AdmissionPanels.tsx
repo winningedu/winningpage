@@ -15,7 +15,6 @@ import {
 } from "@/lib/admissionBulkXlsx";
 import { HWP_SECTION_JSON_KEYS } from "@/lib/admissionDoc";
 import {
-  ADMISSION_RESULTS_BULK_XLSX_COLUMNS,
   exportAdmissionResultRowsToXlsx,
   parseAdmissionResultRowsFromXlsx,
 } from "@/lib/admissionResultsBulkXlsx";
@@ -580,7 +579,6 @@ export function AdmissionResultsListSummary({ onReload }) {
 //       자체는 admission_university_resources 때와 달리 문제가 없다,
 //       여기서 피한 건 "자연키 축(연도, 대학, 모집단위…)으로 onConflict를
 //       거는 것"이지 id 자체가 아니다.
-const RESULTS_TABLE = "admission_results";
 // PostgREST 기본 응답 상한과 맞춘 읽기 청크, 다운로드(전체 조회)와
 // existingIdSet 준비(id만 조회) 둘 다 이 크기로 .range() 반복한다.
 const RESULTS_READ_CHUNK = 1000;
@@ -609,66 +607,44 @@ const RESULTS_WARNING_GROUPS = [
   },
 ];
 
-// count는 head:true로 행 본문 없이 받는다, 다운로드 버튼 라벨, 진행률
-// 분모로만 쓰이므로 매번 새로 물어 최신 값을 반영한다(캐시하면 다른
-// 화면에서 추가/삭제된 행수가 안 맞을 수 있다).
-async function fetchResultsCount() {
-  const { count, error } = await supabase
-    .from(RESULTS_TABLE)
-    .select("id", { count: "exact", head: true });
-  if (error) throw new Error(error.message);
-  return count ?? 0;
-}
+const countSchema = z.object({ total: z.number() });
+const rowsPageSchema = z.object({
+  items: z.array(z.record(z.string(), z.unknown())),
+});
 
-// 29컬럼 전량을 id 오름차순으로 청크 반복해 읽는다. order 없이 .range()만
-// 반복하면 PostgREST가 매 요청마다 정렬을 보장하지 않아(암묵적 순서)
-// 페이지 경계에서 행이 중복, 누락될 수 있다, id는 위닝 identity라 항상
-// 유일하고 단조증가라 경계 문제가 없다.
-async function fetchAllResultRows(onProgress) {
-  const total = await fetchResultsCount();
+// count는 다운로드 버튼 라벨, 진행률 분모로만 쓰인다.
+const resultsCountQuery = queryOptions({
+  queryKey: ["admin", "admission", "results-count"],
+  queryFn: ({ signal }) =>
+    api.get("admin/admission/results/count", { signal }).json(countSchema),
+});
+
+// fields all(29컬럼) 또는 id만 전량을 서버 페이지(1000행, offset)로 반복해 읽는다.
+// 서버가 id 오름차순으로 자르므로 페이지 경계에서 행이 중복, 누락되지 않는다.
+// 매번 새로 물어 그 사이 다른 관리자가 바꾼 행수를 놓치지 않는다(캐시하지 않는다).
+async function readAllResults(
+  fields: "all" | "id",
+  onProgress?: (p: { done: number; total: number }) => void,
+) {
+  const { total } = await api
+    .get("admin/admission/results/count")
+    .json(countSchema);
   const all: Record<string, unknown>[] = [];
-  for (let from = 0; from < total; from += RESULTS_READ_CHUNK) {
-    const { data, error } = await supabase
-      .from(RESULTS_TABLE)
-      .select(ADMISSION_RESULTS_BULK_XLSX_COLUMNS.join(", "))
-      .order("id", { ascending: true })
-      .range(from, from + RESULTS_READ_CHUNK - 1);
-    if (error) throw new Error(error.message);
-    if (!data || data.length === 0) break;
-    // .select(동적 join 문자열)이라 supabase-js가 컬럼을 정적으로 못 읽어 data를
-    // GenericStringError[]로 잡는다(런타임 값은 평범한 행 객체 배열), 캐스팅으로 우회한다.
-    all.push(...(data as unknown as Record<string, unknown>[]));
+  for (let offset = 0; offset < total; offset += RESULTS_READ_CHUNK) {
+    const { items } = await api
+      .get("admin/admission/results/rows", {
+        searchParams: { offset, fields },
+      })
+      .json(rowsPageSchema);
+    if (items.length === 0) break;
+    all.push(...items);
     onProgress?.({ done: all.length, total });
   }
   return all;
 }
 
-// id 컬럼만 전량 읽어 Set으로 돌려준다, parseAdmissionResultRowsFromXlsx의
-// existingIdSet 계약(파일의 id가 실제로 DB에 있는지 판정)에 쓴다. 29컬럼을
-// 전부 읽는 fetchAllResultRows보다 훨씬 가볍다(업로드 시 매번 새로 조회해도
-// 부담이 적다, 그 사이 다른 관리자가 지운 id를 놓치지 않기 위해 캐시하지
-// 않는다).
-async function fetchAllResultIds(onProgress) {
-  const total = await fetchResultsCount();
-  const idSet = new Set<number>();
-  for (let from = 0; from < total; from += RESULTS_READ_CHUNK) {
-    const { data, error } = await supabase
-      .from(RESULTS_TABLE)
-      .select("id")
-      .order("id", { ascending: true })
-      .range(from, from + RESULTS_READ_CHUNK - 1);
-    if (error) throw new Error(error.message);
-    if (!data || data.length === 0) break;
-    data.forEach((r) => {
-      idSet.add(r.id);
-    });
-    onProgress?.({ done: idSet.size, total });
-  }
-  return idSet;
-}
-
 function AdmissionResultsBulkXlsxPanel({ onReload }) {
-  const [totalRowCount, setTotalRowCount] = useState<number | null>(null);
+  const queryClient = useQueryClient();
   const [fetchProgress, setFetchProgress] = useState<{
     done: number;
     total: number;
@@ -695,20 +671,23 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchResultsCount()
-      .then((count) => {
-        if (!cancelled) setTotalRowCount(count);
-      })
-      .catch(() => {
-        // 버튼 라벨용 참고 수치일 뿐이라 실패해도 화면을 막지 않는다,
-        // 라벨은 그냥 "전체 -행"으로 남는다.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // 참고 수치일 뿐이라 조회가 실패해도 화면을 막지 않는다, 라벨은 "전체 -행"으로 남는다.
+  const countQuery = useQuery(resultsCountQuery);
+  const totalRowCount = countQuery.data?.total ?? null;
+  const readRows = useMutation({
+    mutationFn: (v: {
+      fields: "all" | "id";
+      onProgress: (p: { done: number; total: number }) => void;
+    }) => readAllResults(v.fields, v.onProgress),
+  });
+
+  // 서버가 id 유무로 insert와 update를 나눠 처리하므로 한 요청에는 같은 종류만 담는다.
+  const applyChunk = useMutation({
+    mutationFn: (items: Record<string, unknown>[]) =>
+      api
+        .post("admin/admission/results/bulk", { json: { items } })
+        .json(z.object({ inserted: z.number(), updated: z.number() })),
+  });
 
   const busy = Boolean(fetchProgress || idSetProgress || applying);
 
@@ -716,7 +695,10 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
     if (busy) return;
     try {
       setFetchProgress({ done: 0, total: totalRowCount ?? 0 });
-      const allRows = await fetchAllResultRows((p) => setFetchProgress(p));
+      const allRows = await readRows.mutateAsync({
+        fields: "all",
+        onProgress: setFetchProgress,
+      });
       const { workbook, truncatedCells } =
         exportAdmissionResultRowsToXlsx(allRows);
       setExportTruncatedCells(truncatedCells);
@@ -745,7 +727,14 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
     try {
       const buffer = await file.arrayBuffer();
       setIdSetProgress({ done: 0, total: totalRowCount ?? 0 });
-      const existingIdSet = await fetchAllResultIds((p) => setIdSetProgress(p));
+      const existingIdSet = new Set(
+        (
+          await readRows.mutateAsync({
+            fields: "id",
+            onProgress: setIdSetProgress,
+          })
+        ).map((r) => Number(r.id)),
+      );
       setIdSetProgress(null);
 
       const workbook = XLSX.read(buffer, { type: "array" });
@@ -789,29 +778,25 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
     try {
       for (let i = 0; i < insertRows.length; i += RESULTS_APPLY_CHUNK) {
         const chunk = insertRows.slice(i, i + RESULTS_APPLY_CHUNK);
-        const { error } = await supabase.from(RESULTS_TABLE).insert(chunk);
-        if (error) {
+        await applyChunk.mutateAsync(chunk).catch((error) => {
           throw new AdminChunkError(
             "신규 등록 실패",
             `${i + 1}~${i + chunk.length}`,
             error,
           );
-        }
+        });
         done += chunk.length;
         setApplyProgress({ done, total });
       }
       for (let i = 0; i < updateRows.length; i += RESULTS_APPLY_CHUNK) {
         const chunk = updateRows.slice(i, i + RESULTS_APPLY_CHUNK);
-        const { error } = await supabase
-          .from(RESULTS_TABLE)
-          .upsert(chunk, { onConflict: "id" });
-        if (error) {
+        await applyChunk.mutateAsync(chunk).catch((error) => {
           throw new AdminChunkError(
             "수정 실패",
             `${i + 1}~${i + chunk.length}`,
             error,
           );
-        }
+        });
         done += chunk.length;
         setApplyProgress({ done, total });
       }
@@ -832,9 +817,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
     setParseResult(null);
     setConfirmChecked(false);
     setExpandedGroups({});
-    fetchResultsCount()
-      .then((count) => setTotalRowCount(count))
-      .catch(() => {});
+    queryClient.invalidateQueries(resultsCountQuery);
     onReload?.();
     toastSuccess(
       "엑셀 적용 완료",
