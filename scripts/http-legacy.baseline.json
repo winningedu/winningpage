@@ -53,30 +53,6 @@
     "legacyError": 2,
     "okSuccess": 2
   },
-  "api/_routes/admin/hq-dashboard/b2c.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/hq-dashboard/logins.ts": {
-    "legacyError": 3,
-    "okSuccess": 2
-  },
-  "api/_routes/admin/hq-dashboard/summary.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/hq-dashboard/tenants.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/hq-dashboard/trends.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/hq-dashboard/usage.ts": {
-    "legacyError": 3,
-    "okSuccess": 1
-  },
   "api/_routes/admin/inquiry-grant.ts": {
     "legacyError": 4,
     "okSuccess": 1
@@ -123,10 +99,6 @@
   },
   "api/_routes/admin/service-credit-summary.ts": {
     "legacyError": 2,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/web-analytics.ts": {
-    "legacyError": 5,
     "okSuccess": 1
   },
   "api/_routes/auth/login.ts": {
@@ -925,9 +897,6 @@
   "src/pages/admin/growth/api.ts": {
     "legacyFetch": 1
   },
-  "src/pages/admin/hq-dashboard/api.ts": {
-    "legacyFetch": 2
-  },
   "src/pages/admin/inquiry/InquirySessionsAdmin.tsx": {
     "browserDb": 1
   },
@@ -964,9 +933,6 @@
     "browserDb": 3
   },
   "src/pages/admin/telemetry/api.ts": {
-    "legacyFetch": 1
-  },
-  "src/pages/admin/web-analytics/api.ts": {
     "legacyFetch": 1
   },
   "src/pages/admission/admissionCaseData.ts": {
