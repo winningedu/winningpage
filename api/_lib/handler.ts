@@ -12,6 +12,7 @@
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { z } from "zod";
 import { resolveAdmin, resolveWinningAdmin } from "./adminAuth.js";
 import { type ConsoleActor, resolveConsoleActor } from "./console/actor.js";
 import { isAuthorizedCron } from "./cronAuth.js";
@@ -84,6 +85,9 @@ const AUTH_REQUIRED_CODE = "UNAUTHENTICATED";
 const METHOD_NOT_ALLOWED_CODE = "METHOD_NOT_ALLOWED";
 const FORBIDDEN_CODE = "FORBIDDEN";
 
+const VALIDATION_FAILED_CODE = "VALIDATION_FAILED";
+const VALIDATION_FAILED_MESSAGE = "요청 값이 올바르지 않아요.";
+
 const INVALID_TIME_ZONE_CODE = "INVALID_TIME_ZONE";
 const TIME_ZONE_REQUIRED_CODE = "TIME_ZONE_REQUIRED";
 
@@ -109,7 +113,20 @@ function adminFailureCode(
   return undefined;
 }
 
-export interface DefineHandlerOptions {
+type ZodSchema = z.ZodType;
+
+// body/query 스키마가 있을 때만 ctx 에 해당 키가 생기고 출력 타입을 가진다.
+// 스키마가 없으면 unknown 과의 교차라 기존 HandlerCtx 와 같다.
+type ValidatedCtx<
+  B extends ZodSchema | undefined,
+  Q extends ZodSchema | undefined,
+> = (B extends ZodSchema ? { body: z.output<B> } : unknown) &
+  (Q extends ZodSchema ? { query: z.output<Q> } : unknown);
+
+export interface DefineHandlerOptions<
+  B extends ZodSchema | undefined = undefined,
+  Q extends ZodSchema | undefined = undefined,
+> {
   methods: readonly ("GET" | "POST" | "PUT" | "PATCH" | "DELETE")[];
   /** 명시 필수 — 기본값을 두지 않는다(등급 누락을 컴파일 타임에 강제로 드러내기 위함). */
   auth: AuthMode;
@@ -158,14 +175,46 @@ export interface DefineHandlerOptions {
    * 401/403 등 auth 실패 응답에도 헤더가 실리게 했다 — 그 순서를 그대로 재현한다.
    */
   headers?: Record<string, string>;
+  /** 있으면 인증 뒤, handler 앞에서 req.body 를 검증해 ctx.body 로 넘긴다. */
+  body?: B;
+  /** 있으면 인증 뒤, handler 앞에서 req.query 를 검증해 ctx.query 로 넘긴다. */
+  query?: Q;
   handler: (
     req: VercelRequest,
     res: VercelResponse,
-    ctx: HandlerCtx,
+    ctx: HandlerCtx & ValidatedCtx<B, Q>,
   ) => Promise<void>;
 }
 
-export function defineHandler(opts: DefineHandlerOptions) {
+/** 검증 실패면 400 을 보내고 null, 통과하면 파싱된 값을 돌려준다. */
+function parseOrReject(
+  res: VercelResponse,
+  shape: ErrorShape,
+  schema: ZodSchema,
+  input: unknown,
+): { value: unknown } | null {
+  const parsed = schema.safeParse(input);
+  if (parsed.success) return { value: parsed.data };
+  sendError(
+    res,
+    shape,
+    400,
+    VALIDATION_FAILED_MESSAGE,
+    VALIDATION_FAILED_CODE,
+    {
+      errors: parsed.error.issues.map((issue) => ({
+        path: issue.path.map(String).join("."),
+        message: issue.message,
+      })),
+    },
+  );
+  return null;
+}
+
+export function defineHandler<
+  B extends ZodSchema | undefined = undefined,
+  Q extends ZodSchema | undefined = undefined,
+>(opts: DefineHandlerOptions<B, Q>) {
   return async (req: VercelRequest, res: VercelResponse): Promise<void> => {
     if (
       !assertMethod(
@@ -347,7 +396,23 @@ export function defineHandler(opts: DefineHandlerOptions) {
       }
       // auth === "none" → 통과, ctx에 유저 정보 없음
 
-      await opts.handler(req, res, ctx);
+      if (opts.body) {
+        const parsed = parseOrReject(res, opts.errorShape, opts.body, req.body);
+        if (!parsed) return;
+        (ctx as { body?: unknown }).body = parsed.value;
+      }
+      if (opts.query) {
+        const parsed = parseOrReject(
+          res,
+          opts.errorShape,
+          opts.query,
+          req.query,
+        );
+        if (!parsed) return;
+        (ctx as { query?: unknown }).query = parsed.value;
+      }
+
+      await opts.handler(req, res, ctx as Parameters<typeof opts.handler>[2]);
     } catch (error) {
       if (error instanceof QaBlockedError) {
         sendQaBlocked(res, opts.errorShape, error.code);
