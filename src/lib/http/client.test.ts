@@ -170,4 +170,17 @@ describe("api", () => {
       detail: "요청이 시간 내에 끝나지 않았어요.",
     });
   });
+
+  test("네트워크 실패는 NETWORK ApiError 가 된다", async () => {
+    stubFetch(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    const error = await api.get("x").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      status: null,
+      code: "NETWORK",
+      detail: "네트워크에 연결하지 못했어요.",
+    });
+  });
 });

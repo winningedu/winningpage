@@ -1,6 +1,6 @@
 // 브라우저 전용 HTTP 클라이언트. 재시도는 react-query가 맡으므로 ky retry 는 끈다.
 
-import ky, { isHTTPError, isTimeoutError } from "ky";
+import ky, { isHTTPError, isNetworkError, isTimeoutError } from "ky";
 import { supabase } from "../supabase";
 import { browserTimeZone, isValidTimeZone } from "../time/zone";
 import { type Problem, problemSchema } from "./problem";
@@ -84,6 +84,13 @@ export const api = ky.create({
             status: null,
             code: "TIMEOUT",
             detail: "요청이 시간 내에 끝나지 않았어요.",
+          });
+        }
+        if (isNetworkError(error)) {
+          return new ApiError({
+            status: null,
+            code: "NETWORK",
+            detail: "네트워크에 연결하지 못했어요.",
           });
         }
         return error;
