@@ -156,6 +156,7 @@ function isLegacyError(call, sf) {
     );
     return !(
       prop !== undefined &&
+      ts.isPropertyAssignment(prop) &&
       ts.isStringLiteralLike(prop.initializer) &&
       prop.initializer.text === "problem"
     );
@@ -213,11 +214,10 @@ function analyze(file, text) {
       if (rule.scope !== side || rule.exempt?.test(file)) continue;
       if (!rule.match(node, sf)) continue;
       const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
-      found[category] ??= [];
-      found[category].push({
-        line,
-        text: node.getText(sf).split("\n")[0].trim(),
-      });
+      const list = found[category] ?? [];
+      const first = node.getText(sf).split("\n")[0] ?? "";
+      list.push({ line, text: first.trim() });
+      found[category] = list;
     }
   });
   return { found, callsDefineHandler };
