@@ -8789,6 +8789,14 @@ export type Database = {
           org_type: string;
         }[];
       };
+      fn_class_delete: {
+        Args: { p_class_id: string; p_tenant: string };
+        Returns: {
+          grade: string;
+          id: string;
+          name: string;
+        }[];
+      };
       fn_class_ensure: {
         Args: {
           p_grade: string;
