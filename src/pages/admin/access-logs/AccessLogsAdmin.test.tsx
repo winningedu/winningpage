@@ -6,6 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const http = vi.hoisted(() => ({ get: vi.fn() }));
@@ -61,14 +62,22 @@ function lastParams(): URLSearchParams {
   return new URLSearchParams(init.searchParams);
 }
 
-function renderScreen() {
+function LocationProbe() {
+  const { search } = useLocation();
+  return <output data-testid="search">{search}</output>;
+}
+
+function renderScreen(initialEntry = "/admin/adminAccessLogs") {
   return render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <AccessLogsAdmin />
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <AccessLogsAdmin />
+        <LocationProbe />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -228,6 +237,58 @@ describe("AccessLogsAdmin", () => {
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
 
     await waitFor(() => expect(lastParams().get("page")).toBe("2"));
+  });
+
+  test("주소의 검색 조건으로 시작해 그 조건과 쪽으로 읽는다", async () => {
+    renderScreen(
+      "/admin/adminAccessLogs?tenantCode=ABCD1234&kind=edit&from=2026-11-01&to=2026-11-05&page=3",
+    );
+    await screen.findByText("박교사");
+
+    expect(lastParams().get("tenantCode")).toBe("ABCD1234");
+    expect(lastParams().get("kind")).toBe("edit");
+    expect(lastParams().get("page")).toBe("3");
+    expect(lastParams().get("from")).not.toBeNull();
+    expect(screen.getByLabelText("소속코드")).toHaveValue("ABCD1234");
+    expect(screen.getByLabelText("시작일")).toHaveValue("2026-11-01");
+    expect(screen.getByLabelText("구분")).toHaveValue("edit");
+    expect(screen.getByText("3쪽")).toBeInTheDocument();
+  });
+
+  test("조회하면 조건이 주소에 1쪽으로 써지고, 쪽 이동도 주소에 써진다", async () => {
+    http.get.mockReturnValue(
+      respondWith({ items: [ENTRY], page: 1, hasNext: true }),
+    );
+    renderScreen("/admin/adminAccessLogs?page=4");
+    await screen.findByText("박교사");
+
+    fireEvent.change(screen.getByLabelText("소속코드"), {
+      target: { value: "ABCD1234" },
+    });
+    fireEvent.change(screen.getByLabelText("구분"), {
+      target: { value: "proxy" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "조회" }));
+    await waitFor(() => {
+      const search = new URLSearchParams(
+        screen.getByTestId("search").textContent ?? "",
+      );
+      expect(search.get("tenantCode")).toBe("ABCD1234");
+      expect(search.get("kind")).toBe("proxy");
+      expect(search.get("page")).toBe("1");
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "다음" })).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    await waitFor(() =>
+      expect(
+        new URLSearchParams(screen.getByTestId("search").textContent ?? "").get(
+          "page",
+        ),
+      ).toBe("2"),
+    );
   });
 
   test("마지막 쪽에서는 다음이 막힌다", async () => {

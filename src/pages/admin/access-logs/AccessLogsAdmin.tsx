@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -25,13 +26,30 @@ import { type AccessLogFilter, accessLogsQueryOptions } from "./api";
 // 학생 이름과 교사 전화번호는 서버가 가려서 준다.
 // ---------------------------------------------------------------------------
 
-const EMPTY_FILTER: AccessLogFilter = {
-  tenantCode: "",
-  from: "",
-  to: "",
-  kind: "",
-  page: 1,
-};
+const KINDS: readonly string[] = ["view", "edit", "export", "proxy"];
+
+// 적용된 조건은 새로고침과 뒤로가기에서 살아야 하므로 주소가 원본이다.
+function filterFromParams(params: URLSearchParams): AccessLogFilter {
+  const kind = params.get("kind") ?? "";
+  const page = Number(params.get("page"));
+  return {
+    tenantCode: params.get("tenantCode") ?? "",
+    from: params.get("from") ?? "",
+    to: params.get("to") ?? "",
+    kind: KINDS.includes(kind) ? (kind as AccessLogFilter["kind"]) : "",
+    page: Number.isInteger(page) && page >= 1 ? page : 1,
+  };
+}
+
+function paramsFromFilter(filter: AccessLogFilter): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filter.tenantCode) params.set("tenantCode", filter.tenantCode);
+  if (filter.from) params.set("from", filter.from);
+  if (filter.to) params.set("to", filter.to);
+  if (filter.kind) params.set("kind", filter.kind);
+  params.set("page", String(filter.page));
+  return params;
+}
 
 const COLUMNS = [
   "일시",
@@ -48,8 +66,11 @@ const COLUMNS = [
 ];
 
 export default function AccessLogsAdmin() {
-  const [filter, setFilter] = useState<AccessLogFilter>(EMPTY_FILTER);
-  const [draft, setDraft] = useState<AccessLogFilter>(EMPTY_FILTER);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter = filterFromParams(searchParams);
+  const setFilter = (next: AccessLogFilter) =>
+    setSearchParams(paramsFromFilter(next));
+  const [draft, setDraft] = useState<AccessLogFilter>(filter);
   const { data, error } = useQuery(accessLogsQueryOptions(filter));
   const errorMessage = error
     ? error instanceof ApiError
