@@ -249,8 +249,8 @@ export function useSaveCoupon(id: string | undefined) {
               json: payload,
             })
             .json(couponSchema),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: couponKeys.list() }),
+    // 내가 저장했으니 옛 목록을 비우고 스켈레톤 뒤에 새로 받는다.
+    onSuccess: () => queryClient.resetQueries({ queryKey: couponKeys.list() }),
   });
 }
 
