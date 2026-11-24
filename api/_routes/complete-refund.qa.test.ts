@@ -33,8 +33,7 @@ test("QA 관리자의 환불 완료 요청은 403 QA_ACCOUNT_READ_ONLY 이고 �
   );
 
   expect(r.status).toBe(403);
-  expect(r.body).toEqual({
-    error: "QA 계정이라 이 기능은 작동하지 않아요.",
+  expect(r.body).toMatchObject({
     detail: "QA 계정이라 이 기능은 작동하지 않아요.",
     code: "QA_ACCOUNT_READ_ONLY",
   });

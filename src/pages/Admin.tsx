@@ -35,6 +35,7 @@ import {
   canAccessSection,
 } from "@/lib/adminPermissions";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
+import { ApiError } from "@/lib/http/client";
 import { supabase } from "@/lib/supabase";
 import { ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
@@ -76,11 +77,13 @@ import { memberConfigs } from "./admin/configs/member";
 import { revenueConfigs } from "./admin/configs/revenue";
 import { winningConfigs } from "./admin/configs/winning";
 import {
+  completeRefund as completeRefundRequest,
   createSectionRow,
   deleteSectionRow,
   fetchExportChunk,
   fetchSectionList,
   markSectionReviewed,
+  requestEmbedding,
   sectionKeys,
   updateSectionMeta,
   updateSectionRow,
@@ -108,12 +111,11 @@ import {
   AdminTable,
   collectBannerPaths,
   PAGE_SIZE,
-  removeBannerPaths,
-  uploadImage,
+  removeSectionFiles,
+  uploadSectionFiles,
 } from "./admin/shared/AdminEngine";
 import { AdminTopbar } from "./admin/shared/AdminTopbar";
 import { buildFieldLabels, reportAdminError } from "./admin/shared/adminErrors";
-import { getFreshSupabaseAccessTokenOrSignOut } from "./admin/shared/adminSession";
 import {
   toastProgress,
   toastSuccess,
@@ -420,63 +422,38 @@ const WINNING_RAG_KNOWLEDGE_TYPES = new Set([
   "verified_resource",
 ]);
 
-// 임베딩 진입점은 자기 저장소의 상대 경로 하나뿐이다. 예전에는
-// VITE_RAG_API_BASE_URL이 있으면 브라우저가 외부 도메인의 /api/admin-embeddings를
-// 직접 쳤는데, 그 경로는 CORS·이중 인증(x-admin-secret)을 끌고 다니는 데다
-// 외부 앱 자체가 폐기 대상이라 없앴다.
-const WINNING_EMBED_ENDPOINT = "/api/performance/admin-embed";
-
 function shouldRequestWinningEmbedding(config, row) {
   if (config?.table !== "winning_assessment_knowledge_items") return false;
   return WINNING_RAG_KNOWLEDGE_TYPES.has(String(row?.knowledge_type || ""));
 }
 
+// 임베딩 진입점은 자기 저장소의 /api 하나뿐이다(api 클라이언트가 세션 토큰을 싣는다).
 export async function requestWinningEmbedding(row) {
   if (!row?.id) return null;
 
   try {
-    const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-
-    const response = await fetch(WINNING_EMBED_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        action: "embed-one",
-        id: row.id,
-      }),
-    });
-
-    const result = await response.json().catch(async () => {
-      const text = await response.text().catch(() => "");
-      return { detail: text || `HTTP ${response.status}` };
-    });
-
-    // admin-embed는 실패 사유를 항상 `detail`로 돌려준다(200 응답에는 detail이 없다).
-    if (!response.ok) {
-      const detail = result?.detail;
-
-      if (response.status === 401) {
-        // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
-        clearAllDrafts();
-        await supabase.auth.signOut().catch(() => {});
-        throw new Error(
-          `${detail || "관리자 인증 실패"}: 로그아웃 후 다시 로그인하세요.`,
-        );
-      }
-
-      throw new Error(detail || `HTTP ${response.status}`);
-    }
+    const result = await requestEmbedding(row.id);
 
     console.log("위닝 수행 DB 자동 임베딩 요청 완료:", result);
     return result;
   } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
+      clearAllDrafts();
+      await supabase.auth.signOut().catch(() => {});
+      console.error(
+        "위닝 수행 DB 자동 임베딩 요청 실패:",
+        new Error(
+          `${error.detail || "관리자 인증 실패"}: 로그아웃 후 다시 로그인하세요.`,
+        ),
+      );
+      return null;
+    }
     console.error("위닝 수행 DB 자동 임베딩 요청 실패:", error);
     return null;
   }
 }
+
 // 어드민 사이드바는 어두운 배경을 유지한다. ui 사이드바 토큰을 이 래퍼에서만 덮어쓰고
 // 전역(:root)은 건드리지 않는다. 앱 셸 사이드바(AppShellSidebar)는 전역 값을 그대로 쓴다.
 const ADMIN_SIDEBAR_THEME = {
@@ -841,6 +818,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => deleteSectionRow(activeKey, id),
   });
+  // 저장 뒤 임베딩 요청. 저장과 토스트는 이 응답을 기다리지 않는다(실패는 함수 안에서 로그만 남긴다).
+  const embedMutation = useMutation({ mutationFn: requestWinningEmbedding });
+  const refundMutation = useMutation({
+    mutationFn: (id: string | number) => completeRefundRequest(id),
+  });
   const metaMutation = useMutation({
     mutationFn: ({
       id,
@@ -1078,7 +1060,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
     }
 
     if (shouldRequestWinningEmbedding(config, savedRow)) {
-      requestWinningEmbedding(savedRow);
+      embedMutation.mutate(savedRow);
     }
 
     toastSuccess(
@@ -1138,7 +1120,8 @@ export function AdminSectionRoute({ section }: { section: string }) {
       row,
       config.fields || config.columns,
     );
-    if (referencedPaths.size > 0) removeBannerPaths(referencedPaths);
+    if (referencedPaths.size > 0)
+      removeSectionFiles(activeKey, referencedPaths);
 
     setMutationSeq((seq) => seq + 1);
     await loadRows();
@@ -1162,27 +1145,18 @@ export function AdminSectionRoute({ section }: { section: string }) {
       return;
     }
 
-    const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-
-    const response = await fetch("/api/complete-refund", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ refundRequestId: row.id }),
-    });
-
-    const result = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
+    // 같은 버튼을 연달아 눌러도 토스 취소 요청이 겹치지 않게 한다.
+    if (refundMutation.isPending) return;
+    try {
+      await refundMutation.mutateAsync(row.id);
+    } catch (error) {
       // 토스 에러 메시지를 그대로 보여준다(팀 리드 지시) — reportAdminError의
       // WC 코드 매핑을 거치면 "요청을 처리하지 못했습니다"류 일반 문구로
       // 뭉개져 카드사·계좌 거부 사유(예: 이미 취소된 결제, 잔액 부족)가
       // 안 보인다. 여기는 admin 전용 화면이라 원문 노출 위험이 낮다.
-      console.error("환불 완료 처리 실패:", result);
+      console.error("환불 완료 처리 실패:", error);
       alert(
-        `환불 완료 처리 실패: ${result?.error || `HTTP ${response.status}`}`,
+        `환불 완료 처리 실패: ${error instanceof ApiError ? error.detail : (error as Error).message}`,
       );
       return;
     }
@@ -1594,7 +1568,10 @@ export function AdminSectionRoute({ section }: { section: string }) {
                   setPendingSection(null);
                 }}
                 onSave={saveRow}
-                onUpload={uploadImage}
+                onUpload={(files, field) =>
+                  uploadSectionFiles(activeKey, files, field)
+                }
+                onRemoveFiles={(paths) => removeSectionFiles(activeKey, paths)}
               />
             )}
           </>
@@ -1617,7 +1594,10 @@ export function AdminSectionRoute({ section }: { section: string }) {
             setPendingCreateDefaults(null);
           }}
           onSave={saveRow}
-          onUpload={uploadImage}
+          onUpload={(files, field) =>
+            uploadSectionFiles(activeKey, files, field)
+          }
+          onRemoveFiles={(paths) => removeSectionFiles(activeKey, paths)}
         />
       )}
     </>
