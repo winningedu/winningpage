@@ -63,6 +63,22 @@ export function useSavePage(id: string | undefined) {
   });
 }
 
+const appliedSchema = z.object({ items: z.array(pageSchema) });
+
+/**
+ * 변환한 PDF 와 페이지 이미지를 한 번에 반영한다. 본문은 POST admin/uploads 가 돌려준 임시 객체 이름이다.
+ * 끝나면 목록을 다시 받는다.
+ */
+export function useApplyBook() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { pdf: string; pages: string[] }) =>
+      api.post("admin/premium-book/apply", { json: body }).json(appliedSchema),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: premiumBookKeys.list() }),
+  });
+}
+
 export function useDeletePage() {
   const queryClient = useQueryClient();
   return useMutation({

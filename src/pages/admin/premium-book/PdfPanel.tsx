@@ -4,7 +4,42 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import BookViewer from "@/components/premiumBook/BookViewer";
 import type { PremiumBookPage } from "@/components/premiumBook/bookPairing";
 import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/http/client";
+import { putSignedUpload } from "@/lib/storage/signedUpload";
+import { issueUpload } from "@/pages/admin/engine/api";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
+import { useApplyBook } from "./api";
+
+// 서버 업로드 규칙과 메뉴 권한이 쓰는 키(api/_lib/premium-book/uploads.ts)와 같다.
+const SECTION_KEY = "premiumBookPages";
+
+const UPLOAD_EXPIRED_TEXT = "올린 파일이 만료됐어요. 파일을 다시 올려 주세요.";
+const DUPLICATE_SORT_ORDER_TEXT =
+  "페이지 번호(sort_order) 중복이 있어 적용을 중단합니다. 이미지는 업로드됐지만 DB는 변경되지 않았습니다. 아래 목록에서 중복 행을 먼저 정리하세요.";
+// 이미지는 올라갔어도 같은 PDF 를 다시 적용하면 고정 경로와 id 기준 upsert 라 같은 결과로 복구된다.
+const APPLY_FAILED_TEXT =
+  "적용 중 오류가 발생했습니다. 이미지는 업로드됐을 수 있습니다. 다시 적용하면 복구됩니다.";
+
+// 서버 원문은 화면에 올리지 않고 코드별 문구만 쓴다.
+function applyErrorText(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === "UPLOAD_EXPIRED") return UPLOAD_EXPIRED_TEXT;
+    if (error.code === "DUPLICATE_SORT_ORDER") return DUPLICATE_SORT_ORDER_TEXT;
+  }
+  return APPLY_FAILED_TEXT;
+}
+
+/** 임시 업로드 한 파일: 주소 발급, PUT. 서버가 돌려준 임시 객체 이름을 돌려준다. */
+async function uploadTemp(file: File, field: "booklet_pdf" | "page_webp") {
+  const issued = await issueUpload(SECTION_KEY, {
+    field,
+    fileName: file.name,
+    contentType: file.type || "application/octet-stream",
+    size: file.size,
+  });
+  await putSignedUpload(issued.uploadUrl, file);
+  return issued.path;
+}
 
 // PDF 한 개를 올리면 페이지별 WebP 로 바꿔 미리보고, [적용] 으로 한 번에 반영하는 패널.
 //
@@ -25,10 +60,12 @@ export function PdfPanel() {
 
   // ---- 변환 결과(저장 전). 미리보기는 BookViewer 가 그대로 소비한다 ----
   const [previewPages, setPreviewPages] = useState<PremiumBookPage[]>([]);
-  const [, setWebpBlobs] = useState<Blob[]>([]);
+  const [webpBlobs, setWebpBlobs] = useState<Blob[]>([]);
 
   const [applyStatus, setApplyStatus] = useState("");
   const [applyError, setApplyError] = useState("");
+  const apply = useApplyBook();
+  const applying = apply.isPending || applyStatus.endsWith("...");
 
   const blobUrlsRef = useRef<string[]>([]);
   const convertTokenRef = useRef(0);
@@ -65,7 +102,7 @@ export function PdfPanel() {
       toastWarning("PDF 파일을 먼저 선택하세요.");
       return;
     }
-    if (converting) return;
+    if (converting || applying) return;
 
     const token = ++convertTokenRef.current;
     revokePreviewUrls();
@@ -168,6 +205,65 @@ export function PdfPanel() {
     }
   }
 
+  // [적용]은 2단계다. 원본 PDF 와 WebP 가 모두 임시 업로드에 오른 뒤에만 서버 apply 를 부른다.
+  // 하나라도 실패하면 apply 를 부르지 않아 DB 는 바뀌지 않는다.
+  async function handleApply() {
+    if (!pdfFile || webpBlobs.length === 0) {
+      toastWarning("먼저 PDF를 변환하세요.");
+      return;
+    }
+    if (applying) return;
+
+    setApplyError("");
+    setApplyStatus("원본 PDF 업로드 중...");
+
+    let pdfPath: string;
+    try {
+      pdfPath = await uploadTemp(
+        new File([pdfFile], "booklet.pdf", { type: "application/pdf" }),
+        "booklet_pdf",
+      );
+    } catch (error) {
+      console.error(error);
+      setApplyError("원본 PDF 업로드 실패, 적용 중단");
+      setApplyStatus("");
+      return;
+    }
+
+    const pagePaths: string[] = [];
+    for (const [i, blob] of webpBlobs.entries()) {
+      setApplyStatus(
+        `페이지 이미지 업로드 중 (${i + 1}/${webpBlobs.length})...`,
+      );
+      const name = `p${String(i + 1).padStart(2, "0")}.webp`;
+      try {
+        pagePaths.push(
+          await uploadTemp(
+            new File([blob], name, { type: "image/webp" }),
+            "page_webp",
+          ),
+        );
+      } catch (error) {
+        console.error(error);
+        setApplyError(
+          `${i + 1}번째 페이지 이미지 업로드 실패, 적용 중단(DB는 변경되지 않았습니다)`,
+        );
+        setApplyStatus("");
+        return;
+      }
+    }
+
+    setApplyStatus("데이터베이스 반영 중...");
+    try {
+      await apply.mutateAsync({ pdf: pdfPath, pages: pagePaths });
+      setApplyStatus(`적용 완료, ${pagePaths.length}장 반영됨`);
+    } catch (error) {
+      console.error(error);
+      setApplyError(applyErrorText(error));
+      setApplyStatus("");
+    }
+  }
+
   return (
     <div className="mb-6 bg-white p-6 shadow-sm">
       <h2 className="mb-1 text-xl font-semibold">PDF 일괄 변환 및 적용</h2>
@@ -196,12 +292,24 @@ export function PdfPanel() {
           type="button"
           size="lg"
           onClick={handleConvert}
-          disabled={!pdfFile || converting}
+          disabled={!pdfFile || converting || applying}
         >
           {converting
             ? `변환 중 (${progress.done}/${progress.total || "?"})`
             : "PDF 변환"}
         </Button>
+
+        {previewPages.length > 0 && (
+          <Button
+            type="button"
+            size="lg"
+            variant="destructive"
+            onClick={handleApply}
+            disabled={applying || converting}
+          >
+            {applying ? "적용 중..." : `적용 (${previewPages.length}장 반영)`}
+          </Button>
+        )}
       </div>
 
       {convertError && (
