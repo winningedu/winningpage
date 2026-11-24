@@ -1007,10 +1007,6 @@
   "src/pages/admin/learning-diagnosis/LearningDiagnosisAdmin.tsx": {
     "browserDb": 12
   },
-  "src/pages/admin/members/MembersAdmin.tsx": {
-    "browserDb": 10,
-    "legacyFetch": 1
-  },
   "src/pages/admin/mentor/MentorApplicationsAdmin.tsx": {
     "browserDb": 3
   },
@@ -1045,9 +1041,6 @@
   },
   "src/pages/admin/tenants/MemberPurgeAdmin.tsx": {
     "browserDb": 1
-  },
-  "src/pages/admin/tenants/MoveStudentForm.tsx": {
-    "legacyFetch": 1
   },
   "src/pages/admin/tenants/ServiceSettingsPanel.tsx": {
     "browserDb": 3

@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
+import { useMutation } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { z } from "zod";
+import { ApiError, api } from "@/lib/http/client";
 import {
   ActionButton,
   Field,
@@ -21,11 +23,15 @@ export interface MoveTarget {
   isCatchAll: boolean;
 }
 
+// 응답 값은 쓰지 않고 성공 여부만 본다.
+const movedSchema = z.looseObject({ tenantId: z.string() });
+
 interface MoveStudentFormProps {
   profileId: string;
   tenant: MoveTarget;
   onMoved: () => void;
   onCancel: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 export default function MoveStudentForm({
@@ -33,69 +39,55 @@ export default function MoveStudentForm({
   tenant,
   onMoved,
   onCancel,
+  onDirtyChange,
 }: MoveStudentFormProps) {
   const [grade, setGrade] = useState("");
   const [groupName, setGroupName] = useState("");
   const [className, setClassName] = useState("");
   const [number, setNumber] = useState("");
-  const [moving, setMoving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
   // 기타 기관은 학급을 정하지 않는다(결정 77, 98.9). 학교가 아닌 기관만 그룹이 있다.
   const showClassFields = !tenant.isCatchAll;
   const showGroup = showClassFields && tenant.orgType !== "학교";
 
-  async function submit() {
-    if (!grade || moving) return;
-    setMoving(true);
-    setErrorMessage("");
+  // 입력이 하나라도 있으면 화면을 나갈 때 확인을 묻는다(상위의 이탈 확인이 읽는다).
+  const dirty = Boolean(
+    grade || groupName.trim() || className.trim() || number.trim(),
+  );
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
 
-    try {
-      const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-      const body: Record<string, unknown> = {
-        profileId,
-        tenantId: tenant.id,
-        grade,
-      };
-      if (showGroup && groupName.trim()) body.groupName = groupName.trim();
-      if (showClassFields && className.trim())
-        body.className = className.trim();
-      // 숫자가 아니면 문자열 그대로 보내 서버가 400 으로 거절하게 한다(NaN 은 JSON 에서 null 이 되어 조용히 사라진다).
-      if (showClassFields && number.trim()) {
-        const trimmed = number.trim();
-        body.number = /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed;
-      }
+  const move = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      api.post("admin/tenants/move-student", { json: body }).json(movedSchema),
+    onSuccess: onMoved,
+  });
 
-      const response = await fetch("/api/admin/tenants/move-student", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(body),
-      });
+  const errorMessage = !move.error
+    ? ""
+    : move.error instanceof ApiError
+      ? move.error.code === "PHONE_TAKEN"
+        ? tenantSaveErrorMessage({ code: "23505", message: "" })
+        : move.error.detail
+      : "학생을 옮기지 못했어요.";
 
-      if (!response.ok) {
-        const result = await response.json().catch(() => null);
-        const error = result?.error as
-          | { code?: string; message?: string }
-          | undefined;
-        setErrorMessage(
-          error?.code === "PHONE_TAKEN"
-            ? tenantSaveErrorMessage({ code: "23505", message: "" })
-            : error?.message || `HTTP ${response.status}`,
-        );
-        return;
-      }
-
-      onMoved();
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "학생을 옮기지 못했어요.",
-      );
-    } finally {
-      setMoving(false);
+  function submit() {
+    if (!grade || move.isPending) return;
+    const body: Record<string, unknown> = {
+      profileId,
+      tenantId: tenant.id,
+      grade,
+    };
+    if (showGroup && groupName.trim()) body.groupName = groupName.trim();
+    if (showClassFields && className.trim()) body.className = className.trim();
+    // 숫자가 아니면 문자열 그대로 보내 서버가 400 으로 거절하게 한다(NaN 은 JSON 에서 null 이 되어 조용히 사라진다).
+    if (showClassFields && number.trim()) {
+      const trimmed = number.trim();
+      body.number = /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed;
     }
+    move.mutate(body);
   }
 
   return (
@@ -135,8 +127,8 @@ export default function MoveStudentForm({
         <p className="text-xs font-semibold text-red-600">{errorMessage}</p>
       ) : null}
       <div className="flex gap-2">
-        <ActionButton onClick={submit} disabled={!grade || moving}>
-          {moving ? "옮기는 중..." : "옮기기"}
+        <ActionButton onClick={submit} disabled={!grade || move.isPending}>
+          {move.isPending ? "옮기는 중..." : "옮기기"}
         </ActionButton>
         <ActionButton variant="light" onClick={onCancel}>
           취소
