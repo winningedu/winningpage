@@ -33,10 +33,6 @@
     "legacyError": 1,
     "okSuccess": 2
   },
-  "api/_routes/admin/access-logs.ts": {
-    "legacyError": 3,
-    "okSuccess": 2
-  },
   "api/_routes/admin/ai-telemetry-pricing.ts": {
     "legacyError": 2,
     "okSuccess": 1
@@ -829,12 +825,6 @@
   "src/hooks/useTermsDocs.ts": {
     "browserDb": 1
   },
-  "src/lib/adminAccessLog.ts": {
-    "browserDb": 1
-  },
-  "src/lib/adminPermissions.ts": {
-    "browserDb": 2
-  },
   "src/lib/admissionResultsQueries.ts": {
     "browserDb": 4
   },
@@ -923,9 +913,6 @@
   "src/lib/queryClient.ts": {
     "legacyFetch": 2
   },
-  "src/lib/routeMiddleware.ts": {
-    "browserDb": 2
-  },
   "src/lib/selfeval/api.ts": {
     "legacyFetch": 1
   },
@@ -973,9 +960,6 @@
     "browserDb": 1
   },
   "src/pages/TeacherResetPassword.tsx": {
-    "legacyFetch": 1
-  },
-  "src/pages/admin/access-logs/api.ts": {
     "legacyFetch": 1
   },
   "src/pages/admin/admission/AdmissionPanels.tsx": {
