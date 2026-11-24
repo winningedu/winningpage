@@ -531,13 +531,30 @@ describe("page 9 text (22 r86-r94, PDF p9)", () => {
     });
     const page = temperamentPage9(mixed, "NORMAL");
     expect(page.title).toContain("자극추구\u00b7위험회피 두 기질이");
-    expect(page.hero.name).toBe("자극추구\u00b7위험회피 혼합형");
+    expect(page.hero.name).toBe("모험\u00b7신중 혼합형");
     expect(page.hero.body).toContain("두 기질이 비슷하게 나타나");
     expect(page.study.strengths).toEqual([
       "새 공부법\u00b7탐구 주제를 빨리 시도합니다.",
       "준비가 꼼꼼해 실수가 적습니다.",
     ]);
     expect(page.study.cautions).toHaveLength(2);
+  });
+
+  test("mixed hero name uses the first word of each type name, in dimension order", () => {
+    const base = scoreTemperament({
+      q23: { items: Array(35).fill(2) as Likert[], verify: 3 },
+      track: "H12",
+      q20Item5: 2,
+      exec: 50,
+      recv: 50,
+      reliability: { diagnosis: "GOOD", temperament: "NORMAL" },
+    });
+    const page = temperamentPage9(
+      { ...base, representative: { kind: "mixed", dims: ["RD", "PS"] } },
+      "NORMAL",
+    );
+    expect(page.hero.name).toBe("공감\u00b7끈기 혼합형");
+    expect(page.title).toContain("사회적 민감성\u00b7인내력 두 기질이");
   });
 });
 
