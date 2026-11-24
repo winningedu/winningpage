@@ -27,7 +27,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { site } from "@/config/site";
 import { ApiError } from "@/lib/http/client";
 import { formatPhoneInput } from "@/lib/phoneVerification";
-import { supabase } from "@/lib/supabase";
 import { ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
 import {
@@ -45,6 +44,7 @@ import {
   type ProfileRow,
   type ProgramAccessRow,
   patchMember,
+  putMemberTenant,
 } from "@/pages/admin/members/api";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import {
@@ -68,7 +68,6 @@ import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate
 import MoveStudentForm, {
   type MoveTarget,
 } from "@/pages/admin/tenants/MoveStudentForm";
-import { tenantSaveErrorMessage } from "@/pages/admin/tenants/saveError";
 
 // ---------------------------------------------------------------------------
 // 회원 관리(members) — 목록 + 고객 상세.
@@ -538,7 +537,6 @@ function MemberDetail({
   // 소속(테넌트) 배정/해제(2026-09-22, WC072) — categoryDraft 와 같은 인라인
   // 편집 패턴. 값은 tenants.id(uuid) 또는 빈 문자열(소속 없음)이다.
   const [tenantDraft, setTenantDraft] = useState(member.tenant_id || "");
-  const [savingTenant, setSavingTenant] = useState(false);
   // 스쿨멘토 학생의 기관 이동 폼(사 결정 r4 4번). 열려 있으면 대상 기관을 담는다.
   const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null);
 
@@ -660,10 +658,23 @@ function MemberDetail({
   }
 
   // 소속 배정/해제(2026-09-22, WC072) — categoryDraft/guardianPhoneDraft 와
-  // 같은 인라인 저장 패턴이지만, profiles.tenant_id 는 직접 update 할 수
-  // 없어(fn_profiles_lock_tenant 트리거, WC070) RPC 를 부른다.
-  async function saveTenant() {
-    if (savingTenant) return;
+  // 같은 인라인 저장 패턴이지만, profiles.tenant_id 는 서버의 전용 소속 저장 API 로만 바꾼다
+  // (fn_profiles_lock_tenant 트리거, WC070). 오류 문구는 서버가 한국어로 보낸다.
+  const saveTenantMutation = useMutation({
+    mutationFn: (tenantId: string | null) =>
+      putMemberTenant(member.id, tenantId),
+    onSuccess: (updated) => {
+      syncMember(updated);
+      toastSuccess("소속을 저장했습니다.");
+    },
+    onError: (error) =>
+      error instanceof ApiError
+        ? toastError(error.detail)
+        : reportAdminError("소속 저장 실패", error),
+  });
+
+  function saveTenant() {
+    if (saveTenantMutation.isPending) return;
 
     const nextId = tenantDraft || null;
 
@@ -672,7 +683,7 @@ function MemberDetail({
       site.features.studentEnrollment &&
       String(member.member_type || "") === "student";
     // 스쿨멘토의 학생은 소속만 비우면 학적이 옛 기관에 남는다. 기타 기관으로 옮겨 학적을 정리한다.
-    // 위닝은 소속 없음이 개인 회원이라, RPC 가 올해 학적을 같이 지운다(아래 RPC 그대로).
+    // 위닝은 소속 없음이 개인 회원이라, 서버가 올해 학적을 같이 지운다(아래 저장 API 그대로).
     if (isEnrollmentStudent && site.key === "schoolmentor" && !nextId) {
       toastWarning(
         "학생은 소속 없음으로 바꿀 수 없어요. 「기타」로 옮겨 주세요.",
@@ -681,7 +692,7 @@ function MemberDetail({
     }
 
     // 학생은 소속만이 아니라 학적도 옮겨야 새 기관 콘솔에 보인다. 학년과 반을 받는 이동 폼으로 보낸다.
-    // 학생이 아니거나 소속 없음(위닝)이면 아래 RPC 그대로다.
+    // 학생이 아니거나 소속 없음(위닝)이면 아래 저장 API 그대로다.
     const target = nextId
       ? tenants.find((tenant) => tenant.id === nextId)
       : undefined;
@@ -695,25 +706,7 @@ function MemberDetail({
       return;
     }
 
-    setSavingTenant(true);
-    const { error } = await supabase.rpc("fn_admin_set_profile_tenant", {
-      p_profile_id: member.id,
-      p_tenant_id: nextId as unknown as string,
-    });
-
-    setSavingTenant(false);
-
-    if (error) {
-      toastError(tenantSaveErrorMessage(error));
-      return;
-    }
-
-    const nextName = nextId
-      ? tenants.find((tenant) => tenant.id === nextId)?.name || ""
-      : "";
-
-    syncMember({ ...member, tenant_id: nextId, tenant_name: nextName });
-    toastSuccess("소속을 저장했습니다.");
+    saveTenantMutation.mutate(nextId);
   }
 
   // 이동 API 가 학적까지 옮긴 뒤 상세와 목록을 다시 읽는다. school_name 은 서버가 정한다.
@@ -878,7 +871,7 @@ function MemberDetail({
               tenantDraft={tenantDraft}
               setTenantDraft={setTenantDraft}
               onSaveTenant={saveTenant}
-              savingTenant={savingTenant}
+              savingTenant={saveTenantMutation.isPending}
               moveForm={
                 moveTarget ? (
                   <MoveStudentForm

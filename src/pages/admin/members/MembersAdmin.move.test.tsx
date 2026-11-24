@@ -14,7 +14,6 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
   siteKey: "schoolmentor",
-  rpc: vi.fn(),
 }));
 
 vi.mock("@/config/site", () => ({
@@ -38,10 +37,6 @@ vi.mock("@/lib/http/client", async (importOriginal) => ({
   api: http,
 }));
 
-vi.mock("@/lib/supabase", () => ({
-  supabase: { rpc: (...args: unknown[]) => hoisted.rpc(...args) },
-}));
-
 vi.mock("@/pages/admin/shared/AdminEngine", () => ({
   AdminTable: ({
     rows,
@@ -61,6 +56,7 @@ vi.mock("@/pages/admin/shared/AdminEngine", () => ({
 }));
 
 import { toast } from "@/components/ui/toast";
+import { ApiError } from "@/lib/http/client";
 import { memberKeys } from "./api";
 import { renderMembers, routeApi } from "./testHelpers";
 
@@ -122,7 +118,7 @@ function pickTenantAndSave(tenantName: string) {
 
 beforeEach(() => {
   hoisted.siteKey = "schoolmentor";
-  hoisted.rpc.mockReset().mockResolvedValue({ error: null });
+  http.put.mockReset();
   http.post.mockReset();
   vi.stubGlobal("alert", vi.fn());
 });
@@ -140,7 +136,7 @@ describe("MembersAdmin 소속 저장", () => {
     pickTenantAndSave("다라고");
 
     expect(await screen.findByText("다라고(으)로 옮기기")).toBeInTheDocument();
-    expect(hoisted.rpc).not.toHaveBeenCalled();
+    expect(http.put).not.toHaveBeenCalled();
   });
 
   test("이동 폼에서 옮기면 move-student API 를 부른다", async () => {
@@ -168,7 +164,7 @@ describe("MembersAdmin 소속 저장", () => {
         grade: "고2",
       }),
     });
-    expect(hoisted.rpc).not.toHaveBeenCalled();
+    expect(http.put).not.toHaveBeenCalled();
     expect(await screen.findByText("학생을 옮겼습니다.")).toBeInTheDocument();
     // 옮긴 뒤 상세와 목록을 다시 읽는다.
     await waitFor(() =>
@@ -194,33 +190,34 @@ describe("MembersAdmin 소속 저장", () => {
       ).toHaveTextContent("「기타」"),
     );
     expect(alert).not.toHaveBeenCalled();
-    expect(hoisted.rpc).not.toHaveBeenCalled();
+    expect(http.put).not.toHaveBeenCalled();
     expect(screen.queryByText(/으\)로 옮기기/)).toBeNull();
   });
 
   test("위닝에서는 학생도 소속 없음으로 바꿀 수 있다", async () => {
     hoisted.siteKey = "winning";
+    http.put.mockReturnValue({
+      json: async () => ({ ...PROFILES[0], tenant_id: null, tenant_name: "" }),
+    });
     await openMember("김학생");
 
     pickTenantAndSave("소속 없음");
 
     await waitFor(() =>
-      expect(hoisted.rpc).toHaveBeenCalledWith("fn_admin_set_profile_tenant", {
-        p_profile_id: "p-student",
-        p_tenant_id: null,
+      expect(http.put).toHaveBeenCalledWith("admin/members/p-student/tenant", {
+        json: { tenantId: null },
       }),
     );
   });
 
-  test("학생이 아니면 스쿨멘토에서도 기존 RPC 를 쓴다", async () => {
+  test("학생이 아니면 스쿨멘토에서도 소속 저장 API 를 쓴다", async () => {
     await openMember("박교사");
 
     pickTenantAndSave("다라고");
 
     await waitFor(() =>
-      expect(hoisted.rpc).toHaveBeenCalledWith("fn_admin_set_profile_tenant", {
-        p_profile_id: "p-teacher",
-        p_tenant_id: "t-2",
+      expect(http.put).toHaveBeenCalledWith("admin/members/p-teacher/tenant", {
+        json: { tenantId: "t-2" },
       }),
     );
     expect(screen.queryByText("다라고(으)로 옮기기")).toBeNull();
@@ -233,6 +230,56 @@ describe("MembersAdmin 소속 저장", () => {
     pickTenantAndSave("다라고");
 
     expect(await screen.findByText("다라고(으)로 옮기기")).toBeInTheDocument();
-    expect(hoisted.rpc).not.toHaveBeenCalled();
+    expect(http.put).not.toHaveBeenCalled();
+  });
+
+  test("저장하면 서버가 돌려준 소속으로 상세와 목록 캐시를 맞추고 성공을 알린다", async () => {
+    hoisted.siteKey = "winning";
+    http.put.mockReturnValue({
+      json: async () => ({
+        ...PROFILES[1],
+        tenant_id: "t-2",
+        tenant_name: "다라고",
+      }),
+    });
+    const { queryClient } = await openMember("박교사");
+
+    pickTenantAndSave("다라고");
+
+    expect(await screen.findByText("소속을 저장했습니다.")).toBeInTheDocument();
+    expect(
+      queryClient.getQueryData<{ tenant_name?: string }>(
+        memberKeys.detail("p-teacher"),
+      )?.tenant_name,
+    ).toBe("다라고");
+    expect(
+      queryClient
+        .getQueryData<{ items: { id: string; tenant_name?: string }[] }>(
+          memberKeys.list,
+        )
+        ?.items.find((row) => row.id === "p-teacher")?.tenant_name,
+    ).toBe("다라고");
+  });
+
+  test("저장이 실패하면 서버가 쓴 안내를 그대로 토스트로 보인다", async () => {
+    http.put.mockReturnValue({
+      json: async () => {
+        throw new ApiError({
+          status: 409,
+          code: "PHONE_TAKEN",
+          detail:
+            "이 기관에 같은 휴대폰 번호의 회원이 이미 있어요. 확인 후 다시 옮겨 주세요.",
+        });
+      },
+    });
+    await openMember("박교사");
+
+    pickTenantAndSave("다라고");
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("이 기관에 같은 휴대폰 번호의 회원이 이미 있어요."),
+    );
   });
 });
