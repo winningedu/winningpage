@@ -65,7 +65,7 @@ type Grades = Readonly<Partial<Record<MiddleSubjectCode, number>>>;
  * 16 r8: q4 성취평가제 takes 원점수 (12 r5-r9), where larger is better, so the
  * 22 r44 grade ranking does not apply. Lead decision: skip (SUBJ_SKIP_NOTE).
  */
-const ACHIEVEMENT_Q4 = OPTIONS.q4.find(
+export const ACHIEVEMENT_Q4 = OPTIONS.q4.find(
   (o) => o.code === "12_환산_성취평가제",
 )?.ordinal;
 if (ACHIEVEMENT_Q4 === undefined) throw new Error("no q4 성취평가제 option");

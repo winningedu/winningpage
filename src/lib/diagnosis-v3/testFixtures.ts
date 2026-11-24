@@ -84,5 +84,14 @@ export function validAnswers(track: TrackCode): DiagnosisV3Answers {
   if (track === "H12") return CALC_EXAMPLE;
   if (track === "H3") return { ...CALC_EXAMPLE, q1: 5, q12: [1], q18: 2 };
   const { q15: _q15, q16: _q16, q17: _q17, q18: _q18, ...rest } = CALC_EXAMPLE;
-  return { ...rest, q1: 2, q2: 7, q4: 3, q12: [7] };
+  return {
+    ...rest,
+    q1: 2,
+    q2: 7,
+    q4: 3,
+    // M3 enters six 원점수; q6 is their mean (480 / 6)
+    q6: 80,
+    q6s: { KOR: 90, MATH: 80, ENG: 85, SOC: 75, SCI: 70, HISTORY: 80 },
+    q12: [7],
+  };
 }

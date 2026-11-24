@@ -23,6 +23,7 @@ import { OPTIONS, trackOf } from "./options.js";
 import { AREA_STATE_LABELS, areaState } from "./scoring.js";
 import { COPY_SHEETS, COPY_TEXT } from "./source/copyText.js";
 import { SCORE_SHEETS } from "./source/scoreSheets.js";
+import { MIDDLE_SUBJECT_CODES } from "./subjects.js";
 
 vi.setConfig({ testTimeout: 60_000 });
 
@@ -158,6 +159,9 @@ const grade = (rng: Rng, max: number) =>
 /** Mock exam grades are whole 9-grade numbers (validate.ts q6m). */
 const mockGrade = (rng: Rng) => 1 + int(rng, 9);
 
+/** Offsets of the six M3 scores around their base. */
+const SPREAD = [0, -5, 5, -10, 10, -15];
+
 const EVENT_KIND_ORDINALS = OPTIONS.q13
   .map((o) => String(o.code).slice("EVENT:".length))
   .filter((kind) => kind !== "NONE" && kind !== "UNKNOWN") as (
@@ -261,6 +265,17 @@ function generate(rng: Rng, options: GenOptions = {}): Generated {
             : drawEvents(rng, dated - 2, diagnosedAt));
   } else if (options.events) {
     raw.q13 = options.events;
+  }
+  if (track === "M3") {
+    // M3 enters six 원점수 (all required); spread them around the q6 draw so
+    // the rng stream stays as before. Some fall below table 10 (26).
+    const base = 100 - (raw.q6 as number) * 7;
+    raw.q6s = Object.fromEntries(
+      MIDDLE_SUBJECT_CODES.map((code, i) => [
+        code,
+        Math.min(100, Math.round(base + (SPREAD[i] ?? 0))),
+      ]),
+    );
   }
   if (withQ15) {
     raw.q15 = {
