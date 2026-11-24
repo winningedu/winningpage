@@ -105,3 +105,41 @@ describe("check-http-legacy browserDb", () => {
     expect(run().code).toBe(0);
   });
 });
+
+describe("check-http-legacy baseline", () => {
+  test("baseline 이하면 통과하고 초과하면 실패하며, 줄어들면 갱신 힌트를 낸다", () => {
+    put("src/a.ts", 'supabase.from("x").select();\nsupabase.rpc("f");\n');
+    setBaseline({ "src/a.ts": { browserDb: 2 } });
+    const equal = run();
+    expect(equal.code).toBe(0);
+    expect(equal.out).not.toContain("--update");
+
+    setBaseline({ "src/a.ts": { browserDb: 1 } });
+    const over = run();
+    expect(over.code).toBe(1);
+    expect(over.out).toContain("src/a.ts: browserDb 2 (baseline 1)");
+
+    setBaseline({ "src/a.ts": { browserDb: 3 } });
+    const under = run();
+    expect(under.code).toBe(0);
+    expect(under.out).toContain("--update");
+  });
+
+  test("파일이 사라지거나 분류가 0이 된 baseline 항목도 줄어든 것으로 본다", () => {
+    setBaseline({ "src/gone.ts": { browserDb: 1 } });
+    const r = run();
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("--update");
+  });
+
+  test("baseline에 없는 분류는 0에서 시작하므로 늘면 실패한다", () => {
+    put("src/a.ts", 'supabase.from("x").select();\n');
+    setBaseline({ "src/a.ts": { browserDb: 1 } });
+    expect(run().code).toBe(0);
+    put(
+      "src/a.ts",
+      'supabase.from("x").select();\nsupabase.from("y").select();\n',
+    );
+    expect(run().code).toBe(1);
+  });
+});

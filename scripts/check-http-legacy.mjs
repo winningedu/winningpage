@@ -140,10 +140,13 @@ function main() {
   const hits = scan(root);
   const baseline = readBaseline(root);
   let failed = false;
-  for (const [file, byCategory] of Object.entries(hits)) {
+  let shrunk = false;
+  const files = new Set([...Object.keys(hits), ...Object.keys(baseline)]);
+  for (const file of [...files].sort()) {
     for (const category of CATEGORIES) {
-      const list = byCategory[category] ?? [];
+      const list = hits[file]?.[category] ?? [];
       const allowed = baseline[file]?.[category] ?? 0;
+      if (list.length < allowed) shrunk = true;
       if (list.length <= allowed) continue;
       failed = true;
       console.error(
@@ -151,6 +154,11 @@ function main() {
       );
       for (const h of list) console.error(`  ${file}:${h.line}: ${h.text}`);
     }
+  }
+  if (shrunk && !failed) {
+    console.log(
+      "baseline보다 적중이 줄었다. node scripts/check-http-legacy.mjs --update 로 baseline을 갱신한다.",
+    );
   }
   process.exit(failed ? 1 : 0);
 }
