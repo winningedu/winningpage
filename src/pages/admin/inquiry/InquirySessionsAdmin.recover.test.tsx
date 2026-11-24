@@ -1,65 +1,49 @@
-// 탐구 세션 복구 다이얼로그. 복구 요청이 진행 중일 때는 Esc 와 바깥 누름으로 닫히지 않는다.
+// 탐구 세션 복구. 요청이 진행 중일 때는 닫히지 않고, 성공하면 목록을 다시 읽고 목록으로 돌아간다.
 
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("./api", () => ({
-  fetchInquirySessions: vi.fn(),
-  postInquiryGrant: vi.fn(),
-  postInquiryRecover: vi.fn(),
-}));
-vi.mock("@/lib/supabase", () => ({
-  supabase: { from: () => ({}) },
+vi.mock("@/lib/http/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/http/client")>()),
+  api: (await import("./fakeApi")).fakeApi,
 }));
 
-import * as api from "./api";
-import InquirySessionsAdmin from "./InquirySessionsAdmin";
+import { ApiError } from "@/lib/http/client";
+import { callsTo, on, resetApi } from "./fakeApi";
+import {
+  archivedItem,
+  detailPath,
+  LIST,
+  listBody,
+  renderInquiry,
+} from "./testKit";
 
-const ITEM = {
-  id: "s-1",
-  profileId: "p-1",
-  studentName: "김학생",
-  email: "kim@example.com",
-  status: "archived",
-  currentStep: 6,
-  ledgerId: null,
-  ledgerReversedAt: null,
-  lastActivityAt: null,
-  terminal: {
-    reason: "generation_failed",
-    mode: "topic",
-    at: "2026-10-07T01:00:00Z",
-  },
-  subject: "수학",
-  topicTitle: "확률",
-  completedAt: null,
-  generation: { modes: {}, terminal: null },
-  evaluationCount: 0,
-  topicRoundCount: 0,
-};
+const RECOVER = "admin/inquiry-recover";
 
 beforeEach(() => {
-  vi.resetAllMocks();
-  vi.mocked(api.fetchInquirySessions).mockResolvedValue({
-    ok: true,
-    data: { items: [ITEM], total: 1, page: 1, pageSize: 20 },
-  } as never);
-  vi.mocked(api.postInquiryRecover).mockReturnValue(new Promise(() => {}));
+  resetApi();
+  on("GET", LIST, listBody([archivedItem]));
+  on("GET", detailPath("s-1"), archivedItem);
 });
 
-async function startRecover() {
-  render(<InquirySessionsAdmin config={{ title: "탐구 세션" }} />);
-  fireEvent.click(await screen.findByRole("button", { name: "김학생" }));
+afterEach(cleanup);
+
+async function startRecover(
+  path = "/admin/inquirySessions/s-1?status=archived",
+) {
+  const view = renderInquiry(path);
   await screen.findByRole("dialog", { name: /김학생/ });
   fireEvent.click(screen.getByRole("button", { name: "실패 세션 복구" }));
   fireEvent.click(screen.getByRole("button", { name: "확인" }));
-  await screen.findByRole("button", { name: "처리 중..." });
+  return view;
 }
 
-describe("InquirySessionsAdmin 복구 다이얼로그", () => {
+describe("InquirySessionsAdmin 복구", () => {
   test("복구 요청이 진행 중일 때 Esc 로 닫아도 다이얼로그가 유지된다", async () => {
+    on("POST", RECOVER, () => new Promise(() => {}));
     await startRecover();
+    await screen.findByRole("button", { name: "처리 중..." });
 
     fireEvent.keyDown(document.activeElement ?? document.body, {
       key: "Escape",
@@ -68,8 +52,11 @@ describe("InquirySessionsAdmin 복구 다이얼로그", () => {
     expect(screen.getByRole("dialog", { name: /김학생/ })).toBeInTheDocument();
   });
 
-  test("복구 요청이 진행 중일 때 바깥을 눌러도 닫히지 않는다", async () => {
+  test("복구 요청이 진행 중일 때 바깥을 눌러도 닫히지 않고 버튼은 비활성이다", async () => {
+    on("POST", RECOVER, () => new Promise(() => {}));
     await startRecover();
+    const busy = await screen.findByRole("button", { name: "처리 중..." });
+    expect(busy).toBeDisabled();
 
     const backdrop = document.querySelector('[data-slot="dialog-overlay"]');
     expect(backdrop).not.toBeNull();
@@ -78,5 +65,34 @@ describe("InquirySessionsAdmin 복구 다이얼로그", () => {
     fireEvent.click(backdrop as Element);
 
     expect(screen.getByRole("dialog", { name: /김학생/ })).toBeInTheDocument();
+  });
+
+  test("성공하면 sessionId 를 보내고, 목록을 다시 읽고, 검색 조건을 단 목록으로 돌아간다", async () => {
+    on("POST", RECOVER, { newSessionId: "s-2" });
+    const { router } = await startRecover();
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/admin/inquirySessions"),
+    );
+    expect(router.state.location.search).toBe("?status=archived");
+    expect(callsTo("POST", RECOVER)[0]?.options.json).toEqual({
+      sessionId: "s-1",
+    });
+    await waitFor(() => expect(callsTo("GET", LIST)).toHaveLength(2));
+  });
+
+  test("실패하면 서버 detail 을 다이얼로그에 보여주고 열어 둔다", async () => {
+    on("POST", RECOVER, () => {
+      throw new ApiError({
+        status: 409,
+        code: "ALREADY_RECOVERED",
+        detail: "이미 복구된 세션입니다.",
+      });
+    });
+    const { router } = await startRecover();
+
+    expect(await screen.findByText("이미 복구된 세션입니다.")).toBeVisible();
+    expect(router.state.location.pathname).toBe("/admin/inquirySessions/s-1");
+    expect(callsTo("GET", LIST)).toHaveLength(1);
   });
 });
