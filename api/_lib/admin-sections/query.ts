@@ -316,3 +316,8 @@ export function failWrite(
     columns: mapped.columns,
   });
 }
+
+/** 맞는 행이 없을 때 404 NOT_FOUND. */
+export function sendNotFound(res: VercelResponse): void {
+  sendError(res, "problem", 404, "해당 항목을 찾을 수 없습니다.", "NOT_FOUND");
+}
