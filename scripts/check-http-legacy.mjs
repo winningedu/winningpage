@@ -13,7 +13,7 @@
 // =====================================================================
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
@@ -130,6 +130,20 @@ function readBaseline(root) {
   }
 }
 
+// 파일별 적중 목록을 {파일: {분류: 수}} 로 줄인다(0인 항목 제외, 파일명 정렬).
+function toCounts(hits) {
+  const counts = {};
+  for (const file of Object.keys(hits).sort()) {
+    for (const category of CATEGORIES) {
+      const n = hits[file][category]?.length ?? 0;
+      if (n === 0) continue;
+      counts[file] ??= {};
+      counts[file][category] = n;
+    }
+  }
+  return counts;
+}
+
 function main() {
   const argv = process.argv.slice(2);
   const rootIdx = argv.indexOf("--root");
@@ -138,6 +152,16 @@ function main() {
       ? resolve(argv[rootIdx + 1] ?? ".")
       : join(dirname(fileURLToPath(import.meta.url)), "..");
   const hits = scan(root);
+  if (argv.includes("--update")) {
+    const counts = toCounts(hits);
+    mkdirSync(dirname(join(root, BASELINE_PATH)), { recursive: true });
+    writeFileSync(
+      join(root, BASELINE_PATH),
+      `${JSON.stringify(counts, null, 2)}\n`,
+    );
+    console.log(`baseline 갱신: 파일 ${Object.keys(counts).length}개`);
+    process.exit(0);
+  }
   const baseline = readBaseline(root);
   let failed = false;
   let shrunk = false;
@@ -154,6 +178,14 @@ function main() {
       );
       for (const h of list) console.error(`  ${file}:${h.line}: ${h.text}`);
     }
+  }
+  const counts = toCounts(hits);
+  for (const category of CATEGORIES) {
+    const total = Object.values(counts).reduce(
+      (sum, byCategory) => sum + (byCategory[category] ?? 0),
+      0,
+    );
+    console.log(`${category}: ${total}`);
   }
   if (shrunk && !failed) {
     console.log(

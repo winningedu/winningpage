@@ -143,3 +143,34 @@ describe("check-http-legacy baseline", () => {
     expect(run().code).toBe(1);
   });
 });
+
+describe("check-http-legacy --update와 합계", () => {
+  test("--update는 0이 아닌 항목만 정렬해서 쓰고 다시 돌려도 같다", () => {
+    put("src/b.ts", 'supabase.from("x").select();\n');
+    put("src/a.ts", 'supabase.from("x").select();\nsupabase.rpc("f");\n');
+    put("src/clean.ts", "export const a = 1;\n");
+    expect(run("--update").code).toBe(0);
+    const path = join(root, "scripts/http-legacy.baseline.json");
+    const first = readFileSync(path, "utf8");
+    expect(first).toBe(
+      `${JSON.stringify(
+        { "src/a.ts": { browserDb: 2 }, "src/b.ts": { browserDb: 1 } },
+        null,
+        2,
+      )}\n`,
+    );
+    expect(run("--update").code).toBe(0);
+    expect(readFileSync(path, "utf8")).toBe(first);
+    expect(run().code).toBe(0);
+  });
+
+  test("통과해도 분류별 합계를 항상 출력한다", () => {
+    put("src/a.ts", 'supabase.from("x").select();\n');
+    setBaseline({ "src/a.ts": { browserDb: 1 } });
+    const r = run();
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/browserDb:\s+1\b/);
+    expect(r.out).toMatch(/legacyFetch:\s+0\b/);
+    expect(r.out).toMatch(/okSuccess:\s+0\b/);
+  });
+});
