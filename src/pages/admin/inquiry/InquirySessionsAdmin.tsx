@@ -32,6 +32,8 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   type StudentSearchItem,
   studentSearchQueryOptions,
@@ -188,11 +190,8 @@ function InquirySessionsScreen({ config }: Props) {
       )}
 
       {loading ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
+        <div className="bg-white p-6 shadow-sm">
+          <AdminTableSkeleton columns={9} label="세션 목록을 불러오는 중" />
         </div>
       ) : (
         <div className="bg-white p-6 shadow-sm">
@@ -357,9 +356,7 @@ function SessionDetailDialog({
               </DialogDescription>
             </DialogHeader>
             {loading ? (
-              <div role="status" className="text-sm font-medium text-gray-500">
-                데이터를 불러오는 중입니다.
-              </div>
+              <AdminDetailSkeleton rows={4} label="세션 상세를 불러오는 중" />
             ) : (
               <div
                 role="alert"
