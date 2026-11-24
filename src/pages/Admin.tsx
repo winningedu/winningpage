@@ -780,14 +780,14 @@ export function AdminSectionRoute({ section }: { section: string }) {
   // 보여 준다. page/keyword 변경으로는 올라가지 않으므로 페이지 이동마다
   // 집계를 다시 던지는 낭비도 없다.
   const [mutationSeq, setMutationSeq] = useState(0);
-  // 관리 열 ⚙️(메타 전용 모달)이 열려 있는 행. null이면 닫힘 — 목록 위에 오버레이만 뜬다
+  // 관리 열 ⚙️(메타 전용 모달)이 열려 있는 행. null이면 닫힘. 목록 위에 오버레이만 뜬다
   // (목록 셀 [수정]과 같은 1뎁스 UX).
   const [metaEditRow, setMetaEditRow] = useState<AdminRow | null>(null);
-  // 목록 상태(쪽, 검색어, 목록 필터, 미검토 필터)는 주소에 둔다 — 새로고침과 뒤로가기가 목록을 그대로 되살린다.
+  // 목록 상태(쪽, 검색어, 목록 필터, 미검토 필터)는 주소에 둔다. 새로고침과 뒤로가기가 목록을 그대로 되살린다.
   const listState = parseListSearch(searchParams);
   const page = listState.page;
   // 서버 페이지네이션 탭에서 실제로 서버로 나가는 검색어(주소의 q). keyword는 타이핑마다
-  // 바뀌므로 그대로 쓰면 글자당 한 번씩 조회가 나간다 — 디바운스한 값만 주소에 쓴다.
+  // 바뀌므로 그대로 쓰면 글자당 한 번씩 조회가 나간다. 디바운스한 값만 주소에 쓴다.
   const searchTerm = listState.q;
   const [keyword, setKeyword] = useState(listState.q);
   // 목록 상단 드롭다운 필터의 선택값(QA 227). 지금 선택지에 없는 값은 아래에서 무시한다.
@@ -949,7 +949,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
     navigate(sectionPath(key, "new"), { state: { prefillCreateDefaults } });
   }
 
-  // 검색어 디바운스. 확정되는 순간 주소의 q 에 쓰고 1페이지로 되돌린다 — 5페이지를 보다 검색하면
+  // 검색어 디바운스. 확정되는 순간 주소의 q 에 쓰고 1페이지로 되돌린다. 5페이지를 보다 검색하면
   // 결과가 5페이지에 못 미쳐 빈 목록이 뜬다. 한 번의 주소 갱신이라 조회도 1회다.
   // 타이핑마다 히스토리를 쌓지 않으려고 replace 로 쓴다.
   const writtenQ = useRef(listState.q);
@@ -1675,7 +1675,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
             config={config}
             mode={view.kind === "new" ? "create" : "edit"}
             row={editTarget}
-            // 등록, 수정 화면은 pendingSection이 없다 — 목록 [수정] 직행(openRowSection)은
+            // 등록, 수정 화면은 pendingSection이 없다. 목록 [수정] 직행(openRowSection)은
             // 목록 분기의 오버레이 AdminForm으로 렌더된다.
             origin="form"
             initialSection={null}
