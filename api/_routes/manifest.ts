@@ -23,6 +23,7 @@ export const routes: Record<string, RouteLoader> = {
   "admin/knowledge-bulk": () => import("./admin/knowledge-bulk.js"),
   "admin/members": () => import("./admin/members.js"),
   "admin/members/[id]": () => import("./admin/members/[id].js"),
+  "admin/members/[id]/tenant": () => import("./admin/members/[id]/tenant.js"),
   "admin/members/[id]/messages": () =>
     import("./admin/members/[id]/messages.js"),
   "admin/members/[id]/orders": () => import("./admin/members/[id]/orders.js"),
