@@ -208,3 +208,38 @@ describe("W14e 일괄 삭제", () => {
     expect(calls[0]?.body).toEqual({ teacherIds: ["t-lee", "t-jin"] });
   });
 });
+
+describe("QA 53 삭제 경고", () => {
+  const WARNING = "삭제하면 되돌릴 수 없어요";
+
+  it("한 명 삭제 창은 맨 위에 되돌릴 수 없다는 경고를 보이고 기존 안내는 그대로 둔다", () => {
+    mount(
+      <DeleteDialog
+        teacher={teacher()}
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const warning = screen.getByText(WARNING);
+    const body = screen.getByText(/재학생 30명/);
+    expect(
+      warning.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByText(/연결 계정도 함께 삭제/)).toBeTruthy();
+  });
+
+  it("선택 삭제와 일괄 삭제 창에도 같은 경고가 있다", () => {
+    mount(
+      <BulkDeleteDialog
+        teachers={[teacher()]}
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(WARNING)).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "일괄 삭제" }));
+    expect(screen.getByText(WARNING)).toBeTruthy();
+  });
+});
