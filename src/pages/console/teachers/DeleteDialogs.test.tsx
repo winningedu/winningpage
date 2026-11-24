@@ -66,6 +66,19 @@ describe("W14d 한 명 삭제", () => {
     expect(calls[0]?.body).toEqual({ teacherIds: ["t-han"] });
   });
 
+  it("반은 그대로 남는다고 알리고 가입 때 반을 고를 수 없다는 말은 하지 않는다", () => {
+    mount(
+      <DeleteDialog
+        teacher={teacher()}
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/반은 그대로 남아요/)).toBeTruthy();
+    expect(screen.queryByText(/가입할 때/)).toBeNull();
+  });
+
   it("서버가 막으면 그 문구를 창에 보이고 닫지 않는다", async () => {
     stubApi({
       "POST /api/console/teachers/delete": {

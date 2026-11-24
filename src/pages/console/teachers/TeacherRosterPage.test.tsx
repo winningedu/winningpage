@@ -474,9 +474,8 @@ describe("QA 51 빈 반 삭제", () => {
     fireEvent.click(within(empty).getByRole("button", { name: "삭제" }));
 
     expect(await screen.findByText("3학년 1반을 삭제할까요?")).toBeTruthy();
-    expect(
-      screen.getByText(/목록과 가입할 때 반 선택에서 사라져요/),
-    ).toBeTruthy();
+    expect(screen.getByText(/삭제하면 선생님 목록에서 사라져요/)).toBeTruthy();
+    expect(screen.queryByText(/가입할 때/)).toBeNull();
     const listBefore = listCalls;
     const classBefore = classCalls;
     fireEvent.click(
