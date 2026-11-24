@@ -28,7 +28,7 @@ Repo-specific facts and exceptions. General placement and naming rules live in t
 
 ## Code
 
-- Browser requests to `/api` use `api` from `src/lib/http/client.ts` (ky, `retry: 0`) inside react-query `useQuery` / `useMutation`. Pass the query `signal`. Failures arrive as `ApiError` (`code`, `detail`, `supportCode`). Never add new browser `supabase.from` / `rpc` / `storage` calls or new `apiFetch` callers; `apiFetch` goes away when its last caller moves.
+- Browser requests to `/api` use `api` from `src/lib/http/client.ts` (ky, `retry: 0`) inside react-query `useQuery` / `useMutation`. Pass the query `signal`. Request failures (HTTP error, timeout, network) arrive as `ApiError` (`status`, `code`, `detail`, `supportCode`); a response that fails `.json(schema)` throws ky `SchemaValidationError` instead, which means the client and server contracts disagree. Never add new browser `supabase.from` / `rpc` / `storage` calls or new `apiFetch` callers; `apiFetch` goes away when its last caller moves.
 - `src/lib/http/problem.ts` is the one problem body schema, shared by `api/` and `src/`.
 
 - npm only. Never run pnpm or yarn.
