@@ -247,7 +247,8 @@ export default function CouponGrants() {
                       <Button
                         type="button"
                         onClick={() => submitGrant(profile)}
-                        disabled={actionBusy}
+                        // 발급 목록을 받는 동안은 누가 이미 발급받았는지 모른다.
+                        disabled={actionBusy || grantsQuery.isPending}
                         size="lg"
                         className="font-semibold"
                       >

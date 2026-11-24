@@ -316,6 +316,61 @@ test("발급하면 발급 목록이 스켈레톤을 거쳐 새로 받은 행으�
   expect(screen.getAllByText("김철수").length).toBeGreaterThan(0);
 });
 
+test("발급 목록을 다시 받는 동안은 등록 버튼을 누를 수 없고 새 응답이 오면 발급 상태가 반영된다", async () => {
+  on("POST", "admin/coupons/c1/grants", { id: 6 });
+  const release = holdAfterFirst("admin/coupons/c1/grants", () => ({
+    items: grants,
+  }));
+  renderCoupons("/admin/coupons/c1/grants");
+  await search("kim");
+  grants = [
+    grant,
+    {
+      ...grant,
+      id: 6,
+      user_id: "u2",
+      user: { name: "김철수", email: "kim@example.com" },
+    },
+  ];
+  fireEvent.click(await screen.findByRole("button", { name: "등록" }));
+
+  await screen.findByRole("status", { name: GRANTS_LABEL });
+  const buttons = screen.getAllByRole("button", { name: "등록" });
+  expect(buttons.length).toBeGreaterThan(0);
+  for (const button of buttons) expect(button).toBeDisabled();
+
+  release();
+  await waitFor(() =>
+    expect(
+      screen.getAllByRole("img", { name: "이미 발급된 사용자입니다." }),
+    ).toHaveLength(2),
+  );
+  expect(screen.queryByRole("button", { name: "등록" })).toBeNull();
+});
+
+test("발급 목록을 처음 받는 동안에도 등록 버튼을 누를 수 없다", async () => {
+  let release: () => void = () => {};
+  on("GET", "admin/coupons/c1/grants", async () => {
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { items: grants };
+  });
+  renderCoupons("/admin/coupons/c1/grants");
+  await search("kim");
+  await screen.findByText("김철수");
+
+  const buttons = screen.getAllByRole("button", { name: "등록" });
+  expect(buttons.length).toBeGreaterThan(0);
+  for (const button of buttons) expect(button).toBeDisabled();
+
+  release();
+  await waitFor(() =>
+    expect(screen.getAllByRole("button", { name: "등록" })).toHaveLength(1),
+  );
+  expect(screen.getByRole("button", { name: "등록" })).toBeEnabled();
+});
+
 test("회수하면 발급 목록이 스켈레톤을 거쳐 새로 받은 행으로 바뀐다", async () => {
   on("POST", "admin/coupons/grants/5/revoke", { id: 5 });
   const release = holdAfterFirst("admin/coupons/c1/grants", () => ({
