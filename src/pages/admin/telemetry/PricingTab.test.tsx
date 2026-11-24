@@ -1,13 +1,23 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
 
-vi.mock("./api", () => ({ putPricing: vi.fn() }));
+vi.mock(
+  "@/lib/http/client",
+  async () => (await import("./fakeApi")).clientMock,
+);
 
 import PricingTab from "./PricingTab";
 
+const renderTab = (ui: ReactNode) =>
+  render(
+    <QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>,
+  );
+
 describe("PricingTab", () => {
   test("추가한 행의 입력칸도 접근 가능한 이름을 가진다", () => {
-    render(<PricingTab initial={{ pricing: {}, updatedAt: null }} />);
+    renderTab(<PricingTab initial={{ pricing: {}, updatedAt: null }} />);
     fireEvent.click(screen.getByRole("button", { name: "행 추가" }));
     const boxes = screen.getAllByRole("textbox");
     expect(boxes.length).toBe(8);
@@ -21,7 +31,7 @@ describe("PricingTab", () => {
   });
 
   test("행마다 삭제 버튼은 행 번호가 든 이름을 가진다", () => {
-    render(<PricingTab initial={{ pricing: {}, updatedAt: null }} />);
+    renderTab(<PricingTab initial={{ pricing: {}, updatedAt: null }} />);
     fireEvent.click(screen.getByRole("button", { name: "행 추가" }));
 
     expect(screen.getByRole("button", { name: "삭제 1번째 행" })).toBeVisible();
