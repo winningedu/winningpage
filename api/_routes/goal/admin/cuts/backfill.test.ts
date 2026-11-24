@@ -335,6 +335,45 @@ describe("POST /api/goal/admin/cuts/backfill", () => {
     expect(kit.db.tables.goal_university_cuts).toHaveLength(500);
   });
 
+  test("중간 청크가 중복 위반으로 실패하면 매핑된 코드, 상태, 안내와 청크 정보를 보낸다", async () => {
+    seedAdmin(kit.state, "edit", MENU);
+    kit.db = createCutsDb({
+      admission_results: Array.from({ length: 300 }, (_, i) =>
+        ar(`대학${i}대학교`, "학과", "교과", 3),
+      ),
+      goal_university_cuts: [],
+    });
+    let upserts = 0;
+    kit.db.fail = (call) => {
+      if (call.op !== "upsert") return undefined;
+      upserts += 1;
+      return upserts === 2
+        ? {
+            code: "23505",
+            message: "duplicate key 홍길동",
+            details:
+              "Key (university_key, department_key)=(홍길동, x) already exists.",
+          }
+        : undefined;
+    };
+    const r = await apply({
+      ...goodBody,
+      expectedApplyCount: 600,
+      expectedOrphanCount: 0,
+    });
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({
+      code: "DB_UNIQUE_VIOLATION",
+      detail: "이미 등록된 값입니다(중복).",
+      applied: 500,
+      step: "upsert",
+      range: "501~600",
+      columns: ["university_key", "department_key"],
+    });
+    expect(r.body).not.toHaveProperty("dbCode");
+    expect(JSON.stringify(r.body)).not.toContain("홍길동");
+  });
+
   test("고아 노출 끄기가 실패하면 반영된 행 수와 함께 알린다", async () => {
     seedAdmin(kit.state, "edit", MENU);
     kit.db.fail = (call) =>

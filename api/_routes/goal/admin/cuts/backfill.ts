@@ -84,18 +84,18 @@ export default defineHandler({
         if (!(error instanceof BackfillApplyError)) throw error;
         const mapped = mapDbError(error.dbError as { code?: string });
         // 청크는 트랜잭션이 아니다. 앞 청크는 이미 반영돼 있으니 몇 행까지 갔는지 알려 준다.
+        // DB 오류가 매핑되면 쓰기 라우트(failWrite)와 같은 코드와 안내를 쓴다. 화면이 코드로 라벨 문구를 만든다.
         sendError(
           res,
           "problem",
           mapped?.status ?? 500,
-          "백필 반영 중 일부 청크가 실패했습니다. 이미 반영된 청크는 되돌려지지 않습니다.",
-          "BACKFILL_APPLY_FAILED",
+          mapped?.detail ?? "백필 반영 중 일부 청크가 실패했습니다.",
+          mapped?.code ?? "BACKFILL_APPLY_FAILED",
           {
             applied: error.applied,
             step: error.step,
             range: error.range,
             columns: mapped?.columns ?? [],
-            ...(mapped ? { dbCode: mapped.code } : {}),
           },
         );
       }
