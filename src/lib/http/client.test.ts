@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
+import { SchemaValidationError } from "ky";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { z } from "zod";
 
 const getSession = vi.fn();
 vi.mock("../supabase", () => ({
@@ -182,5 +184,24 @@ describe("api", () => {
       code: "NETWORK",
       detail: "네트워크에 연결하지 못했어요.",
     });
+  });
+
+  test("503 GET 도 재시도 없이 fetch 를 한 번만 부른다", async () => {
+    const spy = stubFetch(async () => new Response("", { status: 503 }));
+    await api.get("x").catch(() => undefined);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  test(".json(schema)는 스키마에 맞는 응답을 통과시킨다", async () => {
+    stubFetch(async () => Response.json({ name: "a" }));
+    const body = await api.get("x").json(z.object({ name: z.string() }));
+    expect(body).toEqual({ name: "a" });
+  });
+
+  test(".json(schema)는 스키마에 맞지 않는 응답을 던진다", async () => {
+    stubFetch(async () => Response.json({ name: 1 }));
+    await expect(
+      api.get("x").json(z.object({ name: z.string() })),
+    ).rejects.toBeInstanceOf(SchemaValidationError);
   });
 });
