@@ -41,6 +41,8 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { listResendCandidates, type ResendKind } from "./reportResendOptions";
 import {
   fetchGoalStudentDetail,
@@ -701,11 +703,8 @@ function GoalStudentsList({ config }: { config: GoalStudentsAdminConfig }) {
       )}
 
       {loading ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
+        <div className="bg-white p-6 shadow-sm">
+          <AdminTableSkeleton columns={15} label="학생 목록을 불러오는 중" />
         </div>
       ) : (
         <div className="bg-white p-6 shadow-sm">
@@ -1220,12 +1219,7 @@ export function GoalStudentDetail({
             목록으로
           </ActionButton>
         </div>
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+        <AdminDetailSkeleton rows={8} label="학생 상세를 불러오는 중" />
       </div>
     );
   }

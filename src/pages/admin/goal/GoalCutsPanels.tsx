@@ -22,6 +22,7 @@ import {
   withChunkRows,
 } from "@/pages/admin/shared/adminErrors";
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
+import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { pad2, triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";
 import {
   applyBackfill,
@@ -116,7 +117,10 @@ function GoalCutsOverviewBlock({
     return (
       <div className="bg-white p-4 text-sm shadow-sm">
         <div className="font-semibold">현황 요약</div>
-        <p className="mt-2 text-xs text-gray-500">불러오는 중…</p>
+        <AdminLineSkeleton
+          className="mt-2 h-4 w-80"
+          label="현황 요약을 불러오는 중"
+        />
       </div>
     );
   }
