@@ -6,6 +6,8 @@ export const routes: Record<string, RouteLoader> = {
   "admin/me/activate": () => import("./admin/me/activate.js"),
   "admin/admission/active-year": () =>
     import("./admin/admission/active-year.js"),
+  "admin/admission/results/count": () =>
+    import("./admin/admission/results/count.js"),
   "admin/ai-telemetry": () => import("./admin/ai-telemetry.js"),
   "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
   "admin/coupons": () => import("./admin/coupons.js"),
