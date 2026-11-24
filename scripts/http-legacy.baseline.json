@@ -1,0 +1,1145 @@
+{
+  "api/_lib/console/enrollmentErrors.ts": {
+    "legacyError": 1
+  },
+  "api/_lib/console/scope.ts": {
+    "legacyError": 1
+  },
+  "api/_lib/console/studentScope.ts": {
+    "legacyError": 1
+  },
+  "api/_lib/console/teacherAccounts.ts": {
+    "legacyError": 1
+  },
+  "api/_lib/console/teacherManage.ts": {
+    "legacyError": 1
+  },
+  "api/_lib/handler.ts": {
+    "legacyError": 12
+  },
+  "api/_lib/httpMethod.ts": {
+    "legacyError": 1
+  },
+  "api/_lib/inquiry/compose.ts": {
+    "legacyError": 1
+  },
+  "api/_lib/qaAccount.ts": {
+    "legacyError": 1
+  },
+  "api/_lib/selfeval/access.ts": {
+    "legacyError": 1
+  },
+  "api/_lib/selfeval/stepResponse.ts": {
+    "legacyError": 1,
+    "okSuccess": 2
+  },
+  "api/_routes/admin/access-logs.ts": {
+    "legacyError": 3,
+    "okSuccess": 2
+  },
+  "api/_routes/admin/ai-telemetry-pricing.ts": {
+    "legacyError": 2,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/ai-telemetry.ts": {
+    "legacyError": 2,
+    "okSuccess": 4
+  },
+  "api/_routes/admin/growth-grant.ts": {
+    "legacyError": 4,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/growth-recover.ts": {
+    "legacyError": 6,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/growth-reports.ts": {
+    "legacyError": 2,
+    "okSuccess": 2
+  },
+  "api/_routes/admin/hq-dashboard/b2c.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/hq-dashboard/logins.ts": {
+    "legacyError": 3,
+    "okSuccess": 2
+  },
+  "api/_routes/admin/hq-dashboard/summary.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/hq-dashboard/tenants.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/hq-dashboard/trends.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/hq-dashboard/usage.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/inquiry-grant.ts": {
+    "legacyError": 4,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/inquiry-recover.ts": {
+    "legacyError": 6,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/inquiry-sessions.ts": {
+    "legacyError": 2,
+    "okSuccess": 2
+  },
+  "api/_routes/admin/invite-member.ts": {
+    "legacyError": 10,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/knowledge-bulk.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/knowledge-dedupe.ts": {
+    "legacyError": 2,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/knowledge-eval.ts": {
+    "legacyError": 5,
+    "okSuccess": 3
+  },
+  "api/_routes/admin/knowledge-search.ts": {
+    "legacyError": 2,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/selfeval-grant.ts": {
+    "legacyError": 4,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/selfeval-recover.ts": {
+    "legacyError": 6,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/selfeval-sessions.ts": {
+    "legacyError": 3,
+    "okSuccess": 2
+  },
+  "api/_routes/admin/send-message.ts": {
+    "legacyError": 6,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/service-credit-adjust.ts": {
+    "legacyError": 6,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/service-credit-summary.ts": {
+    "legacyError": 2,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/tenants/member-purge-preview.ts": {
+    "legacyError": 4,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/tenants/member-purge.ts": {
+    "legacyError": 6,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/tenants/move-student.ts": {
+    "legacyError": 5,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/tenants/purge-logs.ts": {
+    "legacyError": 2,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/tenants/school-admin.ts": {
+    "legacyError": 3
+  },
+  "api/_routes/admin/tenants/school-admins.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/tenants/student-usage.ts": {
+    "legacyError": 5,
+    "okSuccess": 1
+  },
+  "api/_routes/admin/web-analytics.ts": {
+    "legacyError": 5,
+    "okSuccess": 1
+  },
+  "api/_routes/auth/login.ts": {
+    "legacyError": 3
+  },
+  "api/_routes/auth/teacher-reset-password.ts": {
+    "legacyError": 9,
+    "okSuccess": 1
+  },
+  "api/_routes/change-phone.ts": {
+    "legacyError": 7,
+    "okSuccess": 1
+  },
+  "api/_routes/check-service-access.ts": {
+    "legacyError": 4
+  },
+  "api/_routes/complete-refund.ts": {
+    "legacyError": 13,
+    "outsideHandler": 1,
+    "okSuccess": 2
+  },
+  "api/_routes/confirm-payment.ts": {
+    "legacyError": 16,
+    "outsideHandler": 1
+  },
+  "api/_routes/console/admission-coaching.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/assign-pool.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/change-password.ts": {
+    "legacyError": 7,
+    "okSuccess": 1
+  },
+  "api/_routes/console/classes.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/classes/capacity.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/console/classes/delete.ts": {
+    "legacyError": 4,
+    "okSuccess": 1
+  },
+  "api/_routes/console/coaching.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/coaching/print-log.ts": {
+    "legacyError": 2,
+    "okSuccess": 1
+  },
+  "api/_routes/console/coaching/report.ts": {
+    "legacyError": 3
+  },
+  "api/_routes/console/coaching/service.ts": {
+    "legacyError": 3
+  },
+  "api/_routes/console/coaching/students.ts": {
+    "legacyError": 1
+  },
+  "api/_routes/console/counsel-status.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/console/dashboard.ts": {
+    "legacyError": 3
+  },
+  "api/_routes/console/enrollment-requests.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/enrollment-requests/count.ts": {
+    "legacyError": 1
+  },
+  "api/_routes/console/enrollment-requests/decide.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/console/enrollment/export.ts": {
+    "legacyError": 2,
+    "okSuccess": 1
+  },
+  "api/_routes/console/enrollment/summary.ts": {
+    "legacyError": 1
+  },
+  "api/_routes/console/first-password.ts": {
+    "legacyError": 7,
+    "okSuccess": 1
+  },
+  "api/_routes/console/graduates.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/groups.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/console/groups/delete.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/console/me.ts": {
+    "legacyError": 1
+  },
+  "api/_routes/console/memos.ts": {
+    "legacyError": 4
+  },
+  "api/_routes/console/memos/hide.ts": {
+    "legacyError": 5,
+    "okSuccess": 2
+  },
+  "api/_routes/console/org-info.ts": {
+    "legacyError": 4,
+    "okSuccess": 1
+  },
+  "api/_routes/console/org-info/confirm.ts": {
+    "legacyError": 6,
+    "okSuccess": 1
+  },
+  "api/_routes/console/proxy/end.ts": {
+    "legacyError": 2,
+    "okSuccess": 2
+  },
+  "api/_routes/console/proxy/start.ts": {
+    "legacyError": 4,
+    "okSuccess": 1
+  },
+  "api/_routes/console/proxy/tenants.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/school-year.ts": {
+    "legacyError": 1
+  },
+  "api/_routes/console/school-year/rollover.ts": {
+    "legacyError": 2,
+    "okSuccess": 1
+  },
+  "api/_routes/console/school-year/rollover/preview.ts": {
+    "legacyError": 3
+  },
+  "api/_routes/console/service-status.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/students.ts": {
+    "legacyError": 3
+  },
+  "api/_routes/console/students/detail.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/students/enrollment-history.ts": {
+    "legacyError": 3
+  },
+  "api/_routes/console/students/enrollment.ts": {
+    "legacyError": 4,
+    "okSuccess": 1
+  },
+  "api/_routes/console/students/flag.ts": {
+    "legacyError": 2,
+    "okSuccess": 1
+  },
+  "api/_routes/console/students/history.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/teachers/accounts.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/teachers/assignments.ts": {
+    "legacyError": 4,
+    "okSuccess": 1
+  },
+  "api/_routes/console/teachers/connect-preview.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/teachers/delete.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/console/teachers/import-preview.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/teachers/import.ts": {
+    "legacyError": 5,
+    "okSuccess": 1
+  },
+  "api/_routes/console/teachers/issue.ts": {
+    "legacyError": 5,
+    "okSuccess": 1
+  },
+  "api/_routes/console/teachers/list.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/console/teachers/name.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/console/teachers/register.ts": {
+    "legacyError": 4
+  },
+  "api/_routes/console/teachers/reissue.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/console/teachers/status.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/console/teachers/unissued.ts": {
+    "legacyError": 1
+  },
+  "api/_routes/create-consult-request.ts": {
+    "legacyError": 10,
+    "okSuccess": 1
+  },
+  "api/_routes/create-service-ticket.ts": {
+    "legacyError": 7,
+    "okSuccess": 2
+  },
+  "api/_routes/delete-account.ts": {
+    "legacyError": 8,
+    "okSuccess": 1
+  },
+  "api/_routes/diagnosis/access.ts": {
+    "legacyError": 1
+  },
+  "api/_routes/diagnosis/consume.ts": {
+    "legacyError": 2,
+    "okSuccess": 4
+  },
+  "api/_routes/diagnosis/submit.ts": {
+    "legacyError": 2,
+    "okSuccess": 2
+  },
+  "api/_routes/dispatch.ts": {
+    "legacyError": 1
+  },
+  "api/_routes/enrollment/join-tenant-lookup.ts": {
+    "legacyError": 4,
+    "okSuccess": 1
+  },
+  "api/_routes/enrollment/join-tenant.ts": {
+    "legacyError": 5,
+    "okSuccess": 1
+  },
+  "api/_routes/enrollment/me.ts": {
+    "legacyError": 1,
+    "okSuccess": 2
+  },
+  "api/_routes/enrollment/request-change.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/enrollment/self-assign.ts": {
+    "legacyError": 5,
+    "okSuccess": 1
+  },
+  "api/_routes/find-account-by-phone.ts": {
+    "legacyError": 4,
+    "okSuccess": 2
+  },
+  "api/_routes/goal/admin/resend-report.ts": {
+    "legacyError": 4
+  },
+  "api/_routes/goal/admin/reset-student.ts": {
+    "legacyError": 4,
+    "okSuccess": 1
+  },
+  "api/_routes/goal/advice.ts": {
+    "legacyError": 7,
+    "outsideHandler": 1,
+    "okSuccess": 4
+  },
+  "api/_routes/goal/daily-record.ts": {
+    "legacyError": 16,
+    "outsideHandler": 1,
+    "okSuccess": 2
+  },
+  "api/_routes/goal/grades.ts": {
+    "legacyError": 22,
+    "outsideHandler": 1,
+    "okSuccess": 3
+  },
+  "api/_routes/goal/intake-update.ts": {
+    "legacyError": 8,
+    "outsideHandler": 1,
+    "okSuccess": 1
+  },
+  "api/_routes/goal/intake.ts": {
+    "legacyError": 7,
+    "outsideHandler": 1,
+    "okSuccess": 1
+  },
+  "api/_routes/goal/plan-tasks.ts": {
+    "legacyError": 32,
+    "outsideHandler": 1,
+    "okSuccess": 4
+  },
+  "api/_routes/goal/ranking.ts": {
+    "legacyError": 3,
+    "outsideHandler": 1,
+    "okSuccess": 2
+  },
+  "api/_routes/goal/report.ts": {
+    "legacyError": 8,
+    "outsideHandler": 1,
+    "okSuccess": 2
+  },
+  "api/_routes/goal/schedules.ts": {
+    "legacyError": 17,
+    "outsideHandler": 1,
+    "okSuccess": 4
+  },
+  "api/_routes/goal/student.ts": {
+    "legacyError": 3,
+    "outsideHandler": 1
+  },
+  "api/_routes/goal/timer.ts": {
+    "legacyError": 10,
+    "outsideHandler": 1,
+    "okSuccess": 5
+  },
+  "api/_routes/goal/workbooks.ts": {
+    "legacyError": 15,
+    "outsideHandler": 1,
+    "okSuccess": 6
+  },
+  "api/_routes/growth/collect.ts": {
+    "legacyError": 2,
+    "okSuccess": 3
+  },
+  "api/_routes/growth/plan.ts": {
+    "legacyError": 2,
+    "okSuccess": 1
+  },
+  "api/_routes/growth/plan/item.ts": {
+    "legacyError": 2,
+    "okSuccess": 2
+  },
+  "api/_routes/growth/report.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/growth/reports.ts": {
+    "legacyError": 2,
+    "okSuccess": 2
+  },
+  "api/_routes/growth/survey.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/inquiry/assets.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/_routes/inquiry/evaluate-report.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/_routes/inquiry/finalize.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/_routes/inquiry/plan-report.ts": {
+    "legacyError": 1,
+    "okSuccess": 2
+  },
+  "api/_routes/inquiry/recommend-topics.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/_routes/inquiry/reports.ts": {
+    "legacyError": 1,
+    "okSuccess": 2
+  },
+  "api/_routes/inquiry/session.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/_routes/inquiry/submission.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/_routes/lookup-child.ts": {
+    "legacyError": 9,
+    "okSuccess": 1
+  },
+  "api/_routes/mentor-apply-upload-url.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/mentor-apply.ts": {
+    "legacyError": 5,
+    "okSuccess": 1
+  },
+  "api/_routes/nice-identity-callback.ts": {
+    "legacyError": 3,
+    "outsideHandler": 1
+  },
+  "api/_routes/nice-identity-result.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/nice-identity-start.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/performance/admin-embed.ts": {
+    "legacyError": 4
+  },
+  "api/_routes/performance/analyze-guide.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/performance/bootstrap.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/performance/design-report.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/performance/discard-attachment.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/performance/evaluate.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/performance/finalize.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/performance/recommend-topics.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/performance/reports.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/performance/session.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/performance/submission.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/performance/upload-url.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/request-enrollment.ts": {
+    "legacyError": 22
+  },
+  "api/_routes/reset-password-by-phone.ts": {
+    "legacyError": 12,
+    "okSuccess": 2
+  },
+  "api/_routes/selfeval/analyze.ts": {
+    "legacyError": 1
+  },
+  "api/_routes/selfeval/finalize.ts": {
+    "legacyError": 1
+  },
+  "api/_routes/selfeval/manual-logs.ts": {
+    "legacyError": 2
+  },
+  "api/_routes/selfeval/pick-records.ts": {
+    "legacyError": 1,
+    "okSuccess": 2
+  },
+  "api/_routes/selfeval/report.ts": {
+    "legacyError": 1,
+    "okSuccess": 2
+  },
+  "api/_routes/selfeval/reports.ts": {
+    "legacyError": 1,
+    "okSuccess": 2
+  },
+  "api/_routes/selfeval/session.ts": {
+    "legacyError": 1,
+    "okSuccess": 3
+  },
+  "api/_routes/selfeval/verify.ts": {
+    "legacyError": 1
+  },
+  "api/_routes/selfeval/write.ts": {
+    "legacyError": 1
+  },
+  "api/_routes/send-phone-code.ts": {
+    "legacyError": 7,
+    "okSuccess": 1
+  },
+  "api/_routes/session-check.ts": {
+    "legacyError": 3,
+    "okSuccess": 1
+  },
+  "api/_routes/signup-welcome.ts": {
+    "legacyError": 5,
+    "outsideHandler": 1,
+    "okSuccess": 3
+  },
+  "api/_routes/signup/school-student.ts": {
+    "legacyError": 11
+  },
+  "api/_routes/signup/tenant-lookup.ts": {
+    "legacyError": 6
+  },
+  "api/_routes/toss-webhook.ts": {
+    "legacyError": 6,
+    "outsideHandler": 1,
+    "okSuccess": 2
+  },
+  "api/_routes/verify-phone-code.ts": {
+    "legacyError": 9,
+    "okSuccess": 1
+  },
+  "api/cron/ai-telemetry-cleanup.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/cron/b2b-retention-purge.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/cron/daily-report.ts": {
+    "legacyError": 1,
+    "okSuccess": 2
+  },
+  "api/cron/growth-archive.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/cron/growth-resume.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/cron/inquiry-archive.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/cron/monthly-report.ts": {
+    "legacyError": 2,
+    "okSuccess": 2
+  },
+  "api/cron/selfeval-archive.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/cron/weekly-report.ts": {
+    "legacyError": 1,
+    "okSuccess": 2
+  },
+  "api/performance/cleanup-attachments.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/performance/embed-session-vectors.ts": {
+    "legacyError": 1,
+    "okSuccess": 1
+  },
+  "api/report-pdf.ts": {
+    "legacyError": 3
+  },
+  "api/zoom-webhook.ts": {
+    "legacyError": 8,
+    "outsideHandler": 1
+  },
+  "src/components/Header.tsx": {
+    "browserDb": 3
+  },
+  "src/components/b2b/useB2BAccount.ts": {
+    "browserDb": 1,
+    "legacyFetch": 1
+  },
+  "src/components/enrollment/api.ts": {
+    "legacyFetch": 2
+  },
+  "src/components/growth/collect/UploadDialog.tsx": {
+    "browserDb": 1
+  },
+  "src/components/growth/collect/manualActivity.ts": {
+    "browserDb": 2
+  },
+  "src/components/growth/parent/useParentChild.ts": {
+    "browserDb": 1
+  },
+  "src/components/growth/start/profileApi.ts": {
+    "browserDb": 2
+  },
+  "src/components/growth/survey/surveySearch.ts": {
+    "browserDb": 1
+  },
+  "src/components/landing/useHomeColumns.ts": {
+    "browserDb": 1
+  },
+  "src/components/landing/useHomeSectionCopy.ts": {
+    "browserDb": 1
+  },
+  "src/components/mentorApply/MentorApplyForm.tsx": {
+    "browserDb": 1,
+    "legacyFetch": 2
+  },
+  "src/components/mentorApply/MentorFaq.tsx": {
+    "browserDb": 2
+  },
+  "src/components/mypage/ChangePhoneModal.tsx": {
+    "legacyFetch": 1
+  },
+  "src/components/mypage/MyServicesTab.tsx": {
+    "browserDb": 2
+  },
+  "src/components/mypage/OrgCodeModal.tsx": {
+    "browserDb": 1
+  },
+  "src/components/mypage/PaymentsTab.tsx": {
+    "browserDb": 2
+  },
+  "src/components/mypage/ProfileTab.tsx": {
+    "browserDb": 6
+  },
+  "src/components/mypage/RefundRequestModal.tsx": {
+    "browserDb": 4
+  },
+  "src/components/mypage/UnlinkParentModal.tsx": {
+    "browserDb": 1
+  },
+  "src/components/mypage/WithdrawModal.tsx": {
+    "legacyFetch": 1
+  },
+  "src/components/mypage/bundleComposition.ts": {
+    "browserDb": 1
+  },
+  "src/components/mypage/parent/ChildrenTab.tsx": {
+    "browserDb": 1
+  },
+  "src/components/mypage/parent/EnrollmentRequestModal.tsx": {
+    "browserDb": 1
+  },
+  "src/components/mypage/parent/LinkChildModal.tsx": {
+    "browserDb": 1
+  },
+  "src/components/mypage/parent/ParentPaymentsTab.tsx": {
+    "browserDb": 2
+  },
+  "src/components/mypage/parent/RefundApprovalModal.tsx": {
+    "browserDb": 2
+  },
+  "src/components/mypage/parent/RemoveChildModal.tsx": {
+    "browserDb": 1
+  },
+  "src/components/premiumBook/usePremiumBookPages.ts": {
+    "browserDb": 1
+  },
+  "src/components/selfeval/basics/profileApi.ts": {
+    "browserDb": 1
+  },
+  "src/hooks/useFooterOperatorImage.ts": {
+    "browserDb": 2
+  },
+  "src/hooks/useHomeMentors.ts": {
+    "browserDb": 1
+  },
+  "src/hooks/useMemberType.ts": {
+    "browserDb": 1
+  },
+  "src/hooks/useNavGroups.ts": {
+    "browserDb": 1
+  },
+  "src/hooks/usePaymentConfirmation.ts": {
+    "legacyFetch": 1
+  },
+  "src/hooks/useTermsDocs.ts": {
+    "browserDb": 1
+  },
+  "src/lib/adminAccessLog.ts": {
+    "browserDb": 1
+  },
+  "src/lib/adminPermissions.ts": {
+    "browserDb": 2
+  },
+  "src/lib/admissionResultsQueries.ts": {
+    "browserDb": 4
+  },
+  "src/lib/admissionSettings.ts": {
+    "browserDb": 2
+  },
+  "src/lib/appSettings.ts": {
+    "browserDb": 1
+  },
+  "src/lib/demoAccess.ts": {
+    "browserDb": 1
+  },
+  "src/lib/diagnosisAccess.ts": {
+    "legacyFetch": 2
+  },
+  "src/lib/diagnosisAdmissionCuts.ts": {
+    "browserDb": 1
+  },
+  "src/lib/diagnosisAdmissionMasterQueries.ts": {
+    "browserDb": 3
+  },
+  "src/lib/diagnosisReportQueries.ts": {
+    "browserDb": 3
+  },
+  "src/lib/diagnosisSubmitApi.ts": {
+    "legacyFetch": 1
+  },
+  "src/lib/diagnosisSurveyCopyOverrides.ts": {
+    "browserDb": 1
+  },
+  "src/lib/entitlement.ts": {
+    "legacyFetch": 1
+  },
+  "src/lib/goal/goalCutBackfill.ts": {
+    "browserDb": 4
+  },
+  "src/lib/goal/universitySearch.ts": {
+    "browserDb": 2
+  },
+  "src/lib/goalApi.ts": {
+    "legacyFetch": 18
+  },
+  "src/lib/growth/api.ts": {
+    "legacyFetch": 1
+  },
+  "src/lib/growth/profile.ts": {
+    "browserDb": 1
+  },
+  "src/lib/inquiry/api.ts": {
+    "legacyFetch": 1
+  },
+  "src/lib/inquiry/profile.ts": {
+    "browserDb": 1
+  },
+  "src/lib/paidServiceAccess.ts": {
+    "legacyFetch": 1
+  },
+  "src/lib/parentLink.ts": {
+    "browserDb": 2,
+    "legacyFetch": 1
+  },
+  "src/lib/performance/apiClient.ts": {
+    "legacyFetch": 1
+  },
+  "src/lib/performance/guideUpload.ts": {
+    "browserDb": 1
+  },
+  "src/lib/performance/reports.ts": {
+    "legacyFetch": 1
+  },
+  "src/lib/performance/session.ts": {
+    "legacyFetch": 1
+  },
+  "src/lib/performance/submission.ts": {
+    "legacyFetch": 2
+  },
+  "src/lib/products.ts": {
+    "browserDb": 2
+  },
+  "src/lib/programEntry.ts": {
+    "browserDb": 1
+  },
+  "src/lib/queryClient.ts": {
+    "legacyFetch": 2
+  },
+  "src/lib/routeMiddleware.ts": {
+    "browserDb": 2
+  },
+  "src/lib/selfeval/api.ts": {
+    "legacyFetch": 1
+  },
+  "src/lib/signupEmailAuth.ts": {
+    "browserDb": 1
+  },
+  "src/pages/Admin.tsx": {
+    "browserDb": 8,
+    "legacyFetch": 2
+  },
+  "src/pages/AdmissionBoard.tsx": {
+    "browserDb": 2
+  },
+  "src/pages/AdmissionGuidelines.tsx": {
+    "browserDb": 3
+  },
+  "src/pages/CompanyNews.tsx": {
+    "browserDb": 2
+  },
+  "src/pages/DynamicPage.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/Events.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/Faq.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/FindAccount.tsx": {
+    "legacyFetch": 1
+  },
+  "src/pages/FindPassword.tsx": {
+    "legacyFetch": 1
+  },
+  "src/pages/Home.tsx": {
+    "browserDb": 7
+  },
+  "src/pages/Login.tsx": {
+    "legacyFetch": 1
+  },
+  "src/pages/PremiumApply.tsx": {
+    "legacyFetch": 1
+  },
+  "src/pages/ResetPassword.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/TeacherResetPassword.tsx": {
+    "legacyFetch": 1
+  },
+  "src/pages/admin/access-logs/api.ts": {
+    "legacyFetch": 1
+  },
+  "src/pages/admin/admission/AdmissionPanels.tsx": {
+    "browserDb": 6
+  },
+  "src/pages/admin/configs/bannersForm.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/admin/coupons/CouponAdmin.tsx": {
+    "browserDb": 14
+  },
+  "src/pages/admin/goal/GoalCutsPanels.tsx": {
+    "browserDb": 8
+  },
+  "src/pages/admin/goal/GoalStudentsAdmin.tsx": {
+    "browserDb": 10,
+    "legacyFetch": 2
+  },
+  "src/pages/admin/growth/GrowthReportsAdmin.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/admin/hq-dashboard/api.ts": {
+    "legacyFetch": 2
+  },
+  "src/pages/admin/inquiry/InquirySessionsAdmin.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/admin/knowledge/evals/api.ts": {
+    "browserDb": 6
+  },
+  "src/pages/admin/landing/SectionCopyPanel.tsx": {
+    "browserDb": 2
+  },
+  "src/pages/admin/learning-diagnosis/LearningDiagnosisAdmin.tsx": {
+    "browserDb": 12
+  },
+  "src/pages/admin/members/MembersAdmin.tsx": {
+    "browserDb": 10,
+    "legacyFetch": 1
+  },
+  "src/pages/admin/mentor/MentorApplicationsAdmin.tsx": {
+    "browserDb": 3
+  },
+  "src/pages/admin/premium-book/PremiumBookAdmin.tsx": {
+    "browserDb": 11
+  },
+  "src/pages/admin/revenue/RevenueAdmin.tsx": {
+    "browserDb": 4
+  },
+  "src/pages/admin/selfeval/SelfevalSessionsAdmin.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/admin/service-credit/api.ts": {
+    "browserDb": 1
+  },
+  "src/pages/admin/shared/AdminEngine.tsx": {
+    "browserDb": 3
+  },
+  "src/pages/admin/staff/AdminMembersAdmin.tsx": {
+    "browserDb": 8,
+    "legacyFetch": 1
+  },
+  "src/pages/admin/staff/AdminRolesAdmin.tsx": {
+    "browserDb": 8
+  },
+  "src/pages/admin/telemetry/api.ts": {
+    "legacyFetch": 1
+  },
+  "src/pages/admin/tenants/MemberPurgeAdmin.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/admin/tenants/MoveStudentForm.tsx": {
+    "legacyFetch": 1
+  },
+  "src/pages/admin/tenants/ServiceSettingsPanel.tsx": {
+    "browserDb": 3
+  },
+  "src/pages/admin/tenants/StudentUsageAdmin.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/admin/tenants/TenantDetail.tsx": {
+    "browserDb": 3
+  },
+  "src/pages/admin/tenants/TenantsAdmin.tsx": {
+    "browserDb": 3
+  },
+  "src/pages/admin/web-analytics/api.ts": {
+    "legacyFetch": 1
+  },
+  "src/pages/admission/admissionCaseData.ts": {
+    "browserDb": 5
+  },
+  "src/pages/board/boardData.ts": {
+    "browserDb": 2
+  },
+  "src/pages/checkout/ParentCheckout.tsx": {
+    "browserDb": 6
+  },
+  "src/pages/checkout/StudentEnrollmentRequest.tsx": {
+    "browserDb": 1,
+    "legacyFetch": 1
+  },
+  "src/pages/checkout/useEnrollmentOrder.ts": {
+    "browserDb": 2
+  },
+  "src/pages/checkout/usePaymentAgreementHistory.ts": {
+    "browserDb": 1
+  },
+  "src/pages/column/columnData.ts": {
+    "browserDb": 3
+  },
+  "src/pages/console/api.ts": {
+    "legacyFetch": 1
+  },
+  "src/pages/mypage/ChildDiagnosisReport.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/mypage/ChildDiagnosisReports.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/mypage/ChildReport.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/mypage/useMyPageOrders.ts": {
+    "browserDb": 2
+  },
+  "src/pages/mypage/useMyPageProfile.ts": {
+    "browserDb": 2
+  },
+  "src/pages/mypage/usePendingOrderCount.ts": {
+    "browserDb": 1
+  },
+  "src/pages/performance/PerformanceChatPage.tsx": {
+    "legacyFetch": 1
+  },
+  "src/pages/pricing/PricingSelling.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/renewal/FreeDiagnosisReport.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/renewal/diagnosisStudentName.ts": {
+    "browserDb": 1
+  },
+  "src/pages/services/Callmentor.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/signup/StudentForm.tsx": {
+    "browserDb": 2
+  },
+  "src/pages/signup/Under14Form.tsx": {
+    "browserDb": 2
+  },
+  "src/pages/signup/identityVerification.ts": {
+    "legacyFetch": 2
+  },
+  "src/pages/signup/parent/ParentForm.tsx": {
+    "browserDb": 1,
+    "legacyFetch": 1
+  },
+  "src/pages/signup/school/EmailVerifyField.tsx": {
+    "browserDb": 1
+  },
+  "src/pages/special/specialHighschoolData.ts": {
+    "browserDb": 1
+  },
+  "src/routes/alimtalkLinkRoutes.tsx": {
+    "browserDb": 1
+  }
+}
