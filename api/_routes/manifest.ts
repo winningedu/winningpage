@@ -132,6 +132,10 @@ export const routes: Record<string, RouteLoader> = {
   "enrollment/request-change": () => import("./enrollment/request-change.js"),
   "enrollment/self-assign": () => import("./enrollment/self-assign.js"),
   "find-account-by-phone": () => import("./find-account-by-phone.js"),
+  "goal/admin/students": () => import("./goal/admin/students.js"),
+  "goal/admin/students/[id]": () => import("./goal/admin/students/[id].js"),
+  "goal/admin/students/[id]/records": () =>
+    import("./goal/admin/students/[id]/records.js"),
   "goal/admin/resend-report": () => import("./goal/admin/resend-report.js"),
   "goal/admin/reset-student": () => import("./goal/admin/reset-student.js"),
   "goal/advice": () => import("./goal/advice.js"),

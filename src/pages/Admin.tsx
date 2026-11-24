@@ -1645,8 +1645,10 @@ export function AdminLayout() {
   // 사이드바 하이라이트용 activeKey — 라우팅 매칭(어느 config를 쓸지 결정하는 것)에는
   // 관여하지 않는다. 그건 App.jsx의 개별 <Route path={key}> 매칭이 이미 끝낸 일이고,
   // 여기서는 그 결과인 URL을 보고 "지금 어느 메뉴가 눌려 있어 보여야 하는가"만 고른다.
+  // 상세 경로(goalStudents/:id)에서도 첫 구간이 메뉴 키다.
   const activeKey =
-    location.pathname.replace(/^\/admin\/?/, "") || ADMIN_DEFAULT_SECTION_KEY;
+    location.pathname.replace(/^\/admin\/?/, "").split("/")[0] ||
+    ADMIN_DEFAULT_SECTION_KEY;
 
   async function logout() {
     // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.

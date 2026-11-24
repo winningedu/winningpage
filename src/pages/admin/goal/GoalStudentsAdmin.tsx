@@ -1,6 +1,13 @@
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { Eye, RotateCcw, Search } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,13 +25,12 @@ import {
   getSchoolCutType,
   VIRTUAL_DAY_NAMES,
 } from "@/lib/goal/calc/index.js";
-import { supabase } from "@/lib/supabase";
+import { ApiError } from "@/lib/http/client";
 import { ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
 import { PAGE_SIZE } from "@/pages/admin/shared/AdminEngine";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
-import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 import { toastSuccess } from "@/pages/admin/shared/adminToast";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import { formatValue } from "@/pages/admin/shared/csvExport";
@@ -35,14 +41,22 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
-import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
 import { listResendCandidates, type ResendKind } from "./reportResendOptions";
+import {
+  fetchGoalStudentDetail,
+  fetchGoalStudentRecords,
+  fetchGoalStudents,
+  type GoalStudentFilter,
+  goalStudentKeys,
+  resendGoalReport,
+  resetGoalStudent,
+} from "./studentsApi";
 
 // 이 파일 로컬 전용 타입(새 전역 타입 파일 없음). goal_students/goal_student_state는
 // 파생·원자료 컬럼이 매우 많은 넓은 테이블/뷰라 실제로 읽는 필드만 명시하고
 // 나머지(rate_*/base_*/cum_* 등 GOAL_GAUGE_ROWS·GOAL_CUT_SLOTS가 동적으로 읽는
 // 파생 컬럼)는 인덱스 시그니처로 연다.
-interface GoalStudentRow {
+export interface GoalStudentRow {
   profile_id: string;
   grade?: string | null;
   school_type?: string | null;
@@ -71,7 +85,7 @@ interface GoalStudentRow {
   [key: string]: unknown;
 }
 
-interface GoalStateRow {
+export interface GoalStateRow {
   profile_id: string;
   status?: string | null;
   record_count?: number | null;
@@ -84,7 +98,7 @@ interface GoalStateRow {
   [key: string]: unknown;
 }
 
-interface GoalProfileRow {
+export interface GoalProfileRow {
   id: string;
   name?: string | null;
   phone?: string | null;
@@ -93,12 +107,12 @@ interface GoalProfileRow {
 
 // 목록 1행 — 뷰(goal_student_state) + goal_students/profiles 조인 결과를 이
 // 컴포넌트가 클라이언트에서 합성한다(loadList 참고).
-interface GoalListRow extends GoalStateRow {
+export interface GoalListRow extends GoalStateRow {
   student: GoalStudentRow | null;
   profile: GoalProfileRow | null;
 }
 
-interface GoalProbabilityLogRow {
+export interface GoalProbabilityLogRow {
   // goal_probability_logs.id는 identity 정수 PK다(생성 타입 대조 결과).
   id: number;
   created_at?: string | null;
@@ -111,7 +125,7 @@ interface GoalProbabilityLogRow {
   [key: string]: unknown;
 }
 
-interface GoalDailyRecordRow {
+export interface GoalDailyRecordRow {
   // goal_daily_records.id도 identity 정수 PK다(생성 타입 대조 결과).
   id: number;
   record_index?: number | null;
@@ -131,7 +145,7 @@ interface GoalDailyRecordRow {
   [key: string]: unknown;
 }
 
-interface GoalUniversityCutRow {
+export interface GoalUniversityCutRow {
   avg_cut?: number | null;
   source?: string | null;
   source_year?: number | string | null;
@@ -505,214 +519,130 @@ interface GoalStudentsAdminProps {
   ) => void;
 }
 
+// 목록 상태(page, q, filter)는 URL 검색 파라미터에 둔다. 상세(/admin/goalStudents/:id)로 갔다가
+// 뒤로가기나 "목록으로"로 돌아와도 같은 목록이 열린다.
+const LIST_PATH = "/admin/goalStudents";
+
+function parsePage(raw: string | null) {
+  const page = Number(raw);
+  return Number.isInteger(page) && page >= 1 ? page : 1;
+}
+
+function parseFilter(raw: string | null): GoalStudentFilter {
+  const found = GOAL_STUDENT_FILTERS.find((item) => item.key === raw);
+  return (found?.key ?? "all") as GoalStudentFilter;
+}
+
+// 기본값(1페이지, 전체, 검색어 없음)은 URL 에서 뺀다.
+function patchParams(
+  prev: URLSearchParams,
+  patch: { page?: number; q?: string; filter?: string },
+) {
+  const next = new URLSearchParams(prev);
+  const put = (key: string, value: string, isDefault: boolean) => {
+    if (isDefault) next.delete(key);
+    else next.set(key, value);
+  };
+  if (patch.page !== undefined)
+    put("page", String(patch.page), patch.page <= 1);
+  if (patch.q !== undefined) put("q", patch.q, patch.q === "");
+  if (patch.filter !== undefined)
+    put("filter", patch.filter, patch.filter === "all");
+  return next;
+}
+
 export default function GoalStudentsAdmin({
   config,
   onNavigateWithPrefill,
 }: GoalStudentsAdminProps) {
-  // 목록 state. 상세로 갔다 와도 유지되어야 하므로(§4-3-A) 상세는 하위 컴포넌트로 빼고
-  // 이 컴포넌트는 언마운트되지 않는다.
-  const [rows, setRows] = useState<GoalListRow[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [page, setPage] = useState(1);
-  const [keyword, setKeyword] = useState("");
-  const [term, setTerm] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [loading, setLoading] = useState(false);
-  // profiles 조회가 비어 돌아온 경우. profiles 의 어드민 정책은 is_winning_admin() 이
-  // 아니라 is_admin()(role='admin' 엄격)이라, admin_basic 계열 계정에서는 학생 행은
-  // 읽히는데 이름·연락처만 통째로 비는 부분 실패가 난다. 조용히 '-' 로 두면 데이터
-  // 결손으로 오인하므로 화면에 사유를 띄운다.
-  const [profileGap, setProfileGap] = useState(false);
-  // 검색 선행 조회(profiles)가 상한에 닿았는가. 이름·연락처 부분일치가
-  // PROFILE_SEARCH_LIMIT 을 넘으면 초과분 학생이 결과에서 조용히 사라지므로
-  // 절단 사실을 화면에 알린다.
-  const [searchTruncated, setSearchTruncated] = useState(false);
-  const [detailId, setDetailId] = useState<string | null>(null);
-
-  // 목록 전체에 한 번 쓰는 기준일이라 학생별 시간대를 쓸 수 없다. 보는 관리자의 브라우저 시간대 기준이다.
-  const todayYMD = useMemo(() => ymdIn(new Date(), browserTimeZone()), []);
-
-  // 검색 디바운스. 확정 시 1페이지로 되돌린다(공용 목록의 관행과 동일).
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setTerm(keyword.trim());
-      setPage(1);
-    }, SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [keyword]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadList() {
-      setLoading(true);
-      setProfileGap(false);
-      setSearchTruncated(false);
-
-      // ── 1) 검색: profiles 를 먼저 친다 ────────────────────────────────
-      // goal_student_state 에는 이름·연락처가 없다. PostgREST 임베딩도 불가능하다
-      // (goal_students.profile_id FK 가 auth.users 를 가리켜 profiles 관계가 없다 —
-      //  실제 요청에서 PGRST200 확인). 그래서 id 목록을 먼저 얻어 .in() 으로 좁힌다.
-      let idFilter: string[] | null = null;
-
-      if (term) {
-        const safe = term.replace(/[,()%_\\*]/g, " ").trim();
-        if (!safe) {
-          if (!cancelled) {
-            setRows([]);
-            setTotalCount(0);
-            setLoading(false);
-          }
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id")
-          .or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`)
-          .limit(PROFILE_SEARCH_LIMIT);
-
-        if (cancelled) return;
-
-        if (error) {
-          reportAdminError("학생 검색 실패", error);
-          setRows([]);
-          setTotalCount(0);
-          setLoading(false);
-          return;
-        }
-
-        idFilter = (data || []).map((row) => row.id);
-        // 상한에 정확히 닿았으면 더 있는데 잘렸을 수 있다고 본다. 이 경우
-        // 초과분 학생은 아래 .in() 에 아예 들어가지 않아 "그런 학생이 없다"로
-        // 보인다 — 조용히 두면 안 되는 종류의 누락이다.
-        if (idFilter.length >= PROFILE_SEARCH_LIMIT) setSearchTruncated(true);
-
-        if (idFilter.length === 0) {
-          setRows([]);
-          setTotalCount(0);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // ── 2) goal_student_state (뷰) — 페이지 단위 ──────────────────────
-      let query = supabase
-        .from("goal_student_state")
-        .select("*", { count: "exact" });
-
-      if (idFilter) query = query.in("profile_id", idFilter);
-
-      // 필터는 전부 서버 술어다. 뷰 컬럼이라 그대로 나간다.
-      if (filter === "awaiting_cuts")
-        query = query.eq("status", "awaiting_cuts");
-      else if (filter === "paused") query = query.eq("status", "paused");
-      else if (filter === "noRecord") query = query.eq("record_count", 0);
-      // last_record_date 가 null 인 행은 이 비교에 걸리지 않는다(SQL null 의미론) —
-      // 기록이 0행인 학생은 '기록 없음' 필터가 담당한다.
-      else if (filter === "noSubmitToday")
-        query = query.lt("last_record_date", todayYMD);
-
-      // 🔴 2축 정렬 필수(§4-3-B). 이 뷰에는 id 가 없고 awaiting_cuts 학생은
-      //    onboarded_at 이 전부 null 이라 동점이 대량 발생한다. 동점 처리축이 없으면
-      //    .range() 페이지 경계에서 행이 중복·누락된다(입결 탭이 이미 겪은 사고).
-      query = query
-        .order("onboarded_at", { ascending: false, nullsFirst: true })
-        .order("profile_id", { ascending: true })
-        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
-
-      const { data: rawStateRows, error: stateError, count } = await query;
-
-      if (cancelled) return;
-
-      if (stateError) {
-        reportAdminError(`${config.title} 조회 실패`, stateError);
-        setRows([]);
-        setTotalCount(0);
-        setLoading(false);
-        return;
-      }
-
-      // goal_student_state는 뷰라 생성 타입이 모든 컬럼을 nullable로 내보내지만
-      // profile_id는 goal_students PK를 그대로 노출하는 값이라 실제 행에서는
-      // null일 수 없다 — 방어적으로 걸러 이후 로직의 타입을 string으로 좁힌다.
-      const stateRows = (rawStateRows || []).filter(
-        (row): row is typeof row & { profile_id: string } =>
-          row.profile_id !== null,
-      );
-
-      const ids = stateRows.map((row) => row.profile_id);
-
-      if (ids.length === 0) {
-        setRows([]);
-        setTotalCount(count ?? 0);
-        setLoading(false);
-        return;
-      }
-
-      // ── 3) goal_students / profiles 를 같은 id 집합으로 채워 병합 ──────
-      const [studentRes, profileRes] = await Promise.all([
-        supabase
-          .from("goal_students")
-          .select(
-            "profile_id, grade, school_type, ideal_university, ideal_department, min_university, min_department",
-          )
-          .in("profile_id", ids),
-        supabase.from("profiles").select("id, name, phone").in("id", ids),
-      ]);
-
-      if (cancelled) return;
-
-      if (studentRes.error) {
-        reportAdminError("학생 정보 조회 실패", studentRes.error);
-      }
-
-      if (profileRes.error) console.error(profileRes.error);
-
-      const studentMap = new Map(
-        (studentRes.data || []).map((row) => [row.profile_id, row]),
-      );
-      const profileMap = new Map(
-        (profileRes.data || []).map((row) => [row.id, row]),
-      );
-
-      setProfileGap(Boolean(profileRes.error) || profileMap.size === 0);
-
-      setRows(
-        stateRows.map((row) => ({
-          ...row,
-          student: studentMap.get(row.profile_id) || null,
-          profile: profileMap.get(row.profile_id) || null,
-        })),
-      );
-      setTotalCount(count ?? 0);
-      setLoading(false);
-    }
-
-    loadList();
-
-    return () => {
-      cancelled = true;
-    };
-    // config는 Admin()이 CONFIGS.goalStudents를 그대로 넘기는 prop이라 이 컴포넌트가
-    // 마운트돼 있는 동안(activeKey==='goalStudents') 항상 같은 객체를 가리킨다 — 의존성에
-    // 넣어도 재실행을 유발하지 않는다.
-  }, [page, term, filter, todayYMD, config.title]);
-
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  // QA 317 — 학생 상세는 라우트가 아니라 state 라, 뒤로가기가 목록이 아닌 직전
-  // 메뉴로 튄다. 상세를 열 때 히스토리 항목을 쌓아 뒤로가기가 그걸 소비하게 한다.
-  useAdminDetailBack(Boolean(detailId), () => setDetailId(null));
-
-  if (detailId) {
+  const { id } = useParams();
+  if (id) {
     return (
-      <GoalStudentDetail
-        profileId={detailId}
-        onBack={() => setDetailId(null)}
+      <GoalStudentDetailRoute
+        profileId={id}
         onNavigateWithPrefill={onNavigateWithPrefill}
       />
     );
   }
+  return <GoalStudentsList config={config} />;
+}
+
+function GoalStudentDetailRoute({
+  profileId,
+  onNavigateWithPrefill,
+}: {
+  profileId: string;
+  onNavigateWithPrefill: GoalStudentsAdminProps["onNavigateWithPrefill"];
+}) {
+  const navigate = useNavigate();
+  // 상세로 올 때 목록의 검색 파라미터를 그대로 달고 왔으므로 돌아갈 때도 그대로 돌려준다.
+  const { search } = useLocation();
+  return (
+    <GoalStudentDetail
+      profileId={profileId}
+      onBack={() => navigate({ pathname: LIST_PATH, search })}
+      onNavigateWithPrefill={onNavigateWithPrefill}
+    />
+  );
+}
+
+function GoalStudentsList({ config }: { config: GoalStudentsAdminConfig }) {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = parsePage(searchParams.get("page"));
+  const term = searchParams.get("q") ?? "";
+  const filter = parseFilter(searchParams.get("filter"));
+  const [keyword, setKeyword] = useState(term);
+
+  // 목록 전체에 한 번 쓰는 기준일이라 학생별 시간대를 쓸 수 없다. 보는 관리자의 브라우저 시간대 기준이다.
+  const todayYMD = useMemo(() => ymdIn(new Date(), browserTimeZone()), []);
+
+  // 검색 디바운스. 확정 시 1페이지로 되돌린다(공용 목록의 관행과 동일). 입력 중 기록이 쌓이지 않게 replace 다.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = keyword.trim();
+      if (trimmed === term) return;
+      setSearchParams((prev) => patchParams(prev, { q: trimmed, page: 1 }), {
+        replace: true,
+      });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [keyword, term, setSearchParams]);
+
+  // 뒤로가기로 q 가 바뀌면 입력칸도 맞춘다(입력 중 공백은 건드리지 않는다).
+  useEffect(() => {
+    setKeyword((current) => (current.trim() === term ? current : term));
+  }, [term]);
+
+  const params = { page, q: term, filter };
+  const listQuery = useQuery({
+    queryKey: goalStudentKeys.list(params),
+    queryFn: ({ signal }) => fetchGoalStudents(params, signal),
+  });
+  useEffect(() => {
+    if (listQuery.error) {
+      reportAdminError(`${config.title} 조회 실패`, listQuery.error);
+    }
+  }, [listQuery.error, config.title]);
+
+  const rows = listQuery.data?.items ?? [];
+  const totalCount = listQuery.data?.total ?? 0;
+  // 검색 선행 조회(profiles)가 상한에 닿았는가. 초과분 학생이 조용히 사라지므로 알린다.
+  const searchTruncated = listQuery.data?.searchTruncated ?? false;
+  const loading = listQuery.isPending;
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  const setPage = (next: number) =>
+    setSearchParams((prev) => patchParams(prev, { page: next }));
+  const changeFilter = (next: string) =>
+    setSearchParams((prev) => patchParams(prev, { filter: next, page: 1 }));
+  // 상세는 목록 파라미터를 달고 가서 돌아올 때 같은 목록이 열리게 한다.
+  const openDetail = (profileId: string) =>
+    navigate({
+      pathname: `${LIST_PATH}/${profileId}`,
+      search: searchParams.toString(),
+    });
 
   return (
     <div>
@@ -726,10 +656,7 @@ export default function GoalStudentsAdmin({
                 variant={filter === item.key ? "default" : "outline"}
                 size="lg"
                 aria-pressed={filter === item.key}
-                onClick={() => {
-                  setFilter(item.key);
-                  setPage(1);
-                }}
+                onClick={() => changeFilter(item.key)}
               >
                 {item.label}
               </Button>
@@ -761,18 +688,6 @@ export default function GoalStudentsAdmin({
           버튼입니다(재입력 정정용, 명시적 확인 후에만 동작합니다).
         </p>
       </div>
-
-      {profileGap && (
-        <div className="mb-5">
-          <GoalNotice tone="warn">
-            학생 이름·연락처를 가져오지 못했습니다. <code>profiles</code> 의
-            어드민 조회 정책은 <code>is_admin()</code>(
-            <code>role=&#39;admin&#39;</code> 엄격)이라, 다른 관리자 역할로
-            로그인하면 학생 행은 보이지만 이름 칸만 비게 됩니다. 나머지 지표는
-            정상입니다.
-          </GoalNotice>
-        </div>
-      )}
 
       {searchTruncated && (
         <div className="mb-5">
@@ -979,7 +894,7 @@ export default function GoalStudentsAdmin({
                           type="button"
                           variant="outline"
                           size="icon-sm"
-                          onClick={() => setDetailId(row.profile_id)}
+                          onClick={() => openDetail(row.profile_id)}
                           title="상세 보기"
                           aria-label="상세 보기"
                         >
@@ -1118,7 +1033,7 @@ const GOAL_RECORD_PAGE = 30;
 // api/_routes/goal/admin/resend-report.ts 의 ResendReportResponse와 같은 모양이다(그
 // 서버 타입은 api/ 전용 tsconfig 아래라 여기서 직접 import하지 않는다 — 대신
 // 이 화면이 실제로 읽는 필드만 로컬로 좁게 선언한다).
-interface ResendReportResult {
+export interface ResendReportResult {
   sent: number;
   failed: number;
   skipped: number;
@@ -1148,24 +1063,36 @@ export function GoalStudentDetail({
   onBack,
   onNavigateWithPrefill,
 }: GoalStudentDetailProps) {
-  const [loading, setLoading] = useState(true);
-  const [student, setStudent] = useState<GoalStudentRow | null>(null);
-  const [state, setState] = useState<GoalStateRow | null>(null);
-  const [profile, setProfile] = useState<GoalProfileRow | null>(null);
-  const [cutRows, setCutRows] = useState<
-    Record<string, GoalUniversityCutRow | null>
-  >({});
-  const [logs, setLogs] = useState<GoalProbabilityLogRow[]>([]);
-  const [records, setRecords] = useState<GoalDailyRecordRow[]>([]);
-  const [recordTotal, setRecordTotal] = useState(0);
   const [recordLimit, setRecordLimit] = useState(GOAL_RECORD_PAGE);
+  const detailQuery = useQuery({
+    queryKey: goalStudentKeys.detail(profileId),
+    queryFn: ({ signal }) => fetchGoalStudentDetail(profileId, signal),
+  });
+  // 더보기로 limit 이 바뀌어도 받아 둔 기록이 사라지지 않게 이전 값을 붙들고 있는다.
+  const recordsQuery = useQuery({
+    queryKey: goalStudentKeys.records(profileId, recordLimit),
+    queryFn: ({ signal }) =>
+      fetchGoalStudentRecords(profileId, recordLimit, signal),
+    placeholderData: keepPreviousData,
+  });
+  const loading = detailQuery.isPending;
+  const student: GoalStudentRow | null = detailQuery.data?.student ?? null;
+  const state = detailQuery.data?.state ?? null;
+  const profile = detailQuery.data?.profile ?? null;
+  const cutRows: Record<string, GoalUniversityCutRow | null> =
+    detailQuery.data?.cuts ?? {};
+  const logs = detailQuery.data?.logs ?? [];
+  const records = recordsQuery.data?.items ?? [];
+  const recordTotal = recordsQuery.data?.total ?? 0;
   const [showRaw, setShowRaw] = useState(false);
   const [openMemo, setOpenMemo] = useState<Record<string, boolean>>({});
   // 온보딩 리셋(Q3) 진행 상태. 성공 시 목록 상태('컷 대기')까지 함께 갱신돼야
   // 하므로 페이지를 통째로 새로고침한다(list/detail 두 컴포넌트를 각각
   // 부분 갱신하는 것보다 안전하다 — GoalStudentsAdmin의 rows state는
   // mutationSeq 같은 재조회 트리거를 두지 않는다).
-  const [resetting, setResetting] = useState(false);
+  const resetMutation = useMutation({ mutationFn: resetGoalStudent });
+  // 성공 뒤에는 새로고침될 때까지 버튼을 잠근다.
+  const resetting = resetMutation.isPending || resetMutation.isSuccess;
   const reloadTimerRef = useRef<number | undefined>(undefined);
   // 리셋 뒤 새로고침 예약은 화면을 벗어나면 취소한다.
   useEffect(() => () => window.clearTimeout(reloadTimerRef.current), []);
@@ -1180,7 +1107,8 @@ export function GoalStudentDetail({
   const [resendPeriod, setResendPeriod] = useState(
     () => resendCandidates[0]?.periodKey || "",
   );
-  const [resending, setResending] = useState(false);
+  const resendMutation = useMutation({ mutationFn: resendGoalReport });
+  const resending = resendMutation.isPending;
   const [resendError, setResendError] = useState<string | null>(null);
   const [resendResult, setResendResult] = useState<ResendReportResult | null>(
     null,
@@ -1208,43 +1136,21 @@ export function GoalStudentDetail({
   async function handleResendReport() {
     if (!student?.profile_id || !resendPeriod) return;
 
-    setResending(true);
     setResendError(null);
     setResendResult(null);
 
     try {
-      const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-
-      const response = await fetch("/api/goal/admin/resend-report", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          studentProfileId: student.profile_id,
-          kind: resendKind,
-          periodKey: resendPeriod,
-        }),
+      const result = await resendMutation.mutateAsync({
+        studentProfileId: student.profile_id,
+        kind: resendKind,
+        periodKey: resendPeriod,
       });
-
-      const result = await response.json().catch(async () => {
-        const text = await response.text().catch(() => "");
-        return { detail: text || `HTTP ${response.status}` };
-      });
-
-      if (!response.ok) {
-        throw new Error(result?.detail || `HTTP ${response.status}`);
-      }
-
-      setResendResult(result as ResendReportResult);
+      setResendResult(result);
     } catch (error) {
       console.error("goal/admin/resend-report 실패:", error);
       setResendError(
         error instanceof Error ? error.message : "재발송에 실패했습니다.",
       );
-    } finally {
-      setResending(false);
     }
   }
 
@@ -1262,28 +1168,8 @@ export function GoalStudentDetail({
     });
     if (!confirmed) return;
 
-    setResetting(true);
-
     try {
-      const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-
-      const response = await fetch("/api/goal/admin/reset-student", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ profileId: student.profile_id }),
-      });
-
-      const result = await response.json().catch(async () => {
-        const text = await response.text().catch(() => "");
-        return { detail: text || `HTTP ${response.status}` };
-      });
-
-      if (!response.ok) {
-        throw new Error(result?.detail || `HTTP ${response.status}`);
-      }
+      await resetMutation.mutateAsync(student.profile_id);
 
       toastSuccess(
         "온보딩 리셋이 완료되었습니다.",
@@ -1298,143 +1184,16 @@ export function GoalStudentDetail({
     } catch (error) {
       console.error("goal/admin/reset-student 실패:", error);
       reportAdminError("온보딩 리셋 실패", error);
-      setResetting(false);
     }
   }
 
-  // 학생 1명분 정적 데이터. 기록 목록만 '더보기'로 따로 늘린다.
+  // 조회 실패는 안내 토스트로 알린다. 404 는 "행 없음" 화면이 안내하므로 토스트를 띄우지 않는다.
+  const detailError = detailQuery.error;
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadDetail() {
-      setLoading(true);
-
-      const [studentRes, stateRes, profileRes, logRes] = await Promise.all([
-        supabase
-          .from("goal_students")
-          .select("*")
-          .eq("profile_id", profileId)
-          .maybeSingle(),
-        supabase
-          .from("goal_student_state")
-          .select("*")
-          .eq("profile_id", profileId)
-          .maybeSingle(),
-        supabase
-          .from("profiles")
-          .select("id, name, phone, email")
-          .eq("id", profileId)
-          .maybeSingle(),
-        supabase
-          .from("goal_probability_logs")
-          .select("*")
-          .eq("profile_id", profileId)
-          .order("created_at", { ascending: true }),
-      ]);
-
-      if (cancelled) return;
-
-      if (studentRes.error) {
-        reportAdminError("학생 상세 조회 실패", studentRes.error);
-        setLoading(false);
-        return;
-      }
-
-      // goal_students Row의 naesin_scores/mock_exam_scores/study_schedule 3개
-      // jsonb 컬럼은 생성 타입상 Json이지만 이 화면이 실제로 읽는 값은 고정
-      // 도메인 셰이프(GoalStudentRow)다 — 읽기 지점에서 한 번만 좁힌다.
-      const studentRow = (studentRes.data as unknown as GoalStudentRow) || null;
-
-      setStudent(studentRow);
-      // goal_student_state는 뷰라 profile_id가 생성 타입상 nullable이지만
-      // 이 쿼리는 eq('profile_id', profileId)로 조회했으므로 행이 있다면
-      // profile_id는 반드시 profileId와 같다 — ??로 방어적으로 좁힌다.
-      setState(
-        stateRes.data
-          ? {
-              ...stateRes.data,
-              profile_id: stateRes.data.profile_id ?? profileId,
-            }
-          : null,
-      );
-      setProfile(profileRes.data || null);
-      setLogs(logRes.data || []);
-
-      // ── 현재 컷 조회 (§4-3-C-3) ──────────────────────────────────────
-      // 술어는 goalRepo.fetchUniversityCut(api/_lib/goal/repo.ts:156-171)과
-      // 글자 단위로 같아야 한다 — cut_type + university_name + department_name +
-      // is_active=true + order('id') + limit(1). 하나라도 어긋나면 화면의 "현재 컷"과
-      // 온보딩이 실제로 집어 갈 컷이 달라져 diff 표 자체가 거짓말이 된다.
-      const slots = studentRow
-        ? GOAL_CUT_SLOTS.map((slot) => describeGoalCutSlot(slot, studentRow))
-        : [];
-
-      const cutResults = await Promise.all(
-        slots.map(async (slot) => {
-          if (!slot.university || !slot.department) return [slot.key, null];
-
-          const { data, error } = await supabase
-            .from("goal_university_cuts")
-            .select("avg_cut, source, source_year, updated_at")
-            .eq("cut_type", slot.cutType)
-            .eq("university_name", slot.university)
-            .eq("department_name", slot.department)
-            .eq("is_active", true)
-            .order("id", { ascending: true })
-            .limit(1)
-            .maybeSingle();
-
-          if (error) {
-            console.error(error);
-            return [slot.key, null];
-          }
-
-          return [slot.key, data || null];
-        }),
-      );
-
-      if (cancelled) return;
-
-      setCutRows(Object.fromEntries(cutResults));
-      setLoading(false);
-    }
-
-    loadDetail();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [profileId]);
-
-  // 일별 기록. record_index 내림차순 최근 N행 + 더보기.
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadRecords() {
-      const { data, error, count } = await supabase
-        .from("goal_daily_records")
-        .select("*", { count: "exact" })
-        .eq("profile_id", profileId)
-        .order("record_index", { ascending: false })
-        .range(0, recordLimit - 1);
-
-      if (cancelled) return;
-
-      if (error) {
-        console.error(error);
-        return;
-      }
-
-      setRecords(data || []);
-      setRecordTotal(count ?? 0);
-    }
-
-    loadRecords();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [profileId, recordLimit]);
+    if (!detailError) return;
+    if (detailError instanceof ApiError && detailError.status === 404) return;
+    reportAdminError("학생 상세 조회 실패", detailError);
+  }, [detailError]);
 
   // 원클릭 컷 만들기(§4-3-C-4). 공급자는 이 컴포넌트, 소비자는 AdminSectionRoute(Admin.tsx)
   // 최상단의 customComponentKey 렌더 분기(onNavigateWithPrefill 계약, 그 지점 참고) —

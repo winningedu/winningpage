@@ -60,6 +60,17 @@ const adminRoutes: RouteObject[] = [
           return { Component: () => <AdminSectionRoute section={key} /> };
         },
       })),
+      // 목표관리 학생 상세. 같은 섹션 컴포넌트가 :id 로 상세를 그린다(새로고침해도 API 에서 읽는다).
+      {
+        path: "goalStudents/:id",
+        lazy: async () => {
+          const { AdminSectionRoute } = await import("@/pages/Admin");
+          return {
+            // biome-ignore lint/correctness/noComponentHookFactories: 위 섹션 라우트와 같다. 라우트 정의는 모듈 로드 때 한 번만 만들어진다
+            Component: () => <AdminSectionRoute section="goalStudents" />,
+          };
+        },
+      },
       // 존재하지 않는 섹션 키 — 이전(구 activeKey 기본값)과 동일하게 기본 섹션으로 되돌린다.
       {
         path: "*",
