@@ -124,6 +124,18 @@ describe("sendError problem shape", () => {
     });
   });
 
+  test("빈 문자열 code 도 500 은 INTERNAL_ERROR 로 낸다", () => {
+    const { res, out } = fakeRes();
+    sendError(res, "problem", 500, "서버 오류", "");
+
+    expect(JSON.parse(out.raw as string).code).toBe("INTERNAL_ERROR");
+  });
+
+  test("빈 문자열 code 인 500 외 상태는 던진다", () => {
+    const { res } = fakeRes();
+    expect(() => sendError(res, "problem", 400, "x", "")).toThrow();
+  });
+
   test("code 가 없는 500 외 상태는 프로그래밍 오류로 던진다", () => {
     const { res } = fakeRes();
     expect(() => sendError(res, "problem", 400, "x")).toThrow();

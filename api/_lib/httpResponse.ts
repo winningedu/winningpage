@@ -73,7 +73,7 @@ function sendProblem(
       status,
       detail: message,
       ...(typeof requestId === "string" ? { instance: requestId } : {}),
-      code: code ?? "INTERNAL_ERROR",
+      code: code || "INTERNAL_ERROR",
     }),
   );
 }
