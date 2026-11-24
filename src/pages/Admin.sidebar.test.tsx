@@ -74,6 +74,13 @@ describe("AdminSidebar 메뉴", () => {
     expect(other).not.toHaveAttribute("aria-current");
   });
 
+  it("하위 경로(/admin/banners/123)에서도 해당 메뉴에 현재 표시가 남는다", async () => {
+    renderShell("/admin/banners/123");
+
+    const current = await screen.findByRole("link", { name: "메인 배너 관리" });
+    expect(current).toHaveAttribute("aria-current", "page");
+  });
+
   it("그룹 토글은 aria-expanded 를 노출하고 누르면 접히고 펼쳐진다", async () => {
     renderShell("/admin/banners");
 
