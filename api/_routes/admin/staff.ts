@@ -4,6 +4,7 @@
 // 최고 관리자 전용 메뉴라 읽기도 최고 관리자만 된다(판정은 defineHandler 의 permission).
 
 import { defineHandler } from "../../_lib/handler.js";
+import { readResources } from "../../_lib/staff/resources.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -23,11 +24,7 @@ export default defineHandler({
         .select("*")
         .order("invited_at", { ascending: false }),
       admin.from("admin_roles").select("id, name, is_super").order("name"),
-      admin
-        .from("admin_resources")
-        .select("key, group_title, label, sort_order")
-        .eq("is_active", true)
-        .order("sort_order"),
+      readResources(admin),
     ]);
     if (directory.error || roles.error || resources.error) {
       throw new Error("staff list read failed");
