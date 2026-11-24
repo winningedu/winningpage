@@ -154,4 +154,20 @@ describe("api", () => {
       supportCode: "icn1::hdr",
     });
   });
+
+  test("시간 안에 끝나지 않으면 TIMEOUT ApiError 가 된다", async () => {
+    stubFetch(
+      () =>
+        new Promise<Response>(() => {
+          // 끝나지 않는 요청
+        }),
+    );
+    const error = await api.get("x", { timeout: 20 }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      status: null,
+      code: "TIMEOUT",
+      detail: "요청이 시간 내에 끝나지 않았어요.",
+    });
+  });
 });
