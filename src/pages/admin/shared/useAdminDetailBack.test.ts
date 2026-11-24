@@ -120,7 +120,6 @@ test("경로가 바뀐 뒤에는 되감지 않는다 (사이드바 이동 취소
 // 같은 둘(관리자 권한 관리·목표관리 학생 현황)을 더했다.
 const WIRED_SCREENS: Array<[name: string, dir: string]> = [
   ["MembersAdmin", "members"],
-  ["MentorApplicationsAdmin", "mentor"],
   ["AdminMembersAdmin", "staff"],
   ["AdminRolesAdmin", "staff"],
   ["GoalStudentsAdmin", "goal"],

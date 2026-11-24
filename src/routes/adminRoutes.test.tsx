@@ -11,7 +11,7 @@ const children = adminRoutes[0]?.children ?? [];
 const paths = children.map((route) => route.path);
 
 describe("adminRoutes 하위 주소가 있는 섹션", () => {
-  test.each(["tenants", "memberPurge", "coupons"])(
+  test.each(["tenants", "memberPurge", "coupons", "mentorApplications"])(
     "%s 는 하위 주소를 받는 splat 경로 하나로 등록된다",
     (key) => {
       expect(paths).toContain(`${key}/*`);
@@ -23,6 +23,7 @@ describe("adminRoutes 하위 주소가 있는 섹션", () => {
     expect(paths).toContain("serviceCreditAdjust");
     expect(paths).toContain("revenue");
     expect(paths.filter((path) => path?.endsWith("/*"))).toEqual([
+      "mentorApplications/*",
       "tenants/*",
       "memberPurge/*",
       "coupons/*",
