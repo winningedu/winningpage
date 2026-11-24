@@ -56,7 +56,7 @@ describe("GET /api/admin/hq-dashboard/b2c 시간대", () => {
     const r = await callHandler(handler, undefined, "GET");
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "TIME_ZONE_REQUIRED" } });
+    expect(r.body).toMatchObject({ code: "TIME_ZONE_REQUIRED" });
     expect(kit.state.events).not.toContain("rpc:fn_hq_b2c_summary");
   });
 });
@@ -72,8 +72,16 @@ describe("GET /api/admin/hq-dashboard/b2c 권한", () => {
     const r = await get();
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(r.body).toMatchObject({ code: "FORBIDDEN" });
     expect(kit.state.events).not.toContain("rpc:fn_hq_b2c_summary");
+  });
+
+  test("편집 권한이어도 읽을 수 있다", async () => {
+    setPermissions([{ resource_key: "hqDashboard", level: "edit" }]);
+
+    const r = await get();
+
+    expect(r.status).toBe(200);
   });
 
   test("로그인하지 않으면 401 이다", async () => {
@@ -82,6 +90,14 @@ describe("GET /api/admin/hq-dashboard/b2c 권한", () => {
     const r = await get();
 
     expect(r.status).toBe(401);
+    expect(r.body).toMatchObject({ code: "UNAUTHENTICATED" });
+  });
+
+  test("GET 이 아니면 405 problem", async () => {
+    const r = await callHandler(handler, {}, "POST");
+
+    expect(r.status).toBe(405);
+    expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
   });
 });
 
@@ -91,6 +107,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-11-23T03:00:00Z"));
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
+  kit.state.rows.profiles = () => ({ role: "admin" });
   calls = [];
   setPermissions([{ resource_key: "hqDashboard", level: "view" }]);
   kit.state.rpc.fn_hq_b2c_summary = (args) => {
@@ -123,7 +140,7 @@ describe("GET /api/admin/hq-dashboard/b2c 입력 검사", () => {
     const r = await get(query);
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "INVALID_QUERY" } });
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
     expect(kit.state.events).not.toContain("rpc:fn_hq_b2c_summary");
   });
 });
@@ -148,7 +165,6 @@ describe("GET /api/admin/hq-dashboard/b2c", () => {
     const r = await get({ from: "2026-11-01", to: "2026-11-22" });
 
     expect(r.body).toEqual({
-      ok: true,
       from: "2026-11-01",
       to: "2026-11-22",
       includeInternal: false,
@@ -161,6 +177,12 @@ describe("GET /api/admin/hq-dashboard/b2c", () => {
         netAmount: 522000,
       },
     });
+  });
+
+  test("grain, mau 같은 다른 쿼리는 무시한다", async () => {
+    const r = await get({ grain: "year", mau: "weekly" });
+
+    expect(r.status).toBe(200);
   });
 
   test("includeInternal=1 이면 포함으로 부른다", async () => {

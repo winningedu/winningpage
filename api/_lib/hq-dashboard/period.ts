@@ -14,15 +14,18 @@ export type MauMode = (typeof MAU_MODES)[number];
 
 // 통계 라우트 공통 쿼리. 날짜 검사는 parsePeriod 가 한다(문구가 화면에 그대로 보인다).
 // includeInternal 은 "1" 일 때만 포함이고 다른 값은 제외다.
-export const statsQuery = z.object({
+export const periodQuery = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
-  grain: z.enum(GRAINS).default("day"),
-  mau: z.enum(MAU_MODES).default("calendar"),
   includeInternal: z
     .string()
     .optional()
     .transform((value) => value === "1"),
+});
+
+export const statsQuery = periodQuery.extend({
+  grain: z.enum(GRAINS).default("day"),
+  mau: z.enum(MAU_MODES).default("calendar"),
 });
 
 function isDate(value: string): boolean {
