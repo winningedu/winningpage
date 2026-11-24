@@ -8,6 +8,8 @@ vi.mock("../supabase", () => ({
   },
 }));
 
+import * as zone from "../time/zone";
+import { browserTimeZone } from "../time/zone";
 import { api } from "./client";
 
 // Node 의 Request 는 상대 URL 을 해석하지 못한다(브라우저는 location 기준으로 해석).
@@ -73,5 +75,24 @@ describe("api", () => {
     const spy = stubFetch();
     await api.get("x");
     expect(sentRequest(spy).headers.has("Authorization")).toBe(false);
+  });
+
+  test("X-Time-Zone 에 브라우저 시간대를 싣는다", async () => {
+    const spy = stubFetch();
+    await api.get("x");
+    expect(sentRequest(spy).headers.get("X-Time-Zone")).toBe(browserTimeZone());
+  });
+
+  test("호출부가 정한 X-Time-Zone 은 덮어쓰지 않는다", async () => {
+    const spy = stubFetch();
+    await api.get("x", { headers: { "X-Time-Zone": "UTC" } });
+    expect(sentRequest(spy).headers.get("X-Time-Zone")).toBe("UTC");
+  });
+
+  test("브라우저 시간대가 올바르지 않으면 헤더를 생략한다", async () => {
+    vi.spyOn(zone, "browserTimeZone").mockReturnValue("KST");
+    const spy = stubFetch();
+    await api.get("x");
+    expect(sentRequest(spy).headers.has("X-Time-Zone")).toBe(false);
   });
 });

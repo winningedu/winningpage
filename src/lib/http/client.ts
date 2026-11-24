@@ -2,6 +2,7 @@
 
 import ky from "ky";
 import { supabase } from "../supabase";
+import { browserTimeZone, isValidTimeZone } from "../time/zone";
 
 export const api = ky.create({
   prefix: "/api",
@@ -18,6 +19,11 @@ export const api = ky.create({
             "Authorization",
             `Bearer ${session.access_token}`,
           );
+
+        // 호출부가 정한 값이 우선이다. 올바르지 않은 브라우저 값은 서버가 400 으로 막으므로 생략한다.
+        const zone = browserTimeZone();
+        if (!request.headers.has("X-Time-Zone") && isValidTimeZone(zone))
+          request.headers.set("X-Time-Zone", zone);
       },
     ],
   },
