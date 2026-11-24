@@ -15,6 +15,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import {
   type DirectoryRow,
@@ -85,14 +86,7 @@ export function MemberDetailRoute({ config }: Props) {
   }
 
   if (!error && (detail.isPending || options.isPending)) {
-    return (
-      <div
-        role="status"
-        className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-      >
-        데이터를 불러오는 중입니다.
-      </div>
-    );
+    return <AdminDetailSkeleton rows={6} label="관리자 정보를 불러오는 중" />;
   }
 
   if (!detail.data || !options.data) {
