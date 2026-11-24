@@ -15,6 +15,8 @@ type Props = {
 
 // 장 하나 = 인쇄 A4 한 쪽. 머리말(로고, SELF EVALUATION REPORT)과 바닥글(학생명, 과목, 쪽수)은 장마다 단다(명세 No.171).
 // mm 는 rem 규칙의 의도된 예외다. 인쇄 페이지가 물리 크기 A4(여백 15mm 제외 267mm)이므로.
+// 폭은 인쇄 가능 폭 180mm(210mm - 15mm x 2)로 고정한다. 표지가 @page :first 여백 0 이라 Chrome 이
+// 문서를 210mm 폭으로 배치하고, 여백 15mm 인 2쪽 이후는 오른쪽 30mm 가 잘리기 때문이다.
 export default function ReportChapterFrame({
   no,
   title,
@@ -27,7 +29,7 @@ export default function ReportChapterFrame({
   return (
     <section
       aria-label={`${no} ${title}`}
-      className="flex flex-col rounded-2xl border border-line bg-white p-4 break-keep sm:p-8 print:min-h-[266mm] print:break-before-page print:rounded-none print:border-0 print:p-0"
+      className="flex flex-col rounded-2xl border border-line bg-white p-4 break-keep sm:p-8 print:w-[180mm] print:min-h-[266mm] print:break-before-page print:rounded-none print:border-0 print:p-0"
     >
       <header className="flex items-center justify-between border-b border-line pb-3">
         <img
