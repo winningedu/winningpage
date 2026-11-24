@@ -10,12 +10,20 @@ import { QueryClient, queryOptions } from "@tanstack/react-query";
 import { apiFetch, getAuthHeader } from "./apiFetch";
 import { fetchEntitlement } from "./entitlement";
 import { fetchGoalStudent, fetchTodayGoalRecord } from "./goalApi";
+import { ApiError } from "./http/client";
 import { supabase } from "./supabase";
+
+// 4xx 는 다시 해도 같은 결과라 재시도하지 않는다. 그 밖의 에러는 한 번만 재시도한다.
+function retryOnce(failureCount: number, error: Error): boolean {
+  if (error instanceof ApiError && error.status !== null && error.status < 500)
+    return false;
+  return failureCount < 1;
+}
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: retryOnce,
       refetchOnWindowFocus: true,
     },
     mutations: { retry: 0 },
