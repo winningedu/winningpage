@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Edit3, History, Plus, RefreshCw, Users } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
@@ -10,7 +11,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { type CouponRow, useCouponList, useLoadErrorToast } from "./api";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
+import {
+  type CouponRow,
+  couponKeys,
+  useCouponList,
+  useLoadErrorToast,
+} from "./api";
 import {
   boolText,
   FieldName,
@@ -26,8 +33,12 @@ import {
 } from "./copy";
 import { COUPONS_PATH } from "./paths";
 
+// 번호, 데이터 13열, 관리. 스켈레톤 열 수가 된다.
+const LIST_COLUMN_COUNT = 15;
+
 export default function CouponList() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const query = useCouponList();
   useLoadErrorToast(query.error);
 
@@ -41,7 +52,8 @@ export default function CouponList() {
     () => new Set(query.data?.grantedCouponIds ?? []),
     [query.data],
   );
-  const loading = query.isFetching;
+  // 응답이 없는 동안만 스켈레톤이다. 창 포커스 재조회는 행을 그대로 둔다.
+  const loading = query.isPending;
 
   return (
     <>
@@ -49,7 +61,9 @@ export default function CouponList() {
         <div className="flex items-center justify-between gap-4">
           <Button
             type="button"
-            onClick={() => query.refetch()}
+            onClick={() =>
+              queryClient.resetQueries({ queryKey: couponKeys.list() })
+            }
             variant="outline"
             size="lg"
           >
@@ -74,12 +88,10 @@ export default function CouponList() {
       </div>
 
       {loading ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+        <AdminTableSkeleton
+          columns={LIST_COLUMN_COUNT}
+          label="쿠폰 목록을 불러오는 중입니다."
+        />
       ) : (
         <div className="bg-white p-6 shadow-sm">
           <div className="mb-4 text-sm font-bold text-gray-500">

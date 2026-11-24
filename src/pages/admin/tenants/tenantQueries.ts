@@ -1,6 +1,8 @@
 // 기관 화면이 함께 쓰는 react-query 키와 오류 문구.
 
+import { queryOptions } from "@tanstack/react-query";
 import { ApiError } from "@/lib/http/client";
+import { fetchSchoolAdmins } from "./api";
 
 const ROOT = ["admin", "tenants"] as const;
 
@@ -11,6 +13,14 @@ export const tenantKeys = {
   serviceSettings: (id: string) => [...ROOT, "service-settings", id] as const,
   schoolAdmins: (id: string) => [...ROOT, "school-admins", id] as const,
 };
+
+/** 전체 관리자 목록. 기관 상세가 응답을 기다리는 동안에도 시작하도록 둘이 같은 옵션을 쓴다. */
+export function schoolAdminsQueryOptions(tenantId: string) {
+  return queryOptions({
+    queryKey: tenantKeys.schoolAdmins(tenantId),
+    queryFn: ({ signal }) => fetchSchoolAdmins(tenantId, signal),
+  });
+}
 
 export type TenantTab = "info" | "service-settings" | "school-admins";
 

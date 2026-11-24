@@ -5,7 +5,14 @@ import { Button } from "@/components/ui/button";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
-import { type PremiumBookPageRow, useDeletePage, usePageList } from "./api";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
+import { useListSkeleton } from "@/pages/admin/shared/useListSkeleton";
+import {
+  type PremiumBookPageRow,
+  premiumBookKeys,
+  useDeletePage,
+  usePageList,
+} from "./api";
 import { Heading } from "./Heading";
 import { PdfPanel } from "./PdfPanel";
 import { PREMIUM_BOOK_PATH } from "./paths";
@@ -21,6 +28,7 @@ export function PremiumBookList({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const list = usePageList();
+  const showSkeleton = useListSkeleton(list, premiumBookKeys.list());
   const remove = useDeletePage();
   useLoadErrorToast(list.error, config.title);
 
@@ -106,13 +114,12 @@ export function PremiumBookList({
         </Button>
       </div>
 
-      {list.isPending ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+      {showSkeleton ? (
+        <AdminTableSkeleton
+          // 번호 + 설정 열 + 관리, AdminTable 머리글과 같다.
+          columns={config.columns.length + 2}
+          label="프리미엄 책자 목록을 불러오는 중입니다."
+        />
       ) : (
         <AdminTable
           config={config}

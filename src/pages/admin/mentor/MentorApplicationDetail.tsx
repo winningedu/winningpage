@@ -6,6 +6,7 @@ import { MENTOR_APPLICATION_STATUS_OPTIONS } from "@/lib/mentor-application/stat
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
 import { normalizeArray } from "@/pages/admin/shared/csvExport";
 import { ActionButton, Field, Select } from "@/pages/admin/shared/formFields";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import {
   type MentorApplicationRow,
   reportMentorError,
@@ -106,6 +107,13 @@ const MENTOR_APPLICATION_DETAIL_SECTIONS: MentorApplicationDetailSection[] = [
   },
 ];
 
+// 섹션 필드 전부와 제출 메타 3줄(제출일, 수정일, 신청 ID)이 상세 행이다.
+const DETAIL_ROW_COUNT =
+  MENTOR_APPLICATION_DETAIL_SECTIONS.reduce(
+    (sum, section) => sum + section.fields.length,
+    0,
+  ) + 3;
+
 function formatDateTime(value: unknown): string {
   if (!value) return "-";
   const date = new Date(value as string | number | Date);
@@ -159,12 +167,10 @@ export default function MentorApplicationDetail({
 
   if (query.isPending) {
     return (
-      <div
-        role="status"
-        className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-      >
-        데이터를 불러오는 중입니다.
-      </div>
+      <AdminDetailSkeleton
+        rows={DETAIL_ROW_COUNT}
+        label="멘토 신청 상세를 불러오는 중입니다."
+      />
     );
   }
 

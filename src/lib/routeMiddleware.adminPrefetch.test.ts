@@ -37,6 +37,12 @@ vi.mock("./http/client", async (importActual) => ({
 }));
 
 const { sectionKeys } = await import("@/pages/admin/engine/api");
+const { registerMountedList } = await import(
+  "@/pages/admin/engine/listNavigation"
+);
+const { sectionListQueryOptions } = await import(
+  "@/pages/admin/engine/sectionList"
+);
 const { ApiError } = await import("./http/client");
 const { queryClient } = await import("./queryClient");
 const { AdminForbiddenError, requireAdminMiddleware } = await import(
@@ -206,7 +212,7 @@ describe("requireAdminMiddleware 목록 선받기", () => {
     expect(listCalls(calls)).toEqual([]);
   });
 
-  it("캐시에 목록이 있으면 같은 주소로 다시 들어와도 요청하지 않는다", async () => {
+  it("이전 이동에서 받은 목록은 새 이동마다 다시 받는다", async () => {
     const calls: string[] = [];
     route(
       {
@@ -217,8 +223,29 @@ describe("requireAdminMiddleware 목록 선받기", () => {
     );
 
     await enter("/admin/banners");
+    await new Promise((resolve) => setTimeout(resolve, 5));
     await enter("/admin/banners");
+
+    await vi.waitFor(() => expect(listCalls(calls)).toHaveLength(2));
+  });
+
+  it("그 목록 화면이 떠 있는 채 바뀐 주소(필터)는 같은 이동으로 보고 다시 받지 않는다", async () => {
+    const calls: string[] = [];
+    route(
+      {
+        [PERMISSIONS]: permissionBody({ banners: "edit" }),
+        "admin/sections/banners": () => LIST_BODY,
+      },
+      calls,
+    );
+
+    await enter("/admin/banners");
+    const unmount = registerMountedList(
+      sectionListQueryOptions("banners", { page: 1, q: "" }).queryKey,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 5));
     await enter("/admin/banners?filter=x");
+    unmount();
 
     expect(listCalls(calls)).toHaveLength(1);
   });

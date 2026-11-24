@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  hashKey,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ChevronDown, Download, Plus, RefreshCw } from "lucide-react";
 import {
   type CSSProperties,
@@ -52,6 +57,10 @@ import { browserTimeZone } from "@/lib/time/zone";
 // Admin.jsx 가 5,700줄이라 컴포넌트 본체는 별도 파일에 둔다(이 파일이 그 파일을
 // import 하므로 역방향 import 는 만들지 않는다 — 순환 참조 방지).
 import CouponAdmin from "@/pages/admin/coupons/CouponAdmin";
+import {
+  listNavigationStartedAt,
+  registerMountedList,
+} from "@/pages/admin/engine/listNavigation";
 import GoalStudentsAdmin from "@/pages/admin/goal/GoalStudentsAdmin";
 import LearningDiagnosisAdmin from "@/pages/admin/learning-diagnosis/LearningDiagnosisAdmin";
 import MembersAdmin from "@/pages/admin/members/MembersAdmin";
@@ -59,6 +68,9 @@ import MentorApplicationsAdmin from "@/pages/admin/mentor/MentorApplicationsAdmi
 import PremiumBookAdmin from "@/pages/admin/premium-book/PremiumBookAdmin";
 import RevenueAdmin from "@/pages/admin/revenue/RevenueAdmin";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
+import { useListSkeleton } from "@/pages/admin/shared/useListSkeleton";
 import AdminMembersAdmin from "@/pages/admin/staff/AdminMembersAdmin";
 import AdminRolesAdmin from "@/pages/admin/staff/AdminRolesAdmin";
 import MemberPurgeAdmin from "@/pages/admin/tenants/MemberPurgeAdmin";
@@ -823,11 +835,28 @@ export function AdminSectionRoute({ section }: { section: string }) {
   ).includes(activeKey);
   const listEnabled = !config.custom && !config.comingSoon;
   const isList = view.kind === "list";
+  const listOptions = sectionListQueryOptions(activeKey, {
+    page,
+    q: searchTerm,
+  });
+  // 이번 이동이 시작된 뒤에 받은 응답(미들웨어 선받기 포함)만 새것이다. 그보다 오래된 캐시만 다시 받아
+  // 선받기와 마운트 요청이 겹치지 않는다. 미들웨어를 거치지 않았으면 기본 동작이다.
+  const navigationStartedAt = listNavigationStartedAt(listOptions.queryKey);
   const listQuery = useQuery({
-    ...sectionListQueryOptions(activeKey, { page, q: searchTerm }),
+    ...listOptions,
     enabled: listEnabled && isList,
     refetchOnWindowFocus: false,
+    ...(navigationStartedAt !== undefined && {
+      staleTime: (query) =>
+        query.state.dataUpdatedAt < navigationStartedAt ? 0 : Infinity,
+    }),
   });
+  const listHash = hashKey(listOptions.queryKey);
+  const showingList = listEnabled && isList;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 키 해시가 바뀔 때만 다시 등록한다.
+  useEffect(() => {
+    if (showingList) return registerMountedList(listOptions.queryKey);
+  }, [showingList, listHash]);
   // 수정 주소(/:id)는 새로고침해도 행을 id 로 다시 받는다. 목록 행으로 채우지 않는 이유는
   // 목록이 조인 뷰의 행일 수 있어 저장용 행과 모양이 다를 수 있기 때문이다.
   const editId = view.kind === "edit" ? view.id : null;
@@ -850,11 +879,19 @@ export function AdminSectionRoute({ section }: { section: string }) {
   }, [listData, activeKey]);
   // 서버 페이지네이션 탭의 전체 건수. 전량 로드 탭은 rows.length가 곧 전체다.
   const totalCount = paginate ? (listData?.total ?? 0) : rows.length;
-  const loading = listEnabled && isList && listQuery.isFetching;
-  // 목록 쿼리를 무효화해 다시 받는다(등록, 수정, 삭제 뒤와 [초기화]).
+  // 처음과 쪽, 검색어 키가 바뀔 때만 스켈레톤이다. 배경 재조회는 행을 그대로 둔다.
+  const listSkeleton = useListSkeleton(
+    listQuery,
+    listOptions.queryKey,
+    navigationStartedAt,
+  );
+  const loading = listEnabled && isList && listSkeleton;
+  // 사용자가 직접 한 등록, 수정, 삭제와 [초기화] 뒤에는 목록 쿼리를 비우고 다시 받아
+  // 옛 행 대신 스켈레톤 뒤에 새 행을 보인다. 수정 화면의 행 쿼리(row)는 건드리지 않는다.
   function loadRows() {
-    return queryClient.invalidateQueries({
+    return queryClient.resetQueries({
       queryKey: sectionKeys.section(activeKey),
+      predicate: (query) => query.queryKey[3] !== "row",
     });
   }
 
@@ -1606,12 +1643,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
             {config.knowledgeSearchPreview && <SearchPreview config={config} />}
 
             {loading ? (
-              <div
-                role="status"
-                className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm"
-              >
-                데이터를 불러오는 중입니다.
-              </div>
+              <AdminTableSkeleton
+                // 번호 + 설정 열 + 관리, AdminTable 머리글과 같다.
+                columns={config.columns.length + 2}
+                label={`${config.title} 목록을 불러오는 중입니다.`}
+              />
             ) : (
               <AdminTable
                 config={config}
@@ -1663,12 +1699,10 @@ export function AdminSectionRoute({ section }: { section: string }) {
           </>
         )
       ) : view.kind === "edit" && !editTarget ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+        <AdminDetailSkeleton
+          rows={(config.fields || config.columns).length}
+          label={`${config.title} 상세를 불러오는 중입니다.`}
+        />
       ) : (
         <>
           <UnsavedGuard dirty={formDirty && !leaving} />

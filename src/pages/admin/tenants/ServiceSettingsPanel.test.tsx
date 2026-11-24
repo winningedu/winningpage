@@ -7,6 +7,8 @@ const db = vi.hoisted(() => ({
   defaults: {} as Record<string, unknown>,
   loadError: null as Error | null,
   puts: [] as Record<string, unknown>[],
+  /** 값이 있으면 조회 응답이 이 약속이 풀릴 때까지 기다린다. */
+  hold: null as Promise<void> | null,
   putError: null as Error | null,
   /** 조회 호출 기록(signal 을 넘기는지 본다). */
   fetches: [] as { tenantId: string; signal: AbortSignal | undefined }[],
@@ -16,6 +18,7 @@ vi.mock("./api", () => ({
   fetchServiceSettings: vi.fn(
     async (tenantId: string, signal?: AbortSignal) => {
       db.fetches.push({ tenantId, signal });
+      await db.hold;
       if (db.loadError) throw db.loadError;
       return { items: db.settings, defaults: db.defaults };
     },
@@ -43,6 +46,7 @@ beforeEach(() => {
   db.defaults = DEFAULTS;
   db.loadError = null;
   db.puts = [];
+  db.hold = null;
   db.putError = null;
   db.fetches = [];
 });
@@ -65,6 +69,23 @@ function renderPanel(
 }
 
 describe("ServiceSettingsPanel", () => {
+  test("응답을 기다리는 동안 설정 스켈레톤을 보이고 오면 서비스 행으로 바뀐다", async () => {
+    let release: () => void = () => {};
+    db.hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    renderPanel();
+
+    expect(
+      screen.getByRole("status", { name: "서비스 설정을 불러오는 중입니다." }),
+    ).toBeTruthy();
+    expect(screen.queryAllByTestId("service-row")).toHaveLength(0);
+
+    release();
+    expect(await screen.findAllByTestId("service-row")).toHaveLength(6);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   test("설정이 없는 6개 서비스는 모두 제공 안 함으로 사 #5 순서에 보인다", async () => {
     renderPanel();
 

@@ -66,6 +66,16 @@ const openProof = async () =>
     await screen.findByRole("button", { name: /증빙 파일 열람/ }),
   );
 
+test("상세를 받는 동안 스켈레톤을 보인다", async () => {
+  on("GET", `${BASE}/${ID1}`, () => new Promise(() => {}));
+  renderMentor(`${PATH}/${ID1}`);
+  expect(
+    await screen.findByRole("status", {
+      name: "멘토 신청 상세를 불러오는 중입니다.",
+    }),
+  ).toBeInTheDocument();
+});
+
 test("상세 주소로 바로 들어가도 GET :id 로 불러와 그린다", async () => {
   renderMentor(`${PATH}/${ID1}`);
   expect(await screen.findByText("신청 관리 상세")).toBeInTheDocument();
@@ -113,6 +123,26 @@ test("상태를 바꿔 저장하면 status 만 PATCH 하고 성공 토스트가 
   await waitFor(() =>
     expect(callsTo("GET", `${BASE}/${ID1}`).length).toBeGreaterThan(1),
   );
+});
+
+test("상태를 저장한 뒤 목록으로 가면 옛 행 대신 스켈레톤을 보인다", async () => {
+  on("PATCH", `${BASE}/${ID1}`, { ...app1, status: "interview" });
+  renderMentor(PATH);
+  fireEvent.click(await screen.findByRole("button", { name: "열기 김지원" }));
+  const select = await screen.findByRole("combobox");
+  fireEvent.change(select, { target: { value: "interview" } });
+  fireEvent.click(screen.getByRole("button", { name: "상태 저장" }));
+  await waitFor(() =>
+    expect(toastTitle()).toHaveTextContent("상태를 변경했습니다."),
+  );
+  on("GET", BASE, () => new Promise(() => {}));
+  fireEvent.click(screen.getByRole("button", { name: "목록으로" }));
+  expect(
+    await screen.findByRole("status", {
+      name: "멘토 신청 목록을 불러오는 중입니다.",
+    }),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "열기 김지원" })).toBeNull();
 });
 
 test("상태가 그대로면 경고만 보이고 요청하지 않는다", async () => {

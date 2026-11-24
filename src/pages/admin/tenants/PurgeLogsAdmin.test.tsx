@@ -57,6 +57,28 @@ beforeEach(() => {
 });
 
 describe("PurgeLogsAdmin", () => {
+  test("응답을 기다리는 동안 빈 로그 문구 대신 표 스켈레톤을 보이고 오면 행으로 바뀐다", async () => {
+    let release: () => void = () => {};
+    http.get.mockReturnValue({
+      json: async (schema: { parse: (value: unknown) => unknown }) => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return schema.parse({ items: [LOG] });
+      },
+    });
+    renderLogs();
+
+    expect(
+      screen.getByRole("status", { name: "삭제 로그를 불러오는 중입니다." }),
+    ).toBeTruthy();
+    expect(screen.queryByText("삭제 로그가 없습니다.")).toBeNull();
+
+    release();
+    expect(await screen.findByText("한빛고")).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   test("삭제 로그를 실행 일시, 실행자, 기관, 계약 종료일, 삭제, 제외(유료 전환), 제외(직접) 건수로 보여 주고 회원번호는 펼쳐야 보인다", async () => {
     renderLogs();
 

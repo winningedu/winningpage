@@ -10,6 +10,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import { fetchTenantDetail, patchTenant, type TenantDetailRow } from "./api";
 import { mouLabel } from "./contract";
@@ -27,6 +28,7 @@ import SchoolAdminPanel from "./SchoolAdminPanel";
 import ServiceSettingsPanel from "./ServiceSettingsPanel";
 import {
   errorDetail,
+  schoolAdminsQueryOptions,
   type TenantTab,
   tenantKeys,
   tenantPaths,
@@ -44,6 +46,9 @@ const TABS: { key: TenantTab; label: string }[] = [
   { key: "service-settings", label: "서비스 설정" },
   { key: "school-admins", label: "전체 관리자" },
 ];
+
+// 기관 정보 탭의 입력칸 수(소속코드 포함). 스켈레톤 행 수가 된다.
+const TENANT_FORM_FIELD_COUNT = 19;
 
 const MOU_OPTIONS = ["pending", "signed", "ended"];
 
@@ -92,6 +97,12 @@ export default function TenantDetail() {
     gcTime: 0,
     refetchOnWindowFocus: false,
   });
+  // 전체 관리자 목록은 기관 id 만 있으면 받을 수 있어, 상세 응답을 기다리지 않고 함께 시작한다.
+  // 결과는 SchoolAdminPanel 이 같은 쿼리로 읽는다.
+  useQuery({
+    ...schoolAdminsQueryOptions(tenantId ?? ""),
+    enabled: Boolean(tenantId),
+  });
 
   if (!tenantId || tab === null) {
     return <Navigate to={tenantPaths.list} replace />;
@@ -105,16 +116,21 @@ export default function TenantDetail() {
         <div className="mb-5 flex justify-end">
           <BackToList />
         </div>
-        <div
-          role={query.isError ? "alert" : "status"}
-          className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
-        >
-          {query.isError
-            ? notFound
+        {query.isError ? (
+          <div
+            role="alert"
+            className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
+          >
+            {notFound
               ? "기관을 찾을 수 없어요."
-              : "기관 정보를 불러오지 못했어요."
-            : "데이터를 불러오는 중입니다."}
-        </div>
+              : "기관 정보를 불러오지 못했어요."}
+          </div>
+        ) : (
+          <AdminDetailSkeleton
+            rows={TENANT_FORM_FIELD_COUNT}
+            label="기관 정보를 불러오는 중입니다."
+          />
+        )}
       </div>
     );
   }
@@ -182,7 +198,7 @@ function TenantDetailBody({
             submitted.term_months ? Number(submitted.term_months) : null,
           );
           setMessage("저장했어요.");
-          queryClient.invalidateQueries({ queryKey: tenantKeys.list() });
+          queryClient.resetQueries({ queryKey: tenantKeys.list() });
         },
         onError: (error) => setMessage(saveErrorMessage(error)),
       },

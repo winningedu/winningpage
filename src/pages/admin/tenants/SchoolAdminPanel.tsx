@@ -22,14 +22,18 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import {
-  fetchSchoolAdmins,
   type IssuedSchoolAdmin,
   type IssueSchoolAdminBody,
   issueSchoolAdmin,
 } from "./api";
-import { errorDetail, tenantKeys } from "./tenantQueries";
+import {
+  errorDetail,
+  schoolAdminsQueryOptions,
+  tenantKeys,
+} from "./tenantQueries";
 
 // ---------------------------------------------------------------------------
 // 기관 상세의 전체 관리자 탭(사 #159, 결정 102.6). 목록은 읽기만 하고(주소, 발급일, 등록취소일),
@@ -74,10 +78,7 @@ export default function SchoolAdminPanel({
   const [formError, setFormError] = useState("");
   const [issued, setIssued] = useState<IssuedSchoolAdmin | null>(null);
 
-  const listQuery = useQuery({
-    queryKey: tenantKeys.schoolAdmins(tenantId),
-    queryFn: ({ signal }) => fetchSchoolAdmins(tenantId, signal),
-  });
+  const listQuery = useQuery(schoolAdminsQueryOptions(tenantId));
   const list = listQuery.data;
   const loadError = listQuery.isError ? errorDetail(listQuery.error) : "";
 
@@ -86,7 +87,8 @@ export default function SchoolAdminPanel({
     onSuccess: (result) => {
       setForm(EMPTY_FORM);
       setIssued(result);
-      return queryClient.invalidateQueries({
+      // 내가 발급했으니 옛 목록을 보이지 않고 스켈레톤 뒤에 새로 받는다.
+      return queryClient.resetQueries({
         queryKey: tenantKeys.schoolAdmins(tenantId),
       });
     },
@@ -200,108 +202,116 @@ export default function SchoolAdminPanel({
             {loadError}
           </div>
         )}
-        <Table className="min-w-[45rem] border-collapse">
-          <TableHeader>
-            <TableRow className="border-y border-gray-300 hover:bg-transparent">
-              <TableHead
-                scope="col"
-                className="whitespace-normal px-3 py-3 text-left font-semibold"
-              >
-                이름
-              </TableHead>
-              <TableHead
-                scope="col"
-                className="whitespace-normal px-3 py-3 text-left font-semibold"
-              >
-                직책
-              </TableHead>
-              <TableHead
-                scope="col"
-                className="whitespace-normal px-3 py-3 text-left font-semibold"
-              >
-                아이디
-              </TableHead>
-              <TableHead
-                scope="col"
-                className="whitespace-normal px-3 py-3 text-left font-semibold"
-              >
-                전화번호
-              </TableHead>
-              <TableHead
-                scope="col"
-                className="whitespace-normal px-3 py-3 text-left font-semibold"
-              >
-                일반전화
-              </TableHead>
-              <TableHead
-                scope="col"
-                className="whitespace-normal px-3 py-3 text-left font-semibold"
-              >
-                담당 이메일
-              </TableHead>
-              <TableHead
-                scope="col"
-                className="whitespace-normal px-3 py-3 text-left font-semibold"
-              >
-                주소
-              </TableHead>
-              <TableHead
-                scope="col"
-                className="whitespace-normal px-3 py-3 text-left font-semibold"
-              >
-                발급일
-              </TableHead>
-              <TableHead
-                scope="col"
-                className="whitespace-normal px-3 py-3 text-left font-semibold"
-              >
-                등록취소일
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {!list || list.items.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={9}
-                  className="py-8 text-center text-muted-foreground"
+        {listQuery.isPending ? (
+          <AdminTableSkeleton
+            columns={9}
+            rows={3}
+            label="전체 관리자 목록을 불러오는 중입니다."
+          />
+        ) : (
+          <Table className="min-w-[45rem] border-collapse">
+            <TableHeader>
+              <TableRow className="border-y border-gray-300 hover:bg-transparent">
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
                 >
-                  발급한 전체 관리자가 없습니다.
-                </TableCell>
+                  이름
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  직책
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  아이디
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  전화번호
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  일반전화
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  담당 이메일
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  주소
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  발급일
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  등록취소일
+                </TableHead>
               </TableRow>
-            ) : (
-              list.items.map((admin) => (
-                <TableRow key={admin.id} className="border-b border-gray-100">
-                  <TableCell className="whitespace-normal px-3 py-3 font-medium">
-                    {admin.name}
-                  </TableCell>
-                  <TableCell className="whitespace-normal px-3 py-3">
-                    {admin.position ?? "-"}
-                  </TableCell>
-                  <TableCell className="px-3 py-3 font-mono text-[0.8125rem]">
-                    {admin.loginId ?? "-"}
-                  </TableCell>
-                  <TableCell className="px-3 py-3">{admin.phone}</TableCell>
-                  <TableCell className="px-3 py-3">
-                    {admin.landline ?? "-"}
-                  </TableCell>
-                  <TableCell className="whitespace-normal px-3 py-3">
-                    {admin.email ?? "-"}
-                  </TableCell>
-                  <TableCell className="whitespace-normal px-3 py-3">
-                    {list.address ?? "-"}
-                  </TableCell>
-                  <TableCell className="px-3 py-3">
-                    {formatDate(admin.issuedAt)}
-                  </TableCell>
-                  <TableCell className="px-3 py-3">
-                    {formatDate(admin.canceledAt)}
+            </TableHeader>
+            <TableBody>
+              {!list || list.items.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={9}
+                    className="py-8 text-center text-muted-foreground"
+                  >
+                    발급한 전체 관리자가 없습니다.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                list.items.map((admin) => (
+                  <TableRow key={admin.id} className="border-b border-gray-100">
+                    <TableCell className="whitespace-normal px-3 py-3 font-medium">
+                      {admin.name}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {admin.position ?? "-"}
+                    </TableCell>
+                    <TableCell className="px-3 py-3 font-mono text-[0.8125rem]">
+                      {admin.loginId ?? "-"}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">{admin.phone}</TableCell>
+                    <TableCell className="px-3 py-3">
+                      {admin.landline ?? "-"}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {admin.email ?? "-"}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {list.address ?? "-"}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
+                      {formatDate(admin.issuedAt)}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
+                      {formatDate(admin.canceledAt)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
         <p className="mt-3 text-xs font-medium text-gray-500">
           취소와 재발급은 본사 대행으로 해 주세요.
         </p>
