@@ -68,7 +68,7 @@ describe("v3 report line breaks", () => {
       ...broken,
       cover: {
         ...broken.cover,
-        studentName: FRONT_PAGES.cover.studentName,
+        studentName: "김위닝",
         gradeLabel: FRONT_PAGES.cover.gradeLabel,
         diagnosedAt: FRONT_PAGES.cover.diagnosedAt,
       },
