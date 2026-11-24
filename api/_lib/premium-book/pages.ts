@@ -4,8 +4,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { promoteForWrite } from "../admin-uploads/promote.js";
+import { isDeletablePath } from "../admin-uploads/tmp.js";
 import { sendError } from "../httpResponse.js";
-import { PREMIUM_BOOK_IMAGE } from "./uploads.js";
+import { PREMIUM_BOOK_FOLDER, PREMIUM_BOOK_IMAGE } from "./uploads.js";
 
 const INT4_MIN = -2147483648;
 const INT4_MAX = 2147483647;
@@ -44,4 +45,25 @@ export function promotePageBody(
     { uploads: { image_url: PREMIUM_BOOK_IMAGE } },
     body,
   );
+}
+
+const PUBLIC_URL_MARKER = "/storage/v1/object/public/banners/";
+
+/**
+ * banners 공개 URL 에서 스토리지 경로를 뽑는다. premium-book/ 아래의 안전한 경로만 돌려주고
+ * 그 밖(다른 버킷, 외부 URL, 폴더 밖, 빈 값)은 null 이다(행 삭제 때 남의 파일을 지우지 않게).
+ */
+export function premiumBookPathFromUrl(url: unknown): string | null {
+  if (typeof url !== "string") return null;
+  const at = url.indexOf(PUBLIC_URL_MARKER);
+  if (at < 0) return null;
+  let path: string;
+  try {
+    path = decodeURIComponent(
+      url.slice(at + PUBLIC_URL_MARKER.length).split(/[?#]/)[0] ?? "",
+    );
+  } catch {
+    return null;
+  }
+  return isDeletablePath(path, [PREMIUM_BOOK_FOLDER]) ? path : null;
 }

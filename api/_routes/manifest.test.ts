@@ -306,12 +306,6 @@ describe("api/ 직속 독립 함수", () => {
   });
 });
 
-describe("프리미엄 책자 경로", () => {
-  test("pages 는 admin/premium-book/pages 로 간다", async () => {
-    expect(defaultRoutes).toHaveProperty("admin/premium-book/pages");
-  });
-});
-
 // 실제 매니페스트 키로 요청이 어느 라우트에 닿고 경로 값이 어떻게 담기는지 본다.
 describe("쿠폰 경로 파라미터", () => {
   const COUPON_ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
@@ -365,6 +359,11 @@ describe("쿠폰 경로 파라미터", () => {
       "/api/admin/coupons/redemptions/5/void",
       "admin/coupons/redemptions/[id]/void",
       { id: "5" },
+    ],
+    [
+      "/api/admin/premium-book/pages/7",
+      "admin/premium-book/pages/[id]",
+      { id: "7" },
     ],
     [
       "/api/admin/coupons/grants/5/revoke",
