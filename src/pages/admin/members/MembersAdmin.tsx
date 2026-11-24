@@ -62,6 +62,7 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
+import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import MoveStudentForm, {
   type MoveTarget,
 } from "@/pages/admin/tenants/MoveStudentForm";
@@ -535,6 +536,19 @@ function MemberDetail({
   const [tenantDraft, setTenantDraft] = useState(member.tenant_id || "");
   // 스쿨멘토 학생의 기관 이동 폼(사 결정 r4 4번). 열려 있으면 대상 기관을 담는다.
   const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null);
+  const [moveDirty, setMoveDirty] = useState(false);
+
+  // 고친 폼이 있으면 이 회원 화면을 나갈 때 묻는다. 같은 회원의 탭 이동은 막지 않는다.
+  const dirty =
+    categoryDraft.trim() !== (member.member_category ?? "") ||
+    guardianPhoneDraft.trim() !== (member.guardian_phone ?? "") ||
+    moveDirty;
+  useUnsavedGuard(
+    dirty,
+    (next) =>
+      next.pathname === `${MEMBERS_PATH}/${member.id}` ||
+      next.pathname.startsWith(`${MEMBERS_PATH}/${member.id}/`),
+  );
 
   // 저장 결과를 상세와 목록 캐시에 바로 반영한다(재조회 없이).
   function syncMember(updated: ProfileRow) {
@@ -854,6 +868,7 @@ function MemberDetail({
                     profileId={member.id}
                     tenant={moveTarget}
                     onMoved={onStudentMoved}
+                    onDirtyChange={setMoveDirty}
                     onCancel={() => {
                       setMoveTarget(null);
                       setTenantDraft(member.tenant_id || "");
