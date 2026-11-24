@@ -23,7 +23,7 @@ const FOUND = [{ id: "u1", name: "홍길동", email: "a@example.com" }];
 
 let profiles: Respond = () => ({ data: FOUND, error: null });
 
-function setup(level: string | null = "view") {
+function setup(level: string | null = "edit") {
   kit.admin = createAdminFake({
     permissions: level ? [{ resource_key: "coupons", level }] : [],
     tables: { profiles: (query) => profiles(query) },
@@ -46,7 +46,7 @@ beforeEach(() => {
 });
 
 describe("GET /api/admin/coupons/user-search", () => {
-  test("view 권한이면 이메일이나 이름이 맞는 프로필을 20건까지 돌려준다", async () => {
+  test("edit 권한이면 이메일이나 이름이 맞는 프로필을 20건까지 돌려준다", async () => {
     const admin = setup();
     const r = await search("홍길");
     expect(r.status).toBe(200);
@@ -65,6 +65,15 @@ describe("GET /api/admin/coupons/user-search", () => {
     const [query] = searchQueries(admin);
     expect(query && argsOf(query, "or")).toEqual([
       "email.ilike.%홍길동%,name.ilike.%홍길동%",
+    ]);
+  });
+
+  test("LIKE 와일드카드 % 와 _ 는 백슬래시로 이스케이프해 글자 그대로 찾는다", async () => {
+    const admin = setup();
+    await search("50%_off");
+    const [query] = searchQueries(admin);
+    expect(query && argsOf(query, "or")).toEqual([
+      "email.ilike.%50\\%\\_off%,name.ilike.%50\\%\\_off%",
     ]);
   });
 
@@ -92,6 +101,14 @@ describe("GET /api/admin/coupons/user-search", () => {
     setup();
     const r = await search("a".repeat(100));
     expect(r.status).toBe(200);
+  });
+
+  test("view 권한으로는 403 FORBIDDEN 이고 검색하지 않는다", async () => {
+    const admin = setup("view");
+    const r = await search("홍");
+    expect(r.status).toBe(403);
+    expect(problemCode(r.body)).toBe("FORBIDDEN");
+    expect(searchQueries(admin)).toHaveLength(0);
   });
 
   test("권한 행이 없으면 403 FORBIDDEN 이다", async () => {

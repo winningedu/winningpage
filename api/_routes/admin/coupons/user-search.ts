@@ -1,7 +1,7 @@
 // GET /api/admin/coupons/user-search?q=<1..100자>
 //
 // 쿠폰 발급 대상 검색. 학생만이 아니라 전체 프로필에서 이메일이나 이름으로 20건까지 찾는다(그래서 학생 검색과 따로 둔다).
-// 권한: 메뉴 coupons view(defineHandler permission).
+// 권한: 메뉴 coupons edit(호출처가 발급 흐름뿐이라 조회 전용 관리자에게는 열지 않는다).
 
 import { z } from "zod";
 import { defineHandler } from "../../../_lib/handler.js";
@@ -14,7 +14,7 @@ export default defineHandler({
   methods: ["GET"],
   auth: "admin",
   errorShape: "problem",
-  permission: { key: "coupons" },
+  permission: { key: "coupons", level: "edit" },
   unhandledMessage: "사용자를 검색하지 못했어요.",
   logLabel: "[admin/coupons/user-search]",
   query: z.object({ q: z.string().min(1).max(100) }),
@@ -26,10 +26,13 @@ export default defineHandler({
       return;
     }
 
+    // ilike 의 기본 이스케이프 문자는 백슬래시다. 위에서 백슬래시를 걷었으므로 %, _ 만 이스케이프하면 된다.
+    const pattern = q.replace(/[%_]/g, "\\$&");
+
     const { data, error } = await ctx.supabaseAdmin
       .from("profiles")
       .select("id, name, email")
-      .or(`email.ilike.%${q}%,name.ilike.%${q}%`)
+      .or(`email.ilike.%${pattern}%,name.ilike.%${pattern}%`)
       .limit(RESULT_LIMIT);
     if (error) throw new Error("profiles search failed");
 
