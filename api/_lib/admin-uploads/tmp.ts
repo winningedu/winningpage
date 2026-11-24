@@ -2,7 +2,8 @@
 // 브라우저는 이 이름을 만들지 않는다(서버가 정하고 돌려준다).
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getSection, type UploadField } from "../admin-sections/registry.js";
+import type { UploadField } from "../admin-sections/registry.js";
+import { uploadRulesFor } from "../admin-sections/uploadRules.js";
 import { RouteParamError } from "../handler.js";
 import { sendError } from "../httpResponse.js";
 
@@ -175,7 +176,7 @@ export function validateUpload(
  */
 export function uploadSectionKey(req: VercelRequest): string {
   const key = (req.body as { section?: unknown } | undefined)?.section;
-  if (typeof key !== "string" || !getSection(key)) {
+  if (typeof key !== "string" || !uploadRulesFor(key)) {
     throw new RouteParamError("section", "알 수 없는 섹션입니다.");
   }
   return key;

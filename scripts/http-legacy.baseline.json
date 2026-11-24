@@ -809,18 +809,6 @@
   "src/pages/TeacherResetPassword.tsx": {
     "legacyFetch": 1
   },
-  "src/pages/admin/learning-diagnosis/LearningDiagnosisAdmin.tsx": {
-    "browserDb": 12
-  },
-  "src/pages/admin/mentor/MentorApplicationsAdmin.tsx": {
-    "browserDb": 3
-  },
-  "src/pages/admin/premium-book/PremiumBookAdmin.tsx": {
-    "browserDb": 11
-  },
-  "src/pages/admin/shared/AdminEngine.tsx": {
-    "browserDb": 3
-  },
   "src/pages/admission/admissionCaseData.ts": {
     "browserDb": 5
   },

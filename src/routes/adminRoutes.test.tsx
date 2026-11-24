@@ -22,6 +22,8 @@ describe("adminRoutes 하위 주소가 있는 섹션", () => {
     "inquirySessions",
     "selfevalSessions",
     "serviceCreditAdjust",
+    "mentorApplications",
+    "premiumBookPages",
   ])("%s 는 하위 주소를 받는 splat 경로 하나로 등록된다", (key) => {
     expect(paths).toContain(`${key}/*`);
     expect(paths).not.toContain(key);
@@ -37,6 +39,8 @@ describe("adminRoutes 하위 주소가 있는 섹션", () => {
       "inquirySessions/*",
       "memberPurge/*",
       "members/*",
+      "mentorApplications/*",
+      "premiumBookPages/*",
       "selfevalSessions/*",
       "serviceCreditAdjust/*",
       "tenants/*",

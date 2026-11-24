@@ -55,6 +55,17 @@ describe("POST /api/admin/uploads/preview", () => {
     });
   });
 
+  test("premiumBookPages 의 image_url 임시 객체도 읽기 URL 을 준다", async () => {
+    seedAdmin(kit.state, "edit", "premiumBookPages");
+    const r = await post({ section: "premiumBookPages", path: NAME });
+    expect(r.status).toBe(200);
+    const bad = await post({
+      section: "premiumBookPages",
+      path: `${UUID}.title.hero.png`,
+    });
+    expect(bad.status).toBe(400);
+  });
+
   test("객체가 없으면 409 UPLOAD_EXPIRED", async () => {
     kit.fake = createFakeStorage();
     const r = await post({ section: "banners", path: NAME });

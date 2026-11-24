@@ -37,6 +37,7 @@ function renderForm(
       onCancel={() => {}}
       onSave={onSave}
       onUpload={(async () => null) as never}
+      onRemoveFiles={() => {}}
       {...props}
     />,
   );

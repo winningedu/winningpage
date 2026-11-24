@@ -48,6 +48,8 @@ const SPLAT_SECTION_KEYS: ReadonlySet<string> = new Set([
   "inquirySessions",
   "selfevalSessions",
   "serviceCreditAdjust",
+  "mentorApplications",
+  "premiumBookPages",
 ]);
 
 const adminRoutes: RouteObject[] = [

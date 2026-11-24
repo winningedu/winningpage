@@ -144,8 +144,9 @@ export async function callRoute(
       captured.body = payload;
       return res;
     },
-    end(payload: string) {
-      captured.body = JSON.parse(payload);
+    end(payload?: string) {
+      // 204 는 본문 없이 끝난다.
+      captured.body = payload === undefined ? undefined : JSON.parse(payload);
       return res;
     },
   } as unknown as VercelResponse;
