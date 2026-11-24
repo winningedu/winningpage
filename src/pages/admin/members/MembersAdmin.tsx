@@ -808,7 +808,10 @@ function MemberDetail({
           })
         }
       >
-        <TabsList variant="line" className="mb-2 h-auto flex-wrap">
+        <TabsList
+          variant="line"
+          className="mb-2 group-data-horizontal/tabs:h-auto flex-wrap"
+        >
           {TABS.map((item) => (
             <TabsTrigger key={item.key} value={item.key} className="px-4">
               {item.label}
