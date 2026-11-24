@@ -232,6 +232,7 @@ describe("diagnosis/submit scoring", () => {
         typeName: "T",
         year: 2025,
       },
+      excludedServices: [],
     });
     expect(log.admissionFilters).toContainEqual([
       "is",
@@ -253,6 +254,16 @@ describe("diagnosis/submit scoring", () => {
         context: engine.score.mock.calls[0]?.[1],
       },
       payload,
+    });
+  });
+
+  test("schoolmentor excludes CALL from the engine context (site callmentor feature off)", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    setup({ attempt: { profile_id: "me", kind: "tenant" } });
+    const res = await post({ attemptId: ATTEMPT, answers: CALC_EXAMPLE });
+    expect(res.status).toBe(200);
+    expect(engine.score.mock.calls[0]?.[1]).toMatchObject({
+      excludedServices: ["CALL"],
     });
   });
 
@@ -287,6 +298,17 @@ describe("diagnosis/submit scoring", () => {
     await post({ attemptId: ATTEMPT, answers: validAnswers("M3") });
     expect(engine.score.mock.calls[0]?.[1]).toMatchObject({
       joinedAt: "2026-10-31",
+    });
+  });
+
+  test("M3 q6 sent by the client is replaced by the mean of the six scores", async () => {
+    const log = setup();
+    const answers = { ...validAnswers("M3"), q6: 1 };
+    const res = await post({ attemptId: ATTEMPT, answers });
+    expect(res.status).toBe(200);
+    expect(engine.score.mock.calls[0]?.[0]).toMatchObject({ q6: 80 });
+    expect(log.upserts[0]?.row).toMatchObject({
+      snapshot: { answers: { q6: 80 } },
     });
   });
 

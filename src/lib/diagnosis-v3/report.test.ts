@@ -346,6 +346,34 @@ describe("3p 성적 (22 r38-r46)", () => {
     expect(mid.pages.p3.examOpsVerdict).toBe("보통");
   });
 
+  test("M3 p3 lists all six subjects, 역사 included, judged through table 10", () => {
+    const { p3 } = run({
+      ...validAnswers("M3"),
+      q6: 79.2,
+      q6s: { KOR: 95, MATH: 60, ENG: 90, SOC: 80, SCI: 80, HISTORY: 70 },
+    }).pages;
+    expect(p3.bars?.school.map((b) => b.subject)).toEqual([
+      "KOR",
+      "MATH",
+      "ENG",
+      "SOC",
+      "SCI",
+      "HISTORY",
+    ]);
+    expect(p3.subjects.kind).toBe("table");
+    expect(
+      p3.subjects.kind === "table" &&
+        p3.subjects.rows.map((r) => [r.subject, r.verdict]),
+    ).toEqual([
+      ["KOR", "KEEP"],
+      ["MATH", "CHECK"],
+      ["ENG", "KEEP"],
+      ["SOC", "KEEP"],
+      ["SCI", "KEEP"],
+      ["HISTORY", "KEEP"],
+    ]);
+  });
+
   test("PDF p3 grades: subject table, recent gap and exam ops RISK", () => {
     const { p3 } = run({
       ...CALC_EXAMPLE,
@@ -849,6 +877,8 @@ describe("11p 4주 플랜 and 12-15p 플래너 (22 r101-r113)", () => {
     const { p11, p12, p15 } = pages;
     expect(p11.title).toBe(COPY_TEXT.PLAN_HEAD);
     expect(p11.lead).toBe(COPY_TEXT.PLAN_LEAD);
+    // q21 weekend 2 = "1~2시간" (item 9)
+    expect(p11.numbers.weekend).toBe("1~2시간");
     // PDF p11 "실행 긴급도 10점, 낮음": 22 B102 title and the points
     expect(p11.urgency).toEqual({
       title: "실행 긴급도",
@@ -954,6 +984,27 @@ describe("16p 서비스 \u00b7 안내 (22 r115-r121)", () => {
       code: "CALL",
       prefix: COPY_TEXT.SVC_CALL_TEMP_PREFIX,
     });
+  });
+
+  test("context.excludedServices CALL: care no longer pins CALL and the next rank fills card 2 (item 1)", () => {
+    const closed = scoreDiagnosisV3(COUNSEL, {
+      ...CALC_EXAMPLE_CONTEXT,
+      excludedServices: ["CALL"],
+    });
+    expect(closed.scores.services.counselPinned).toBe(false);
+    expect(closed.pages.p16.title).toBe(COPY_TEXT.SVC_HEAD_2);
+    expect(closed.pages.p16.services).toHaveLength(2);
+    expect(closed.pages.p16.services.map((s) => s.code)).not.toContain("CALL");
+  });
+
+  test("context.excludedServices CALL: N수 gets the single GOAL card (item 1)", () => {
+    const nsu = scoreDiagnosisV3(
+      { ...validAnswers("H3"), q1: 6 },
+      { ...CALC_EXAMPLE_CONTEXT, excludedServices: ["CALL"] },
+    );
+    expect(nsu.scores.services.ranked.map((s) => s.code)).toEqual(["GOAL"]);
+    expect(nsu.pages.p16.services.map((s) => s.code)).toEqual(["GOAL"]);
+    expect(nsu.pages.p16.scope).toBe("NSU");
   });
 
   test("N수 and 고3 후기 scope notes (07 C16-C21, 22 r118)", () => {

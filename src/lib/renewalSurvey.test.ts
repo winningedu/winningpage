@@ -54,8 +54,8 @@ describe("v3 조건부 노출", () => {
     expect(showsQ3Target(H12)).toBe(false);
   });
 
-  it("중3 트랙은 과목별 성적과 16번 목표 대학을 숨긴다", () => {
-    expect(visibleQuestionIds(2, M3)).toEqual(["q4", "q5", "q6", "q8"]);
+  it("중3 트랙은 과목별 점수를 열고 최근 성적, 모의고사, 16번 목표 대학을 숨긴다", () => {
+    expect(visibleQuestionIds(2, M3)).toEqual(["q4", "q5", "q6", "q6s", "q8"]);
     expect(visibleQuestionIds(2, H12)).toEqual([
       "q4",
       "q5",
@@ -99,6 +99,52 @@ describe("v3 조건부 노출", () => {
   });
 });
 
+describe("중3 과목별 점수 (고객 답 2026-11-24 학습진단 5번)", () => {
+  const SIX = {
+    KOR: "95",
+    MATH: "60",
+    ENG: "90",
+    SOC: "80",
+    SCI: "80",
+    HISTORY: "70",
+  };
+  const m3Draft = { ...calcDraft, q1: 2, q3: 6, q4: 3, q6: "typed", q6s: SIX };
+
+  it("q6 is the mean of the six scores, whatever was typed before", () => {
+    const answers = toSubmitAnswers(m3Draft, null);
+    expect(answers.q6).toBe(79.2);
+    expect(answers.q6s).toEqual({
+      KOR: 95,
+      MATH: 60,
+      ENG: 90,
+      SOC: 80,
+      SCI: 80,
+      HISTORY: 70,
+    });
+  });
+
+  it("q6 is not sent until all six scores are filled", () => {
+    const answers = toSubmitAnswers(
+      { ...m3Draft, q6s: { ...SIX, HISTORY: "" } },
+      null,
+    );
+    expect(answers).not.toHaveProperty("q6");
+  });
+
+  it("an unfilled score blocks the screen on 6-1, not on 6", () => {
+    expect(
+      screenProblems(
+        2,
+        { ...m3Draft, q6s: { ...SIX, HISTORY: "" } },
+        "2026-11-09",
+      ),
+    ).toEqual(["q6s"]);
+    expect(
+      screenProblems(2, { ...m3Draft, q5: 2, q8: 6 }, "2026-11-09"),
+    ).toEqual([]);
+  });
+});
+
 describe("v3 제출 답안", () => {
   it("화면 응답을 계약 답안 형태로 바꾸고 validateAnswers를 통과한다", () => {
     const answers = toSubmitAnswers(calcDraft, CALC_EXAMPLE.q15 ?? null);
@@ -114,7 +160,6 @@ describe("v3 제출 답안", () => {
         ...calcDraft,
         q1: 2,
         q3: 6,
-        q6s: { KOR: "2", MATH: "" },
         q6r: "",
         q6m: { month: 6, grades: { KOR: "3" } },
         q8: 6,
@@ -128,7 +173,6 @@ describe("v3 제출 답안", () => {
     for (const id of [
       "q3r",
       "q3Target",
-      "q6s",
       "q6r",
       "q6m",
       "q8s",

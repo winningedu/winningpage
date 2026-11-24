@@ -1,10 +1,7 @@
 // 리포트 입력 읽기(명세 No.133~173). service_role 로 읽으므로 모든 쿼리에 profile_id 나 세션 id 조건을 건다.
 // DB 에 묶인 얇은 계층이라 단위 테스트는 두지 않고, 변환 규칙은 rows.ts 와 stages.ts 에서 검증한다.
 
-import type {
-  ReportServiceTier,
-  ReportStepKey,
-} from "../../../../src/lib/selfeval/reportTypes.js";
+import type { ReportStepKey } from "../../../../src/lib/selfeval/reportTypes.js";
 import { type Db, must } from "../../growth/intake/collectDb.js";
 import type { SessionRow } from "../rows.js";
 import type { Improvement } from "../types.js";
@@ -234,14 +231,11 @@ export async function loadReportInput(
     must(
       await db
         .from("student_profiles")
-        .select("grade, service_tier")
+        .select("grade")
         .eq("profile_id", userId)
         .maybeSingle(),
       "student_profiles 조회 실패",
-    ) as {
-      grade: string | null;
-      service_tier: ReportServiceTier | null;
-    } | null,
+    ) as { grade: string | null } | null,
     loadSteps(db, userId),
     loadStages(db, userId, session, tz),
     loadTopImprovement(db, userId, session.id),
@@ -272,7 +266,6 @@ export async function loadReportInput(
     bodySections: final.sections,
     charCount: final.char_count,
     savedAt: session.completed_at ?? final.created_at,
-    serviceTier: profile?.service_tier ?? null,
     profileGrade: session.grade_label ?? profile?.grade ?? null,
     records,
     memos,

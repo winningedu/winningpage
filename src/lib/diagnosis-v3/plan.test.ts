@@ -97,6 +97,19 @@ describe("buildPlanPage (22 r103-r107)", () => {
     });
   });
 
+  test("numbers.weekend is the q21 weekend option label, absent when not answered", () => {
+    const plan = buildPlan(pdfInput());
+    const withWeekend = buildPlanPage(
+      plan,
+      "2026-11-10",
+      pdfInput().schedule,
+      3,
+    );
+    expect(withWeekend.numbers.weekend).toBe("2~4시간");
+    expect(withWeekend.numbers.minLoad).toBe("하루 최소 학습량 60분");
+    expect(page().numbers).not.toHaveProperty("weekend");
+  });
+
   test("22 r107 checkpoints: each week's last day, re-diagnosis, Day 29..42 events", () => {
     expect(page().checkpoints).toEqual([
       "11/16(월)",

@@ -3,6 +3,7 @@ import { REQUIRED_QUESTIONS, TRACK_NAMES } from "@/lib/diagnosis-v3/codes";
 import { sheetRows } from "@/lib/diagnosis-v3/sheet";
 import {
   choicesFor,
+  mockFields,
   SURVEY_V3_PAGES,
   SURVEY_V3_QUESTIONS,
   statementsFor,
@@ -183,5 +184,38 @@ describe("v3 문항 정의", () => {
       expect(question?.title).toBe(row.c[3]);
       expect(question?.helper).toBe(row.c[4] ?? undefined);
     }
+  });
+});
+
+describe("mockFields 통합사회, 통합과학 라벨 (고객 답 2026-11-24 학습진단 3번)", () => {
+  const socLabel = (grade: number, diagnosedAt: string) =>
+    mockFields(grade, diagnosedAt).find((f) => f.key === "SOC")?.label;
+
+  it.each([
+    [3, "2026-11-24", "통합사회"],
+    [3, "2030-05-01", "통합사회"],
+    [4, "2026-12-31", "사회탐구"],
+    [4, "2027-02-28", "사회탐구"],
+    [4, "2027-03-01", "통합사회"],
+    [5, "2027-03-01", "통합사회"],
+    [5, "2026-12-01", "사회탐구"],
+    [6, "2027-03-01", "사회탐구"],
+    [6, "2030-05-01", "사회탐구"],
+  ])("q1 %s, %s 은 %s", (grade, diagnosedAt, expected) => {
+    expect(socLabel(grade, diagnosedAt)).toBe(expected);
+  });
+
+  it("라벨만 바꾸고 판정 키는 SOC, SCI 그대로 둔다", () => {
+    expect(mockFields(4, "2027-03-01").map((f) => f.key)).toEqual([
+      "KOR",
+      "MATH",
+      "ENG",
+      "SOC",
+      "SCI",
+      "HIST",
+    ]);
+    expect(
+      mockFields(4, "2027-03-01").find((f) => f.key === "SCI")?.label,
+    ).toBe("통합과학");
   });
 });

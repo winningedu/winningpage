@@ -33,6 +33,16 @@ const oldLater: DiagnosisV3Pages = {
   p11: { ...laterPages.p11, urgency: oldUrgency },
 };
 
+describe("v3 payload stored before the weekend self-study field", () => {
+  it("renders the minimum load line alone, without a weekend line or placeholder text", () => {
+    const { container } = render(<LaterPages pages={laterPages} />);
+    expect(laterPages.p11.numbers).not.toHaveProperty("weekend");
+    expect(screen.getByText("MINLOAD text")).toBeInTheDocument();
+    expect(container).not.toHaveTextContent("평소 주말 자습");
+    expect(container).not.toHaveTextContent(/undefined|NaN/);
+  });
+});
+
 describe("v3 payload stored before the ladder, exam verdict and urgency points fields", () => {
   it("renders every page without those blocks and without placeholder text", () => {
     const { container } = render(
