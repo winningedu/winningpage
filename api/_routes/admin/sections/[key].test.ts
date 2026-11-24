@@ -2,16 +2,16 @@
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
-  createKitState,
-  type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
-import {
   createSectionAdmin,
   createSectionDb,
   type SectionDb,
   seedAdmin,
 } from "../../../_lib/admin-sections/sectionTestKit.js";
+import {
+  callHandler,
+  createKitState,
+  type KitState,
+} from "../../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,

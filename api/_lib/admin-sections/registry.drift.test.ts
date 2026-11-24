@@ -206,11 +206,17 @@ describe.each(Object.keys(SITES))(
 );
 
 describe("화면 상수와 같은 값", () => {
-  test("SECTION_PAGE_SIZE 는 AdminEngine 의 PAGE_SIZE 와 같다", async () => {
-    const { PAGE_SIZE } = await import(
-      "../../../src/pages/admin/shared/AdminEngine.js"
+  test("SECTION_PAGE_SIZE 는 AdminEngine 의 PAGE_SIZE 와 같다", () => {
+    // AdminEngine 은 React 와 `@/` 별칭을 끌어와 api 타입 검사에 들어올 수 없어 소스 글자에서 읽는다.
+    const source = readFileSync(
+      new URL(
+        "../../../src/pages/admin/shared/AdminEngine.tsx",
+        import.meta.url,
+      ),
+      "utf8",
     );
-    expect(SECTION_PAGE_SIZE).toBe(PAGE_SIZE);
+    const match = /^export const PAGE_SIZE = (\d+);/m.exec(source);
+    expect(Number(match?.[1])).toBe(SECTION_PAGE_SIZE);
   });
 
   test("SECTION_EXPORT_CHUNK 는 Admin.tsx 의 EXPORT_CHUNK 와 같다", () => {

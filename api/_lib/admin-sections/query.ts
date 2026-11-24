@@ -12,7 +12,7 @@ import {
 } from "./registry.js";
 
 interface ListOptions {
-  q?: string;
+  q?: string | undefined;
   /** true 면 전체 건수를 함께 센다. */
   count?: boolean;
 }
@@ -194,9 +194,8 @@ function uniqueKeyColumns(details: string | undefined): string[] {
   }
   parts.push(buffer);
   return parts.flatMap((part) => {
-    const token = (part.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) ?? []).find(
-      (name) => !SQL_NOISE.has(name.toLowerCase()),
-    );
+    const names: string[] = part.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) ?? [];
+    const token = names.find((name) => !SQL_NOISE.has(name.toLowerCase()));
     return token ? [token] : [];
   });
 }
