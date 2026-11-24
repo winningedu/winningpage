@@ -381,6 +381,55 @@ describe("PUT /api/admin/tenants/student-usage", () => {
     expect(sent?.[0]?.updated_by).toBe("hq-1");
   });
 
+  test("진짜 칼럼이지만 클라이언트가 못 쓰는 updated_by, updated_at 은 버리고 서버가 채운다", async () => {
+    const r = await put({
+      rows: [
+        {
+          ...ROWS[0],
+          updated_by: "someone-else",
+          updated_at: "2020-01-01T00:00:00Z",
+        },
+      ],
+    });
+
+    expect(r.status).toBe(200);
+    expect(kit.userState.upserts[0]?.row).toEqual([
+      { ...ROWS[0], updated_by: "hq-1" },
+    ]);
+  });
+
+  test.each([
+    ["테이블에 없는 created_at", { created_at: "2026-11-01T00:00:00Z" }],
+    ["테이블에 없는 id", { id: "x" }],
+    ["모르는 키", { enabled: true }],
+  ])("행에 %s 가 있으면 400 이고 쓰지 않는다", async (_label, extra) => {
+    const r = await put({ rows: [{ ...ROWS[0], ...extra }] });
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ status: 400, code: "VALIDATION_FAILED" });
+    expect(kit.userClientTokens).toHaveLength(0);
+    expect(kit.userState.upserts).toHaveLength(0);
+  });
+
+  test("없는 학생(외래키 위반 23503)이면 404 NOT_FOUND 이다", async () => {
+    kit.userState.insertErrors.student_usage_overrides = { code: "23503" };
+
+    const r = await put({ rows: ROWS });
+
+    expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({ status: 404, code: "NOT_FOUND" });
+    expect(kit.userState.upserts).toHaveLength(1);
+  });
+
+  test("service_role 클라이언트로는 아무것도 쓰지 않는다", async () => {
+    await put({ rows: ROWS });
+
+    expect(kit.state.upserts).toHaveLength(0);
+    expect(
+      kit.state.events.filter((e) => /insert|update|upsert|delete/.test(e)),
+    ).toEqual([]);
+  });
+
   test("첫 오류에서 멈추고 500 이다", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     kit.userState.insertErrors.student_usage_overrides = { code: "42501" };

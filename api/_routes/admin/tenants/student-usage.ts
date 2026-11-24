@@ -48,7 +48,12 @@ const putBodySchema = z.object({
             ),
           monthly_limit: limit,
           term_limit: limit,
+          // 진짜 칼럼이라 스냅샷에 실려 올 수 있다. 받되 쓰지 않고 서버가 채운다.
+          updated_by: z.unknown().optional(),
+          updated_at: z.unknown().optional(),
         })
+        // 테이블에 없는 키(created_at, id 등)는 400 으로 막는다.
+        .strict()
         .refine(
           (row) =>
             row.monthly_limit !== undefined || row.term_limit !== undefined,
@@ -113,6 +118,11 @@ async function writeOverrides(
     const { error } = await userClient
       .from("student_usage_overrides")
       .upsert(group, { onConflict: "profile_id,program_key" });
+    // 없는 학생이면 외래키 위반이다. 서버 오류가 아니라 찾을 수 없음으로 돌려준다.
+    if (error?.code === "23503") {
+      sendError(res, "problem", 404, "학생을 찾을 수 없어요.", "NOT_FOUND");
+      return;
+    }
     if (error) throw new Error("student usage override upsert failed");
   }
   res.status(200).json({ saved: rows.length });
