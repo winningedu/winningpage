@@ -8,7 +8,7 @@ const files = import.meta.glob("/src/**/*.{ts,tsx}", {
   eager: true,
 }) as Record<string, string>;
 
-describe("useAdminDetailBack 제거", () => {
+describe("상세 뒤로가기 훅 제거", () => {
   it("src 어디에도 남아 있지 않다", () => {
     const paths = Object.keys(files);
     expect(paths.length).toBeGreaterThan(100);
