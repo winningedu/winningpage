@@ -32,6 +32,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import {
   createTenant,
   fetchTenants,
@@ -54,7 +55,6 @@ import {
   tenantKeys,
   tenantPaths,
 } from "@/pages/admin/tenants/tenantQueries";
-import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 
 // ---------------------------------------------------------------------------
 // 기관 관리(tenants, 2026-09-22) — 목록 + 발급.
