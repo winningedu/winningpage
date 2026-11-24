@@ -208,7 +208,7 @@ export function useUserSearch(q: string | null) {
   });
 }
 
-/** 개별 발급. 발급 목록만 다시 받는다. */
+/** 개별 발급. 발급 목록만 비우고 스켈레톤 뒤에 새로 받는다. */
 export function useGrantCoupon(couponId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -219,11 +219,11 @@ export function useGrantCoupon(couponId: string) {
         })
         .json(z.looseObject({})),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: couponKeys.grants(couponId) }),
+      queryClient.resetQueries({ queryKey: couponKeys.grants(couponId) }),
   });
 }
 
-/** 발급 회수. 사유가 비면 키를 뺀다. 발급 목록만 다시 받는다. */
+/** 발급 회수. 사유가 비면 키를 뺀다. 발급 목록만 비우고 스켈레톤 뒤에 새로 받는다. */
 export function useRevokeGrant(couponId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -234,7 +234,7 @@ export function useRevokeGrant(couponId: string) {
         })
         .json(z.looseObject({})),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: couponKeys.grants(couponId) }),
+      queryClient.resetQueries({ queryKey: couponKeys.grants(couponId) }),
   });
 }
 
