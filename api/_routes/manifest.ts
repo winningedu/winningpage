@@ -19,6 +19,14 @@ export const routes: Record<string, RouteLoader> = {
   "admin/inquiry-sessions": () => import("./admin/inquiry-sessions.js"),
   "admin/invite-member": () => import("./admin/invite-member.js"),
   "admin/knowledge-bulk": () => import("./admin/knowledge-bulk.js"),
+  "admin/sections/[key]": () => import("./admin/sections/[key].js"),
+  "admin/sections/[key]/[id]": () => import("./admin/sections/[key]/[id].js"),
+  "admin/sections/[key]/[id]/meta": () =>
+    import("./admin/sections/[key]/[id]/meta.js"),
+  "admin/sections/[key]/[id]/reviewed": () =>
+    import("./admin/sections/[key]/[id]/reviewed.js"),
+  "admin/sections/[key]/export": () =>
+    import("./admin/sections/[key]/export.js"),
   "admin/selfeval-grant": () => import("./admin/selfeval-grant.js"),
   "admin/selfeval-recover": () => import("./admin/selfeval-recover.js"),
   "admin/selfeval-sessions": () => import("./admin/selfeval-sessions.js"),
