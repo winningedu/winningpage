@@ -30,7 +30,7 @@ export default defineHandler({
   headers: { "Cache-Control": "no-store" },
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
-    q: z.string().optional(),
+    q: z.string().max(100).optional(),
   }),
   handler: async (req, res, ctx) => {
     const entry = sectionOf(req);

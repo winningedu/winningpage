@@ -76,6 +76,26 @@ describe("GET /api/admin/sections/:key/export", () => {
     expect(ranges[1]?.range).toEqual([1000, 1999]);
   });
 
+  test("from 은 1,000,000 까지만 받는다(넘으면 400, 테이블을 읽지 않는다)", async () => {
+    seedAdmin(kit.state, "view", "admissionResults");
+    kit.db.tables.admission_results = [];
+    const over = await get({ key: "admissionResults", from: "1000001" });
+    expect(over.status).toBe(400);
+    expect(kit.db.calls).toHaveLength(0);
+    const edge = await get({ key: "admissionResults", from: "1000000" });
+    expect(edge.status).toBe(200);
+  });
+
+  test("q 는 100자까지만 받는다", async () => {
+    seedAdmin(kit.state, "view", "admissionResults");
+    kit.db.tables.admission_results = [];
+    const over = await get({ key: "admissionResults", q: "가".repeat(101) });
+    expect(over.status).toBe(400);
+    expect(kit.db.calls).toHaveLength(0);
+    const edge = await get({ key: "admissionResults", q: "가".repeat(100) });
+    expect(edge.status).toBe(200);
+  });
+
   test("정확히 1000행으로 끝나면 다음 호출이 빈 배열과 null 을 준다", async () => {
     seedAdmin(kit.state, "view", "admissionResults");
     kit.db.tables.admission_results = Array.from({ length: 1000 }, (_, i) => ({

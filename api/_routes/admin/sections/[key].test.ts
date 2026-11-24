@@ -115,6 +115,16 @@ describe("GET /api/admin/sections/:key", () => {
     expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
   });
 
+  test("q 는 100자까지만 받는다", async () => {
+    seedAdmin(kit.state, "view", "admissionResults");
+    kit.db.tables.admission_results = [];
+    const over = await get({ key: "admissionResults", q: "가".repeat(101) });
+    expect(over.status).toBe(400);
+    expect(kit.db.calls).toHaveLength(0);
+    const edge = await get({ key: "admissionResults", q: "가".repeat(100) });
+    expect(edge.status).toBe(200);
+  });
+
   test("page 가 1 보다 작으면 400", async () => {
     seedAdmin(kit.state, "view", "admissionResults");
     kit.db.tables.admission_results = [];

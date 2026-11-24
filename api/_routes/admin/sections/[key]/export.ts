@@ -24,8 +24,9 @@ export default defineHandler({
   logLabel: "[admin/sections/export]",
   headers: { "Cache-Control": "no-store" },
   query: z.object({
-    from: z.coerce.number().int().min(0).default(0),
-    q: z.string().optional(),
+    // 조회 범위와 검색어 길이를 막아 비싼 쿼리를 못 보내게 한다(입결 43,170행의 수십 배).
+    from: z.coerce.number().int().min(0).max(1_000_000).default(0),
+    q: z.string().max(100).optional(),
   }),
   handler: async (req, res, ctx) => {
     const entry = sectionOf(req);
