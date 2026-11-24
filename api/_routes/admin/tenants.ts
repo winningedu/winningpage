@@ -28,12 +28,15 @@ const HQ_COLUMNS = `${BASE_COLUMNS}, contract_start_date, contract_end_date, gra
 const NOT_SUPER_ADMIN_CODE = "WC067";
 const NOT_SUPER_ADMIN_MESSAGE = "최고 관리자만 소속을 등록할 수 있습니다.";
 
-const createSchema = z.object({
-  name: z.string().trim().min(1),
-  region: z.string(),
-  org_type: z.string(),
-  tier: z.string(),
-});
+// 등록 화면이 만드는 네 칸만 받는다. 그 밖의 키는 400 이다.
+const createSchema = z
+  .object({
+    name: z.string().trim().min(1),
+    region: z.string(),
+    org_type: z.string(),
+    tier: z.string(),
+  })
+  .strict();
 
 async function listTenants(res: VercelResponse, ctx: HandlerCtx) {
   const hq = SITES[getSiteKey()].features.hqTenantAdmin;

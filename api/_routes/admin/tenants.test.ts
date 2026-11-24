@@ -208,6 +208,8 @@ describe("POST /api/admin/tenants", () => {
     ["지역 없음", { name: "한빛고", org_type: "학교", tier: "W" }],
     ["기관 유형이 문자열이 아님", { ...CREATE, org_type: 3 }],
     ["등급 없음", { name: "한빛고", region: "서울", org_type: "학교" }],
+    ["허용 목록에 없는 키", { ...CREATE, is_catch_all: true }],
+    ["created_by 같은 실제 칼럼", { ...CREATE, created_by: "x" }],
   ])("%s 이면 400 이고 만들지 않는다", async (_label, body) => {
     const r = await post(body);
 
