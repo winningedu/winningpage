@@ -234,6 +234,15 @@ describe("PUT /api/admin/tenants/service-settings", () => {
     });
   });
 
+  test("클라이언트가 updated_at 을 보내도 거절하지 않고 그 값은 쓰지 않는다", async () => {
+    const r = await put({ ...ROW, updated_at: "1999-01-01T00:00:00Z" });
+
+    expect(r.status).toBe(200);
+    expect(kit.userState.upserts[0]?.row).not.toMatchObject({
+      updated_at: "1999-01-01T00:00:00Z",
+    });
+  });
+
   test("끄기(enabled false)도 행은 그대로 upsert 한다", async () => {
     await put({ ...ROW, enabled: false });
 

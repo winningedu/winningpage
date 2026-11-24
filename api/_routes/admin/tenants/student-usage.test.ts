@@ -353,6 +353,25 @@ describe("PUT /api/admin/tenants/student-usage", () => {
     ]);
   });
 
+  test("안 보낸 한도 칸은 upsert 행에 키째 없다(기존 조정을 덮지 않는다)", async () => {
+    const r = await put({
+      rows: [
+        { profile_id: STUDENT, program_key: "diagnose", monthly_limit: 2 },
+        { profile_id: STUDENT, program_key: "growth", term_limit: null },
+      ],
+    });
+
+    expect(r.status).toBe(200);
+    const sent = kit.userState.upserts.map((u) => u.row) as unknown as Record<
+      string,
+      unknown
+    >[][];
+    expect(sent).toHaveLength(2);
+    expect(sent[0]?.[0]).not.toHaveProperty("term_limit");
+    expect(sent[1]?.[0]).not.toHaveProperty("monthly_limit");
+    expect(sent[1]?.[0]).toHaveProperty("term_limit", null);
+  });
+
   test("클라이언트가 보낸 updated_by 는 무시한다", async () => {
     await put({ rows: [{ ...ROWS[0], updated_by: "someone-else" }] });
 
