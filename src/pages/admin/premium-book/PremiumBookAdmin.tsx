@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router";
 import { PREMIUM_BOOK_PATH } from "./paths";
+import { PremiumBookFormPage } from "./PremiumBookFormPage";
 import { PremiumBookList } from "./PremiumBookList";
 import type { PremiumBookAdminConfig } from "./types";
 
@@ -14,6 +15,8 @@ export default function PremiumBookAdmin({
   return (
     <Routes>
       <Route index element={<PremiumBookList config={config} />} />
+      <Route path="new" element={<PremiumBookFormPage config={config} />} />
+      <Route path=":id" element={<PremiumBookFormPage config={config} />} />
       <Route path="*" element={<Navigate to={PREMIUM_BOOK_PATH} replace />} />
     </Routes>
   );

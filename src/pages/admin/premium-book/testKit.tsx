@@ -2,7 +2,11 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import {
+  createMemoryRouter,
+  type InitialEntry,
+  RouterProvider,
+} from "react-router";
 import { Toaster } from "@/components/ui/toast";
 import { mainConfigs } from "@/pages/admin/configs/main";
 import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
@@ -18,7 +22,9 @@ export const pageRow = (id: number, sortOrder: number) => ({
   updated_at: "2026-08-01T00:00:00Z",
 });
 
-export function renderPremiumBook(initialPath = "/admin/premiumBookPages") {
+export function renderPremiumBook(
+  initialEntry: InitialEntry = "/admin/premiumBookPages",
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -32,7 +38,7 @@ export function renderPremiumBook(initialPath = "/admin/premiumBookPages") {
       },
       { path: "/admin/other", element: <div>다른 화면</div> },
     ],
-    { initialEntries: [initialPath] },
+    { initialEntries: [initialEntry] },
   );
   const view = render(
     <QueryClientProvider client={client}>
