@@ -8,6 +8,7 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { studentSearchQueryOptions } from "@/pages/admin/shared/studentSearch";
 import { SERVICE_PROGRAMS } from "./serviceSettings";
 import {
@@ -182,6 +183,13 @@ export default function StudentUsageAdmin() {
             </li>
           ))}
         </ul>
+      )}
+
+      {viewedId && usageQuery.isPending && (
+        <AdminDetailSkeleton
+          rows={SERVICE_PROGRAMS.length}
+          label="사용 현황을 불러오는 중입니다."
+        />
       )}
 
       {usage && (
