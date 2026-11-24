@@ -36,6 +36,17 @@ export const resourceSchema = z.object({
   sort_order: z.number().optional(),
 });
 
+const permissionItemSchema = z.object({
+  resourceKey: z.string(),
+  level: levelSchema,
+});
+
+const staffDetailSchema = z.object({
+  member: directoryRowSchema,
+  overrides: z.array(permissionItemSchema),
+  effective: z.array(permissionItemSchema),
+});
+
 const staffListSchema = z.object({
   items: z.array(directoryRowSchema),
   roles: z.array(roleOptionSchema),
@@ -45,6 +56,8 @@ const staffListSchema = z.object({
 export type DirectoryRow = z.infer<typeof directoryRowSchema>;
 export type RoleOption = z.infer<typeof roleOptionSchema>;
 export type Resource = z.infer<typeof resourceSchema>;
+export type PermissionItem = z.infer<typeof permissionItemSchema>;
+export type StaffDetail = z.infer<typeof staffDetailSchema>;
 export type StaffList = z.infer<typeof staffListSchema>;
 
 export const staffKeys = {
@@ -57,3 +70,8 @@ const opts = (signal?: AbortSignal) => (signal ? { signal } : {});
 
 export const fetchStaffList = (signal?: AbortSignal) =>
   api.get("admin/staff", opts(signal)).json(staffListSchema);
+
+export const fetchStaffDetail = (profileId: string, signal?: AbortSignal) =>
+  api
+    .get(`admin/staff/${encodeURIComponent(profileId)}`, opts(signal))
+    .json(staffDetailSchema);

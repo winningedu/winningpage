@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, Route, Routes } from "react-router";
+import { Navigate, Route, Routes, useNavigate } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,45 +13,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ADMIN_MEMBER_STATUS_OPTIONS } from "@/pages/admin/configs/adminSettings";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { fetchStaffList, staffKeys } from "./api";
+import {
+  formatDate,
+  MEMBERS_PATH,
+  MemberDetailRoute,
+  STATUS_LABEL,
+} from "./MemberDetail";
 
 // ---------------------------------------------------------------------------
-// 관리자 관리(adminMembers) — 직원 목록 · 상세 · 초대.
+// 관리자 관리(adminMembers), 직원 목록, 상세, 초대.
 //
 // 와이어프레임(Figma 4572:7064 / 4572:7133 / 4572:7162):
 //   목록  번호 | 직원명 | 부서 | 이메일 | 전화번호 | 가입일 | 더보기
-//   상세  탭 2개 — 「직원 정보」 / 「개별 권한 설정」
+//   상세  탭 2개, 「직원 정보」 / 「개별 권한 설정」
 //
 // 「개별 권한 설정」은 권한 묶음을 덮어쓰는 사람 단위 예외다. 클라이언트 요구
 // ("이름별로 대표그룹을 설정하여 주고, 개별적으로 부분별 메뉴도 추가 혹은 제외를
 // 선택할 수 있게")의 뒷부분이 정확히 이 화면이다.
 //
-// 합산 규칙이 화면에 드러나야 오해가 없다 — 그래서 상세 하단에 **최종 권한**을
+// 합산 규칙이 화면에 드러나야 오해가 없다, 그래서 상세 하단에 **최종 권한**을
 // 함께 보여준다(fn_admin_effective_permissions). 묶음이 준 것과 개별로 더한 것을
 // 각각 보여주면 "그래서 이 사람이 지금 뭘 볼 수 있는데?"에 답할 수 없다.
 //
 // 목록, 상세, 개별 권한 탭은 각각 /admin/adminMembers 아래 주소를 가진다
 // (새로고침과 뒤로가기가 그대로 동작). 초대 패널은 목록의 화면 상태다.
 // ---------------------------------------------------------------------------
-
-export const MEMBERS_PATH = "/admin/adminMembers";
-
-const STATUS_LABEL: Record<string, string> = Object.fromEntries(
-  ADMIN_MEMBER_STATUS_OPTIONS.map((option) =>
-    typeof option === "object"
-      ? [option.value, option.label]
-      : [String(option), String(option)],
-  ),
-);
-
-export function formatDate(value?: string | null) {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value);
-  return d.toLocaleDateString("ko-KR");
-}
 
 interface AdminMembersAdminProps {
   config: { title: string; searchPlaceholder: string; [key: string]: unknown };
@@ -61,12 +49,17 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
   return (
     <Routes>
       <Route index element={<MemberList config={config} />} />
+      <Route
+        path=":profileId/:tab?"
+        element={<MemberDetailRoute config={config} />}
+      />
       <Route path="*" element={<Navigate to={MEMBERS_PATH} replace />} />
     </Routes>
   );
 }
 
 function MemberList({ config }: AdminMembersAdminProps) {
+  const navigate = useNavigate();
   const [keyword, setKeyword] = useState("");
 
   // 목록, 권한 묶음, 메뉴 목록은 한 응답으로 온다. 상세 새로고침도 같은 응답을 쓴다.
@@ -182,7 +175,18 @@ function MemberList({ config }: AdminMembersAdminProps) {
                   <TableCell className="px-4 py-3">
                     {formatDate(row.joined_at)}
                   </TableCell>
-                  <TableCell className="px-4 py-3" />
+                  <TableCell className="px-4 py-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        navigate(`${MEMBERS_PATH}/${row.profile_id}`)
+                      }
+                    >
+                      더보기
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {filteredRows.length === 0 && (
