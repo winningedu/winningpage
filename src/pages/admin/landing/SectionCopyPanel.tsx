@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import type { SectionKey } from "@/components/landing/useHomeSectionCopy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError, api } from "@/lib/http/client";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 
 // 랜딩에서 라벨(eyebrow)을 그리는 섹션만 라벨 입력창을 보인다.
 const SECTIONS_WITH_EYEBROW: SectionKey[] = ["services", "mentor"];
@@ -19,24 +20,18 @@ type SectionCopy = {
   title_sub: string | null;
 };
 
+const copyQueryKey = (sectionKey: SectionKey) =>
+  ["admin", "home-section-copy", sectionKey] as const;
+
 type SectionCopyPanelProps = { sectionKey: SectionKey };
 
 /** 랜딩 섹션 제목(큰제목/중제목/라벨)을 home_section_copy 한 행으로 편집한다. */
 export default function SectionCopyPanel({
   sectionKey,
 }: SectionCopyPanelProps) {
-  const [eyebrow, setEyebrow] = useState("");
-  const [titleMain, setTitleMain] = useState("");
-  const [titleSub, setTitleSub] = useState("");
-  const [status, setStatus] = useState<Status>(null);
-  const hasEyebrow = SECTIONS_WITH_EYEBROW.includes(sectionKey);
-
-  const queryClient = useQueryClient();
-  const queryKey = ["admin", "home-section-copy", sectionKey];
-
   // 404 는 아직 저장한 행이 없다는 뜻이라 빈 입력창으로 둔다.
-  const { data } = useQuery({
-    queryKey,
+  const { data, isPending } = useQuery({
+    queryKey: copyQueryKey(sectionKey),
     queryFn: async ({ signal }) => {
       try {
         return await api
@@ -50,12 +45,35 @@ export default function SectionCopyPanel({
     refetchOnWindowFocus: false,
   });
 
-  useEffect(() => {
-    if (!data) return;
-    setEyebrow(data.eyebrow ?? "");
-    setTitleMain(data.title_main);
-    setTitleSub(data.title_sub ?? "");
-  }, [data]);
+  // 응답이 온 뒤에만 입력창을 그리고 첫 값을 한 번만 심는다. 이후 재조회가 사용자가 쓴 글을 덮지 못한다.
+  if (isPending) {
+    return (
+      <div className="mb-6">
+        <AdminDetailSkeleton
+          rows={SECTIONS_WITH_EYEBROW.includes(sectionKey) ? 3 : 2}
+          label="섹션 제목을 불러오는 중입니다."
+        />
+      </div>
+    );
+  }
+  return (
+    <SectionCopyForm key={sectionKey} sectionKey={sectionKey} initial={data} />
+  );
+}
+
+function SectionCopyForm({
+  sectionKey,
+  initial,
+}: {
+  sectionKey: SectionKey;
+  initial: SectionCopy | null | undefined;
+}) {
+  const [eyebrow, setEyebrow] = useState(initial?.eyebrow ?? "");
+  const [titleMain, setTitleMain] = useState(initial?.title_main ?? "");
+  const [titleSub, setTitleSub] = useState(initial?.title_sub ?? "");
+  const [status, setStatus] = useState<Status>(null);
+  const hasEyebrow = SECTIONS_WITH_EYEBROW.includes(sectionKey);
+  const queryClient = useQueryClient();
 
   const save = useMutation({
     mutationFn: (json: Omit<SectionCopy, "section_key">) =>
@@ -63,7 +81,7 @@ export default function SectionCopyPanel({
         .put(`admin/home-section-copy/${sectionKey}`, { json })
         .json<SectionCopy>(),
     onSuccess: (row) => {
-      queryClient.setQueryData(queryKey, row);
+      queryClient.setQueryData(copyQueryKey(sectionKey), row);
       setStatus({ kind: "ok", message: "저장했습니다." });
     },
     onError: (error) =>
