@@ -1,4 +1,4 @@
-// GET /api/admin/tenants/student-usage 계약 검증(사 #166, 결정 r5, r6). serviceCreditAdjust view 권한으로
+// /api/admin/tenants/student-usage 계약 검증(사 #166, 결정 r5, r6). GET 은 serviceCreditAdjust view 와 tenants view 권한으로
 // 학생의 6개 서비스 사용 상태(fn_tenant_usage_state)와 기관 설정, 학생별 조정 원값을 돌려준다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -28,6 +28,16 @@ const TENANT = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 
 const get = (query: Record<string, string> = {}) =>
   callHandler(handler, undefined, "GET", query);
+
+// 관리자 판정(role)과 학생 조회가 profiles 읽기를 나눠 쓴다. 학생 행만 바꿀 때 쓴다.
+const withStudent =
+  (student: Record<string, unknown> | null) =>
+  (filters: Record<string, unknown>) =>
+    filters.id === "hq-1" ? { role: "admin" } : student;
+
+// 관리자 판정이 profiles 를 한 번 읽으므로 그 밖의 읽기만 센다.
+const dataReads = () =>
+  kit.state.reads.map((x) => x.table).filter((table) => table !== "profiles");
 
 function usageState(overrides: Record<string, unknown> = {}) {
   return {
@@ -60,8 +70,11 @@ beforeEach(() => {
     data: [usageState()],
     error: null,
   });
+  // 같은 profiles 읽기를 관리자 판정(role)과 학생 조회가 나눠 쓴다.
   kit.state.rows.profiles = (filters) =>
-    matchRows([{ id: STUDENT, tenant_id: TENANT }], filters)[0] ?? null;
+    filters.id === "hq-1"
+      ? { role: "admin" }
+      : (matchRows([{ id: STUDENT, tenant_id: TENANT }], filters)[0] ?? null);
   kit.state.rows.tenants = (filters) =>
     matchRows(
       [{ id: TENANT, name: "한빛고", is_catch_all: false }],
@@ -124,9 +137,9 @@ describe("GET /api/admin/tenants/student-usage", () => {
     const r = await get({ profileId: STUDENT });
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(r.body).toMatchObject({ status: 403, code: "FORBIDDEN" });
     expect(kit.state.events).not.toContain("rpc:fn_tenant_usage_state");
-    expect(kit.state.reads).toHaveLength(0);
+    expect(dataReads()).toHaveLength(0);
   });
 
   test("권한 조회가 아무것도 돌려주지 않으면 403 이고 아무것도 읽지 않는다", async () => {
@@ -138,8 +151,8 @@ describe("GET /api/admin/tenants/student-usage", () => {
     const r = await get({ profileId: STUDENT });
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
-    expect(kit.state.reads).toHaveLength(0);
+    expect(r.body).toMatchObject({ status: 403, code: "FORBIDDEN" });
+    expect(dataReads()).toHaveLength(0);
     expect(kit.state.events).not.toContain("rpc:fn_tenant_usage_state");
   });
 
@@ -149,24 +162,25 @@ describe("GET /api/admin/tenants/student-usage", () => {
     const r = await get({ profileId: STUDENT });
 
     expect(r.status).toBe(404);
-    expect(kit.state.reads).toHaveLength(0);
+    expect(r.body).toMatchObject({ code: "NOT_FOUND" });
+    expect(dataReads()).toHaveLength(0);
   });
 
   test("profileId 가 UUID 가 아니면 400", async () => {
     const r = await get({ profileId: "student-1" });
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(r.body).toMatchObject({ status: 400, code: "VALIDATION_FAILED" });
     expect(kit.state.events).not.toContain("rpc:fn_tenant_usage_state");
   });
 
   test("학생이 없으면 404", async () => {
-    kit.state.rows.profiles = () => null;
+    kit.state.rows.profiles = withStudent(null);
 
     const r = await get({ profileId: STUDENT });
 
     expect(r.status).toBe(404);
-    expect(r.body).toMatchObject({ error: { code: "NOT_FOUND" } });
+    expect(r.body).toMatchObject({ status: 404, code: "NOT_FOUND" });
   });
 
   test("6개 서비스를 사 #5 순서로 사용 상태와 원값으로 돌려준다", async () => {
@@ -178,6 +192,7 @@ describe("GET /api/admin/tenants/student-usage", () => {
       tenant: unknown;
       programs: Record<string, unknown>[];
     };
+    expect(body).not.toHaveProperty("ok");
     expect(body.tenant).toEqual({
       id: TENANT,
       name: "한빛고",
@@ -234,7 +249,7 @@ describe("GET /api/admin/tenants/student-usage", () => {
   });
 
   test("기관이 없는 학생은 tenant null 로 돌려주고 설정 원값은 비운다", async () => {
-    kit.state.rows.profiles = () => ({ id: STUDENT, tenant_id: null });
+    kit.state.rows.profiles = withStudent({ id: STUDENT, tenant_id: null });
     kit.state.rpc.fn_tenant_usage_state = () => ({
       data: [usageState({ allowed: false, deny_reason: "disabled" })],
       error: null,
