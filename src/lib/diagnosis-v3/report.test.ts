@@ -849,6 +849,8 @@ describe("11p 4주 플랜 and 12-15p 플래너 (22 r101-r113)", () => {
     const { p11, p12, p15 } = pages;
     expect(p11.title).toBe(COPY_TEXT.PLAN_HEAD);
     expect(p11.lead).toBe(COPY_TEXT.PLAN_LEAD);
+    // q21 weekend 2 = "1~2시간" (item 9)
+    expect(p11.numbers.weekend).toBe("1~2시간");
     // PDF p11 "실행 긴급도 10점, 낮음": 22 B102 title and the points
     expect(p11.urgency).toEqual({
       title: "실행 긴급도",

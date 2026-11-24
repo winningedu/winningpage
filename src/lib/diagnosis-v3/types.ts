@@ -891,6 +891,8 @@ export type Page11 = {
     readonly logMinutes: number;
     readonly rates: readonly number[];
     readonly minLoad: string;
+    /** q21 weekend option label; absent in reports stored before it existed */
+    readonly weekend?: string;
   };
   /** 22 r106, absent when nothing applies */
   readonly styleTips?: readonly string[];

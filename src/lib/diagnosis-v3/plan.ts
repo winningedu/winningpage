@@ -414,6 +414,7 @@ export function buildPlanPage(
   plan: Plan,
   diagnosedAt: IsoDate,
   schedule: DiagnosisV3Answers["q13"],
+  weekend?: Ordinal,
 ): Pick<Page11, "table" | "numbers" | "events" | "checkpoints"> {
   const within = eventsBetween(diagnosedAt, schedule, 1, LAST_DAY);
   const after = plan.afterEvents.map(eventLine).join(", ");
@@ -423,6 +424,9 @@ export function buildPlanPage(
     return taskText(plan, task);
   };
   const [c1, c2, c3] = plan.columns;
+  const weekendLabel = OPTIONS.q21Weekend.find(
+    (o) => o.ordinal === weekend,
+  )?.label;
   return {
     // 22 r104: 3 columns x 4 weeks, PLAN_REDUCE on reduced weeks, PLAN_RULE_NOTE
     table: {
@@ -459,6 +463,7 @@ export function buildPlanPage(
       logMinutes: LOG_MINUTES,
       rates: RATES,
       minLoad: fillCopy("plan.minload", { min: plan.minLoad }),
+      ...(weekendLabel === undefined ? {} : { weekend: weekendLabel }),
     },
   };
 }
