@@ -60,16 +60,6 @@ export const includeInternalQuery = z.object({
     .transform((value) => value === "1"),
 });
 
-/** includeInternal 은 "1"(포함) 또는 "0", 없으면 기본 제외. 그 밖의 값은 null. */
-export function parseIncludeInternal(
-  raw: string | string[] | undefined,
-): boolean | null {
-  if (raw === undefined) return false;
-  if (raw === "1") return true;
-  if (raw === "0") return false;
-  return null;
-}
-
 /** PostgREST 는 timestamptz 를 +00:00 로 주므로 ISO Z 로 맞춘다. */
 function toIsoZ(value: string | null): string | null {
   return value ? new Date(value).toISOString() : null;
