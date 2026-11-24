@@ -2253,15 +2253,22 @@ async function maybeCompressImage(file: File, field: Partial<AdminField> = {}) {
   }
 }
 
-function toFileList(
-  files: File | File[] | FileList | null | undefined,
-): File[] {
+type UploadInput =
+  | File
+  | (File | null | undefined)[]
+  | FileList
+  | null
+  | undefined;
+
+function toFileList(files: UploadInput): File[] {
   // 배열이면 그대로(원본 그대로 — Boolean 필터를 태우지 않는다), 아니면
   // (단일 File 또는 falsy) [files]로 감싸 Boolean 필터를 태운다 — 실제
   // 호출부는 항상 File[] 아니면 단일 File만 넘긴다(uploadMultiple이 미리
   // Array.from으로 변환), FileList는 파라미터 계약(AdminUploadHandler)에만
   // 존재하는 여유분이라 as File[]로 좁힌다.
-  return Array.isArray(files) ? files : ([files].filter(Boolean) as File[]);
+  return Array.isArray(files)
+    ? (files as File[])
+    : ([files].filter(Boolean) as File[]);
 }
 
 // 파일 하나의 업로드 전 준비(규격 검사, 압축, 압축 뒤 용량 검사). 올리면 안 되면 null.
@@ -2371,7 +2378,7 @@ export async function uploadImage(
 // 폼에는 임시 읽기 주소를 넣는다(저장 때 서버가 banners 로 옮기고 주소를 바꾼다).
 export async function uploadSectionFiles(
   sectionKey: string,
-  files: File | File[] | FileList | null | undefined,
+  files: UploadInput,
   field: Partial<AdminField> = {},
 ): Promise<AdminUploadedFile[]> {
   const fileList = toFileList(files);
