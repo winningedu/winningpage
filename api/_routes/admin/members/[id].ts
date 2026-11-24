@@ -6,8 +6,13 @@
 // 소속(tenant_id)은 fn_admin_set_profile_tenant 전용이라 members/:id/tenant 로 간다.
 
 import { z } from "zod";
-import { defineHandler, parseOrReject } from "../../../_lib/handler.js";
 import {
+  defineHandler,
+  parseOrReject,
+  requireUserId,
+} from "../../../_lib/handler.js";
+import {
+  canViewTenantNames,
   sendMemberNotFound,
   withTenantName,
 } from "../../../_lib/members/member.js";
@@ -41,6 +46,7 @@ export default defineHandler({
   handler: async (req, res, ctx) => {
     const admin = ctx.supabaseAdmin;
     const { id } = ctx.query;
+    const canViewTenants = await canViewTenantNames(admin, requireUserId(ctx));
 
     if (req.method === "GET") {
       const { data, error } = await admin
@@ -50,7 +56,7 @@ export default defineHandler({
         .maybeSingle();
       if (error) throw new Error("profile read failed");
       if (!data) return sendMemberNotFound(res);
-      res.status(200).json(await withTenantName(admin, data));
+      res.status(200).json(await withTenantName(admin, data, canViewTenants));
       return;
     }
 
@@ -73,6 +79,6 @@ export default defineHandler({
       .maybeSingle();
     if (error) throw new Error("profile update failed");
     if (!data) return sendMemberNotFound(res);
-    res.status(200).json(await withTenantName(admin, data));
+    res.status(200).json(await withTenantName(admin, data, canViewTenants));
   },
 });

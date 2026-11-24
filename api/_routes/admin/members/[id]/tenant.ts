@@ -7,9 +7,10 @@
 import { z } from "zod";
 import { SITES } from "../../../../../src/config/sites.js";
 import { getBearerToken } from "../../../../_lib/adminAuth.js";
-import { defineHandler } from "../../../../_lib/handler.js";
+import { defineHandler, requireUserId } from "../../../../_lib/handler.js";
 import { sendError } from "../../../../_lib/httpResponse.js";
 import {
+  canViewTenantNames,
   findMemberStub,
   withTenantName,
 } from "../../../../_lib/members/member.js";
@@ -37,6 +38,8 @@ export default defineHandler({
     const { tenantId } = ctx.body;
     const member = await findMemberStub(admin, res, id);
     if (!member) return;
+    // 쓰기 전에 조회해 둔다(쓴 뒤에 권한 조회가 실패해 500 이 되지 않게).
+    const canViewTenants = await canViewTenantNames(admin, requireUserId(ctx));
 
     const siteKey = getSiteKey();
     if (
@@ -111,6 +114,6 @@ export default defineHandler({
       .eq("id", id)
       .maybeSingle();
     if (readError || !data) throw new Error("profile re-read failed");
-    res.status(200).json(await withTenantName(admin, data));
+    res.status(200).json(await withTenantName(admin, data, canViewTenants));
   },
 });

@@ -52,7 +52,7 @@ const TABLES = {
 
 beforeEach(() => {
   kit.state = createKitState();
-  kit.db = seedMembersDb(kit.state, "view", TABLES);
+  kit.db = seedMembersDb(kit.state, "view", TABLES, "view");
 });
 
 describe("GET /api/admin/members", () => {
@@ -76,6 +76,35 @@ describe("GET /api/admin/members", () => {
       (c) => c.table === "profiles" && c.op === "select" && c.orders.length > 0,
     );
     expect(read?.orders).toEqual([["created_at", false]]);
+  });
+
+  test("tenants 보기 권한이 없으면 tenant_name 은 null 이고 tenants 를 읽지 않는다", async () => {
+    kit.db = seedMembersDb(kit.state, "view", TABLES);
+
+    const r = await get();
+
+    expect(r.status).toBe(200);
+    const items = (r.body as { items: Record<string, unknown>[] }).items;
+    expect(items.find((x) => x.id === MEMBER_ID)).toMatchObject({
+      tenant_id: "t-1",
+      tenant_name: null,
+    });
+    expect(kit.db.calls.some((c) => c.table === "tenants")).toBe(false);
+  });
+
+  test("tenants 권한 조회가 실패하면 null 로 흘리지 않고 500 이다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const perms = kit.state.rpc.fn_admin_effective_permissions;
+    let n = 0;
+    kit.state.rpc.fn_admin_effective_permissions = (args) =>
+      ++n === 1
+        ? (perms?.(args) ?? { data: [], error: null })
+        : { data: null, error: { message: "boom" } };
+
+    const r = await get();
+
+    expect(r.status).toBe(500);
+    expect(r.body).toMatchObject({ code: "INTERNAL_ERROR" });
   });
 
   test("members 권한이 없으면 403 이고 회원을 읽지 않는다", async () => {

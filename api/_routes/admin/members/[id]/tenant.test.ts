@@ -55,7 +55,7 @@ const rpcCalls: Record<string, unknown>[] = [];
 beforeEach(() => {
   vi.stubEnv("SITE", "schoolmentor");
   kit.state = createKitState();
-  kit.db = seedMembersDb(kit.state, "edit", TABLES);
+  kit.db = seedMembersDb(kit.state, "edit", TABLES, "view");
   kit.userState = createKitState();
   kit.userClientTokens.length = 0;
   rpcCalls.length = 0;
@@ -89,6 +89,16 @@ describe("PUT /api/admin/members/:id/tenant", () => {
       { p_profile_id: MEMBER_ID, p_tenant_id: TENANT },
     ]);
     expect(kit.state.events).not.toContain("rpc:fn_admin_set_profile_tenant");
+  });
+
+  test("tenants 보기 권한이 없으면 응답의 tenant_name 은 null 이고 tenants 를 읽지 않는다", async () => {
+    kit.db = seedMembersDb(kit.state, "edit", TABLES);
+
+    const r = await put({ tenantId: TENANT });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ tenant_id: TENANT, tenant_name: null });
+    expect(kit.db.calls.some((c) => c.table === "tenants")).toBe(false);
   });
 
   test("학생이 아니면 소속 없음(null)으로 바꿀 수 있다", async () => {

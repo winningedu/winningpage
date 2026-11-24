@@ -2,15 +2,32 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
+import { hasSectionPermission } from "../adminPermission.js";
 import { sendError } from "../httpResponse.js";
 
 export type MemberRow = Record<string, unknown> & { tenant_id?: string | null };
 
-/** profiles 한 행에 소속 이름(tenants.name, 소속이 없거나 못 찾으면 빈 문자열)을 얹는다. */
+/**
+ * 호출자가 tenants 보기 권한이 있는지. 예전에는 브라우저가 tenants 를 직접 읽었고 RLS 가 권한 없는 관리자에게 0행을 줬다.
+ * 조회 실패는 던진다(권한 없음으로 오인해 null 로 흘리지 않는다).
+ */
+export function canViewTenantNames(
+  admin: SupabaseClient,
+  profileId: string,
+): Promise<boolean> {
+  return hasSectionPermission(admin, profileId, "tenants", "view");
+}
+
+/**
+ * profiles 한 행에 소속 이름(tenants.name, 소속이 없거나 못 찾으면 빈 문자열)을 얹는다.
+ * tenants 보기 권한이 없으면 tenants 를 읽지 않고 null 이다(tenant_id 는 profiles 열이라 그대로 둔다).
+ */
 export async function withTenantName(
   admin: SupabaseClient,
   profile: MemberRow,
+  canViewTenants: boolean,
 ): Promise<MemberRow> {
+  if (!canViewTenants) return { ...profile, tenant_name: null };
   if (!profile.tenant_id) return { ...profile, tenant_name: "" };
   const { data, error } = await admin
     .from("tenants")

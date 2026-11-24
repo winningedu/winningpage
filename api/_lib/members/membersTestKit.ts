@@ -14,13 +14,24 @@ export const OTHER_ID = "6c2d3b4c-5e6f-4071-9b8c-0d1e2f3a4b5c";
 
 type Row = Record<string, unknown>;
 
-/** members 권한 등급을 심고, 관리자 본인 프로필(role admin)을 profiles 맨 앞에 둔 메모리 DB 를 만든다. */
+/** members(와 선택으로 tenants) 권한 등급을 심고, 관리자 본인 프로필(role admin)을 profiles 맨 앞에 둔 메모리 DB 를 만든다. */
 export function seedMembersDb(
   state: KitState,
   level: "view" | "edit" | "none",
   tables: Record<string, Row[]> = {},
+  tenantsLevel: "view" | "edit" | "none" = "none",
 ): SectionDb {
   seedAdmin(state, level, "members");
+  // 소속 이름은 tenants 보기 권한이 있어야 나가므로 두 메뉴 권한을 함께 심는다.
+  state.rpc.fn_admin_effective_permissions = () => ({
+    data: [
+      ...(level === "none" ? [] : [{ resource_key: "members", level }]),
+      ...(tenantsLevel === "none"
+        ? []
+        : [{ resource_key: "tenants", level: tenantsLevel }]),
+    ],
+    error: null,
+  });
   return createSectionDb({
     ...tables,
     profiles: [

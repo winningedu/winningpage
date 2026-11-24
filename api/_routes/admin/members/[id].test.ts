@@ -49,12 +49,12 @@ const writes = () => kit.db.calls.filter((c) => c.op !== "select");
 
 beforeEach(() => {
   kit.state = createKitState();
-  kit.db = seedMembersDb(kit.state, "edit", TABLES);
+  kit.db = seedMembersDb(kit.state, "edit", TABLES, "view");
 });
 
 describe("GET /api/admin/members/:id", () => {
   test("view 권한이면 회원 한 명에 소속 이름을 얹어 돌려준다", async () => {
-    kit.db = seedMembersDb(kit.state, "view", TABLES);
+    kit.db = seedMembersDb(kit.state, "view", TABLES, "view");
 
     const r = await call("GET", MEMBER_ID);
 
@@ -66,11 +66,34 @@ describe("GET /api/admin/members/:id", () => {
     });
   });
 
+  test("tenants 보기 권한이 없으면 tenant_name 은 null 이고 tenants 를 읽지 않는다", async () => {
+    kit.db = seedMembersDb(kit.state, "view", TABLES);
+    const r = await call("GET", MEMBER_ID);
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ tenant_id: "t-1", tenant_name: null });
+    expect(kit.db.calls.some((c) => c.table === "tenants")).toBe(false);
+  });
+
+  test("tenants 권한 조회가 실패하면 500 이다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const perms = kit.state.rpc.fn_admin_effective_permissions;
+    let n = 0;
+    kit.state.rpc.fn_admin_effective_permissions = (args) =>
+      ++n === 1
+        ? (perms?.(args) ?? { data: [], error: null })
+        : { data: null, error: { message: "boom" } };
+    const r = await call("GET", MEMBER_ID);
+    expect(r.status).toBe(500);
+    expect(r.body).toMatchObject({ code: "INTERNAL_ERROR" });
+  });
+
   test("소속이 없으면 tenant_name 은 빈 문자열", async () => {
-    kit.db = seedMembersDb(kit.state, "view", {
-      ...TABLES,
-      profiles: [{ id: OTHER_ID, tenant_id: null }],
-    });
+    kit.db = seedMembersDb(
+      kit.state,
+      "view",
+      { ...TABLES, profiles: [{ id: OTHER_ID, tenant_id: null }] },
+      "view",
+    );
 
     const r = await call("GET", OTHER_ID);
 
@@ -131,6 +154,14 @@ describe("PATCH /api/admin/members/:id", () => {
       values: { member_category: "VIP", guardian_phone: null },
       filters: [["id", "eq", MEMBER_ID]],
     });
+  });
+
+  test("tenants 보기 권한이 없으면 PATCH 응답의 tenant_name 도 null 이다", async () => {
+    kit.db = seedMembersDb(kit.state, "edit", TABLES);
+    const r = await call("PATCH", MEMBER_ID, { member_category: "VIP" });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ member_category: "VIP", tenant_name: null });
+    expect(kit.db.calls.some((c) => c.table === "tenants")).toBe(false);
   });
 
   test("한 열만 보내면 그 열만 쓴다", async () => {
