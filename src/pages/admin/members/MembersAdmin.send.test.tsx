@@ -1,5 +1,4 @@
-// MembersAdmin 문자 발송 실패 안내. 우리 서버가 관리자용으로 쓴 detail 은 그대로 보이고,
-// 우리 JSON 이 아닌 응답 원문(HTTP 상태, HTML 등)은 일반 안내로 대체된다.
+// MembersAdmin 문자 발송. 성공하면 이력을 다시 읽고, 실패하면 서버가 관리자용으로 쓴 안내를 그대로 보인다.
 
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -21,10 +20,6 @@ vi.mock("@/lib/http/client", async (importOriginal) => ({
   api: http,
 }));
 
-vi.mock("@/pages/admin/shared/adminSession", () => ({
-  getFreshSupabaseAccessTokenOrSignOut: vi.fn().mockResolvedValue("tok"),
-}));
-
 vi.mock("@/pages/admin/shared/AdminEngine", () => ({
   AdminTable: ({
     rows,
@@ -43,6 +38,8 @@ vi.mock("@/pages/admin/shared/AdminEngine", () => ({
   ),
 }));
 
+import { toast } from "@/components/ui/toast";
+import { ApiError } from "@/lib/http/client";
 import { renderMembers, routeApi } from "./testHelpers";
 
 const KIM = {
@@ -57,57 +54,111 @@ beforeEach(() => {
   routeApi(http.get, {
     "admin/members": { items: [KIM] },
     "admin/members/p-student": KIM,
-    "admin/members/p-student/links": { items: [] },
     "admin/members/p-student/messages": { items: [] },
-    "admin/tenant-options": { items: [] },
   });
 });
 
 afterEach(() => {
+  toast.close();
   vi.restoreAllMocks();
-  vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
-async function sendWith(response: Response) {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
-  renderMembers();
-  fireEvent.click(await screen.findByRole("button", { name: "열기 김학생" }));
-  fireEvent.click(await screen.findByRole("tab", { name: /알림톡.문자/ }));
-  fireEvent.change(await screen.findByRole("textbox"), {
-    target: { value: "안내드립니다" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "발송" }));
+const messageCalls = () =>
+  http.get.mock.calls.filter(
+    (call) => call[0] === "admin/members/p-student/messages",
+  );
+
+async function writeMessage(text: string) {
+  renderMembers("/admin/members/p-student/msg");
+  const box = await screen.findByRole("textbox", { name: "메시지 내용" });
+  fireEvent.change(box, { target: { value: text } });
+  return box;
 }
 
+const send = () =>
+  fireEvent.click(screen.getByRole("button", { name: "발송" }));
+const title = () => document.querySelector('[data-slot="toast-title"]');
 const description = () =>
   document.querySelector('[data-slot="toast-description"]');
 
-test("발송이 서버 detail 과 함께 실패하면 그 detail 을 토스트로 보인다", async () => {
-  await sendWith(
-    new Response(
-      JSON.stringify({ detail: "수신 번호가 등록되지 않았습니다." }),
-      {
-        status: 400,
-      },
-    ),
+test("발송하면 profileId 와 내용만 보내고 성공을 알린 뒤 입력을 비우고 이력을 다시 읽는다", async () => {
+  http.post.mockReturnValue({
+    json: async () => ({ channel: "SMS", logId: 1 }),
+  });
+  const box = await writeMessage(" 안내드립니다 ");
+  await waitFor(() => expect(messageCalls()).toHaveLength(1));
+
+  send();
+
+  await waitFor(() =>
+    expect(http.post).toHaveBeenCalledWith("admin/send-message", {
+      json: { profileId: "p-student", text: "안내드립니다" },
+    }),
   );
+  await waitFor(() => expect(title()).toHaveTextContent("발송했습니다 (SMS)."));
+  expect(box).toHaveValue("");
+  await waitFor(() => expect(messageCalls()).toHaveLength(2));
+});
+
+test("내용이 비어 있으면 보내지 않고 안내한다", async () => {
+  await writeMessage("   ");
+
+  send();
+
+  await waitFor(() =>
+    expect(title()).toHaveTextContent("보낼 내용을 입력해 주세요."),
+  );
+  expect(http.post).not.toHaveBeenCalled();
+});
+
+test("발송이 서버 detail 과 함께 실패하면 그 detail 을 토스트로 보인다", async () => {
+  http.post.mockReturnValue({
+    json: async () => {
+      throw new ApiError({
+        status: 400,
+        code: "BAD_REQUEST",
+        detail: "수신자 연락처가 없습니다.",
+      });
+    },
+  });
+  await writeMessage("안내드립니다");
+
+  send();
 
   await waitFor(() => {
-    expect(
-      document.querySelector('[data-slot="toast-title"]'),
-    ).toHaveTextContent("발송 실패");
-    expect(description()).toHaveTextContent("수신 번호가 등록되지 않았습니다.");
+    expect(title()).toHaveTextContent("발송 실패");
+    expect(description()).toHaveTextContent("수신자 연락처가 없습니다.");
   });
 });
 
-test("발송 응답이 우리 JSON 이 아니면 본문 원문 없이 일반 안내를 보인다", async () => {
-  await sendWith(
-    new Response("<html>Bad Gateway upstream-host-7</html>", { status: 502 }),
-  );
-
-  await waitFor(() => {
-    expect(description()).toHaveTextContent("요청을 처리하지 못했습니다.");
+test("우리 JSON 이 아닌 응답이면 본문 원문 없이 일반 안내를 보인다", async () => {
+  http.post.mockReturnValue({
+    json: async () => {
+      throw new ApiError({
+        status: 502,
+        code: "HTTP_502",
+        detail: "요청을 처리하지 못했어요.",
+      });
+    },
   });
-  expect(document.body.textContent).not.toContain("upstream-host-7");
+  await writeMessage("안내드립니다");
+
+  send();
+
+  await waitFor(() =>
+    expect(description()).toHaveTextContent("요청을 처리하지 못했어요."),
+  );
   expect(document.body.textContent).not.toContain("HTTP 502");
+});
+
+test("발송하는 동안 버튼이 잠긴다", async () => {
+  http.post.mockReturnValue({ json: () => new Promise(() => {}) });
+  await writeMessage("안내드립니다");
+
+  send();
+
+  expect(
+    await screen.findByRole("button", { name: "보내는 중..." }),
+  ).toBeDisabled();
 });

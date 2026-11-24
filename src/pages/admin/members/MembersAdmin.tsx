@@ -45,13 +45,10 @@ import {
   type ProgramAccessRow,
   patchMember,
   putMemberTenant,
+  sendMemberMessage,
 } from "@/pages/admin/members/api";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
-import {
-  AdminApiError,
-  reportAdminError,
-} from "@/pages/admin/shared/adminErrors";
-import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import {
   toastError,
   toastSuccess,
@@ -521,7 +518,6 @@ function MemberDetail({
   }, [tenantOptions.error]);
 
   const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
   // 회원구분(QA 186) — dev 가 제네릭 폼 필드로 추가했는데 이 화면이 custom 으로
   // 바뀌면서 그 폼이 사라졌다. 목록에 값만 뜨고 고칠 데가 없으면 요구가 반쪽이라
   // 여기서 인라인으로 편집한다. 고정 목록이 아니라 자유 텍스트다(DB CHECK 없음).
@@ -582,8 +578,20 @@ function MemberDetail({
   // 자유 문구 발송 — 알림톡이 아니라 SMS/LMS 다(알림톡은 승인 템플릿 본문만
   // 보낼 수 있다). 90바이트를 넘으면 서버가 LMS 로 올려 보내고 단가가 3배
   // 이상이라, 아래 폼이 바이트 수를 실시간으로 보여준다.
-  async function sendMessage() {
-    if (sending) return;
+  const sendMutation = useMutation({
+    mutationFn: (text: string) => sendMemberMessage(member.id, text),
+    onSuccess: async (result) => {
+      setDraft("");
+      await queryClient.invalidateQueries({
+        queryKey: memberKeys.messages(member.id),
+      });
+      toastSuccess(`발송했습니다 (${result.channel}).`);
+    },
+    onError: (error) => reportAdminError("발송 실패", error),
+  });
+
+  function sendMessage() {
+    if (sendMutation.isPending) return;
 
     const text = draft.trim();
     if (!text) {
@@ -591,40 +599,7 @@ function MemberDetail({
       return;
     }
 
-    setSending(true);
-
-    try {
-      const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-      const response = await fetch("/api/admin/send-message", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        // phone 은 넘기지 않는다 — 마스킹 상태면 화면이 원문을 모른다.
-        // 서버가 profileId 로 직접 읽는다.
-        body: JSON.stringify({ profileId: member.id, text }),
-      });
-
-      // 우리 JSON 이 아닌 본문(HTML 등)은 detail 없이 빈 객체로 둔다.
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw result?.detail
-          ? new AdminApiError(result.detail)
-          : new Error(`HTTP ${response.status}`);
-      }
-
-      setDraft("");
-      await queryClient.invalidateQueries({
-        queryKey: memberKeys.messages(member.id),
-      });
-      toastSuccess(`발송했습니다 (${result.channel}).`);
-    } catch (error) {
-      reportAdminError("발송 실패", error as Error);
-    } finally {
-      setSending(false);
-    }
+    sendMutation.mutate(text);
   }
 
   // 회원구분과 학부모 핸드폰은 각자 그 필드만 PATCH 로 보낸다.
@@ -895,7 +870,7 @@ function MemberDetail({
               draft={draft}
               setDraft={setDraft}
               onSend={sendMessage}
-              sending={sending}
+              sending={sendMutation.isPending}
             />
           ) : (
             <PayPane
