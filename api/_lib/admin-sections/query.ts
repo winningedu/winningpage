@@ -1,7 +1,15 @@
 // 섹션 엔진 서버 쪽 규칙. 화면(Admin.tsx buildListQuery, saveRow)이 브라우저에서 하던 일을 옮겼다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { PROTECTED_COLUMNS, type SectionEntry } from "./registry.js";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { z } from "zod";
+import { RouteParamError } from "../handler.js";
+import { sendError } from "../httpResponse.js";
+import {
+  getSection,
+  PROTECTED_COLUMNS,
+  type SectionEntry,
+} from "./registry.js";
 
 interface ListOptions {
   q?: string;
@@ -239,4 +247,72 @@ export function mapDbError(
     default:
       return null;
   }
+}
+
+/** 경로의 섹션 키로 레지스트리 항목을 찾는다. 모르는 키는 400 VALIDATION_FAILED(RouteParamError). */
+export function sectionOf(req: VercelRequest): SectionEntry {
+  const entry = getSection(String(req.query.key ?? ""));
+  if (!entry) throw new RouteParamError("key", "알 수 없는 섹션입니다.");
+  return entry;
+}
+
+/** 메뉴 권한 키 = 섹션 키. 권한 판정보다 먼저 키를 검증해 모르는 키가 403 으로 보이지 않게 한다. */
+export function sectionPermissionKey(req: VercelRequest): string {
+  sectionOf(req);
+  return String(req.query.key);
+}
+
+const valuesBody = z.object({ values: z.record(z.string(), z.unknown()) });
+
+/** 쓰기 요청 본문의 values 객체. 없거나 객체가 아니면 400 VALIDATION_FAILED. */
+export function valuesOf(req: VercelRequest): Values {
+  const parsed = valuesBody.safeParse(req.body);
+  if (!parsed.success) {
+    throw new RouteParamError("values", "values 객체가 필요합니다.");
+  }
+  return parsed.data.values;
+}
+
+/** 이 섹션에서 허용하지 않는 동작(읽기 전용 섹션 쓰기, 등록 불가 섹션 등록 등). */
+export function notAllowed(message: string): never {
+  throw new RouteParamError("key", message);
+}
+
+/** payload 정리 실패(모르는 키, 잘못된 구분)를 400 VALIDATION_FAILED 로 보낸다. */
+export function sendRejectedPayload(
+  res: VercelResponse,
+  rejected: Extract<PayloadResult, { ok: false }>,
+): void {
+  const errors = rejected.badCategory
+    ? [
+        {
+          path: "values.category",
+          message: "수시 또는 정시 구분을 선택해 주세요.",
+        },
+      ]
+    : rejected.unknownKeys.map((column) => ({
+        path: `values.${column}`,
+        message: "저장할 수 없는 항목입니다.",
+      }));
+  sendError(
+    res,
+    "problem",
+    400,
+    "요청 값이 올바르지 않아요.",
+    "VALIDATION_FAILED",
+    { errors },
+  );
+}
+
+/** 쓰기 쿼리 오류를 계약대로 응답한다. 매핑에 없는 오류는 던져 500 이 된다(원문은 로그에만). */
+export function failWrite(
+  res: VercelResponse,
+  error: DbErrorLike,
+  label: string,
+): void {
+  const mapped = mapDbError(error);
+  if (!mapped) throw new Error(`${label} failed (${error.code ?? "unknown"})`);
+  sendError(res, "problem", mapped.status, mapped.detail, mapped.code, {
+    columns: mapped.columns,
+  });
 }

@@ -170,6 +170,20 @@ class Builder {
   }
 }
 
+/** 관리자 로그인 + 그 메뉴 키 권한 등급을 심는다(none 이면 권한 행이 없다). */
+export function seedAdmin(
+  state: KitState,
+  level: "view" | "edit" | "none",
+  menuKey: string,
+) {
+  state.user = { id: "admin-1", email: "admin@example.com" };
+  state.rows.profiles = () => ({ role: "admin" });
+  state.rpc.fn_admin_effective_permissions = () => ({
+    data: level === "none" ? [] : [{ resource_key: menuKey, level }],
+    error: null,
+  });
+}
+
 /** 섹션 테이블은 메모리 DB 로, 나머지(rpc, auth, profiles)는 consoleTestKit 가짜로 보낸다. */
 export function createSectionAdmin(state: KitState, db: SectionDb) {
   const base = createFakeAdmin(state);
