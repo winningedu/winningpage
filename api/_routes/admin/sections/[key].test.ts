@@ -8,6 +8,7 @@ import {
   type SectionDb,
   seedAdmin,
 } from "../../../_lib/admin-sections/sectionTestKit.js";
+import { createFakeStorage } from "../../../_lib/admin-uploads/storageTestKit.js";
 import {
   callHandler,
   createKitState,
@@ -17,11 +18,15 @@ import {
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   db: null as unknown as SectionDb,
+  fake: null as unknown as { storage: unknown },
 }));
 
 vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   isSupabaseConfigError: () => false,
-  createSupabaseAdmin: () => createSectionAdmin(kit.state, kit.db),
+  createSupabaseAdmin: () => ({
+    ...createSectionAdmin(kit.state, kit.db),
+    storage: kit.fake.storage,
+  }),
 }));
 
 import handler from "./[key].js";
@@ -39,6 +44,7 @@ const rows = (count: number) =>
 beforeEach(() => {
   kit.state = createKitState();
   kit.db = createSectionDb({});
+  kit.fake = createFakeStorage();
 });
 
 describe("GET /api/admin/sections/:key", () => {
@@ -157,6 +163,69 @@ describe("POST /api/admin/sections/:key", () => {
     expect(r.body).toMatchObject({ question: "q", answer: "a" });
     const insert = kit.db.calls.find((c) => c.op === "insert");
     expect(insert?.values).toEqual({ question: "q", answer: "a" });
+  });
+
+  describe("임시 업로드", () => {
+    const UUID = "123e4567-e89b-12d3-a456-426614174000";
+    const NAME = `${UUID}.image_url.hero.png`;
+    const tmpUrl = (name: string) =>
+      `https://storage.test/storage/v1/object/sign/admin-uploads-tmp/${name}?token=t`;
+    const fake = () => kit.fake as ReturnType<typeof createFakeStorage>;
+
+    test("임시 URL 을 banners 로 옮기고 공개 URL 을 저장한다", async () => {
+      kit.fake = createFakeStorage({ "admin-uploads-tmp": [NAME] });
+      seedAdmin(kit.state, "edit", "banners");
+      kit.db.tables.banners = [];
+
+      const r = await post("banners", {
+        values: { title: "t", image_url: tmpUrl(NAME) },
+      });
+
+      const publicUrl = `https://storage.test/storage/v1/object/public/banners/landing/hero/${UUID}-hero.png`;
+      expect(r.status).toBe(201);
+      expect(r.body).toMatchObject({ image_url: publicUrl });
+      const insert = kit.db.calls.find((c) => c.op === "insert");
+      expect(insert?.values).toEqual({ title: "t", image_url: publicUrl });
+      expect(fake().names("banners")).toEqual([
+        `landing/hero/${UUID}-hero.png`,
+      ]);
+    });
+
+    test("임시 파일이 사라졌으면 409 UPLOAD_EXPIRED 이고 DB 를 건드리지 않는다", async () => {
+      seedAdmin(kit.state, "edit", "banners");
+      kit.db.tables.banners = [{ id: "b1", sort_order: 1 }];
+
+      const r = await post("banners", {
+        values: { sort_order: 1, image_url: tmpUrl(NAME) },
+      });
+
+      expect(r.status).toBe(409);
+      expect(r.body).toMatchObject({
+        code: "UPLOAD_EXPIRED",
+        detail: "올린 파일이 만료됐어요. 파일을 다시 올려 주세요.",
+      });
+      expect(kit.db.calls).toHaveLength(0);
+    });
+
+    test("이 섹션 업로드 필드가 아닌 필드의 임시 파일은 400 이다", async () => {
+      kit.fake = createFakeStorage({
+        "admin-uploads-tmp": [`${UUID}.logo_url.x.png`],
+      });
+      seedAdmin(kit.state, "edit", "banners");
+      kit.db.tables.banners = [];
+      const r = await post("banners", {
+        values: { image_url: tmpUrl(`${UUID}.logo_url.x.png`) },
+      });
+      expect(r.status).toBe(400);
+      expect(kit.db.calls).toHaveLength(0);
+    });
+
+    test("임시 URL 이 없는 저장은 스토리지를 부르지 않는다", async () => {
+      seedAdmin(kit.state, "edit", "faqs");
+      kit.db.tables.faqs = [];
+      await post("faqs", { values: { question: "q" } });
+      expect(fake().calls).toHaveLength(0);
+    });
   });
 
   test("보기 권한만 있으면 403 이고 쓰지 않는다", async () => {
