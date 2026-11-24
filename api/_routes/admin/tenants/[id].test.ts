@@ -1,4 +1,4 @@
-// /api/admin/tenants/detail 계약 검증. GET 은 기관 한 곳의 행을, PATCH 는 updated_at 낙관적 잠금으로 기관 정보를 고친다.
+// /api/admin/tenants/:id 계약 검증. GET 은 기관 한 곳의 행을, PATCH 는 updated_at 낙관적 잠금으로 기관 정보를 고친다.
 // 수정은 관리자 본인 토큰 클라이언트로 한다(tenants 계약 칼럼 변경 이력 트리거가 auth.uid() 를 변경자로 남긴다).
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -32,14 +32,16 @@ vi.mock("../../../_lib/supabaseUser.js", () => ({
   },
 }));
 
-import handler from "./detail.js";
+import handler from "./[id].js";
 
 const TENANT = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 const LOADED_AT = "2026-11-20T01:02:03.456789+00:00";
 
+// 디스패처가 경로의 :id 를 req.query.id 에 넣어 준다(경로 값이 쿼리스트링 값을 덮어쓴다).
 const get = (query: Record<string, string> = { id: TENANT }) =>
   callHandler(handler, undefined, "GET", query);
-const patch = (body: unknown) => callHandler(handler, body, "PATCH");
+const patch = (body: unknown, id: string = TENANT) =>
+  callHandler(handler, body, "PATCH", { id });
 
 const ROW = {
   id: TENANT,
@@ -69,7 +71,7 @@ const VALUES = {
   main_phone: "02-765-4321",
   homepage: "https://school.example.com",
 };
-const BODY = { id: TENANT, updatedAt: LOADED_AT, values: VALUES };
+const BODY = { updatedAt: LOADED_AT, values: VALUES };
 
 function grant(level: "view" | "edit" | "none" | null) {
   kit.state.rpc.fn_admin_effective_permissions = () => ({
@@ -94,7 +96,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("GET /api/admin/tenants/detail", () => {
+describe("GET /api/admin/tenants/:id", () => {
   test.each([
     ["권한 없음", null],
     ["tenants none", "none" as const],
@@ -136,7 +138,7 @@ describe("GET /api/admin/tenants/detail", () => {
   });
 });
 
-describe("PATCH /api/admin/tenants/detail", () => {
+describe("PATCH /api/admin/tenants/:id", () => {
   const saved = [
     { id: TENANT, updated_at: "2026-11-24T05:00:00.000000+00:00" },
   ];
@@ -263,11 +265,9 @@ describe("PATCH /api/admin/tenants/detail", () => {
 
   test.each([
     ["본문 없음", undefined],
-    ["id 없음", { updatedAt: LOADED_AT, values: VALUES }],
-    ["uuid 가 아닌 id", { ...BODY, id: "tenant-7" }],
-    ["updatedAt 없음", { id: TENANT, values: VALUES }],
+    ["updatedAt 없음", { values: VALUES }],
     ["빈 updatedAt", { ...BODY, updatedAt: "" }],
-    ["values 없음", { id: TENANT, updatedAt: LOADED_AT }],
+    ["values 없음", { updatedAt: LOADED_AT }],
     ["이름이 공백뿐", { ...BODY, values: { ...VALUES, name: "  " } }],
     ["빠진 칸", { ...BODY, values: { ...VALUES, homepage: undefined } }],
     ["학기 길이 4", { ...BODY, values: { ...VALUES, term_months: 4 } }],
@@ -293,6 +293,25 @@ describe("PATCH /api/admin/tenants/detail", () => {
     expect(r.status).toBe(400);
     expect(r.body).toMatchObject({ status: 400, code: "VALIDATION_FAILED" });
     expect(kit.userClientTokens).toHaveLength(0);
+  });
+
+  test("경로 id 가 uuid 가 아니면 400 이고 쓰지 않는다", async () => {
+    const r = await patch(BODY, "tenant-7");
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(kit.userClientTokens).toHaveLength(0);
+  });
+
+  test("본문에 id 를 실어 보내도 경로 id 만 쓴다", async () => {
+    const other = "8a2d3b4c-5e6f-4071-9b8c-0d1e2f3a4b5c";
+
+    await patch({ ...BODY, id: other });
+
+    expect(kit.userState.updates[0]?.filters).toEqual({
+      id: TENANT,
+      updated_at: LOADED_AT,
+    });
   });
 
   test("선택 칸을 비우면(null) 그대로 쓴다", async () => {

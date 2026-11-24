@@ -1,7 +1,7 @@
-// GET   /api/admin/tenants/detail?id=
-// PATCH /api/admin/tenants/detail  { id, updatedAt, values }
+// GET   /api/admin/tenants/:id
+// PATCH /api/admin/tenants/:id  { updatedAt, values }
 //
-// 기관 상세(TenantDetail). GET 은 기관 한 곳의 행을 돌려준다. PATCH 는 화면이 불러온 updated_at 이 그대로일 때만 고친다(낙관적 잠금).
+// 기관 상세(TenantDetail). id 는 경로에서 오고(디스패처가 req.query.id 에 넣는다) 본문에는 없다. GET 은 기관 한 곳의 행을 돌려준다. PATCH 는 화면이 불러온 updated_at 이 그대로일 때만 고친다(낙관적 잠금).
 // 고칠 칸은 values 의 목록뿐이라 소속 코드(code)와 기타 기관 표시(is_catch_all)는 쓸 수 없다. 날짜 순서는 DB 제약
 // (tenants_contract_order, tenants_grace_after_end, tenants_trial_order)이 막고 위반하면 400 으로 알린다.
 // 수정은 관리자 본인 토큰 클라이언트로 한다. 계약 칼럼 변경 이력 트리거가 auth.uid() 를 변경자로 남기고, RLS 가 메뉴 권한이다.
@@ -45,7 +45,8 @@ const CHECK_VIOLATIONS = [
   },
 ];
 
-const getQuerySchema = z.object({ id: z.guid() });
+// 경로 id 검증. 본문에 id 가 있어도 스키마가 버려서 경로 값만 쓴다.
+const idSchema = z.object({ id: z.guid() });
 
 const date = z
   .string()
@@ -55,7 +56,6 @@ const text = z.string().nullable();
 
 // 형식 규칙은 form.ts 와 같다. 칸은 tenantPayload 가 돌려주는 것 그대로이고 비운 선택 항목은 null 이다.
 const patchBodySchema = z.object({
-  id: z.guid(),
   updatedAt: z.string().min(1),
   values: z.object({
     name: z.string().trim().min(1),
@@ -99,9 +99,9 @@ async function readTenant(
   res: VercelResponse,
   ctx: HandlerCtx,
 ) {
-  const parsed = parseOrReject(res, "problem", getQuerySchema, req.query);
+  const parsed = parseOrReject(res, "problem", idSchema, req.query);
   if (!parsed) return;
-  const { id } = parsed.value as z.output<typeof getQuerySchema>;
+  const { id } = parsed.value as z.output<typeof idSchema>;
 
   const { data, error } = await ctx.supabaseAdmin
     .from("tenants")
@@ -121,9 +121,13 @@ async function updateTenant(
   res: VercelResponse,
   ctx: HandlerCtx,
 ) {
+  // 본문보다 경로 id 를 먼저 검증해 잘못된 주소면 쓰기 전에 막는다.
+  const idParsed = parseOrReject(res, "problem", idSchema, req.query);
+  if (!idParsed) return;
+  const { id } = idParsed.value as z.output<typeof idSchema>;
   const parsed = parseOrReject(res, "problem", patchBodySchema, req.body);
   if (!parsed) return;
-  const { id, updatedAt, values } = parsed.value as z.output<
+  const { updatedAt, values } = parsed.value as z.output<
     typeof patchBodySchema
   >;
 
@@ -177,7 +181,7 @@ export default defineHandler({
   errorShape: "problem",
   permission: { key: "tenants" },
   unhandledMessage: "기관 정보를 처리하지 못했습니다.",
-  logLabel: "[admin/tenants/detail]",
+  logLabel: "[admin/tenants/id]",
   headers: { "Cache-Control": "no-store" },
   handler: async (req, res, ctx) => {
     if (req.method === "PATCH") {
