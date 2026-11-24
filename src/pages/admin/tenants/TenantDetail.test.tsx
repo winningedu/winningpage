@@ -115,7 +115,7 @@ function renderDetail(path = "/admin/tenants/tenant-7") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  const invalidate = vi.spyOn(client, "invalidateQueries");
+  const reset = vi.spyOn(client, "resetQueries");
   const router = createMemoryRouter(
     [
       { path: "/admin/tenants", element: <div>기관 목록 화면</div> },
@@ -129,7 +129,7 @@ function renderDetail(path = "/admin/tenants/tenant-7") {
       <ConfirmAdminHost />
     </QueryClientProvider>,
   );
-  return { router, invalidate };
+  return { router, reset };
 }
 
 const SAVE = () => screen.getByRole("button", { name: "저장" });
@@ -198,7 +198,7 @@ describe("TenantDetail 기관 정보 탭", () => {
   });
 
   test("저장은 id 와 불러온 updatedAt 과 값을 보내고 소속코드는 보내지 않는다", async () => {
-    const { invalidate } = renderDetail();
+    const { reset } = renderDetail();
     fireEvent.change(await screen.findByDisplayValue("한빛고"), {
       target: { value: "한빛고등학교" },
     });
@@ -222,8 +222,8 @@ describe("TenantDetail 기관 정보 탭", () => {
     expect(Object.keys(db.patches[0]?.values ?? {})).not.toContain("code");
     expect(await screen.findByText("저장했어요.")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "한빛고등학교" })).toBeTruthy();
-    // 저장하면 목록이 낡은 값을 보이지 않게 다시 받는다.
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: tenantKeys.list() });
+    // 저장하면 목록이 낡은 값을 보이지 않게 비우고 스켈레톤 뒤에 다시 받는다.
+    expect(reset).toHaveBeenCalledWith({ queryKey: tenantKeys.list() });
   });
 
   test("저장 뒤 다시 저장하면 서버가 돌려준 새 updatedAt 을 보낸다", async () => {
@@ -283,7 +283,7 @@ describe("TenantDetail 기관 정보 탭", () => {
       "CONFLICT",
       "다른 관리자가 먼저 고쳤어요. 새로 불러온 뒤 다시 저장해 주세요.",
     );
-    const { invalidate } = renderDetail();
+    const { reset } = renderDetail();
     await screen.findByDisplayValue("한빛고");
     fireEvent.click(SAVE());
 
@@ -292,7 +292,7 @@ describe("TenantDetail 기관 정보 탭", () => {
         "다른 관리자가 먼저 고쳤어요. 새로 불러온 뒤 다시 저장해 주세요.",
       ),
     ).toBeTruthy();
-    expect(invalidate).not.toHaveBeenCalled();
+    expect(reset).not.toHaveBeenCalled();
   });
 
   test("403 FORBIDDEN 이면 권한 안내를 보인다", async () => {

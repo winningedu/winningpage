@@ -182,7 +182,7 @@ function TenantDetailBody({
             submitted.term_months ? Number(submitted.term_months) : null,
           );
           setMessage("저장했어요.");
-          queryClient.invalidateQueries({ queryKey: tenantKeys.list() });
+          queryClient.resetQueries({ queryKey: tenantKeys.list() });
         },
         onError: (error) => setMessage(saveErrorMessage(error)),
       },
