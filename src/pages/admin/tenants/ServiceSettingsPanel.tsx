@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/lib/supabase";
 import { ActionButton } from "@/pages/admin/shared/formFields";
+import { fetchServiceSettings, putServiceSetting } from "./api";
 import {
   buildServiceRows,
   enableRow,
@@ -11,10 +12,11 @@ import {
   type UsageDefaults,
   validateServiceRow,
 } from "./serviceSettings";
+import { tenantKeys } from "./tenantQueries";
 
 // ---------------------------------------------------------------------------
 // 기관 서비스 설정 탭(사 #160, #164, #166, 결정 r5, r6, 98.1, 102.10, 102.16).
-// 설정은 서버 경로가 아니라 브라우저 세션(RLS)으로 바로 쓴다. 변경 이력 트리거가 auth.uid() 로 변경자를 남기기 때문이다.
+// 조회와 저장은 서버 경로(admin/tenants/service-settings)로 한다. 변경자는 서버가 세션에서 채운다.
 // 행 삭제 권한은 없다. 끄기는 enabled=false 이고, 한도를 비우면 상한 없음이다.
 // ---------------------------------------------------------------------------
 
@@ -37,46 +39,63 @@ export default function ServiceSettingsPanel({
   termMonths,
   isCatchAll,
 }: ServiceSettingsPanelProps) {
-  const [rows, setRows] = useState<ServiceRowForm[]>([]);
-  const [defaults, setDefaults] = useState<UsageDefaults>({});
-  const [loaded, setLoaded] = useState(false);
-  const [loadFailed, setLoadFailed] = useState(false);
+  // 폼 상태가 조회 결과로 한 번 만들어지므로, 다시 들어오면 캐시를 쓰지 않고 새로 받는다.
+  const query = useQuery({
+    queryKey: tenantKeys.serviceSettings(tenantId),
+    queryFn: ({ signal }) => fetchServiceSettings(tenantId, signal),
+    enabled: !isCatchAll,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  });
+
+  if (isCatchAll) {
+    return (
+      <div className="bg-white p-6 text-sm font-medium text-gray-600 shadow-sm">
+        기타 기관은 서비스를 제공하지 않아요.
+      </div>
+    );
+  }
+  if (!query.data) {
+    return (
+      <div className="bg-white p-6 text-sm font-medium text-gray-500 shadow-sm">
+        {query.isError
+          ? "서비스 설정을 불러오지 못했어요."
+          : "데이터를 불러오는 중입니다."}
+      </div>
+    );
+  }
+  return (
+    <ServiceSettingsForm
+      tenantId={tenantId}
+      termMonths={termMonths}
+      settings={query.data.items}
+      defaults={query.data.defaults}
+    />
+  );
+}
+
+interface ServiceSettingsFormProps {
+  tenantId: string;
+  termMonths: number | null;
+  settings: SettingRow[];
+  defaults: UsageDefaults;
+}
+
+function ServiceSettingsForm({
+  tenantId,
+  termMonths,
+  settings,
+  defaults,
+}: ServiceSettingsFormProps) {
+  const [rows, setRows] = useState<ServiceRowForm[]>(() =>
+    buildServiceRows(settings),
+  );
   const [messages, setMessages] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isCatchAll) return;
-    let alive = true;
-    (async () => {
-      const [settings, defaultRow] = await Promise.all([
-        supabase
-          .from("tenant_service_settings")
-          .select(
-            "program_key, enabled, starts_on, ends_on, monthly_limit, term_limit",
-          )
-          .eq("tenant_id", tenantId),
-        supabase
-          .from("app_settings")
-          .select("value")
-          .eq("key", "b2b_usage_defaults")
-          .maybeSingle(),
-      ]);
-      if (!alive) return;
-      if (settings.error || defaultRow.error) {
-        setLoadFailed(true);
-        return;
-      }
-      setRows(buildServiceRows((settings.data ?? []) as SettingRow[]));
-      setDefaults(
-        ((defaultRow.data as { value?: UsageDefaults } | null)?.value ??
-          {}) as UsageDefaults,
-      );
-      setLoaded(true);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [tenantId, isCatchAll]);
+  const saveMutation = useMutation({
+    mutationFn: (body: Parameters<typeof putServiceSetting>[0]) =>
+      putServiceSetting(body),
+  });
 
   function patchRow(programKey: string, patch: Partial<ServiceRowForm>) {
     setRows((prev) =>
@@ -103,7 +122,7 @@ export default function ServiceSettingsPanel({
     );
   }
 
-  async function save(row: ServiceRowForm) {
+  function save(row: ServiceRowForm) {
     if (saving) return;
     const invalid = validateServiceRow(row);
     if (invalid) {
@@ -112,46 +131,19 @@ export default function ServiceSettingsPanel({
     }
     setSaving(row.programKey);
     setMessage(row.programKey, "");
-    const { data } = await supabase.auth.getSession();
-    const userId = data.session?.user.id;
-    if (!userId) {
-      setSaving(null);
-      setMessage(row.programKey, SAVE_ERROR);
-      return;
-    }
-    const { error } = await supabase
-      .from("tenant_service_settings")
-      .upsert(
-        settingPayload(
-          tenantId,
-          termMonths === null ? { ...row, termLimit: "" } : row,
-          userId,
-        ),
-        { onConflict: "tenant_id,program_key" },
-      );
-    setSaving(null);
-    if (error) {
-      setMessage(row.programKey, SAVE_ERROR);
-      return;
-    }
-    patchRow(row.programKey, { saved: true });
-    setMessage(row.programKey, "저장했어요.");
-  }
-
-  if (isCatchAll) {
-    return (
-      <div className="bg-white p-6 text-sm font-medium text-gray-600 shadow-sm">
-        기타 기관은 서비스를 제공하지 않아요.
-      </div>
-    );
-  }
-  if (loadFailed || !loaded) {
-    return (
-      <div className="bg-white p-6 text-sm font-medium text-gray-500 shadow-sm">
-        {loadFailed
-          ? "서비스 설정을 불러오지 못했어요."
-          : "데이터를 불러오는 중입니다."}
-      </div>
+    saveMutation.mutate(
+      settingPayload(
+        tenantId,
+        termMonths === null ? { ...row, termLimit: "" } : row,
+      ),
+      {
+        onSuccess: () => {
+          patchRow(row.programKey, { saved: true });
+          setMessage(row.programKey, "저장했어요.");
+        },
+        onError: () => setMessage(row.programKey, SAVE_ERROR),
+        onSettled: () => setSaving(null),
+      },
     );
   }
 
