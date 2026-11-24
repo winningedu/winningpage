@@ -1,6 +1,15 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterEach, vi } from "vitest";
+
+// 관리자 쓰기 감사 행(defineHandler 가 응답 뒤에 적재)은 라우트 테스트의 insert 단언에 섞이지 않게 기본으로 끈다.
+// 감사 동작은 api/_lib/handler.audit.test.ts 가 vi.unmock 으로 실제 모듈을 써서 검증한다.
+vi.mock("./api/_lib/accessLog/adminWrite.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("./api/_lib/accessLog/adminWrite.js")
+  >()),
+  scheduleAdminWriteAudit: () => {},
+}));
 
 afterEach(() => {
   cleanup();

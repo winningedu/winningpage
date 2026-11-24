@@ -2,6 +2,7 @@
 
 import { describe, expect, test } from "vitest";
 import {
+  actionsOfKind,
   contentSummary,
   kindLabel,
   kindOf,
@@ -27,12 +28,16 @@ const ALL_ACTIONS = [
   "proxy_end",
   "settings_change",
   "member_purge",
+  "create",
+  "delete",
 ];
 
 describe("kindOf", () => {
   test("CHECK 에 있는 모든 동작이 구분을 가진다", () => {
     for (const action of ALL_ACTIONS) {
-      expect(["view", "edit", "export", "proxy"]).toContain(kindOf(action));
+      expect(["view", "edit", "create", "delete", "export", "proxy"]).toContain(
+        kindOf(action),
+      );
     }
   });
 
@@ -41,6 +46,8 @@ describe("kindOf", () => {
     ["report_view", "조회"],
     ["unmask", "조회"],
     ["update", "수정"],
+    ["create", "등록"],
+    ["delete", "삭제"],
     ["settings_change", "수정"],
     ["account_reissue", "수정"],
     ["password_set", "수정"],
@@ -52,6 +59,13 @@ describe("kindOf", () => {
     ["proxy_end", "대행"],
   ])("%s 는 %s", (action, label) => {
     expect(kindLabel(kindOf(action))).toBe(label);
+  });
+});
+
+describe("actionsOfKind", () => {
+  test("등록과 삭제 구분은 각자의 동작만 돌려준다", () => {
+    expect(actionsOfKind("create")).toEqual(["create"]);
+    expect(actionsOfKind("delete")).toEqual(["delete"]);
   });
 });
 

@@ -47,6 +47,8 @@ export default defineHandler({
   auth: "admin",
   errorShape: "problem",
   permission: { key: MEMBERS_RESOURCE_KEY },
+  // writeConsoleAuditLog 가 update 행을 직접 남긴다.
+  audit: false,
   unhandledMessage: "학생을 옮기지 못했습니다.",
   logLabel: "[admin/tenants/move-student]",
   headers: { "Cache-Control": "no-store" },

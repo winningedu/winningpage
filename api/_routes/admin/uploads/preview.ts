@@ -22,6 +22,8 @@ export default defineHandler({
   auth: "admin",
   errorShape: "problem",
   permission: { key: uploadSectionKey },
+  // 서명 주소만 만들고 데이터를 바꾸지 않아 조회로 남긴다.
+  audit: { action: "view" },
   unhandledMessage: "미리보기 주소를 만들지 못했습니다.",
   logLabel: "[admin/uploads/preview]",
   headers: { "Cache-Control": "no-store" },

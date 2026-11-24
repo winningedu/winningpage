@@ -40,6 +40,8 @@ export default defineHandler({
   errorShape: "problem",
   permission: { key: "goalStudents" },
   body: z.object({ profileId: z.string().uuid() }),
+  // 기존 학생 기록을 되돌리는 리셋이라 수정으로 남긴다.
+  audit: { action: "update" },
   unhandledMessage: "처리 중 오류가 발생했습니다.",
   logLabel: "goal/admin/reset-student",
   handler: async (_req, res, ctx) => {
