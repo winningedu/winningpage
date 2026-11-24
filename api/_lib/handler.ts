@@ -14,6 +14,11 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { z } from "zod";
 import { resolveAdmin, resolveWinningAdmin } from "./adminAuth.js";
+import {
+  type AdminLevel,
+  assertSectionPermission,
+  SectionPermissionDeniedError,
+} from "./adminPermission.js";
 import { type ConsoleActor, resolveConsoleActor } from "./console/actor.js";
 import { isAuthorizedCron } from "./cronAuth.js";
 import { resolveUser } from "./httpAuth.js";
@@ -161,6 +166,14 @@ export interface DefineHandlerOptions<
    * 데이터를 바꾸지 않는 POST(미리보기, 내려받기와 출력 기록)만 켠다.
    */
   allowReadOnlyProxy?: boolean;
+  /**
+   * auth:"admin" 전용 메뉴 권한(사용법은 adminPermission.ts 상단). key 는 메뉴 키이거나 요청에서 뽑는 함수다.
+   * level 생략 시 GET, HEAD 는 view, 나머지는 edit.
+   */
+  permission?: {
+    key: string | ((req: VercelRequest) => string);
+    level?: AdminLevel;
+  };
   /** 미처리 예외(500) 응답 문구 — 라우트마다 달라 필수로 받는다. */
   unhandledMessage: string;
   /** errorShape가 "coded"일 때만 쓰는 500 코드. */
@@ -215,6 +228,10 @@ export function defineHandler<
   B extends ZodSchema | undefined = undefined,
   Q extends ZodSchema | undefined = undefined,
 >(opts: DefineHandlerOptions<B, Q>) {
+  // 다른 auth 모드에 붙이면 조용히 무시되므로 정의 시점에 막는다.
+  if (opts.permission && opts.auth !== "admin") {
+    throw new Error('defineHandler: permission 은 auth:"admin" 에서만 쓴다.');
+  }
   return async (req: VercelRequest, res: VercelResponse): Promise<void> => {
     // ctx.supabaseAdmin은 lazy getter다 — 실제로 접근하는 시점에만
     // createSupabaseAdmin()을 호출한다(내부적으로 module-level 싱글턴이라 여러
@@ -380,6 +397,18 @@ export function defineHandler<
         }
         ctx.userId = admin.userId;
         ctx.admin = { userId: admin.userId };
+
+        if (opts.permission) {
+          const { key, level } = opts.permission;
+          // 거부는 SectionPermissionDeniedError(403), 조회 오류는 일반 예외(500)로 아래 catch 가 응답한다.
+          await assertSectionPermission(
+            ctx.supabaseAdmin,
+            admin.userId,
+            typeof key === "function" ? key(req) : key,
+            level ??
+              (READ_ONLY_METHODS.has(req.method ?? "") ? "view" : "edit"),
+          );
+        }
       } else if (opts.auth === "winningAdmin") {
         const admin = await resolveWinningAdmin(
           ctx.supabaseAdmin,
@@ -443,16 +472,19 @@ export function defineHandler<
       }
       if (
         error instanceof InvalidTimeZoneError ||
-        error instanceof TimeZoneRequiredError
+        error instanceof TimeZoneRequiredError ||
+        error instanceof SectionPermissionDeniedError
       ) {
         sendError(
           res,
           opts.errorShape,
-          400,
+          error instanceof SectionPermissionDeniedError ? 403 : 400,
           error.message,
-          error instanceof InvalidTimeZoneError
-            ? INVALID_TIME_ZONE_CODE
-            : TIME_ZONE_REQUIRED_CODE,
+          error instanceof SectionPermissionDeniedError
+            ? FORBIDDEN_CODE
+            : error instanceof InvalidTimeZoneError
+              ? INVALID_TIME_ZONE_CODE
+              : TIME_ZONE_REQUIRED_CODE,
           opts.authFailureExtra,
         );
         return;

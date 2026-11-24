@@ -1,4 +1,8 @@
 import { site } from "@/config/site";
+import {
+  isSuperOnlySection,
+  permissionKeyFor,
+} from "./admin-permission/sections";
 import { getCached, setCached } from "./routeMiddlewareCache";
 import { supabase } from "./supabase";
 
@@ -23,25 +27,6 @@ export type AdminLevel = "view" | "edit";
 
 /** 메뉴 키 → 최종 권한. 여기 **없는 키는 접근 불가**다(규칙 3, default deny). */
 export type AdminPermissionMap = Map<string, AdminLevel>;
-
-/**
- * 최고 관리자 전용 메뉴.
- *
- * 시드상으로도 실무 관리자 묶음에는 이 그룹 항목이 하나도 없어(default deny) 이미
- * 막히지만, **누군가 개별 권한으로 이 키를 켜주면 뚫린다.** 직원 등록·권한 조정은
- * 되돌리기 어려운 작업이라 묶음 설정과 무관하게 여기서 한 겹 더 잠근다
- * (사용자 지시 2026-08-23).
- */
-const SUPER_ONLY_SECTIONS = new Set(["adminMembers", "adminRoles"]);
-
-/**
- * 별도 권한 행 없이 다른 메뉴 키의 권한을 같이 쓰는 메뉴(결정 102.8). 스쿨멘토(hqTenantAdmin)에만 있는 화면이라
- * 사이트 플래그가 꺼져 있으면 권한이 있어도 열지 않는다. 서버 API 도 같은 tenants 권한을 본다.
- */
-const SECTION_PERMISSION_ALIAS: Record<string, string> = {
-  memberPurge: "tenants",
-  memberPurgeLogs: "tenants",
-};
 
 const PERMISSIONS_CACHE_KIND = "admin-permissions";
 const SUPER_CACHE_KIND = "admin-is-super";
@@ -109,8 +94,7 @@ export function canAccessSection(
   isSuperAdmin: boolean,
   sectionKey: string,
 ): boolean {
-  if (SUPER_ONLY_SECTIONS.has(sectionKey)) return isSuperAdmin;
-  const alias = SECTION_PERMISSION_ALIAS[sectionKey];
-  if (alias) return site.features.hqTenantAdmin && permissions.has(alias);
-  return permissions.has(sectionKey);
+  if (isSuperOnlySection(sectionKey)) return isSuperAdmin;
+  const key = permissionKeyFor(sectionKey, () => site.features.hqTenantAdmin);
+  return key !== null && permissions.has(key);
 }
