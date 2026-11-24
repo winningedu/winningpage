@@ -52,7 +52,7 @@ export interface KitState {
   reads: {
     table: string;
     /** select(열 목록) 에 넘긴 문자열. */
-    columns?: string;
+    columns?: string | undefined;
     orderBy?: { column: string; ascending: boolean };
     limit?: number;
     /** range(from, to) 를 건 경우의 양 끝(포함). */
