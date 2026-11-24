@@ -5,7 +5,7 @@
 // 지점 4가지를 우선 커버한다: 완성도 재정규화(과제 0건), 시간대 버킷(심야 0~6 경계),
 // 달성률 분모(effectiveWindow), 코호트 백분위(표본 부족 판정).
 
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import {
   bucketTimeSlots,
@@ -24,6 +24,7 @@ import {
   deriveGradeSystem,
   diffDaysInclusive,
   lastDayOfMonthYmd,
+  listReportPeriodOptions,
   percentileToGrade,
   resolveMonthlyPeriod,
   resolveWeeklyPeriod,
@@ -442,4 +443,66 @@ test("computeAdmissionDelta — 상승/하락 방향과 절대값", () => {
   expect(result.upper.susi.delta.value).toBe("2.50%");
   expect(result.upper.jeongsi.delta.direction).toBe("down");
   expect(result.upper.jeongsi.rate).toBe(14);
+});
+
+describe("listReportPeriodOptions", () => {
+  test("주간: 시작일이 속한 주부터 현재 주까지 최신순이고 현재 주에 접두어가 붙는다", () => {
+    expect(
+      listReportPeriodOptions("weekly", "2026-11-04", "2026-11-24"),
+    ).toEqual([
+      { value: "2026-11-23", label: "이번 주 11.23 ~ 11.29" },
+      { value: "2026-11-16", label: "11.16 ~ 11.22" },
+      { value: "2026-11-09", label: "11.9 ~ 11.15" },
+      { value: "2026-11-02", label: "11.2 ~ 11.8" },
+    ]);
+  });
+
+  test("주간: 월 경계를 넘는 주는 양끝 월을 각각 표시한다", () => {
+    const options = listReportPeriodOptions(
+      "weekly",
+      "2026-10-28",
+      "2026-11-03",
+    );
+    expect(options.map((o) => o.label)).toEqual([
+      "이번 주 11.2 ~ 11.8",
+      "10.26 ~ 11.1",
+    ]);
+  });
+
+  test("주간: 현재 연도와 다른 해에 걸친 주는 연도를 붙인다", () => {
+    const options = listReportPeriodOptions(
+      "weekly",
+      "2025-12-20",
+      "2026-01-06",
+    );
+    expect(options).toEqual([
+      { value: "2026-01-05", label: "이번 주 1.5 ~ 1.11" },
+      { value: "2025-12-29", label: "2025.12.29 ~ 2026.1.4" },
+      { value: "2025-12-22", label: "2025.12.22 ~ 2025.12.28" },
+      { value: "2025-12-15", label: "2025.12.15 ~ 2025.12.21" },
+    ]);
+  });
+
+  test("주간: 시작일이 오늘 이후면 현재 주 하나만 돌려준다", () => {
+    expect(
+      listReportPeriodOptions("weekly", "2026-12-30", "2026-11-24"),
+    ).toEqual([{ value: "2026-11-23", label: "이번 주 11.23 ~ 11.29" }]);
+  });
+
+  test("월간: 연도를 넘어 최신순이고 현재 달에 접두어가 붙는다", () => {
+    expect(
+      listReportPeriodOptions("monthly", "2025-11-15", "2026-02-10"),
+    ).toEqual([
+      { value: "2026-02", label: "이번 달 2026년 2월" },
+      { value: "2026-01", label: "2026년 1월" },
+      { value: "2025-12", label: "2025년 12월" },
+      { value: "2025-11", label: "2025년 11월" },
+    ]);
+  });
+
+  test("월간: 시작일이 오늘 이후면 현재 달 하나만 돌려준다", () => {
+    expect(
+      listReportPeriodOptions("monthly", "2027-01-01", "2026-11-24"),
+    ).toEqual([{ value: "2026-11", label: "이번 달 2026년 11월" }]);
+  });
 });

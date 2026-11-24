@@ -183,6 +183,65 @@ export function resolveMonthlyPeriod(
   return { periodKey: ym, start, end, periodLabel: `${start} ~ ${end}` };
 }
 
+export interface ReportPeriodOption {
+  value: string;
+  label: string;
+}
+
+function mdLabel(ymd: string, withYear: boolean): string {
+  const [y, m, d] = ymd.split("-").map(Number) as [number, number, number];
+  return withYear ? `${y}.${m}.${d}` : `${m}.${d}`;
+}
+
+/**
+ * 리포트 기간 선택 목록(최신순). startYmd 가 속한 기간부터 nowYmd 가 속한 기간까지다.
+ * startYmd 가 오늘 이후이면 현재 기간 하나만 돌려준다. 값은 resolveWeeklyPeriod /
+ * resolveMonthlyPeriod 의 periodKey 와 같다(주간 = 월요일 YMD, 월간 = YYYY-MM).
+ * 라벨은 순수 달력 문자열이다.
+ */
+export function listReportPeriodOptions(
+  type: "weekly" | "monthly",
+  startYmd: string,
+  nowYmd: string,
+): ReportPeriodOption[] {
+  const nowYear = nowYmd.slice(0, 4);
+  const options: ReportPeriodOption[] = [];
+  if (type === "monthly") {
+    const first = startYmd > nowYmd ? nowYmd.slice(0, 7) : startYmd.slice(0, 7);
+    let [y, m] = nowYmd.slice(0, 7).split("-").map(Number) as [number, number];
+    for (;;) {
+      const key = `${y}-${String(m).padStart(2, "0")}`;
+      const label = `${y}년 ${m}월`;
+      options.push({
+        value: key,
+        label: options.length === 0 ? `이번 달 ${label}` : label,
+      });
+      if (key <= first) break;
+      m -= 1;
+      if (m === 0) {
+        y -= 1;
+        m = 12;
+      }
+    }
+    return options;
+  }
+  const firstMonday = getMondayYMD(startYmd > nowYmd ? nowYmd : startYmd);
+  let monday = getMondayYMD(nowYmd);
+  for (;;) {
+    const end = addDaysYMD(monday, 6);
+    const withYear =
+      monday.slice(0, 4) !== nowYear || end.slice(0, 4) !== nowYear;
+    const label = `${mdLabel(monday, withYear)} ~ ${mdLabel(end, withYear)}`;
+    options.push({
+      value: monday,
+      label: options.length === 0 ? `이번 주 ${label}` : label,
+    });
+    if (monday <= firstMonday) break;
+    monday = addDaysYMD(monday, -7);
+  }
+  return options;
+}
+
 export interface EffectiveWindow {
   start: string | null | undefined;
   end: string | null | undefined;

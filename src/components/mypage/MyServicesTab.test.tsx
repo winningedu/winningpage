@@ -259,3 +259,59 @@ describe("MyServicesTab - 스쿨멘토 서비스 이름", () => {
     expect(screen.queryByText("위닝 학습진단")).not.toBeInTheDocument();
   });
 });
+
+describe("MyServicesTab - 이용 중인 학습진단 카드", () => {
+  const MULTI_SESSION_GRANT = {
+    id: "grant-multi",
+    program_key: "diagnose",
+    granted_sessions: 15,
+    granted_months: null,
+    starts_at: "2026-01-01T00:00:00Z",
+    expires_at: "2099-01-01T00:00:00Z",
+    first_accessed_at: "2026-01-02T00:00:00Z",
+  };
+
+  afterEach(() => {
+    state.grants = [];
+    state.ledger = [];
+    mockFetchLatestDiagnosisReport.mockReset();
+  });
+
+  it("리포트가 있으면 결과 리포트 보기와 검사하기를 함께 보여 준다", async () => {
+    state.grants = [MULTI_SESSION_GRANT];
+    state.ledger = [
+      { grant_id: "grant-multi", delta: -1 },
+      { grant_id: "grant-multi", delta: -1 },
+    ];
+    mockFetchLatestDiagnosisReport.mockResolvedValue({
+      attempt_id: "attempt-multi-3",
+      diagnosed_at: "2026-09-01T00:00:00Z",
+    });
+
+    renderTab();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("link", { name: "결과 리포트 보기" }),
+      ).toHaveAttribute("href", "/learning-diagnosis/report/attempt-multi-3"),
+    );
+    expect(screen.getByRole("link", { name: /검사하기/ })).toHaveAttribute(
+      "href",
+      "/app/learning-diagnosis/survey/1",
+    );
+  });
+
+  it("리포트가 없으면 검사하기만 보여 준다", async () => {
+    state.grants = [MULTI_SESSION_GRANT];
+    mockFetchLatestDiagnosisReport.mockResolvedValue(null);
+
+    renderTab();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("link", { name: /검사하기/ }),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("결과 리포트 보기")).not.toBeInTheDocument();
+  });
+});
