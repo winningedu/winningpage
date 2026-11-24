@@ -33,6 +33,8 @@ export const routes: Record<string, RouteLoader> = {
   "admin/invite-member": () => import("./admin/invite-member.js"),
   "admin/me/permissions": () => import("./admin/me/permissions.js"),
   "admin/knowledge-bulk": () => import("./admin/knowledge-bulk.js"),
+  "admin/knowledge-eval/queries": () =>
+    import("./admin/knowledge-eval/queries.js"),
   "admin/members": () => import("./admin/members.js"),
   "admin/members/[id]": () => import("./admin/members/[id].js"),
   "admin/members/[id]/tenant": () => import("./admin/members/[id]/tenant.js"),
