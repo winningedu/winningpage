@@ -220,6 +220,84 @@ describe("W14e 일괄 삭제", () => {
     await waitFor(() => expect(onDeleted).toHaveBeenCalledTimes(1));
     expect(calls[0]?.body).toEqual({ teacherIds: ["t-lee", "t-jin"] });
   });
+
+  it("조건은 학년과 반이고 반을 고르면 그 반을 맡은 선생님만 남는다", async () => {
+    const calls = stubApi({
+      "POST /api/console/teachers/delete": { body: { ok: true } },
+    });
+    mount(
+      <BulkDeleteDialog
+        teachers={PEOPLE}
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "일괄 삭제" }));
+    expect(screen.queryByLabelText("그룹")).toBeNull();
+    fireEvent.change(screen.getByLabelText("학년"), {
+      target: { value: "고1" },
+    });
+    const klass = screen.getByLabelText("반") as HTMLSelectElement;
+    expect([...klass.options].map((o) => o.text)).toEqual([
+      "전체",
+      "2반",
+      "5반",
+    ]);
+    fireEvent.change(klass, {
+      target: { value: [...klass.options][2]?.value },
+    });
+
+    const list = screen.getByRole("list", { name: "삭제 대상" });
+    expect(within(list).getByText("진다솜")).toBeTruthy();
+    expect(within(list).queryByText("이수민")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.body).toEqual({ teacherIds: ["t-jin"] });
+  });
+
+  it("학원 반은 그룹 이름을 붙여 고른다", () => {
+    stubApi({});
+    mount(
+      <BulkDeleteDialog
+        teachers={[
+          teacher({
+            classes: [
+              { grade: "고1", groupId: "g-a", groupName: "A레벨", name: "2" },
+            ],
+          }),
+        ]}
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "일괄 삭제" }));
+    fireEvent.change(screen.getByLabelText("학년"), {
+      target: { value: "고1" },
+    });
+
+    expect(
+      [...(screen.getByLabelText("반") as HTMLSelectElement).options].map(
+        (o) => o.text,
+      ),
+    ).toEqual(["전체", "A레벨 2반"]);
+  });
+
+  it("두 탭 모두 학생 정보는 지워지지 않는다고 알린다", () => {
+    stubApi({});
+    mount(
+      <BulkDeleteDialog
+        teachers={PEOPLE}
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/학생 정보는 지워지지 않아요/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "일괄 삭제" }));
+    expect(screen.getByText(/학생 정보는 지워지지 않아요/)).toBeTruthy();
+  });
 });
 
 describe("QA 53 삭제 경고", () => {
