@@ -37,7 +37,9 @@ import {
 import { blocksToPlainText } from "@/lib/blockToPlainText";
 import { plainTextToBlocks } from "@/lib/plainTextToBlocks";
 import { withDedupedKeys } from "@/lib/reactKeys";
+import { putSignedUpload } from "@/lib/storage/signedUpload";
 import { supabase } from "@/lib/supabase";
+import { issueUpload, previewUpload, removeUploads } from "../engine/api";
 import AdminPagination from "./AdminPagination";
 import { reportAdminError } from "./adminErrors";
 import { toastSuccess, toastWarning } from "./adminToast";
@@ -657,6 +659,8 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   onCancel,
   onSave,
   onUpload,
+  // PremiumBookAdmin 은 직접 스토리지 삭제(removeBannerPaths)를 그대로 쓰므로 기본값으로 둔다.
+  onRemoveFiles = removeBannerPaths,
   origin = "form",
   initialSection = null,
   // createDefaults: 다른 탭에서 "이 값으로 새 행을 만들어라"며 넘겨 온 1회성
@@ -671,6 +675,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   // 비동기 저장(Admin.tsx saveRow)이 Promise 를 돌려주면 끝날 때까지 재진입을 막는다.
   onSave: (form: T) => unknown;
   onUpload: AdminUploadHandler<T>;
+  onRemoveFiles?: (paths: Iterable<string>) => void;
   origin?: "form" | "list";
   initialSection?: string | null;
   createDefaults?: Partial<T> | null;
@@ -860,7 +865,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
     // 고아 방지 스펙 2: 저장 없이 폼을 나가면 이번 세션에 업로드한 파일은
     // (blockEditor 삽입분 포함) 전부 고아가 된다 — best-effort로 지운다.
     if (sessionUploadsRef.current.size > 0) {
-      removeBannerPaths(sessionUploadsRef.current.keys());
+      onRemoveFiles(sessionUploadsRef.current.keys());
       sessionUploadsRef.current.clear();
     }
 
@@ -1030,7 +1035,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
         bannerPathsToDelete.add(path);
     }
     sessionUploadsRef.current.clear();
-    if (bannerPathsToDelete.size > 0) removeBannerPaths(bannerPathsToDelete);
+    if (bannerPathsToDelete.size > 0) onRemoveFiles(bannerPathsToDelete);
 
     setDirty(false);
     savingRef.current = true;
@@ -2086,6 +2091,7 @@ export function collectBannerPaths(
   return paths;
 }
 
+// PremiumBookAdmin 전용(직접 스토리지 삭제), 배치 B13 이 지운다. 섹션 엔진은 removeSectionFiles 를 쓴다.
 // best-effort 삭제(고아 방지 스펙 4) — 실패해도 throw하지 않고 warn만 남긴다.
 // 저장/취소/행삭제 UX를 막으면 안 되므로 호출부는 await 없이 fire-and-forget으로
 // 불러도 안전하다.
@@ -2097,6 +2103,25 @@ export async function removeBannerPaths(
 
   const { error } = await supabase.storage.from(IMAGE_BUCKET).remove(unique);
   if (error) {
+    console.warn(
+      "banners 고아 파일 삭제 실패(best-effort, 무시하고 진행)",
+      error,
+      unique,
+    );
+  }
+}
+
+// 섹션 엔진용 best-effort 삭제. 서버가 권한을 확인하고 banners 파일을 지운다.
+export async function removeSectionFiles(
+  sectionKey: string,
+  paths: Iterable<string>,
+): Promise<void> {
+  const unique = [...new Set(paths)].filter(Boolean);
+  if (unique.length === 0) return;
+
+  try {
+    await removeUploads(sectionKey, unique);
+  } catch (error) {
     console.warn(
       "banners 고아 파일 삭제 실패(best-effort, 무시하고 진행)",
       error,
@@ -2228,43 +2253,71 @@ async function maybeCompressImage(file: File, field: Partial<AdminField> = {}) {
   }
 }
 
+function toFileList(
+  files: File | File[] | FileList | null | undefined,
+): File[] {
+  // 배열이면 그대로(원본 그대로 — Boolean 필터를 태우지 않는다), 아니면
+  // (단일 File 또는 falsy) [files]로 감싸 Boolean 필터를 태운다 — 실제
+  // 호출부는 항상 File[] 아니면 단일 File만 넘긴다(uploadMultiple이 미리
+  // Array.from으로 변환), FileList는 파라미터 계약(AdminUploadHandler)에만
+  // 존재하는 여유분이라 as File[]로 좁힌다.
+  return Array.isArray(files) ? files : ([files].filter(Boolean) as File[]);
+}
+
+// 파일 하나의 업로드 전 준비(규격 검사, 압축, 압축 뒤 용량 검사). 올리면 안 되면 null.
+async function prepareUploadFile(
+  rawFile: File,
+  field: Partial<AdminField>,
+): Promise<File | null> {
+  const willCompress = isCompressibleField(field);
+
+  if (field.imageSpec) {
+    const proceed = await validateImageSpec(rawFile, field.imageSpec, {
+      skipMaxMB: willCompress,
+    });
+    if (!proceed) return null;
+  }
+
+  const file = await maybeCompressImage(rawFile, field);
+
+  if (
+    willCompress &&
+    field.imageSpec?.maxMB &&
+    !validateMaxMB(file, field.imageSpec.maxMB)
+  ) {
+    return null;
+  }
+
+  return file;
+}
+
+// 다중 업로드에서 일부만 실패하면 성공분만 조용히 반영돼 누락이 무증상으로
+// 남는다(2026-08-31 분석 2-c). 건별 alert 와 별개로 합계를 한 번 더 알린다.
+function warnPartialUpload(total: number, succeeded: number) {
+  const failedCount = total - succeeded;
+  if (failedCount > 0 && succeeded > 0) {
+    toastWarning(
+      `${total}개 중 ${failedCount}개는 업로드되지 않았습니다.`,
+      "성공한 파일만 반영됩니다.",
+    );
+  }
+}
+
+// PremiumBookAdmin 전용(직접 스토리지 업로드), 배치 B13 이 지운다. 섹션 엔진은 uploadSectionFiles 를 쓴다.
 // Admin()이 AdminForm에 onUpload로 넘기던 함수. 컴포넌트 상태를 전혀 참조하지 않는 순수 함수라
 // PremiumBookAdmin(제네릭 개별 페이지 편집)도 그대로 재사용할 수 있도록 모듈 스코프로 뺐다.
 export async function uploadImage(
   files: File | File[] | FileList | null | undefined,
   field: Partial<AdminField> = {},
 ): Promise<AdminUploadedFile[]> {
-  // 배열이면 그대로(원본 그대로 — Boolean 필터를 태우지 않는다), 아니면
-  // (단일 File 또는 falsy) [files]로 감싸 Boolean 필터를 태운다 — 실제
-  // 호출부는 항상 File[] 아니면 단일 File만 넘긴다(uploadMultiple이 미리
-  // Array.from으로 변환), FileList는 파라미터 계약(AdminUploadHandler)에만
-  // 존재하는 여유분이라 as File[]로 좁힌다.
-  const fileList: File[] = Array.isArray(files)
-    ? files
-    : ([files].filter(Boolean) as File[]);
+  const fileList = toFileList(files);
   if (fileList.length === 0) return [];
 
   const uploaded: AdminUploadedFile[] = [];
 
   for (const rawFile of fileList) {
-    const willCompress = isCompressibleField(field);
-
-    if (field.imageSpec) {
-      const proceed = await validateImageSpec(rawFile, field.imageSpec, {
-        skipMaxMB: willCompress,
-      });
-      if (!proceed) continue;
-    }
-
-    const file = await maybeCompressImage(rawFile, field);
-
-    if (
-      willCompress &&
-      field.imageSpec?.maxMB &&
-      !validateMaxMB(file, field.imageSpec.maxMB)
-    ) {
-      continue;
-    }
+    const file = await prepareUploadFile(rawFile, field);
+    if (!file) continue;
 
     const ext = file.name.split(".").pop()?.toLowerCase() || "file";
 
@@ -2309,15 +2362,54 @@ export async function uploadImage(
     });
   }
 
-  // 다중 업로드에서 일부만 실패하면 성공분만 조용히 반영돼 누락이 무증상으로
-  // 남는다(2026-08-31 분석 2-c). 건별 alert 와 별개로 합계를 한 번 더 알린다.
-  const failedCount = fileList.length - uploaded.length;
-  if (failedCount > 0 && uploaded.length > 0) {
-    toastWarning(
-      `${fileList.length}개 중 ${failedCount}개는 업로드되지 않았습니다.`,
-      "성공한 파일만 반영됩니다.",
-    );
+  warnPartialUpload(fileList.length, uploaded.length);
+
+  return uploaded;
+}
+
+// 섹션 엔진 업로드. 서버가 임시 버킷 주소를 발급하고 브라우저가 PUT 한 뒤,
+// 폼에는 임시 읽기 주소를 넣는다(저장 때 서버가 banners 로 옮기고 주소를 바꾼다).
+export async function uploadSectionFiles(
+  sectionKey: string,
+  files: File | File[] | FileList | null | undefined,
+  field: Partial<AdminField> = {},
+): Promise<AdminUploadedFile[]> {
+  const fileList = toFileList(files);
+  if (fileList.length === 0) return [];
+  // 필드 키가 없으면 서버가 임시 파일 이름을 만들지 못한다.
+  const fieldKey = field.key;
+  if (!fieldKey)
+    throw new Error("uploadSectionFiles: field.key 가 필요합니다.");
+
+  const uploaded: AdminUploadedFile[] = [];
+
+  for (const rawFile of fileList) {
+    const file = await prepareUploadFile(rawFile, field);
+    if (!file) continue;
+
+    try {
+      const issued = await issueUpload(sectionKey, {
+        field: fieldKey,
+        fileName: file.name,
+        contentType: file.type || "application/octet-stream",
+        size: file.size,
+      });
+      await putSignedUpload(issued.uploadUrl, file, {
+        ...(field.cacheControl ? { cacheControl: field.cacheControl } : {}),
+      });
+      const url = await previewUpload(sectionKey, issued.path);
+      uploaded.push({
+        name: file.name,
+        url,
+        size: file.size,
+        type: file.type,
+      });
+    } catch (error) {
+      reportAdminError("업로드 실패", error as Error);
+    }
   }
+
+  warnPartialUpload(fileList.length, uploaded.length);
 
   return uploaded;
 }
