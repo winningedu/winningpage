@@ -354,6 +354,12 @@ describe("GET /api/admin/access-logs", () => {
     expect(actions).not.toContain("export");
   });
 
+  test("등록 구분은 create 동작만 읽는다", async () => {
+    await get({ kind: "create" });
+
+    expect(logFilters[0]?.action).toEqual(["create"]);
+  });
+
   test("출력 구분은 export 와 download 동작을 읽는다", async () => {
     await get({ kind: "export" });
 

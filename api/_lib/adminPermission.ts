@@ -41,6 +41,19 @@ export async function assertSectionPermission(
   }
 }
 
+/**
+ * 판정에 쓰는 권한 키. 최고 관리자 전용 메뉴는 키 그대로, 별칭 메뉴는 사이트 플래그에 따라 대상 키나 null 이다.
+ * 감사 로그의 resource_key 도 같은 키를 쓴다.
+ */
+export function resolvePermissionKey(sectionKey: string): string | null {
+  if (isSuperOnlySection(sectionKey)) return sectionKey;
+  // SITE 가 비면 getSiteKey 가 던져 500 으로 닫힌다(별칭 메뉴에서만 읽는다).
+  return permissionKeyFor(
+    sectionKey,
+    () => SITES[getSiteKey()].features.hqTenantAdmin,
+  );
+}
+
 /** 메뉴 권한 여부만 돌려준다. assertSectionPermission 과 같은 규칙이고, 조회 실패는 던진다. */
 export async function hasSectionPermission(
   admin: SupabaseClient,
@@ -56,11 +69,7 @@ export async function hasSectionPermission(
     return data === true;
   }
 
-  // SITE 가 비면 getSiteKey 가 던져 500 으로 닫힌다(별칭 메뉴에서만 읽는다).
-  const key = permissionKeyFor(
-    sectionKey,
-    () => SITES[getSiteKey()].features.hqTenantAdmin,
-  );
+  const key = resolvePermissionKey(sectionKey);
   if (!key) return false;
 
   const { data, error } = await admin.rpc("fn_admin_effective_permissions", {

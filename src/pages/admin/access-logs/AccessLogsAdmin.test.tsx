@@ -128,6 +128,38 @@ describe("AccessLogsAdmin", () => {
     expect(header).toHaveAttribute("scope", "col");
   });
 
+  test("등록과 삭제 구분 줄은 구분 이름을 보여 주고 구분 선택에 두 항목이 있다", async () => {
+    const created: AccessLogEntry = {
+      ...ENTRY,
+      id: "log-create",
+      kind: "create",
+      kindLabel: "등록",
+      content: "쿠폰",
+    };
+    const removed: AccessLogEntry = {
+      ...created,
+      id: "log-delete",
+      kind: "delete",
+      kindLabel: "삭제",
+      content: "배너",
+    };
+    http.get.mockReturnValue(
+      respondWith({ items: [created, removed], page: 1, hasNext: false }),
+    );
+    renderScreen();
+
+    const createdRow = (await screen.findByText("쿠폰")).closest("tr");
+    expect(
+      within(createdRow as HTMLElement).getByText("등록"),
+    ).toBeInTheDocument();
+    const removedRow = screen.getByText("배너").closest("tr");
+    expect(
+      within(removedRow as HTMLElement).getByText("삭제"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "등록" })).toHaveValue("create");
+    expect(screen.getByRole("option", { name: "삭제" })).toHaveValue("delete");
+  });
+
   test("본사 대행 줄과 본사 다운로드 줄은 관리자 이름, 이메일, 사유를 보여 준다", async () => {
     const proxy: AccessLogEntry = {
       ...ENTRY,

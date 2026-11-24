@@ -19,6 +19,8 @@ export default defineHandler({
   auth: "admin",
   errorShape: "problem",
   permission: { key: sectionPermissionKey },
+  // 기존 행의 검토 시각만 고치는 POST 라 수정으로 남긴다.
+  audit: { action: "update" },
   unhandledMessage: "섹션 데이터를 처리하지 못했습니다.",
   logLabel: "[admin/sections/reviewed]",
   headers: { "Cache-Control": "no-store" },

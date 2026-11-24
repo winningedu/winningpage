@@ -37,6 +37,8 @@ export default defineHandler({
   errorShape: "problem",
   permission: { key: "growthReports" },
   methodNotAllowedMessage: "POST만 허용됩니다.",
+  // 종결된 원본 회차를 고치는 복구라 수정으로 남긴다.
+  audit: { action: "update" },
   unhandledMessage: "성장설계 회차 복구에 실패했습니다.",
   logLabel: "admin/growth-recover",
   headers: { "Cache-Control": "no-store" },

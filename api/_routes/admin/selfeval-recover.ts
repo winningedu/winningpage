@@ -44,6 +44,8 @@ export default defineHandler({
   auth: "admin",
   errorShape: "problem",
   permission: { key: "selfevalSessions" },
+  // 종결된 원본 세션을 고치는 복구라 수정으로 남긴다.
+  audit: { action: "update" },
   unhandledMessage: "자기평가서 세션 복구에 실패했습니다.",
   logLabel: "admin/selfeval-recover",
   headers: { "Cache-Control": "no-store" },
