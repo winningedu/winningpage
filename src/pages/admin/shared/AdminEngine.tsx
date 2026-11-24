@@ -667,6 +667,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   // 프리필. Admin()의 pendingCreateDefaults가 유일한 공급자다. 넘기지 않으면
   // undefined라 아래 spread가 {}가 되어 기존 동작과 완전히 동일하다.
   createDefaults = null,
+  onDirtyChange,
 }: {
   config: AdminConfigInput<T>;
   mode: string;
@@ -679,6 +680,9 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   origin?: "form" | "list";
   initialSection?: string | null;
   createDefaults?: Partial<T> | null;
+  // 주면 폼 자체의 이탈 가드(beforeunload, 히스토리 항목, 취소 확인)를 끄고 변경 여부만 알린다.
+  // 주소가 있는 화면이 useBlocker 와 useBeforeUnload 로 이탈 확인을 직접 맡을 때 쓴다.
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   // config prop 경계는 PremiumBookAdmin.tsx류 개별 페이지 wrapper의 좁은(인덱스
   // 시그니처) config 타입도 받아야 한다(AdminConfigInput 주석 참고) — 본문은
@@ -792,14 +796,19 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   // 편집 중 이탈 시 작업 유실을 막기 위한 최소 가드. 정확도보다 "경고가 뜨는 것" 자체가 핵심이라
   // 편집 여부 판정은 단순하게(필드 변경 또는 에디터 영역 입력 감지) 둔다.
   useEffect(() => {
-    if (!dirty) return undefined;
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  const ownsLeaveGuard = onDirtyChange === undefined;
+  useEffect(() => {
+    if (!dirty || !ownsLeaveGuard) return undefined;
     function handleBeforeUnload(e: BeforeUnloadEvent) {
       e.preventDefault();
       e.returnValue = "";
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [dirty]);
+  }, [dirty, ownsLeaveGuard]);
 
   // 상세/편집 진입은 라우트가 아니라 이 컴포넌트의 마운트 여부(Admin.tsx의
   // mode/editingRow state)로만 표현된다 — 즉 진입 시 URL·히스토리 엔트리가
@@ -820,6 +829,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   }, [onCancel]);
   const pushedHistoryRef = useRef(false);
   useEffect(() => {
+    if (!ownsLeaveGuard) return undefined;
     pushedHistoryRef.current = true;
     window.history.pushState({ __adminFormGuard: true }, "");
 
@@ -849,11 +859,12 @@ export function AdminForm<T extends AdminRow = AdminRow>({
         window.history.back();
       }
     };
-  }, []);
+  }, [ownsLeaveGuard]);
 
   async function handleCancel() {
     if (
       dirty &&
+      ownsLeaveGuard &&
       !(await confirmAdmin({
         title: "저장하지 않은 변경사항이 있습니다. 나가시겠습니까?",
         confirmLabel: "나가기",
