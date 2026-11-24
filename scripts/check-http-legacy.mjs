@@ -76,8 +76,39 @@ function isBrowserDb(call, sf) {
   );
 }
 
+// 식별자 인수는 같은 파일 안 선언(호출보다 앞선 것 중 마지막)의 초기값 글자로 푼다.
+function argText(arg, call, sf) {
+  if (!ts.isIdentifier(arg)) return arg.getText(sf);
+  let resolved = arg.getText(sf);
+  visit(sf, (d) => {
+    if (
+      ts.isVariableDeclaration(d) &&
+      ts.isIdentifier(d.name) &&
+      d.name.text === arg.text &&
+      d.initializer &&
+      d.getStart(sf) < call.getStart(sf)
+    ) {
+      resolved = d.initializer.getText(sf);
+    }
+  });
+  return resolved;
+}
+
+function isLegacyFetch(call, sf) {
+  const callee = call.expression.getText(sf);
+  if (callee === "apiFetch") return true;
+  if (!/^(fetch|window\.fetch|globalThis\.fetch)$/.test(callee)) return false;
+  const first = call.arguments[0];
+  return first !== undefined && argText(first, call, sf).includes("/api");
+}
+
 const RULES = {
   browserDb: { scope: "src", match: isBrowserDb },
+  legacyFetch: {
+    scope: "src",
+    match: isLegacyFetch,
+    exempt: /^src\/lib\/(apiFetch\.ts|http\/client\.ts)$/,
+  },
 };
 
 function analyze(file, text) {
@@ -93,7 +124,8 @@ function analyze(file, text) {
   visit(sf, (node) => {
     if (!ts.isCallExpression(node)) return;
     for (const [category, rule] of Object.entries(RULES)) {
-      if (rule.scope !== side || !rule.match(node, sf)) continue;
+      if (rule.scope !== side || rule.exempt?.test(file)) continue;
+      if (!rule.match(node, sf)) continue;
       const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
       found[category] ??= [];
       found[category].push({

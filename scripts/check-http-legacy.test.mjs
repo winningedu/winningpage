@@ -174,3 +174,45 @@ describe("check-http-legacy --update와 합계", () => {
     expect(r.out).toMatch(/okSuccess:\s+0\b/);
   });
 });
+
+describe("check-http-legacy legacyFetch", () => {
+  test.each([
+    ['apiFetch("/api/x");'],
+    ['await apiFetch("/api/x", { method: "POST" });'],
+    ['fetch("/api/x");'],
+    ["fetch(`/api/x/${id}`);"],
+    ['window.fetch("/api/x");'],
+    ['globalThis.fetch("/api/x");'],
+    ['const url = "/api/x";\nfetch(url);'],
+    ["const url = `${base}/api/x`;\nfetch(url, { method: 'POST' });"],
+  ])("레거시 /api 호출을 잡는다: %s", (code) => {
+    put("src/a.ts", `${code}\n`);
+    const r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("legacyFetch");
+  });
+
+  test.each([
+    ['fetch("https://example.com/x");'],
+    ["fetch(url);"],
+    ['const url = "https://example.com";\nfetch(url);'],
+    ['api.get("api/x");'],
+    ['other.fetch("/api/x");'],
+    ['apiFetchHelper("/api/x");'],
+  ])("레거시 호출이 아니면 통과한다: %s", (code) => {
+    put("src/a.ts", `${code}\n`);
+    expect(run().code).toBe(0);
+  });
+
+  test("정의 파일 apiFetch.ts 와 http/client.ts 는 건너뛴다", () => {
+    const code = 'fetch("/api/x");\napiFetch("/api/y");\n';
+    put("src/lib/apiFetch.ts", code);
+    put("src/lib/http/client.ts", code);
+    expect(run().code).toBe(0);
+  });
+
+  test("api/ 파일의 fetch 는 세지 않는다", () => {
+    put("api/a.ts", 'fetch("/api/x");\napiFetch("/api/y");\n');
+    expect(run().code).toBe(0);
+  });
+});
