@@ -249,11 +249,19 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
     typeof parseAdmissionRowsFromXlsx
   > | null>(null); // { rows, errors, warnings, summary }
   const [confirmChecked, setConfirmChecked] = useState(false);
-  const [applying, setApplying] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {},
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // 파서(.js)가 돌려주는 rows는 Record<string, unknown>[]로 느슨하다. 서버 zod가 검증한다.
+  const apply = useMutation({
+    mutationFn: (items: Record<string, unknown>[]) =>
+      api
+        .put("admin/admission/guidelines/bulk", { json: { items } })
+        .json(z.object({ upserted: z.number() })),
+    onError: (err) => reportAdminError("엑셀 적용 실패", err),
+  });
+  const applying = apply.isPending;
 
   const totalRows = (rows || []).length;
 
@@ -324,25 +332,12 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
 
   async function handleApply() {
     if (!parseResult || !confirmChecked || applying) return;
-    setApplying(true);
-    // parseAdmissionRowsFromXlsx(src/lib/admissionBulkXlsx.js, .js라 반환 타입이
-    // Record<string, unknown>[]로 느슨하다)의 결과를 이 upsert 직전에서만
-    // 생성 Insert 형태로 좁힌다, 파서 자체는 이 작업 범위 밖이다.
-    const { error } = await supabase
-      .from("admission_university_resources")
-      .upsert(
-        parseResult.rows as TablesInsert<"admission_university_resources">[],
-        {
-          onConflict: "admission_year,university_key",
-        },
-      );
-    if (error) {
-      setApplying(false);
-      reportAdminError("엑셀 적용 실패", error);
-      return;
+    try {
+      await apply.mutateAsync(parseResult.rows);
+    } catch {
+      return; // 오류 안내는 mutation의 onError가 이미 띄웠다
     }
     const { summary } = parseResult;
-    setApplying(false);
     setParseResult(null);
     setConfirmChecked(false);
     setExpandedGroups({});

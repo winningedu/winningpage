@@ -199,3 +199,76 @@ describe("공개 연도", () => {
     expect(mocks.toastSuccess).not.toHaveBeenCalled();
   });
 });
+
+const summary = {
+  willInsert: 1,
+  willUpdate: 1,
+  willSkip: 0,
+  warningCounts: {},
+  newYears: [],
+};
+
+function pickFile(label: string) {
+  const input = screen.getByLabelText(label) as HTMLInputElement;
+  const file = new File(["x"], "a.xlsx");
+  Object.assign(file, { arrayBuffer: async () => new ArrayBuffer(0) });
+  fireEvent.change(input, { target: { files: [file] } });
+}
+
+describe("모집요강 엑셀 적용", () => {
+  const items = [
+    { admission_year: 2027, university_key: "a" },
+    { admission_year: 2027, university_key: "b" },
+  ];
+
+  async function openPreview(onReload = vi.fn()) {
+    mocks.get.mockReturnValue(reply({ year: 2027 }));
+    mocks.parseGuidelines.mockReturnValue({
+      rows: items,
+      errors: [],
+      warnings: [],
+      summary,
+    });
+    wrap(<AdmissionListSummary rows={[]} onReload={onReload} />);
+    await screen.findByText("2027학년도");
+    pickFile("모집요강 xlsx 파일 선택");
+    fireEvent.click(await screen.findByRole("checkbox"));
+    return onReload;
+  }
+
+  test("적용하면 { items: rows }를 PUT하고 목록을 다시 불러온다", async () => {
+    mocks.put.mockReturnValue(reply({ upserted: 2 }));
+    const onReload = await openPreview();
+    fireEvent.click(screen.getByRole("button", { name: "적용" }));
+    await waitFor(() =>
+      expect(mocks.toastSuccess).toHaveBeenCalledWith(
+        "엑셀 적용 완료",
+        "신규 1건, 수정 1건, 거부 0건.",
+      ),
+    );
+    expect(mocks.put).toHaveBeenCalledWith("admin/admission/guidelines/bulk", {
+      json: { items },
+    });
+    expect(onReload).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  test("서버가 행을 거부하면 reportAdminError로 알리고 미리보기를 유지한다", async () => {
+    const err = new ApiError({
+      status: 400,
+      code: "VALIDATION_FAILED",
+      detail: "2번째 행: university_name이 비어 있습니다.",
+    });
+    mocks.put.mockReturnValue(fail(err));
+    const onReload = await openPreview();
+    fireEvent.click(screen.getByRole("button", { name: "적용" }));
+    await waitFor(() =>
+      expect(mocks.reportAdminError).toHaveBeenCalledWith(
+        "엑셀 적용 실패",
+        err,
+      ),
+    );
+    expect(onReload).not.toHaveBeenCalled();
+    expect(screen.getByRole("checkbox")).toBeTruthy();
+  });
+});
