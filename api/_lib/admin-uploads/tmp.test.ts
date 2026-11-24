@@ -1,5 +1,6 @@
 // 임시 업로드 이름 규칙과 한도 검증.
 
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import type { UploadField } from "../admin-sections/registry.js";
 import {
@@ -175,5 +176,32 @@ describe("ALLOWED_MIME_TYPES", () => {
     ]) {
       expect(ALLOWED_MIME_TYPES).toContain(mime);
     }
+  });
+});
+
+describe("버킷 데이터 SQL", () => {
+  const dir = new URL("../../../supabase/data/", import.meta.url);
+  const name = readdirSync(dir).find((f) =>
+    f.endsWith("_admin_uploads_tmp_bucket.sql"),
+  );
+  const sql = name ? readFileSync(new URL(name, dir), "utf8") : "";
+
+  test("비공개 버킷이고 크기 한도가 MAX_UPLOAD_BYTES 와 같다", () => {
+    expect(name).toBeDefined();
+    expect(sql).toContain(
+      "'admin-uploads-tmp', 'admin-uploads-tmp', false, 52428800",
+    );
+    expect(MAX_UPLOAD_BYTES).toBe(52428800);
+  });
+
+  test("allowed_mime_types 가 ALLOWED_MIME_TYPES 와 정확히 같다", () => {
+    const list = /array\[([^\]]*)\]/.exec(sql)?.[1] ?? "";
+    const mimes = [...list.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    expect(mimes).toEqual([...ALLOWED_MIME_TYPES]);
+  });
+
+  test("멱등 upsert 이고 정책은 만들지 않는다", () => {
+    expect(sql).toContain("on conflict (id) do update");
+    expect(sql).not.toMatch(/create policy|storage\.objects/i);
   });
 });
