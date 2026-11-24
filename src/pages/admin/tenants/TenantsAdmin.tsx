@@ -32,6 +32,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useKeywordParam } from "@/pages/admin/shared/useKeywordParam";
 import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import {
   createTenant,
@@ -293,7 +294,7 @@ function TenantCreate({
 
 function TenantList({ config }: TenantsAdminProps) {
   const navigate = useNavigate();
-  const [keyword, setKeyword] = useState("");
+  const [keyword, setKeyword] = useKeywordParam();
   const query = useQuery({
     queryKey: tenantKeys.list(),
     queryFn: ({ signal }) => fetchTenants(signal),

@@ -166,6 +166,29 @@ describe("TenantsAdmin 목록 불러오기", () => {
     expect(screen.queryByText("기타 소속")).toBeNull();
   });
 
+  test("주소의 q 로 시작하면 그 검색어로 걸러진 목록을 보인다", async () => {
+    renderAdmin("/admin/tenants?q=한빛");
+
+    expect(await screen.findByText("한빛고")).toBeTruthy();
+    expect(screen.queryByText("기타 소속")).toBeNull();
+    expect(screen.getByLabelText("검색")).toHaveProperty("value", "한빛");
+  });
+
+  test("입력한 검색어는 주소의 q 에 써지고 비우면 지워진다", async () => {
+    const { router } = renderAdmin();
+    await screen.findByText("한빛고");
+
+    fireEvent.change(screen.getByLabelText("검색"), {
+      target: { value: "한빛" },
+    });
+    expect(new URLSearchParams(router.state.location.search).get("q")).toBe(
+      "한빛",
+    );
+
+    fireEvent.change(screen.getByLabelText("검색"), { target: { value: "" } });
+    expect(router.state.location.search).toBe("");
+  });
+
   test("초기화를 누르면 목록을 다시 받는다", async () => {
     renderAdmin();
     await screen.findByText("한빛고");
