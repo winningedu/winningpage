@@ -33,6 +33,7 @@ const input = (patch: Partial<ServiceInput> = {}): ServiceInput => ({
   q14: [],
   counsel: false,
   reliability: { diagnosis: "GOOD", temperament: "NORMAL" },
+  excludedServices: [],
   ...patch,
 });
 
@@ -288,6 +289,38 @@ describe("service fit (07_서비스)", () => {
     expect(care.counselPinned).toBe(true);
 
     expect(recommendServices(input(base)).counselPinned).toBe(false);
+  });
+
+  test("an excluded service is dropped before the care pin and the next rank fills the slot", () => {
+    const base = { areaScores: scoresOf("H12", 90), q10: [3, 7] };
+    const open = recommendServices(input({ ...base, counsel: true }));
+    expect(codes(open)).toEqual(["CALL", "GOAL"]);
+
+    const closed = recommendServices(
+      input({ ...base, counsel: true, excludedServices: ["CALL"] }),
+    );
+    expect(codes(closed)).toHaveLength(2);
+    expect(codes(closed)).not.toContain("CALL");
+    expect(closed.counselPinned).toBe(false);
+    expect(codes(closed)[0]).toBe("GOAL");
+  });
+
+  test("with CALL excluded, M3 NSU and G3LATE keep only GOAL", () => {
+    const only = (patch: Partial<ServiceInput>) =>
+      codes(recommendServices(input({ excludedServices: ["CALL"], ...patch })));
+    expect(only({ grade: 2, areaScores: scoresOf("M3", 90) })).toEqual([
+      "GOAL",
+    ]);
+    expect(only({ grade: 6, areaScores: scoresOf("H3", 90) })).toEqual([
+      "GOAL",
+    ]);
+    expect(
+      only({
+        grade: 5,
+        areaScores: scoresOf("H3", 90),
+        joinedAt: "2026-07-01",
+      }),
+    ).toEqual(["GOAL"]);
   });
 
   test("care is not applied for a simple response or a temperament caution (07 B34, 18 r27)", () => {

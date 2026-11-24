@@ -23,6 +23,7 @@ import { OPTIONS, trackOf } from "./options.js";
 import { AREA_STATE_LABELS, areaState } from "./scoring.js";
 import { COPY_SHEETS, COPY_TEXT } from "./source/copyText.js";
 import { SCORE_SHEETS } from "./source/scoreSheets.js";
+import { MIDDLE_SUBJECT_CODES } from "./subjects.js";
 
 vi.setConfig({ testTimeout: 60_000 });
 
@@ -158,6 +159,9 @@ const grade = (rng: Rng, max: number) =>
 /** Mock exam grades are whole 9-grade numbers (validate.ts q6m). */
 const mockGrade = (rng: Rng) => 1 + int(rng, 9);
 
+/** Offsets of the six M3 scores around their base. */
+const SPREAD = [0, -5, 5, -10, 10, -15];
+
 const EVENT_KIND_ORDINALS = OPTIONS.q13
   .map((o) => String(o.code).slice("EVENT:".length))
   .filter((kind) => kind !== "NONE" && kind !== "UNKNOWN") as (
@@ -262,6 +266,17 @@ function generate(rng: Rng, options: GenOptions = {}): Generated {
   } else if (options.events) {
     raw.q13 = options.events;
   }
+  if (track === "M3") {
+    // M3 enters six 원점수 (all required); spread them around the q6 draw so
+    // the rng stream stays as before. Some fall below table 10 (26).
+    const base = 100 - (raw.q6 as number) * 7;
+    raw.q6s = Object.fromEntries(
+      MIDDLE_SUBJECT_CODES.map((code, i) => [
+        code,
+        Math.min(100, Math.round(base + (SPREAD[i] ?? 0))),
+      ]),
+    );
+  }
   if (withQ15) {
     raw.q15 = {
       universityKey: "u",
@@ -304,6 +319,7 @@ function generate(rng: Rng, options: GenOptions = {}): Generated {
                 }
               : null,
           studentName: chance(rng, 0.5) ? "N" : null,
+          excludedServices: [],
         },
       };
     }
@@ -811,6 +827,25 @@ describe("98_전수검증 r11-r17", () => {
     }
   });
 
+  // item 1: a site that excludes CALL never shows it; 1 card only where GOAL and CALL were the only candidates
+  it("r16 closed site: with CALL excluded no CALL card, 2 cards except M3, N수 and 고3후기 which keep GOAL only", () => {
+    const problems: string[] = [];
+    for (const [index, r] of corpus().all.entries()) {
+      const closed = scoreDiagnosisV3(r.answers, {
+        ...r.context,
+        excludedServices: ["CALL"],
+      });
+      const cards = closed.pages.p16.services;
+      const scope = closed.scores.services.scope;
+      if (cards.some((card) => card.code === "CALL"))
+        problems.push("CALL " + index);
+      if (closed.scores.services.counselPinned) problems.push("pin " + index);
+      const expected = scope === "ALL" ? 2 : 1;
+      if (cards.length !== expected) problems.push("count " + index);
+    }
+    expect(problems).toEqual([]);
+  });
+
   // 98 r16 서비스 추천: always 2, care condition puts CALL first, no rank inversion
   it("r16 서비스 추천: always 2 cards, care puts CALL first, no rank inversion", () => {
     const problems: string[] = [];
@@ -821,16 +856,16 @@ describe("98_전수검증 r11-r17", () => {
         problems.push("count " + index);
       if (
         cards[0].code !== ranked[0].code ||
-        cards[1].code !== ranked[1].code
+        cards[1]?.code !== ranked[1]?.code
       ) {
         problems.push("cards differ from ranking " + index);
       }
       if (counselPinned && ranked[0].code !== "CALL")
         problems.push("pin " + index);
-      if (!counselPinned && ranked[0].fit < ranked[1].fit) {
+      if (!counselPinned && ranked[0].fit < (ranked[1]?.fit ?? 0)) {
         problems.push("inversion " + index);
       }
-      if (ranked[0].code === ranked[1].code) problems.push("same " + index);
+      if (ranked[0].code === ranked[1]?.code) problems.push("same " + index);
     }
     expect(problems).toEqual([]);
     expect(

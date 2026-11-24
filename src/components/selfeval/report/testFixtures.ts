@@ -114,7 +114,6 @@ export const SAMPLE_PAYLOAD: ReportPayload = {
   cover: {
     gradeLabel: "고등학교 1학년",
     savedAt: "2026. 11. 10",
-    serviceTier: "individual",
     subjectTitle: "수학 자기평가서",
     academicYear: 2026,
     steps: {

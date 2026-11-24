@@ -133,9 +133,16 @@ export default function Page11Plan({ page }: { page: Page11 }) {
           </p>
           <p className="text-sm text-[#808080]">{PL.rateCaption}</p>
         </div>
-        <p className="text-base font-bold text-ink">
-          <CopyText text={numbers.minLoad} />
-        </p>
+        <div className="flex flex-col gap-1">
+          <p className="text-base font-bold text-ink">
+            <CopyText text={numbers.minLoad} />
+          </p>
+          {numbers.weekend === undefined ? null : (
+            <p className="text-base font-bold text-ink">
+              {PL.weekendStudy(numbers.weekend)}
+            </p>
+          )}
+        </div>
       </section>
       {/* 22 r106 */}
       {page.styleTips ? <Bullets items={page.styleTips} /> : null}

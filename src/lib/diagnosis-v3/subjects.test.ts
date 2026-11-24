@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { OPTIONS } from "./options.js";
 import { COPY_TEXT } from "./source/copyText.js";
-import { judgeSubjects, SUBJECT_CODES, subjectTextId } from "./subjects.js";
+import {
+  judgeSubjects,
+  MIDDLE_SUBJECT_CODES,
+  middleAverage,
+  SUBJECT_CODES,
+  subjectTextId,
+} from "./subjects.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
 import type { DiagnosisV3Answers } from "./types.js";
 
@@ -93,5 +99,103 @@ describe("judgeSubjects (22 r44)", () => {
     expect(
       OPTIONS.q8s.slice(0, SUBJECT_CODES.length).map((o) => o.label[0]),
     ).toEqual(["국", "수", "영", "사", "과"]);
+  });
+});
+
+const SIX = { KOR: 95, MATH: 60, ENG: 90, SOC: 80, SCI: 80, HISTORY: 70 };
+
+describe("middleAverage (고객 답 2026-11-24 학습진단 5번)", () => {
+  test("mean of the six scores, rounded half up to 0.1 (the table 10 step)", () => {
+    expect(middleAverage(SIX)).toBe(79.2); // 475 / 6 = 79.1666..
+    expect(
+      middleAverage({
+        ...SIX,
+        KOR: 100,
+        MATH: 100,
+        ENG: 100,
+        SOC: 100,
+        SCI: 100,
+        HISTORY: 99,
+      }),
+    ).toBe(99.8); // 599 / 6 = 99.8333..
+    expect(
+      middleAverage({
+        KOR: 70,
+        MATH: 70,
+        ENG: 70,
+        SOC: 70,
+        SCI: 70,
+        HISTORY: 71,
+      }),
+    ).toBe(70.2); // 421 / 6 = 70.1666..
+    expect(
+      middleAverage({ KOR: 0, MATH: 0, ENG: 0, SOC: 0, SCI: 0, HISTORY: 0.3 }),
+    ).toBe(0.1); // 0.05 rounds up
+  });
+
+  test("null until all six subjects are present", () => {
+    expect(
+      middleAverage({ KOR: 1, MATH: 2, ENG: 3, SOC: 4, SCI: 5 }),
+    ).toBeNull();
+    expect(middleAverage({})).toBeNull();
+  });
+
+  test("the six codes keep the five high school codes first and add 역사", () => {
+    expect(MIDDLE_SUBJECT_CODES).toEqual([...SUBJECT_CODES, "HISTORY"]);
+  });
+});
+
+describe("judgeSubjects for M3 (table 10 per subject, school only)", () => {
+  const M3_STUDENT: DiagnosisV3Answers = {
+    ...CALC_EXAMPLE,
+    q1: 1,
+    q4: 3,
+    q6: 79.2,
+    q6s: SIX,
+  };
+
+  test("the lowest 9-grade value is CHECK, 역사 is judged, no STRENGTH exists", () => {
+    expect(judgeSubjects(M3_STUDENT)).toEqual({
+      KOR: "KEEP",
+      MATH: "CHECK",
+      ENG: "KEEP",
+      SOC: "KEEP",
+      SCI: "KEEP",
+      HISTORY: "KEEP",
+    });
+  });
+
+  test("ties for the lowest are all CHECK; equal scores give no lowest", () => {
+    expect(
+      judgeSubjects({ ...M3_STUDENT, q6s: { ...SIX, HISTORY: 60 } }),
+    ).toMatchObject({ MATH: "CHECK", HISTORY: "CHECK", KOR: "KEEP" });
+    const flat = { KOR: 80, MATH: 80, ENG: 80, SOC: 80, SCI: 80, HISTORY: 80 };
+    expect(
+      Object.values(judgeSubjects({ ...M3_STUDENT, q6s: flat }) ?? {}),
+    ).toEqual(Array(6).fill("KEEP"));
+  });
+
+  test("the 7-1 subject that went down is CHECK too", () => {
+    expect(
+      judgeSubjects({ ...M3_STUDENT, q8: 5, q8s: 1, q8d: 2 }),
+    ).toMatchObject({ KOR: "CHECK", MATH: "CHECK" });
+  });
+
+  test("any q4 is judged for M3, the track decides", () => {
+    expect(judgeSubjects({ ...M3_STUDENT, q4: 1 })).not.toBeNull();
+  });
+
+  test("a score below table 10 has no 9-grade value and is not judged", () => {
+    expect(judgeSubjects({ ...M3_STUDENT, q6s: { ...SIX, SCI: 20 } })).toEqual({
+      KOR: "KEEP",
+      MATH: "CHECK",
+      ENG: "KEEP",
+      SOC: "KEEP",
+      HISTORY: "KEEP",
+    });
+  });
+
+  test("subjectTextId uses the school only copy without mock", () => {
+    expect(subjectTextId(M3_STUDENT, "HISTORY", "KEEP")).toBe("SUBJ_J1_유지");
   });
 });
