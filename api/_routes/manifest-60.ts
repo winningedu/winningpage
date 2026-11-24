@@ -4,6 +4,7 @@ import type { RouteLoader } from "./dispatch.js";
 export const routes: Record<string, RouteLoader> = {
   "admin/knowledge-dedupe": () => import("./admin/knowledge-dedupe.js"),
   "admin/knowledge-eval": () => import("./admin/knowledge-eval.js"),
+  "admin/premium-book/apply": () => import("./admin/premium-book/apply.js"),
   "growth/collect": () => import("./growth/collect.js"),
   "growth/report": () => import("./growth/report.js"),
   "inquiry/evaluate-report": () => import("./inquiry/evaluate-report.js"),

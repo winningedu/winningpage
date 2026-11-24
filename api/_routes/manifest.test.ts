@@ -361,6 +361,11 @@ describe("쿠폰 경로 파라미터", () => {
       { id: "5" },
     ],
     [
+      "/api/admin/premium-book/pages/7",
+      "admin/premium-book/pages/[id]",
+      { id: "7" },
+    ],
+    [
       "/api/admin/coupons/grants/5/revoke",
       "admin/coupons/grants/[id]/revoke",
       { id: "5" },

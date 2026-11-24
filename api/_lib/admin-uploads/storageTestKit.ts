@@ -14,6 +14,8 @@ export interface FakeObject {
   /** info 가 돌려줄 크기와 형식(없으면 1바이트, 이름 확장자에서 고른 형식). */
   size?: number;
   contentType?: string;
+  /** download 이 돌려줄 본문(없으면 1바이트). */
+  body?: string;
 }
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -109,6 +111,38 @@ export function createFakeStorage(
               },
               error: null,
             };
+          },
+          async download(path: string) {
+            record("download", path);
+            const object = buckets.get(bucket)?.get(path);
+            if (failed(bucket, "download") || !object) {
+              return { data: null, error: storageError };
+            }
+            return {
+              data: new Blob([object.body ?? "x"], {
+                type: object.contentType ?? "",
+              }),
+              error: null,
+            };
+          },
+          async upload(
+            path: string,
+            body: Blob,
+            options?: { upsert?: boolean; contentType?: string },
+          ) {
+            record("upload", path, options);
+            if (failed(bucket, "upload")) {
+              return { data: null, error: storageError };
+            }
+            if (!options?.upsert && buckets.get(bucket)?.has(path)) {
+              return { data: null, error: storageError };
+            }
+            put(bucket, {
+              name: path,
+              size: body.size,
+              ...(options?.contentType && { contentType: options.contentType }),
+            });
+            return { data: { path }, error: null };
           },
           async exists(path: string) {
             record("exists", path);

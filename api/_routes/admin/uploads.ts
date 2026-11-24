@@ -7,7 +7,7 @@
 
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { getSection } from "../../_lib/admin-sections/registry.js";
+import { uploadRulesFor } from "../../_lib/admin-sections/uploadRules.js";
 import {
   buildTempName,
   isDeletablePath,
@@ -42,8 +42,7 @@ const issue = defineHandler({
   handler: async (_req, res, ctx) => {
     const { section, field, fileName, contentType, size } = ctx.body;
     // 권한 키 함수가 이미 섹션을 확인했다.
-    const entry = getSection(section);
-    const rule = entry?.uploads[field];
+    const rule = uploadRulesFor(section)?.[field];
     if (!rule) {
       sendError(
         res,
@@ -103,9 +102,10 @@ const remove = defineHandler({
   }),
   handler: async (_req, res, ctx) => {
     const { section, paths } = ctx.body;
-    const entry = getSection(section);
     const folders = [
-      ...new Set(Object.values(entry?.uploads ?? {}).map((f) => f.folder)),
+      ...new Set(
+        Object.values(uploadRulesFor(section) ?? {}).map((f) => f.folder),
+      ),
     ];
     const errors = paths.flatMap((path, index) =>
       isDeletablePath(path, folders)
