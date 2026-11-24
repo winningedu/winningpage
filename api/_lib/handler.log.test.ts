@@ -35,21 +35,22 @@ function route(
   });
 }
 
-// res.on("finish") 로 건 콜백을 응답이 끝나는 시점에 부른다.
+// res.on 으로 건 콜백을 events 순서대로 부른다(기본은 finish 하나).
 async function call(
   handler: (req: VercelRequest, res: VercelResponse) => Promise<void>,
   opts: {
     method?: string;
     url?: string;
     headers?: Record<string, string>;
+    events?: ("finish" | "close")[];
   } = {},
 ) {
-  const finish: (() => void)[] = [];
+  const listeners: Record<string, (() => void)[]> = {};
   const res = {
     statusCode: 200,
     req: { headers: opts.headers ?? {} },
     on(event: string, cb: () => void) {
-      if (event === "finish") finish.push(cb);
+      listeners[event] = [...(listeners[event] ?? []), cb];
       return res;
     },
     setHeader: () => undefined,
@@ -77,7 +78,9 @@ async function call(
     } as unknown as VercelRequest,
     res,
   );
-  for (const cb of finish) cb();
+  for (const event of opts.events ?? ["finish"]) {
+    for (const cb of listeners[event] ?? []) cb();
+  }
 }
 
 let log: ReturnType<typeof vi.spyOn>;
@@ -148,5 +151,24 @@ describe("defineHandler 요청 로그", () => {
     expect(log).toHaveBeenCalledTimes(1);
     expect(JSON.parse(log.mock.calls[0]?.[0] as string).status).toBe(500);
     expect(console.error).toHaveBeenCalled();
+  });
+
+  test("finish 없이 close 만 와도(클라이언트 끊김) 한 줄을 남긴다", async () => {
+    await call(route("user"), { events: ["close"] });
+
+    expect(log).toHaveBeenCalledTimes(1);
+  });
+
+  test("finish 뒤에 close 가 와도 한 줄만 남긴다", async () => {
+    await call(route("user"), { events: ["finish", "close"] });
+
+    expect(log).toHaveBeenCalledTimes(1);
+  });
+
+  test("토큰이 없는 401 조기 반환도 status 401 한 줄을 남긴다", async () => {
+    await call(route("user"), { headers: { authorization: "" } });
+
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(log.mock.calls[0]?.[0] as string).status).toBe(401);
   });
 });

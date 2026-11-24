@@ -235,9 +235,13 @@ export function defineHandler<
     });
 
     const startedAt = performance.now();
-    // 응답이 끝날 때 요청당 한 줄만 남긴다. 토큰, 본문, 쿼리, 개인정보는 싣지 않는다.
+    // 응답이 끝나거나 연결이 끊길 때 요청당 한 줄만 남긴다(finish, close 중 먼저 온 쪽).
+    // 토큰, 본문, 쿼리, 개인정보는 싣지 않는다.
     // 테스트용 가짜 res 에는 on 이 없을 수 있어 옵셔널 호출로 건다.
-    res.on?.("finish", () => {
+    let logged = false;
+    const logRequest = () => {
+      if (logged) return;
+      logged = true;
       const requestId = req.headers["x-vercel-id"];
       console.log(
         JSON.stringify({
@@ -249,7 +253,9 @@ export function defineHandler<
           userId: ctx.userId ?? null,
         }),
       );
-    });
+    };
+    res.on?.("finish", logRequest);
+    res.on?.("close", logRequest);
 
     if (
       !assertMethod(
