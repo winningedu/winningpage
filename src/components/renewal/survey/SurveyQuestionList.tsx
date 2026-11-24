@@ -127,6 +127,7 @@ export default function SurveyQuestionList({
             {question.kind === "mock" && (
               <MockGradesField
                 grade={answers.q1}
+                diagnosedAt={diagnosedAt}
                 title={question.helper ?? question.title}
                 value={value}
                 onChange={(next) => onAnswer(id, next)}

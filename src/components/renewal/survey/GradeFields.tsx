@@ -99,11 +99,13 @@ export function SubjectGradesField({
 /** q6m: exam month (judge-report R3: March to November) plus six cells. */
 export function MockGradesField({
   grade,
+  diagnosedAt,
   title,
   value,
   onChange,
 }: {
   grade: unknown;
+  diagnosedAt: string;
   title: string;
   value: unknown;
   onChange: (value: { month?: number; grades: Record<string, string> }) => void;
@@ -133,7 +135,7 @@ export function MockGradesField({
         ))}
       </NativeSelect>
       <GradeInputGrid
-        groups={[toGroup("q6m", mockFields(grade), true)]}
+        groups={[toGroup("q6m", mockFields(grade, diagnosedAt), true)]}
         constraint={MOCK_GRADE_INPUT_RULE}
         value={grades}
         onChange={(next) =>

@@ -24,10 +24,12 @@ function Harness({
   ids,
   initial = {},
   levels,
+  diagnosedAt = "2026-11-09",
 }: {
   ids: QuestionId[];
   initial?: Record<string, unknown>;
   levels?: CascadeLevel[];
+  diagnosedAt?: string;
 }) {
   const [answers, setAnswers] = useState<Record<string, unknown>>(initial);
   latest = answers;
@@ -36,7 +38,7 @@ function Harness({
       questionIds={ids}
       answers={answers}
       onAnswer={(id, value) => setAnswers((prev) => ({ ...prev, [id]: value }))}
-      diagnosedAt="2026-11-09"
+      diagnosedAt={diagnosedAt}
       seed="seed-1"
       cascadeLevels={levels}
     />
@@ -285,6 +287,40 @@ describe("SurveyQuestionList 성적 입력", () => {
     cleanup();
     render(<Harness ids={["q6m"]} initial={{ q1: 4, q4: 2 }} />);
     expect(screen.getByLabelText(label(OPTIONS.q8s, 4))).toBeInTheDocument();
+  });
+});
+
+describe("SurveyQuestionList 6-3번 2027학년도 라벨", () => {
+  it("2027학년도부터 고2, 고3은 통합사회, 통합과학 라벨을 쓰고 N수는 쓰지 않는다", () => {
+    render(
+      <Harness
+        ids={["q6m"]}
+        initial={{ q1: 4, q4: 2 }}
+        diagnosedAt="2027-03-02"
+      />,
+    );
+    expect(screen.getByLabelText("통합사회")).toBeInTheDocument();
+    expect(screen.getByLabelText("통합과학")).toBeInTheDocument();
+    cleanup();
+    render(
+      <Harness
+        ids={["q6m"]}
+        initial={{ q1: 6, q4: 2 }}
+        diagnosedAt="2027-03-02"
+      />,
+    );
+    expect(screen.queryByLabelText("통합사회")).toBeNull();
+  });
+
+  it("2026학년도 고2는 탐구 라벨을 유지한다", () => {
+    render(
+      <Harness
+        ids={["q6m"]}
+        initial={{ q1: 4, q4: 2 }}
+        diagnosedAt="2027-02-28"
+      />,
+    );
+    expect(screen.queryByLabelText("통합사회")).toBeNull();
   });
 });
 
