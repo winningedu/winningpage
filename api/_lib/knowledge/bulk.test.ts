@@ -96,6 +96,52 @@ describe("validateBulkBody", () => {
     });
   });
 
+  it("테이블 컬럼이 아닌 키는 사유에 키 이름을 담아 거부한다", () => {
+    const inserts = validateBulkBody({
+      knowledgeType: "topic_pattern",
+      inserts: [{ ...ROW, titel: "오타" }],
+      updates: [],
+    });
+    expect(inserts).toEqual({
+      ok: false,
+      reason: expect.stringContaining("inserts[0]"),
+    });
+    expect(inserts.ok === false && inserts.reason).toContain("titel");
+
+    const updates = validateBulkBody({
+      knowledgeType: "topic_pattern",
+      inserts: [],
+      updates: [{ id: "u1", rowNo: 3 }],
+    });
+    expect(updates.ok === false && updates.reason).toContain("updates[0]");
+  });
+
+  it("임베딩과 검색 텍스트 같은 실제 컬럼은 거부하지 않고 버린다", () => {
+    const parsed = validateBulkBody({
+      knowledgeType: "topic_pattern",
+      inserts: [],
+      updates: [
+        {
+          id: "u1",
+          title: "새 제목",
+          embedding: "[1]",
+          search_text: "x",
+          embedding_error: "e",
+          embedded_at: "2026-11-24T00:00:00Z",
+        },
+      ],
+    });
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(Object.keys(parsed.body.updates[0]?.patch ?? {}).sort()).toEqual([
+        "embedding_error",
+        "embedding_status",
+        "knowledge_type",
+        "title",
+      ]);
+    }
+  });
+
   it("id 가 없는 수정 행은 거부한다", () => {
     expect(
       validateBulkBody({
