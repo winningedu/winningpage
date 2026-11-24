@@ -1,6 +1,6 @@
 // 관리자 라우트 규칙 가드: api/_routes/admin/** 와 api/_routes/goal/admin/** 의 모든 라우트는
 // defineHandler 로 만들고, 호출마다 auth:"admin" 과 permission 을 가져야 한다.
-// 권한 없는 관리자 라우트가 끼어들면 쓰기 감사 행도 남지 않으므로(defineHandler 가 permission 이 있을 때만 남긴다) 여기서 막는다.
+// 권한 없는 관리자 라우트가 끼어들면 감사 행(쓰기와 조회)도 남지 않으므로(defineHandler 가 permission 이 있을 때만 남긴다) 여기서 막는다.
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -44,7 +44,7 @@ function routeFiles(dir: string): string[] {
   });
 }
 
-// 자동 감사 행을 끄거나 동작을 바꾼 라우트. 나머지 쓰기 라우트는 메서드 기본값(POST create, PATCH, PUT update, DELETE delete)을 쓴다.
+// 자동 감사 행을 끄거나 동작을 바꾼 라우트. 나머지 라우트는 메서드 기본값(GET view, POST create, PATCH, PUT update, DELETE delete)을 쓴다.
 const AUDIT_OFF = "audit: false";
 const AUDIT_EXPECTATIONS: Record<string, string> = {
   "admin/access-logs.ts": AUDIT_OFF,
@@ -63,6 +63,33 @@ const AUDIT_EXPECTATIONS: Record<string, string> = {
   "admin/uploads/preview.ts": 'audit: { action: "view" }',
   "admin/mentor-applications/[id]/proof-url.ts": 'audit: { action: "view" }',
 };
+
+// 조회(GET)는 기본으로 남긴다. GET 을 받는 defineHandler 에서 audit:false 를 쓰려면 여기에 한 줄 이유를 둔다.
+const GET_AUDIT_OPT_OUTS: Record<string, string> = {};
+
+/** GET 을 받으면서 audit:false 로 자동 감사 행을 끈 defineHandler 호출 번호(1부터). */
+function getAuditOptOuts(source: string): number[] {
+  return source
+    .split("defineHandler({")
+    .slice(1)
+    .flatMap((chunk, index) => {
+      const methods = /methods:\s*\[([^\]]*)\]/.exec(chunk)?.[1] ?? "";
+      return /"GET"/.test(methods) && /audit:\s*false/.test(chunk)
+        ? [index + 1]
+        : [];
+    });
+}
+
+describe("getAuditOptOuts", () => {
+  test("GET 핸들러의 audit:false 를 찾는다", () => {
+    const source = `
+      const a = defineHandler({ methods: ["POST"], audit: false, });
+      const b = defineHandler({ methods: ["GET", "PATCH"], audit: false, });
+      const c = defineHandler({ methods: ["GET"], });
+    `;
+    expect(getAuditOptOuts(source)).toEqual([2]);
+  });
+});
 
 describe("checkAdminRouteSource", () => {
   const good = `
@@ -132,6 +159,15 @@ describe("감사 옵션", () => {
       expect(source).toContain(expected);
     },
   );
+
+  test("GET 의 감사 끄기는 이유 표에 있는 라우트만 쓴다", () => {
+    const files = SCAN_DIRS.flatMap((dir) => routeFiles(join(ROUTES_DIR, dir)));
+    for (const file of files) {
+      const name = relative(ROUTES_DIR, file);
+      if (name in GET_AUDIT_OPT_OUTS) continue;
+      expect(getAuditOptOuts(readFileSync(file, "utf8")), name).toEqual([]);
+    }
+  });
 
   test("표에 없는 라우트는 audit 옵션을 쓰지 않는다", () => {
     const files = SCAN_DIRS.flatMap((dir) => routeFiles(join(ROUTES_DIR, dir)));
