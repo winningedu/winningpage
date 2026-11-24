@@ -4,7 +4,6 @@ import {
   type CSSProperties,
   Fragment,
   useEffect,
-  useEffectEvent,
   useMemo,
   useState,
 } from "react";
