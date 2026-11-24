@@ -10,9 +10,9 @@ export class ApiError extends Error {
   readonly status: number | null;
   readonly code: string;
   readonly detail: string;
-  readonly title?: string;
+  readonly title?: string | undefined;
   readonly supportCode: string | null;
-  readonly problem?: Problem;
+  readonly problem?: Problem | undefined;
 
   constructor(init: {
     status: number | null;
