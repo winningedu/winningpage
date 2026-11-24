@@ -77,13 +77,14 @@ export function fetchTenantDetail(
   signal?: AbortSignal,
 ): Promise<TenantDetailRow> {
   return api
-    .get("admin/tenants/detail", { searchParams: { id }, signal })
+    .get(`admin/tenants/${encodeURIComponent(id)}`, { signal })
     .json(tenantDetailSchema);
 }
 
 const tenantSavedSchema = z.object({ id: z.string(), updated_at: z.string() });
 
 export interface PatchTenantBody {
+  /** 경로로 가고 본문에는 싣지 않는다. */
   id: string;
   /** 불러올 때의 updated_at. 그 사이 다른 관리자가 고쳤으면 서버가 409 로 막는다. */
   updatedAt: string;
@@ -93,8 +94,9 @@ export interface PatchTenantBody {
 export function patchTenant(
   body: PatchTenantBody,
 ): Promise<z.infer<typeof tenantSavedSchema>> {
+  const { id, ...json } = body;
   return api
-    .patch("admin/tenants/detail", { json: body })
+    .patch(`admin/tenants/${encodeURIComponent(id)}`, { json })
     .json(tenantSavedSchema);
 }
 
@@ -125,14 +127,13 @@ export function fetchServiceSettings(
   signal?: AbortSignal,
 ): Promise<{ items: SettingRow[]; defaults: UsageDefaults }> {
   return api
-    .get("admin/tenants/service-settings", {
-      searchParams: { tenantId },
+    .get(`admin/tenants/${encodeURIComponent(tenantId)}/service-settings`, {
       signal,
     })
     .json(serviceSettingsSchema);
 }
 
-/** 한 행의 upsert 본문. 변경자(updated_by)는 서버가 세션에서 채운다. */
+/** 한 행의 upsert 본문. 변경자(updated_by)는 서버가 세션에서 채운다. tenant_id 는 경로로 가고 본문에는 싣지 않는다. */
 export interface ServiceSettingBody {
   tenant_id: string;
   program_key: string;
@@ -145,8 +146,11 @@ export interface ServiceSettingBody {
 }
 
 export function putServiceSetting(body: ServiceSettingBody): Promise<unknown> {
+  const { tenant_id: tenantId, ...json } = body;
   return api
-    .put("admin/tenants/service-settings", { json: body })
+    .put(`admin/tenants/${encodeURIComponent(tenantId)}/service-settings`, {
+      json,
+    })
     .json(z.looseObject({}));
 }
 

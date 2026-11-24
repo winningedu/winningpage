@@ -174,19 +174,23 @@ describe("기관 상세", () => {
     updated_at: "2026-09-01T00:00:00Z",
   };
 
-  test("상세는 GET admin/tenants/detail?id= 이다", async () => {
+  test("상세는 GET admin/tenants/:id 이고 id 는 인코딩한다", async () => {
     const spy = stubFetch(DETAIL);
 
     const detail = await fetchTenantDetail("tenant-1");
+    await fetchTenantDetail("a/b");
 
     expect(await sent(spy)).toMatchObject({
       method: "GET",
-      path: "/api/admin/tenants/detail?id=tenant-1",
+      path: "/api/admin/tenants/tenant-1",
     });
+    expect((spy.mock.calls[1]?.[0] as Request).url).toContain(
+      "/api/admin/tenants/a%2Fb",
+    );
     expect(detail.term_months).toBe(6);
   });
 
-  test("수정은 PATCH 에 id, updatedAt, values 를 싣고 새 updated_at 을 돌려준다", async () => {
+  test("수정은 PATCH :id 에 updatedAt, values 만 싣고(id 는 경로) 새 updated_at 을 돌려준다", async () => {
     const spy = stubFetch({
       id: "tenant-1",
       updated_at: "2026-09-02T00:00:00Z",
@@ -203,19 +207,19 @@ describe("기관 상세", () => {
 
     expect(await sent(spy)).toMatchObject({
       method: "PATCH",
-      path: "/api/admin/tenants/detail",
+      path: "/api/admin/tenants/tenant-1",
       body: {
-        id: "tenant-1",
         updatedAt: "2026-09-01T00:00:00Z",
         values: { name: "새이름" },
       },
     });
+    expect((await sent(spy)).body).not.toHaveProperty("id");
     expect(saved.updated_at).toBe("2026-09-02T00:00:00Z");
   });
 });
 
 describe("서비스 설정", () => {
-  test("조회는 tenantId 를 query 로 보내고 items 와 defaults 를 돌려준다", async () => {
+  test("조회는 GET :id/service-settings 이고 items 와 defaults 를 돌려준다", async () => {
     const spy = stubFetch({
       items: [
         {
@@ -234,13 +238,13 @@ describe("서비스 설정", () => {
 
     expect(await sent(spy)).toMatchObject({
       method: "GET",
-      path: "/api/admin/tenants/service-settings?tenantId=tenant-1",
+      path: "/api/admin/tenants/tenant-1/service-settings",
     });
     expect(result.items[0]?.monthly_limit).toBe(3);
     expect(result.defaults.diagnose?.monthly_limit).toBe(1);
   });
 
-  test("저장은 PUT 이고 본문에 updated_by 가 없다", async () => {
+  test("저장은 PUT :id/service-settings 이고 본문에 tenant_id 와 updated_by 가 없다", async () => {
     const spy = stubFetch({ program_key: "diagnose" });
     const row = {
       tenant_id: "tenant-1",
@@ -258,10 +262,14 @@ describe("서비스 설정", () => {
     const request = await sent(spy);
     expect(request).toMatchObject({
       method: "PUT",
-      path: "/api/admin/tenants/service-settings",
-      body: row,
+      path: "/api/admin/tenants/tenant-1/service-settings",
     });
+    expect(request.body).not.toHaveProperty("tenant_id");
     expect(request.body).not.toHaveProperty("updated_by");
+    expect(request.body).toMatchObject({
+      program_key: "diagnose",
+      monthly_limit: 3,
+    });
   });
 });
 
