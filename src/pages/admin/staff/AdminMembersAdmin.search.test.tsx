@@ -75,3 +75,26 @@ test("입력하는 대로 목록이 걸러진다", async () => {
   expect(screen.getByText("이운영")).toBeInTheDocument();
   expect(screen.queryByText("김관리")).not.toBeInTheDocument();
 });
+
+test("주소의 q 로 시작하면 그 검색어로 걸러진 목록을 보인다", async () => {
+  renderMembers("/admin/adminMembers?q=이운영");
+
+  expect(await screen.findByText("이운영")).toBeInTheDocument();
+  expect(screen.queryByText("김관리")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("관리자 검색")).toHaveValue("이운영");
+});
+
+test("입력한 검색어는 주소의 q 에 써지고 비우면 지워진다", async () => {
+  const { router } = renderMembers();
+  await screen.findByText("김관리");
+
+  fireEvent.change(screen.getByLabelText("관리자 검색"), {
+    target: { value: "이운영" },
+  });
+  expect(router.state.location.search).toBe("?q=%EC%9D%B4%EC%9A%B4%EC%98%81");
+
+  fireEvent.change(screen.getByLabelText("관리자 검색"), {
+    target: { value: "" },
+  });
+  expect(router.state.location.search).toBe("");
+});

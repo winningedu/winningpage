@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { ActionButton } from "@/pages/admin/shared/formFields";
+import { useKeywordParam } from "@/pages/admin/shared/useKeywordParam";
 import { fetchStaffList, staffKeys } from "./api";
 import { InvitePanel } from "./InvitePanel";
 import {
@@ -62,7 +63,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
 
 function MemberList({ config }: AdminMembersAdminProps) {
   const navigate = useNavigate();
-  const [keyword, setKeyword] = useState("");
+  const [keyword, setKeyword] = useKeywordParam();
   const [inviteOpen, setInviteOpen] = useState(false);
 
   // 목록, 권한 묶음, 메뉴 목록은 한 응답으로 온다. 상세 새로고침도 같은 응답을 쓴다.
