@@ -8,7 +8,11 @@ import ReportV3View from "./ReportV3View";
 import { FRONT_PAGES } from "./testPages";
 
 vi.mock("@/config/site", () => ({
-  site: { brandName: "TEST", features: { callmentor: true } },
+  site: {
+    brandName: "TEST",
+    features: { callmentor: true },
+    logo: { horizontal: "/logo.svg" },
+  },
 }));
 
 // v3 payloads stored before 2026-11-23 lack these fields; stored reports render as saved.

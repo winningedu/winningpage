@@ -1,5 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import "@/styles/report-print.css";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { site } from "@/config/site";
 import type { DiagnosisV3Pages } from "@/lib/diagnosis-v3/types";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
@@ -143,6 +145,21 @@ export default function ReportV3View({
     >
       <style>{REPORT_PAGE_RULE}</style>
       <div className="fd-sheet-stack flex flex-col items-center gap-8 px-4 py-10 lg:px-0 lg:py-25">
+        {/* Shared image cover: variant "a4" is a fd-report-sheet with its own page break,
+            and it has no page number, so the content pages keep their "N / 16". */}
+        <ReportCoverPage
+          variant="a4"
+          kind="diagnosis"
+          title={`${site.brandName}\n학습진단 리포트`}
+          infoItems={[
+            {
+              label: "학생명",
+              value: studentName ?? pages.cover.studentName,
+            },
+            { label: "학년", value: pages.cover.gradeLabel },
+            { label: "진단일", value: pages.cover.diagnosedAt },
+          ]}
+        />
         <CoverPage cover={pages.cover} />
         <Page01Summary page={pages.p1} tocTitle={tocTitle(1)} />
         <Page02Goal page={pages.p2} tocTitle={tocTitle(2)} />
