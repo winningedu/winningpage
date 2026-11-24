@@ -15,12 +15,20 @@ describe("buildMyMenu admin", () => {
   });
 });
 
+describe("buildMyMenu teacher", () => {
+  it("선생님은 선생님 화면 하나만 본다", () => {
+    expect(buildMyMenu("teacher")).toEqual([
+      { label: "선생님 화면", to: "/teacher" },
+    ]);
+  });
+});
+
 describe("toMyMenuRole", () => {
   it.each([
     ["admin", "admin"],
     ["parent", "parent"],
     ["student", "student"],
-    ["teacher", "student"],
+    ["teacher", "teacher"],
     ["mentor", "student"],
     ["other", "student"],
     ["unset", "student"],

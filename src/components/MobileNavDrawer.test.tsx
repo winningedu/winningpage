@@ -71,9 +71,10 @@ const EXPECTED_BY_ROLE: Record<MyMenuRole, { label: string; href: string }[]> =
       { label: "관리자 메뉴", href: "/admin" },
       { label: "내 정보 수정", href: "/mypage?tab=profile" },
     ],
+    teacher: [{ label: "선생님 화면", href: "/teacher" }],
   };
 
-describe.each(["student", "parent", "admin"] as const)(
+describe.each(["student", "parent", "admin", "teacher"] as const)(
   "MobileNavDrawer — MY 섹션(role=%s)",
   (role) => {
     it("역할에 해당하는 MY 메뉴 항목만 라벨·href 그대로 노출한다", () => {
