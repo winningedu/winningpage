@@ -81,6 +81,9 @@ export function requireUserId(ctx: HandlerCtx): string {
 const AUTH_REQUIRED_MESSAGE = "로그인이 필요합니다.";
 const AUTH_REQUIRED_CODE = "UNAUTHENTICATED";
 
+const METHOD_NOT_ALLOWED_CODE = "METHOD_NOT_ALLOWED";
+const FORBIDDEN_CODE = "FORBIDDEN";
+
 const INVALID_TIME_ZONE_CODE = "INVALID_TIME_ZONE";
 const TIME_ZONE_REQUIRED_CODE = "TIME_ZONE_REQUIRED";
 
@@ -93,6 +96,18 @@ const READ_ONLY_METHODS = new Set(["GET", "HEAD"]);
 // api/performance/cleanup-attachments.ts, embed-session-vectors.ts 기준.
 const CRON_REQUIRED_MESSAGE = "인증이 필요합니다.";
 const CRON_REQUIRED_CODE = "UNAUTHORIZED";
+
+// resolveAdmin 계열은 code 없이 status 와 detail 만 준다. problem 은 code 가 필수라
+// 여기서만 채우고, 다른 shape 의 바디는 그대로 둔다.
+function adminFailureCode(
+  shape: ErrorShape,
+  status: number,
+): string | undefined {
+  if (shape !== "problem") return undefined;
+  if (status === 401) return AUTH_REQUIRED_CODE;
+  if (status === 403) return FORBIDDEN_CODE;
+  return undefined;
+}
 
 export interface DefineHandlerOptions {
   methods: readonly ("GET" | "POST" | "PUT" | "PATCH" | "DELETE")[];
@@ -159,7 +174,9 @@ export function defineHandler(opts: DefineHandlerOptions) {
         opts.methods,
         opts.errorShape,
         opts.methodNotAllowedMessage,
-        opts.methodNotAllowedCode,
+        opts.errorShape === "problem"
+          ? METHOD_NOT_ALLOWED_CODE
+          : opts.methodNotAllowedCode,
         opts.methodNotAllowedExtra,
       )
     ) {
@@ -280,7 +297,13 @@ export function defineHandler(opts: DefineHandlerOptions) {
             sendQaBlocked(res, opts.errorShape, admin.code);
             return;
           }
-          sendError(res, opts.errorShape, admin.status, admin.detail);
+          sendError(
+            res,
+            opts.errorShape,
+            admin.status,
+            admin.detail,
+            adminFailureCode(opts.errorShape, admin.status),
+          );
           return;
         }
         ctx.userId = admin.userId;
@@ -295,7 +318,13 @@ export function defineHandler(opts: DefineHandlerOptions) {
             sendQaBlocked(res, opts.errorShape, admin.code);
             return;
           }
-          sendError(res, opts.errorShape, admin.status, admin.detail);
+          sendError(
+            res,
+            opts.errorShape,
+            admin.status,
+            admin.detail,
+            adminFailureCode(opts.errorShape, admin.status),
+          );
           return;
         }
         ctx.userId = admin.userId;
