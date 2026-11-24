@@ -48,6 +48,7 @@ import { AdminSectionRoute } from "./Admin";
 import { sectionKeys } from "./admin/engine/api";
 import { ConfirmAdminHost } from "./admin/shared/confirmAdmin";
 
+const popups = mainConfigs.popups as NonNullable<typeof mainConfigs.popups>;
 const LIST_LABEL = "팝업 관리 목록을 불러오는 중입니다.";
 const row = (id: number, title: string) => ({ id, title, sort_order: id });
 
@@ -98,7 +99,7 @@ describe("Admin 엔진 목록 스켈레톤", () => {
 
     const status = await screen.findByRole("status", { name: LIST_LABEL });
     expect(status.querySelector('[data-part="header"]')?.children).toHaveLength(
-      mainConfigs.popups.columns.length + 2,
+      popups.columns.length + 2,
     );
   });
 
@@ -169,7 +170,7 @@ describe("Admin 엔진 수정 화면 스켈레톤", () => {
       name: "팝업 관리 상세를 불러오는 중입니다.",
     });
     expect(status.querySelectorAll('[data-part="row"]')).toHaveLength(
-      mainConfigs.popups.fields.length,
+      (popups.fields ?? []).length,
     );
   });
 });
