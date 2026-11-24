@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 interface AdminSkeletonStatusProps {
-  label?: string;
+  label?: string | undefined;
   className?: string;
   children?: ReactNode;
 }

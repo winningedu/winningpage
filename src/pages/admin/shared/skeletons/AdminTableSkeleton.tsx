@@ -3,7 +3,7 @@ import { SkeletonBar } from "./SkeletonBar";
 
 interface TableSkeletonGridProps {
   columns: number;
-  rows?: number;
+  rows?: number | undefined;
 }
 
 // 표 모양 막대만 그린다(status 없음). 셸 스켈레톤처럼 status를 바깥에서 한 번만 두는 곳이 쓴다.
