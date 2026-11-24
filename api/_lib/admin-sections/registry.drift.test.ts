@@ -4,11 +4,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { SITES } from "../../../src/config/sites.js";
-import {
-  PROTECTED_COLUMNS,
-  SECTION_PAGE_SIZE,
-  SECTIONS,
-} from "./registry.js";
+import { PROTECTED_COLUMNS, SECTION_PAGE_SIZE, SECTIONS } from "./registry.js";
 
 type Field = { key: string };
 interface BrowserConfig {
@@ -100,12 +96,10 @@ function browserPayload(
   return payload;
 }
 
-function sampleForm(config: BrowserConfig, writable: readonly string[]) {
+// 새 등록 폼이 가진 값: 편집 필드와 기본값뿐이다(레지스트리가 허용하는 키를 섞지 않는다).
+function sampleForm(config: BrowserConfig) {
   const form: Record<string, unknown> = { ...(config.defaults ?? {}) };
-  const keys = new Set([
-    ...(config.fields ?? []).map((f) => f.key),
-    ...writable,
-  ]);
+  const keys = new Set((config.fields ?? []).map((f) => f.key));
   for (const column of keys) form[column] ??= "x";
   if (keys.has("image_urls")) form.image_urls = ["https://example.com/a.png"];
   if (keys.has("attachments")) {
@@ -181,25 +175,38 @@ describe.each(Object.keys(SITES))(
       }
     });
 
-    test("폼이 보내는 키는 전부 writable 이거나 서버가 떼는 키다", async () => {
+    test("writable 은 폼이 만들 수 있는 컬럼과 정확히 같다", async () => {
       const configs = await engineConfigs();
+      const diffs: Record<string, { missing: string[]; extra: string[] }> = {};
       for (const [key, entry] of Object.entries(SECTIONS)) {
         const config = configs[key] as BrowserConfig;
-        if (entry.readOnly) continue;
-        const allowed = new Set<string>([
-          ...entry.writable,
-          ...stripped(config),
-        ]);
-        const form = sampleForm(config, entry.writable);
-        const sent = [
+        if (entry.readOnly) {
+          expect({ key, writable: entry.writable }).toEqual({
+            key,
+            writable: [],
+          });
+          continue;
+        }
+        const form = sampleForm(config);
+        // 폼이 만드는 키: formToPayload 가 내는 키, 고정 값, 저장 직전에 saveRow 가 붙이는 파생 키,
+        // 그리고 실제 컬럼인 편집 필드 키. 서버가 떼는 키(보호, 목록 전용, 편집 필드 없는 view_count)는 뺀다.
+        const produced = new Set<string>([
           ...Object.keys(config.fixedValues ?? {}),
           ...Object.keys(browserPayload(key, config, form)),
-        ];
-        const missing = [...new Set(sent)].filter(
-          (column) => !allowed.has(column),
+          ...(config.fields ?? [])
+            .map((field) => field.key)
+            .filter((column) => entry.columns.includes(column)),
+        ]);
+        for (const column of stripped(config)) produced.delete(column);
+        const missing = [...produced].filter(
+          (column) => !entry.writable.includes(column),
         );
-        expect({ key, missing }).toEqual({ key, missing: [] });
+        const extra = entry.writable.filter((column) => !produced.has(column));
+        if (missing.length > 0 || extra.length > 0) {
+          diffs[key] = { missing: missing.sort(), extra: extra.sort() };
+        }
       }
+      expect(diffs).toEqual({});
     });
   },
 );

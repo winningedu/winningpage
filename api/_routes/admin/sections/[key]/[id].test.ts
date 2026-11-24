@@ -163,6 +163,62 @@ describe("PATCH /api/admin/sections/:key/:id", () => {
   });
 });
 
+describe("PATCH 는 폼이 만들 수 있는 컬럼만 쓴다", () => {
+  test("refundRequests 는 승인 여부와 처리 결과를 바꿀 수 없다(조용히 버린다)", async () => {
+    seedAdmin(kit.state, "edit", "refundRequests");
+    kit.db.tables.refund_requests = [
+      { id: "q1", status: "requested", approval_status: "pending" },
+    ];
+    const r = await call("PATCH", "refundRequests", "q1", {
+      values: {
+        status: "rejected",
+        admin_memo: "메모",
+        approval_status: "approved",
+        completed_at: "2026-11-24T00:00:00Z",
+      },
+    });
+    expect(r.status).toBe(200);
+    expect(kit.db.tables.refund_requests?.[0]).toEqual({
+      id: "q1",
+      status: "rejected",
+      admin_memo: "메모",
+      approval_status: "pending",
+    });
+  });
+
+  test("지식 DB 는 embedding, search_text 를 바꿀 수 없다", async () => {
+    seedAdmin(kit.state, "edit", "winningSuhaengTopicDb");
+    kit.db.tables.winning_assessment_knowledge_items = [
+      {
+        id: "k1",
+        knowledge_type: "topic_pattern",
+        title: "old",
+        embedding: "[1]",
+        search_text: "s",
+      },
+    ];
+    const r = await call("PATCH", "winningSuhaengTopicDb", "k1", {
+      values: { title: "new", embedding: "[9]", search_text: "x" },
+    });
+    expect(r.status).toBe(200);
+    expect(kit.db.tables.winning_assessment_knowledge_items?.[0]).toMatchObject(
+      { title: "new", embedding: "[1]", search_text: "s" },
+    );
+  });
+
+  test("테이블에 없는 키는 여전히 400", async () => {
+    seedAdmin(kit.state, "edit", "refundRequests");
+    kit.db.tables.refund_requests = [{ id: "q1" }];
+    expect(
+      (
+        await call("PATCH", "refundRequests", "q1", {
+          values: { not_a_column: 1 },
+        })
+      ).status,
+    ).toBe(400);
+  });
+});
+
 describe("DELETE /api/admin/sections/:key/:id", () => {
   test("지우고 204 를 돌려준다", async () => {
     seedAdmin(kit.state, "edit", "faqs");
