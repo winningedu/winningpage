@@ -12,11 +12,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock(
   "@/lib/http/client",
-  async () => (await import("./fakeApi")).clientMock,
+  async () => (await import("@/pages/admin/shared/fakeApi")).clientMock,
 );
 
 import { toast } from "@/components/ui/toast";
-import { callsTo, FakeApiError, on, resetApi } from "./fakeApi";
+import {
+  callsTo,
+  FakeApiError,
+  on,
+  resetApi,
+} from "@/pages/admin/shared/fakeApi";
 import { BASE, renderAdmin, seed } from "./testKit";
 
 const toastTitle = () => document.querySelector('[data-slot="toast-title"]');

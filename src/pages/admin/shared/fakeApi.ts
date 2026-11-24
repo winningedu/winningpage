@@ -1,4 +1,4 @@
-// 학습진단 화면 테스트용 api 대체. vi.mock 팩토리가 이 파일을 불러오므로 컴포넌트를 import 하지 않는다.
+// 어드민 화면 테스트용 api 대체(GET, POST, PATCH, DELETE). vi.mock 팩토리가 이 파일을 불러오므로 컴포넌트를 import 하지 않는다.
 
 import type { ZodType } from "zod";
 

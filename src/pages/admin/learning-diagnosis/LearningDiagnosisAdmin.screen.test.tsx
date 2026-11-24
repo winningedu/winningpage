@@ -6,10 +6,10 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 vi.mock(
   "@/lib/http/client",
-  async () => (await import("./fakeApi")).clientMock,
+  async () => (await import("@/pages/admin/shared/fakeApi")).clientMock,
 );
 
-import { resetApi } from "./fakeApi";
+import { resetApi } from "@/pages/admin/shared/fakeApi";
 import { program, renderAdmin, seed } from "./testKit";
 
 beforeEach(() => {

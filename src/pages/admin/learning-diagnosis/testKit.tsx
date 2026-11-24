@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { Toaster } from "@/components/ui/toast";
 import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
-import { on } from "./fakeApi";
+import { on } from "@/pages/admin/shared/fakeApi";
 import LearningDiagnosisAdmin from "./LearningDiagnosisAdmin";
 
 export const BASE = "admin/learning-diagnosis";
