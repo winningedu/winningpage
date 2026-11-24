@@ -19,7 +19,6 @@ import * as api from "./api";
 import B2cSection from "./B2cSection";
 
 const STATS: LoginStatsResponse = {
-  ok: true,
   from: "2026-11-01",
   to: "2026-11-23",
   grain: "day",
@@ -44,7 +43,6 @@ const STATS: LoginStatsResponse = {
 };
 
 const SUMMARY: HqB2cResponse = {
-  ok: true,
   from: "2026-11-01",
   to: "2026-11-23",
   includeInternal: false,
