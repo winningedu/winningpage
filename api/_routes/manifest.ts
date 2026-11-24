@@ -31,6 +31,8 @@ export const routes: Record<string, RouteLoader> = {
   "admin/inquiry-grant": () => import("./admin/inquiry-grant.js"),
   "admin/inquiry-recover": () => import("./admin/inquiry-recover.js"),
   "admin/inquiry-sessions": () => import("./admin/inquiry-sessions.js"),
+  "admin/inquiry-sessions/[id]": () =>
+    import("./admin/inquiry-sessions/[id].js"),
   "admin/invite-member": () => import("./admin/invite-member.js"),
   "admin/me/permissions": () => import("./admin/me/permissions.js"),
   "admin/knowledge-bulk": () => import("./admin/knowledge-bulk.js"),
