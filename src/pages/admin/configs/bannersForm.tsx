@@ -1,20 +1,21 @@
 import HeroSection from "@/components/landing/HeroSection";
-import { supabase } from "@/lib/supabase";
+import { ApiError, api } from "@/lib/http/client";
 import type { FieldOption } from "@/pages/admin/shared/csvExport";
 
 // ── 배너 관리(banners, home_side_banners) 공통: 노출 대상 선택지 + 저장 변환 ──
 
-// 노출 대상 select 선택지. tenants 전체를 이름순으로 불러온다(CouponAdmin 소속 드롭다운과 같은 조회).
+// 노출 대상 select 선택지. tenants 전체를 이름순으로 불러온다. 엔진이 effect 안에서 명령형으로 부르는
+// 로더라 react-query 없이 api 를 직접 쓴다. tenants 권한이 없는 관리자는 예전 RLS 처럼 빈 목록이다.
 export async function loadTenantOptions(): Promise<FieldOption[]> {
-  const { data, error } = await supabase
-    .from("tenants")
-    .select("id, name")
-    .order("name");
-  if (error) throw error;
-  return (data || []).map((tenant) => ({
-    value: tenant.id,
-    label: tenant.name,
-  }));
+  try {
+    const { items } = await api
+      .get("admin/tenant-options")
+      .json<{ items: { id: string; name: string }[] }>();
+    return items.map((tenant) => ({ value: tenant.id, label: tenant.name }));
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 403) return [];
+    throw error;
+  }
 }
 
 const NULLABLE_BANNER_KEYS = ["tenant_id", "start_date", "end_date"] as const;
