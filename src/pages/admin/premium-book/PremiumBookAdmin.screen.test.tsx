@@ -44,9 +44,11 @@ test("PDF 선택 입력은 숨기지 않고 시각만 감춰 키보드로 열 �
 test("목록을 불러오는 동안 상태 안내를 보인다", async () => {
   on("GET", PAGES_PATH, () => new Promise(() => {}));
   renderPremiumBook();
-  expect(await screen.findByRole("status")).toHaveTextContent(
-    "데이터를 불러오는 중입니다.",
-  );
+  expect(
+    await screen.findByRole("status", {
+      name: "프리미엄 책자 목록을 불러오는 중입니다.",
+    }),
+  ).toBeInTheDocument();
 });
 
 test("PDF를 고른 뒤 같은 파일을 다시 고를 수 있게 입력값을 비운다", async () => {

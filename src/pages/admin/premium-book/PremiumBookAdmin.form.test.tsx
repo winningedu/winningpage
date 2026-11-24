@@ -195,6 +195,17 @@ describe("수정", () => {
     });
   });
 
+  test("수정할 행을 받는 동안 폼 대신 스켈레톤을 보인다", async () => {
+    on("GET", `${PAGES_PATH}/7`, () => new Promise(() => {}));
+    renderPremiumBook(`${LIST}/7`);
+    expect(
+      await screen.findByRole("status", {
+        name: "프리미엄 책자 페이지를 불러오는 중입니다.",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "저장" })).toBeNull();
+  });
+
   test("없는 행은 빈 폼 대신 찾을 수 없음 안내와 목록으로 버튼을 보인다", async () => {
     on("GET", `${PAGES_PATH}/9`, () => {
       throw new FakeApiError({ status: 404, code: "NOT_FOUND" });

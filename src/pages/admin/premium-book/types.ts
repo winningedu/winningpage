@@ -4,5 +4,7 @@ export interface PremiumBookAdminConfig {
   title: string;
   homepage?: boolean;
   guideText?: string;
+  columns: readonly unknown[];
+  fields?: readonly unknown[];
   [key: string]: unknown;
 }

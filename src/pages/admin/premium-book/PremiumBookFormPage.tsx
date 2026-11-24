@@ -15,6 +15,7 @@ import {
 } from "@/pages/admin/shared/AdminEngine";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { toastSuccess } from "@/pages/admin/shared/adminToast";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { type PremiumBookPageRow, usePage, useSavePage } from "./api";
 import { Heading } from "./Heading";
 import { PREMIUM_BOOK_PATH } from "./paths";
@@ -77,11 +78,12 @@ export function PremiumBookFormPage({
 
   if (!detail.data) {
     return (
-      <div
-        role="status"
-        className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
-      >
-        데이터를 불러오는 중입니다.
+      <div>
+        <Heading config={config} />
+        <AdminDetailSkeleton
+          rows={(config.fields ?? config.columns).length}
+          label="프리미엄 책자 페이지를 불러오는 중입니다."
+        />
       </div>
     );
   }

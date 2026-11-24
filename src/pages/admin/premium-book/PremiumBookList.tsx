@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { type PremiumBookPageRow, useDeletePage, usePageList } from "./api";
 import { Heading } from "./Heading";
 import { PdfPanel } from "./PdfPanel";
@@ -107,12 +108,11 @@ export function PremiumBookList({
       </div>
 
       {list.isPending ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+        <AdminTableSkeleton
+          // 번호 + 설정 열 + 관리, AdminTable 머리글과 같다.
+          columns={config.columns.length + 2}
+          label="프리미엄 책자 목록을 불러오는 중입니다."
+        />
       ) : (
         <AdminTable
           config={config}
