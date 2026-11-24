@@ -66,6 +66,59 @@ function fill(label: string, value: string) {
 }
 
 describe("SchoolAdminPanel", () => {
+  test("목록을 기다리는 동안 빈 목록 문구 대신 표 스켈레톤을 보인다", async () => {
+    let release: () => void = () => {};
+    vi.mocked(api.fetchSchoolAdmins).mockImplementation(async () => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return { address: "서울시 중구 1", items: [ADMIN] };
+    });
+    renderPanel();
+
+    expect(
+      screen.getByRole("status", {
+        name: "전체 관리자 목록을 불러오는 중입니다.",
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText("발급한 전체 관리자가 없습니다.")).toBeNull();
+
+    release();
+    expect(await screen.findByText("박관리")).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  test("발급하면 목록이 스켈레톤을 거쳐 새로 받은 행으로 바뀐다", async () => {
+    vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
+      loginId: "NEWLOGIN2345AB",
+      tempPassword: "Tmp-pass-1",
+    });
+    renderPanel();
+    await screen.findByText("박관리");
+    let release: () => void = () => {};
+    vi.mocked(api.fetchSchoolAdmins).mockImplementationOnce(async () => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return { address: "서울시 중구 1", items: [ADMIN, CANCELED] };
+    });
+    fill("이름", "김새로");
+    fill("전화번호", "010-1111-2222");
+    fireEvent.click(screen.getByRole("button", { name: "발급" }));
+
+    // 임시 비밀번호 모달이 뒤쪽을 가리므로 hidden 도 함께 찾는다.
+    expect(
+      await screen.findByRole("status", {
+        name: "전체 관리자 목록을 불러오는 중입니다.",
+        hidden: true,
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText("박관리")).toBeNull();
+
+    release();
+    expect(await screen.findByText("최취소")).toBeTruthy();
+  });
+
   test("전체 관리자 목록에 주소, 발급일, 등록취소일을 읽기로만 보여준다", async () => {
     renderPanel();
 
