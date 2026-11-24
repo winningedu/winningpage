@@ -10,7 +10,7 @@
 //   완료로 바꾼다 — 돈이 안 돌아갔는데 완료로 찍히는 사고를 구조적으로 막는다.
 //
 // 흐름
-//   1) 어드민 판정(resolveAdmin — is_admin() JS 미러).
+//   1) 어드민 판정과 환불 요청 메뉴 edit 권한(defineHandler auth:"admin" + permission).
 //   2) refund_requests + orders 를 service role 로 읽는다(어드민은 남의
 //      주문도 봐야 하므로 RLS 우회가 필요하다).
 //   3) 상태 선검사 — approval_status='approved', status in
@@ -45,10 +45,12 @@
 // 클라이언트 생성용).
 
 import { createClient } from "@supabase/supabase-js";
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { z } from "zod";
 import type { Json } from "../../src/types/database.types.js";
-import { getBearerToken, resolveAdmin } from "../_lib/adminAuth.js";
-import { createSupabaseAdmin, getEnv } from "../_lib/supabaseAdmin.js";
+import { getBearerToken } from "../_lib/adminAuth.js";
+import { defineHandler } from "../_lib/handler.js";
+import { sendError } from "../_lib/httpResponse.js";
+import { getEnv } from "../_lib/supabaseAdmin.js";
 
 const TOSS_PAYMENT_QUERY_URL = "https://api.tosspayments.com/v1/payments";
 const TOSS_CANCEL_PATH_SUFFIX = "cancel";
@@ -77,6 +79,11 @@ export type TossCancelRequestBody = {
   cancelAmount: number;
   refundReceiveAccount?: RefundReceiveAccount;
 };
+
+// 토스가 준 에러 코드는 우리 코드와 섞이지 않게 별도 멤버로 싣는다.
+function tossExtra(code: unknown): Record<string, unknown> | undefined {
+  return typeof code === "string" && code ? { tossCode: code } : undefined;
+}
 
 function clean(value: unknown): string {
   return String(value || "").trim();
@@ -208,213 +215,255 @@ export function buildIdempotencyKey(refundRequestId: string | number): string {
   return `refund-request-${refundRequestId}`;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+export default defineHandler({
+  methods: ["POST"],
+  auth: "admin",
+  errorShape: "problem",
+  // 토스 취소가 실제 돈을 움직이므로 환불 요청 메뉴의 edit 가 필요하다.
+  permission: { key: "refundRequests", level: "edit" },
+  body: z.object({
+    refundRequestId: z.union([z.string().min(1), z.number().int().positive()], {
+      error: "refundRequestId 가 필요합니다.",
+    }),
+  }),
+  unhandledMessage: "환불 완료 처리 중 오류가 발생했습니다.",
+  logLabel: "complete-refund",
+  handler: async (req, res, ctx) => {
+    const { refundRequestId } = ctx.body;
+    const supabaseAdmin = ctx.supabaseAdmin;
 
-  const supabaseAdmin = createSupabaseAdmin();
-  const admin = await resolveAdmin(
-    supabaseAdmin,
-    req as { headers: Record<string, string> },
-  );
-  if (!admin.ok) {
-    return res.status(admin.status).json({
-      error: admin.detail,
-      ...(admin.code && { code: admin.code, detail: admin.detail }),
-    });
-  }
-
-  const refundRequestId = req.body?.refundRequestId;
-  if (!refundRequestId) {
-    return res.status(400).json({ error: "refundRequestId 가 필요합니다." });
-  }
-
-  const { data: refundRequest, error: refundError } = await supabaseAdmin
-    .from("refund_requests")
-    .select(
-      "id, order_id, amount, reason, status, approval_status, refund_bank, refund_account, refund_holder",
-    )
-    .eq("id", refundRequestId)
-    .maybeSingle();
-
-  if (refundError || !refundRequest) {
-    return res.status(404).json({ error: "환불 신청을 찾을 수 없습니다." });
-  }
-
-  // 이미 완료된 건의 재호출은 순수 성공 응답으로 흡수한다 — 토스도 다시
-  // 부르지 않고 fn_complete_refund 도 다시 시도하지 않는다(재시도 안전).
-  if (refundRequest.status === "completed") {
-    return res.status(200).json({ ok: true, alreadyCompleted: true });
-  }
-
-  // fn_complete_refund 가 곧 다시 볼 조건이지만, 토스를 부르기 **전에** 미리
-  // 걸러야 한다 — 안 그러면 "승인 안 된 신청인데 돈만 취소되고 DB는 완료로
-  //못 바뀌는" 사고가 난다(위 파일 상단 주석 3)단계).
-  if (refundRequest.approval_status !== "approved") {
-    return res
-      .status(409)
-      .json({ error: "아직 승인되지 않은 환불 신청입니다.", code: "WC035" });
-  }
-  if (!["requested", "processing"].includes(refundRequest.status)) {
-    return res.status(409).json({
-      error: "지금 상태에서는 환불 완료 처리를 할 수 없습니다.",
-      code: "WC036",
-    });
-  }
-
-  const { data: order, error: orderError } = await supabaseAdmin
-    .from("orders")
-    .select("id, payment_key, raw")
-    .eq("id", refundRequest.order_id)
-    .maybeSingle();
-
-  if (orderError || !order) {
-    return res.status(404).json({ error: "주문을 찾을 수 없습니다." });
-  }
-
-  const paymentKey = clean(order.payment_key);
-  if (!paymentKey) {
-    return res.status(409).json({
-      error: "결제 승인 키가 없어 토스 결제취소를 진행할 수 없습니다.",
-    });
-  }
-
-  const secretKey = getEnv("TOSS_SECRET_KEY");
-  if (!secretKey) {
-    return res
-      .status(500)
-      .json({ error: "서버에 TOSS_SECRET_KEY 가 설정되지 않았습니다." });
-  }
-  const auth = Buffer.from(`${secretKey}:`).toString("base64");
-
-  const raw = (order.raw || {}) as Record<string, unknown>;
-  const isVirtualAccount = isVirtualAccountPayment(raw);
-  const cancelAmount = Number(refundRequest.amount);
-
-  // 4) 기취소 확인 — 이 환불 건 금액의 취소가 이미 있으면 토스 호출을 생략한다.
-  const queryRes = await fetch(
-    `${TOSS_PAYMENT_QUERY_URL}/${encodeURIComponent(paymentKey)}`,
-    { headers: { Authorization: `Basic ${auth}` } },
-  );
-  const queried: TossPaymentQueryResponse = await queryRes.json();
-
-  if (!queryRes.ok) {
-    return res.status(502).json({
-      error: queried?.message || "토스 결제 조회에 실패했습니다.",
-      code: queried?.code,
-    });
-  }
-
-  let cancelResult: TossCancelEntry | Record<string, unknown> | null =
-    findMatchingCancel(queried.cancels, cancelAmount, refundRequest.id);
-
-  if (!cancelResult) {
-    // 5) 새 취소 요청.
-    if (
-      isVirtualAccount &&
-      !(
-        clean(refundRequest.refund_bank) &&
-        clean(refundRequest.refund_account) &&
-        clean(refundRequest.refund_holder)
+    const { data: refundRequest, error: refundError } = await supabaseAdmin
+      .from("refund_requests")
+      .select(
+        "id, order_id, amount, reason, status, approval_status, refund_bank, refund_account, refund_holder",
       )
-    ) {
-      return res.status(422).json({
-        error:
+      .eq("id", refundRequestId)
+      .maybeSingle();
+
+    if (refundError || !refundRequest) {
+      return sendError(
+        res,
+        "problem",
+        404,
+        "환불 신청을 찾을 수 없습니다.",
+        "REFUND_NOT_FOUND",
+      );
+    }
+
+    // 이미 완료된 건의 재호출은 순수 성공 응답으로 흡수한다 — 토스도 다시
+    // 부르지 않고 fn_complete_refund 도 다시 시도하지 않는다(재시도 안전).
+    if (refundRequest.status === "completed") {
+      res.status(200).json({ alreadyCompleted: true });
+      return;
+    }
+
+    // fn_complete_refund 가 곧 다시 볼 조건이지만, 토스를 부르기 **전에** 미리
+    // 걸러야 한다 — 안 그러면 "승인 안 된 신청인데 돈만 취소되고 DB는 완료로
+    // 못 바뀌는" 사고가 난다(위 파일 상단 주석 3)단계).
+    if (refundRequest.approval_status !== "approved") {
+      return sendError(
+        res,
+        "problem",
+        409,
+        "아직 승인되지 않은 환불 신청입니다.",
+        "WC035",
+      );
+    }
+    if (!["requested", "processing"].includes(refundRequest.status)) {
+      return sendError(
+        res,
+        "problem",
+        409,
+        "지금 상태에서는 환불 완료 처리를 할 수 없습니다.",
+        "WC036",
+      );
+    }
+
+    const { data: order, error: orderError } = await supabaseAdmin
+      .from("orders")
+      .select("id, payment_key, raw")
+      .eq("id", refundRequest.order_id)
+      .maybeSingle();
+
+    if (orderError || !order) {
+      return sendError(
+        res,
+        "problem",
+        404,
+        "주문을 찾을 수 없습니다.",
+        "ORDER_NOT_FOUND",
+      );
+    }
+
+    const paymentKey = clean(order.payment_key);
+    if (!paymentKey) {
+      return sendError(
+        res,
+        "problem",
+        409,
+        "결제 승인 키가 없어 토스 결제취소를 진행할 수 없습니다.",
+        "PAYMENT_KEY_MISSING",
+      );
+    }
+
+    const secretKey = getEnv("TOSS_SECRET_KEY");
+    if (!secretKey) {
+      return sendError(
+        res,
+        "problem",
+        500,
+        "서버에 TOSS_SECRET_KEY 가 설정되지 않았습니다.",
+        "TOSS_SECRET_MISSING",
+      );
+    }
+    const auth = Buffer.from(`${secretKey}:`).toString("base64");
+
+    const raw = (order.raw || {}) as Record<string, unknown>;
+    const isVirtualAccount = isVirtualAccountPayment(raw);
+    const cancelAmount = Number(refundRequest.amount);
+
+    // 4) 기취소 확인 — 이 환불 건 금액의 취소가 이미 있으면 토스 호출을 생략한다.
+    const queryRes = await fetch(
+      `${TOSS_PAYMENT_QUERY_URL}/${encodeURIComponent(paymentKey)}`,
+      { headers: { Authorization: `Basic ${auth}` } },
+    );
+    const queried: TossPaymentQueryResponse = await queryRes.json();
+
+    if (!queryRes.ok) {
+      return sendError(
+        res,
+        "problem",
+        502,
+        queried?.message || "토스 결제 조회에 실패했습니다.",
+        "TOSS_QUERY_FAILED",
+        tossExtra(queried?.code),
+      );
+    }
+
+    let cancelResult: TossCancelEntry | Record<string, unknown> | null =
+      findMatchingCancel(queried.cancels, cancelAmount, refundRequest.id);
+
+    if (!cancelResult) {
+      // 5) 새 취소 요청.
+      if (
+        isVirtualAccount &&
+        !(
+          clean(refundRequest.refund_bank) &&
+          clean(refundRequest.refund_account) &&
+          clean(refundRequest.refund_holder)
+        )
+      ) {
+        return sendError(
+          res,
+          "problem",
+          422,
           "가상계좌 환불에는 환불계좌(은행/계좌번호/예금주) 정보가 필요합니다.",
+          "REFUND_ACCOUNT_REQUIRED",
+        );
+      }
+
+      const cancelBody = buildCancelRequestBody({
+        cancelReason: refundRequest.reason || "고객 요청",
+        cancelAmount,
+        isVirtualAccount,
+        refundRequestId: refundRequest.id,
+        refundBank: refundRequest.refund_bank,
+        refundAccount: refundRequest.refund_account,
+        refundHolder: refundRequest.refund_holder,
       });
-    }
 
-    const cancelBody = buildCancelRequestBody({
-      cancelReason: refundRequest.reason || "고객 요청",
-      cancelAmount,
-      isVirtualAccount,
-      refundRequestId: refundRequest.id,
-      refundBank: refundRequest.refund_bank,
-      refundAccount: refundRequest.refund_account,
-      refundHolder: refundRequest.refund_holder,
-    });
-
-    const cancelRes = await fetch(
-      `${TOSS_PAYMENT_QUERY_URL}/${encodeURIComponent(paymentKey)}/${TOSS_CANCEL_PATH_SUFFIX}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${auth}`,
-          "Content-Type": "application/json",
-          "Idempotency-Key": buildIdempotencyKey(refundRequest.id),
+      const cancelRes = await fetch(
+        `${TOSS_PAYMENT_QUERY_URL}/${encodeURIComponent(paymentKey)}/${TOSS_CANCEL_PATH_SUFFIX}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${auth}`,
+            "Content-Type": "application/json",
+            "Idempotency-Key": buildIdempotencyKey(refundRequest.id),
+          },
+          body: JSON.stringify(cancelBody),
         },
-        body: JSON.stringify(cancelBody),
-      },
-    );
-    const cancelData: TossPaymentQueryResponse = await cancelRes.json();
+      );
+      const cancelData: TossPaymentQueryResponse = await cancelRes.json();
 
-    if (!cancelRes.ok) {
-      // 돈이 안 움직였다 — DB를 건드리지 않고 토스 에러를 그대로 올린다.
-      console.error("토스 결제취소 실패:", refundRequestId, cancelData);
-      return res.status(cancelRes.status).json({
-        error: cancelData?.message || "토스 결제취소에 실패했습니다.",
-        code: cancelData?.code,
-      });
+      if (!cancelRes.ok) {
+        // 돈이 안 움직였다 — DB를 건드리지 않고 토스 에러를 그대로 올린다.
+        console.error("토스 결제취소 실패:", refundRequestId, cancelData);
+        return sendError(
+          res,
+          "problem",
+          cancelRes.status,
+          cancelData?.message || "토스 결제취소에 실패했습니다.",
+          "TOSS_CANCEL_FAILED",
+          tossExtra(cancelData?.code),
+        );
+      }
+
+      cancelResult =
+        findMatchingCancel(
+          cancelData.cancels,
+          cancelAmount,
+          refundRequest.id,
+        ) || cancelData;
     }
 
-    cancelResult =
-      findMatchingCancel(cancelData.cancels, cancelAmount, refundRequest.id) ||
-      cancelData;
-  }
+    // 6) 증빙 저장 — 재클릭으로 기취소를 찾은 경우도 다시 저장해 둔다(첫 시도가
+    // 여기 도달하기 전에 끊겼을 수 있다).
+    const { error: cancelSaveError } = await supabaseAdmin
+      .from("refund_requests")
+      // cancelResult는 토스 취소 응답(TossCancelEntry, [key: string]: unknown)
+      // 또는 그 파생 Record다 — 벤더 JSON 원본이라 실제 값은 항상 JSON-safe지만
+      // 로컬 타입의 인덱스 시그니처가 unknown이라 Json과 구조적으로 안 맞는다.
+      .update({ toss_cancel: cancelResult as Json })
+      .eq("id", refundRequestId);
+    if (cancelSaveError) {
+      // 저장 실패는 완료 처리를 막지 않는다 — 증빙은 부가 정보이고, 정본은
+      // 토스 콘솔에 이미 남아 있다. 로그만 남긴다.
+      console.error(
+        "refund_requests.toss_cancel 저장 실패(계속 진행):",
+        refundRequestId,
+        cancelSaveError,
+      );
+    }
 
-  // 6) 증빙 저장 — 재클릭으로 기취소를 찾은 경우도 다시 저장해 둔다(첫 시도가
-  // 여기 도달하기 전에 끊겼을 수 있다).
-  const { error: cancelSaveError } = await supabaseAdmin
-    .from("refund_requests")
-    // cancelResult는 토스 취소 응답(TossCancelEntry, [key: string]: unknown)
-    // 또는 그 파생 Record다 — 벤더 JSON 원본이라 실제 값은 항상 JSON-safe지만
-    // 로컬 타입의 인덱스 시그니처가 unknown이라 Json과 구조적으로 안 맞는다.
-    .update({ toss_cancel: cancelResult as Json })
-    .eq("id", refundRequestId);
-  if (cancelSaveError) {
-    // 저장 실패는 완료 처리를 막지 않는다 — 증빙은 부가 정보이고, 정본은
-    // 토스 콘솔에 이미 남아 있다. 로그만 남긴다.
-    console.error(
-      "refund_requests.toss_cancel 저장 실패(계속 진행):",
-      refundRequestId,
-      cancelSaveError,
+    // 7) 상태 전이 — 어드민 본인 토큰으로 호출해 fn_complete_refund 내부의
+    // is_admin()(auth.uid() 기반)을 satisfy 한다(위 파일 상단 주석 참고).
+    // defineHandler 는 service role 판정까지만 하므로 토큰은 요청에서 다시 읽는다.
+    const publishableKey = getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
+    const supabaseUrl = getEnv(
+      "WINNING_SUPABASE_URL",
+      "SUPABASE_URL",
+      "VITE_SUPABASE_URL",
     );
-  }
-
-  // 7) 상태 전이 — 어드민 본인 토큰으로 호출해 fn_complete_refund 내부의
-  // is_admin()(auth.uid() 기반)을 satisfy 한다(위 파일 상단 주석 참고).
-  const publishableKey = getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
-  const supabaseUrl = getEnv(
-    "WINNING_SUPABASE_URL",
-    "SUPABASE_URL",
-    "VITE_SUPABASE_URL",
-  );
-  const adminToken = getBearerToken(req as { headers: Record<string, string> });
-  const supabaseAsAdmin = createClient(supabaseUrl, publishableKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: `Bearer ${adminToken}` } },
-  });
-
-  const { data: completeResult, error: completeError } =
-    await supabaseAsAdmin.rpc("fn_complete_refund", {
-      p_refund_request_id: refundRequestId,
-      p_admin_memo: null,
+    const adminToken = getBearerToken(req);
+    const supabaseAsAdmin = createClient(supabaseUrl, publishableKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${adminToken}` } },
     });
 
-  if (completeError) {
-    // 토스 취소는 이미 성공했다 — 재클릭하면 4)단계가 기취소를 찾아 이
-    // 7)단계만 재시도된다(위 파일 상단 주석의 복구 경로).
-    console.error(
-      "토스 취소 성공, fn_complete_refund 실패:",
-      refundRequestId,
-      completeError,
-    );
-    return res.status(409).json({
-      error: completeError.message,
-      code: completeError.code,
-    });
-  }
+    const { data: completeResult, error: completeError } =
+      await supabaseAsAdmin.rpc("fn_complete_refund", {
+        p_refund_request_id: refundRequestId,
+        p_admin_memo: null,
+      });
 
-  return res.status(200).json({ ok: true, refund: completeResult });
-}
+    if (completeError) {
+      // 토스 취소는 이미 성공했다 — 재클릭하면 4)단계가 기취소를 찾아 이
+      // 7)단계만 재시도된다(위 파일 상단 주석의 복구 경로).
+      console.error(
+        "토스 취소 성공, fn_complete_refund 실패:",
+        refundRequestId,
+        completeError,
+      );
+      return sendError(
+        res,
+        "problem",
+        409,
+        completeError.message,
+        completeError.code || "REFUND_COMPLETE_FAILED",
+      );
+    }
+
+    res.status(200).json({ refund: completeResult });
+  },
+});

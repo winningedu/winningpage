@@ -75,3 +75,52 @@ export function fetchExportChunk(key: string, from: number, q: string) {
     .get(`${base(key)}/export`, { searchParams: { from, q } })
     .json(exportSchema);
 }
+
+// 임시 버킷 업로드 3단계(서버가 주소를 발급하고, 브라우저가 PUT 하고, 미리보기 주소를 받는다).
+const issuedUploadSchema = z.object({
+  path: z.string(),
+  uploadUrl: z.string(),
+});
+const previewSchema = z.object({ url: z.string() });
+
+export function issueUpload(
+  section: string,
+  file: { field: string; fileName: string; contentType: string; size: number },
+) {
+  return api
+    .post("admin/uploads", { json: { section, ...file } })
+    .json(issuedUploadSchema);
+}
+
+export async function previewUpload(section: string, path: string) {
+  const { url } = await api
+    .post("admin/uploads/preview", { json: { section, path } })
+    .json(previewSchema);
+  return url;
+}
+
+export async function removeUploads(section: string, paths: string[]) {
+  await api.delete("admin/uploads", { json: { section, paths } });
+}
+
+// 응답 모양은 서버가 정한다. 화면은 성공 여부만 쓴다.
+const refundResultSchema = z.object({
+  alreadyCompleted: z.boolean().optional(),
+  refund: z.unknown().optional(),
+});
+
+export function completeRefund(refundRequestId: string | number) {
+  return api
+    .post("complete-refund", { json: { refundRequestId } })
+    .json(refundResultSchema);
+}
+
+// 저장 뒤 임베딩 요청. 토스트와 저장은 이 응답을 기다리지 않는다.
+export function requestEmbedding(id: string) {
+  return api
+    .post("performance/admin-embed", {
+      json: { action: "embed-one", id },
+      timeout: 60_000,
+    })
+    .json(z.record(z.string(), z.unknown()));
+}

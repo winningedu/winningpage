@@ -20,16 +20,16 @@
 //
 // 응답 규격
 //   200 { action, ... }   정상. 대상 아님/캐시 적중은 에러가 아니라 status:'skipped'다.
-//   400 { detail }        action·id 누락 등 요청 오류.
-//   401 { detail }        토큰 없음/무효.
-//   403 { detail }        관리자 아님.
-//   405 { detail }        POST 아님.
-//   500 { detail }        임베딩 실패, 서버 설정 누락 등.
+//   오류는 problem 형식(RFC 9457, 항상 code)이다.
+//   400 ID_REQUIRED / UNKNOWN_ACTION   action·id 누락 등 요청 오류.
+//   401, 403, 405                      토큰 없음/무효, 관리자 아님, POST 아님.
+//   500 EMBED_FAILED                   임베딩 실패(detail 은 원인 문구).
 
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { performanceTraceContext } from "../../_lib/ai/telemetry/performanceContext.js";
 import { type AiTrace, createAiTrace } from "../../_lib/ai/telemetry/trace.js";
 import { defineHandler } from "../../_lib/handler.js";
+import { sendError } from "../../_lib/httpResponse.js";
 import {
   buildKnowledgeSearchText,
   embedText,
@@ -339,7 +339,7 @@ async function backfill(
 export default defineHandler({
   methods: ["POST"],
   auth: "admin",
-  errorShape: "detail",
+  errorShape: "problem",
   unhandledMessage: "임베딩 처리 중 오류가 발생했습니다.",
   logLabel: "admin-embed",
   handler: async (req, res, ctx) => {
@@ -363,7 +363,7 @@ export default defineHandler({
     try {
       if (action === "embed-one") {
         if (!id) {
-          res.status(400).json({ detail: "id가 필요합니다." });
+          sendError(res, "problem", 400, "id가 필요합니다.", "ID_REQUIRED");
           return;
         }
 
@@ -390,12 +390,16 @@ export default defineHandler({
         return;
       }
 
-      res.status(400).json({
-        detail: "알 수 없는 action입니다. 'embed-one' 또는 'backfill'.",
-      });
+      sendError(
+        res,
+        "problem",
+        400,
+        "알 수 없는 action입니다. 'embed-one' 또는 'backfill'.",
+        "UNKNOWN_ACTION",
+      );
     } catch (error) {
       console.error("admin-embed error:", error);
-      res.status(500).json({ detail: errorMessage(error) });
+      sendError(res, "problem", 500, errorMessage(error), "EMBED_FAILED");
     } finally {
       scheduleAfterResponse(() => trace.flush(supabaseAdmin));
     }
