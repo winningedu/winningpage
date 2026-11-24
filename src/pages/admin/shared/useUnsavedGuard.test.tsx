@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -12,12 +13,22 @@ import {
   RouterProvider,
   useLocation,
 } from "react-router";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import * as confirmModule from "./confirmAdmin";
 import { ConfirmAdminHost } from "./confirmAdmin";
 import { useUnsavedGuard } from "./useUnsavedGuard";
 
-function Screen({ dirty }: { dirty: boolean }) {
-  useUnsavedGuard(dirty, (next) => next.pathname.startsWith("/member/1"));
+function Screen({
+  dirty,
+  withStays = true,
+}: {
+  dirty: boolean;
+  withStays?: boolean;
+}) {
+  useUnsavedGuard(
+    dirty,
+    withStays ? (next) => next.pathname.startsWith("/member/1") : undefined,
+  );
   const location = useLocation();
   return (
     <div>
@@ -28,9 +39,9 @@ function Screen({ dirty }: { dirty: boolean }) {
   );
 }
 
-function renderScreen(dirty: boolean) {
+function renderScreen(dirty: boolean, withStays = true) {
   const router = createMemoryRouter(
-    [{ path: "*", element: <Screen dirty={dirty} /> }],
+    [{ path: "*", element: <Screen dirty={dirty} withStays={withStays} /> }],
     { initialEntries: ["/member/1"] },
   );
   render(
@@ -110,5 +121,50 @@ describe("useUnsavedGuard", () => {
     });
 
     expect(event.defaultPrevented).toBe(false);
+  });
+
+  test("stays 를 넘기지 않아도 고친 내용이 있으면 막는다", async () => {
+    const router = renderScreen(true, false);
+
+    fireEvent.click(screen.getByRole("link", { name: "다른 화면" }));
+
+    expect(
+      await screen.findByText("저장하지 않은 변경이 있어요"),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/member/1");
+  });
+
+  test("확인창은 파괴적 스타일로 연다", async () => {
+    const spy = vi.spyOn(confirmModule, "confirmAdmin");
+    renderScreen(true);
+
+    fireEvent.click(screen.getByRole("link", { name: "다른 화면" }));
+    await screen.findByText("저장하지 않은 변경이 있어요");
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ destructive: true }),
+    );
+    spy.mockRestore();
+  });
+
+  test("effect 가 정리된 뒤 도착한 확인 결과는 무시한다", async () => {
+    let answer: (leave: boolean) => void = () => {};
+    const spy = vi.spyOn(confirmModule, "confirmAdmin").mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        answer = resolve;
+      }),
+    );
+    const router = renderScreen(true);
+
+    fireEvent.click(screen.getByRole("link", { name: "다른 화면" }));
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    // 화면이 사라지면 effect 가 정리된다
+    cleanup();
+    await act(async () => {
+      answer(true);
+    });
+
+    expect(router.state.location.pathname).toBe("/member/1");
+    spy.mockRestore();
   });
 });

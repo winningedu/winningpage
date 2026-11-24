@@ -6,7 +6,7 @@ import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 // stays 는 같은 화면 안의 이동(회원 상세의 탭 전환)을 걸러내는 판정이다.
 export function useUnsavedGuard(
   dirty: boolean,
-  stays: (nextLocation: Location) => boolean,
+  stays: (nextLocation: Location) => boolean = () => false,
 ): void {
   const blocker = useBlocker(
     ({ nextLocation }) => dirty && !stays(nextLocation),
@@ -14,15 +14,22 @@ export function useUnsavedGuard(
 
   useEffect(() => {
     if (blocker.state !== "blocked") return;
+    // 확인 중에 화면이 바뀌면 낡은 blocker 로 proceed 하지 않는다.
+    let alive = true;
     confirmAdmin({
       title: "저장하지 않은 변경이 있어요",
       description: "이 화면을 나가면 고친 내용이 사라져요.",
       confirmLabel: "나가기",
       cancelLabel: "계속 수정",
+      destructive: true,
     }).then((leave) => {
+      if (!alive) return;
       if (leave) blocker.proceed();
       else blocker.reset();
     });
+    return () => {
+      alive = false;
+    };
   }, [blocker]);
 
   // 새로고침과 탭 닫기는 라우터가 못 잡아서 브라우저 확인창에 맡긴다.
