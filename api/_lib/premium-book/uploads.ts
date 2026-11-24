@@ -8,13 +8,15 @@ export const PREMIUM_BOOK_SECTION = "premiumBookPages";
 /** 책자 파일이 놓이는 banners 폴더(옛 화면과 같다). */
 export const PREMIUM_BOOK_FOLDER = "premium-book";
 
+// 페이지 폼의 이미지 필드. config imageSpec.maxMB 2 와 같다.
+export const PREMIUM_BOOK_IMAGE: UploadField = {
+  kind: "image",
+  folder: PREMIUM_BOOK_FOLDER,
+  maxBytes: 2 * 1024 * 1024,
+};
+
 export const PREMIUM_BOOK_UPLOADS: Readonly<Record<string, UploadField>> = {
-  // config imageSpec.maxMB 2 와 같다.
-  image_url: {
-    kind: "image",
-    folder: PREMIUM_BOOK_FOLDER,
-    maxBytes: 2 * 1024 * 1024,
-  },
+  image_url: PREMIUM_BOOK_IMAGE,
   booklet_pdf: { kind: "file", folder: PREMIUM_BOOK_FOLDER, accept: ["pdf"] },
   page_webp: { kind: "image", folder: PREMIUM_BOOK_FOLDER },
 };
