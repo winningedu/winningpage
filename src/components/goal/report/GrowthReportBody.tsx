@@ -5,8 +5,13 @@ import GoalTabs from "@/components/goal/GoalTabs";
 import { formatCoverPeriod } from "@/components/report/formatCoverDate";
 import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { site } from "@/config/site";
 import { trackEvent } from "@/lib/analytics";
+import type { ReportPeriodOption } from "@/lib/goal/report/aggregate";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
   downloadReportPdf,
@@ -131,6 +136,11 @@ type GrowthReportBodyProps = {
   studentName?: string | null;
   /** 학생 프로필 학년 원본("고2" 등). 값이 없으면 표지에서 학년 칸이 빠진다. */
   studentGrade?: string | null;
+  /** 지난 리포트 선택 목록(서버가 최신순으로 내려준다). 비어 있거나 없으면 select를 두지 않는다. */
+  periodOptions?: ReportPeriodOption[] | undefined;
+  /** 지금 보여 주는 리포트의 기간 키(주간 = 월요일 YMD, 월간 = YYYY-MM). */
+  activePeriod?: string | undefined;
+  onPeriodKeyChange?: ((key: string) => void) | undefined;
 };
 
 // 성장 리포트 본문(#33 주간 / #34 월간) — parent-view-spec.md §1-3/§4 원칙에 따라 셸과 완전히
@@ -162,6 +172,9 @@ export default function GrowthReportBody({
   report,
   studentName,
   studentGrade,
+  periodOptions,
+  activePeriod,
+  onPeriodKeyChange,
 }: GrowthReportBodyProps) {
   const { overview, execution, outcome, strategy, mentorComment, admission } =
     report;
@@ -217,14 +230,37 @@ export default function GrowthReportBody({
   return (
     <div className="max-w-goal-content px-4 pb-24 pt-perf-inset md:px-12">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <GoalTabs
-          tabs={PERIOD_TABS}
-          value={period}
-          onChange={onPeriodChange}
-          ariaLabel="리포트 기간"
-          gap="0.5rem"
-          variant="boxed"
-        />
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <GoalTabs
+            tabs={PERIOD_TABS}
+            value={period}
+            onChange={onPeriodChange}
+            ariaLabel="리포트 기간"
+            gap="0.5rem"
+            variant="boxed"
+          />
+          {periodOptions && periodOptions.length > 0 ? (
+            <NativeSelect
+              aria-label="리포트 기간 선택"
+              className="max-w-full"
+              value={activePeriod ?? ""}
+              onChange={(event) => onPeriodKeyChange?.(event.target.value)}
+            >
+              {/* 알림톡 링크 등으로 목록 밖 기간을 보고 있으면 그 기간을 그대로 보여 준다. */}
+              {activePeriod &&
+              !periodOptions.some((o) => o.value === activePeriod) ? (
+                <NativeSelectOption value={activePeriod}>
+                  {report.periodLabel}
+                </NativeSelectOption>
+              ) : null}
+              {periodOptions.map((o) => (
+                <NativeSelectOption key={o.value} value={o.value}>
+                  {o.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          ) : null}
+        </div>
         <button
           type="button"
           onClick={handlePdfButtonClick}

@@ -3,7 +3,7 @@
 // 형태로 합쳐진 문자열, aggregate.ts computeAdmissionDelta 참고)를 목표로 쓰고, 학생
 // 이름은 호출부(ChildReport.tsx 등)가 studentName prop으로 내려준다.
 import "@testing-library/jest-dom/vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { site } from "@/config/site";
 import GrowthReportBody, { type GrowthReport } from "./GrowthReportBody";
@@ -225,5 +225,83 @@ describe("GrowthReportBody: 멘토 코멘트 작성일", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("GrowthReportBody, 리포트 기간 선택", () => {
+  const options = [
+    { value: "2026-09-14", label: "이번 주 9.14 ~ 9.20" },
+    { value: "2026-09-07", label: "9.7 ~ 9.13" },
+  ];
+
+  it("옵션이 있으면 select를 렌더하고 activePeriod를 선택값으로 보여준다", () => {
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+        periodOptions={options}
+        activePeriod="2026-09-07"
+        onPeriodKeyChange={() => {}}
+      />,
+    );
+
+    const select = screen.getByLabelText("리포트 기간 선택");
+    expect(select).toHaveValue("2026-09-07");
+    expect(
+      within(select)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["이번 주 9.14 ~ 9.20", "9.7 ~ 9.13"]);
+  });
+
+  it("옵션을 고르면 onPeriodKeyChange를 그 값으로 부른다", () => {
+    const onPeriodKeyChange = vi.fn();
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+        periodOptions={options}
+        activePeriod="2026-09-14"
+        onPeriodKeyChange={onPeriodKeyChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("리포트 기간 선택"), {
+      target: { value: "2026-09-07" },
+    });
+    expect(onPeriodKeyChange).toHaveBeenCalledWith("2026-09-07");
+  });
+
+  it("옵션이 없으면 select를 렌더하지 않는다", () => {
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("리포트 기간 선택")).toBeNull();
+  });
+
+  it("activePeriod가 목록 밖이면 periodLabel을 그 값의 옵션으로 보여준다", () => {
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+        periodOptions={options}
+        activePeriod="2026-08-31"
+        onPeriodKeyChange={() => {}}
+      />,
+    );
+
+    const select = screen.getByLabelText("리포트 기간 선택");
+    expect(select).toHaveValue("2026-08-31");
+    expect(
+      within(select).getByRole("option", { name: "2026-09-15 ~ 2026-09-21" }),
+    ).toBeInTheDocument();
   });
 });
