@@ -159,20 +159,24 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
     fireEvent.click(screen.getByRole("button", { name: "적용" }));
   }
 
-  // 서버가 BACKFILL_APPLY_FAILED 로 내리는 problem 본문. DB 오류 원문은 싣지 않는다.
-  function applyFailure(status: number, extra: Record<string, unknown> = {}) {
-    const detail =
-      "백필 반영 중 일부 청크가 실패했습니다. 이미 반영된 청크는 되돌려지지 않습니다.";
+  // 서버가 청크 실패로 내리는 problem 본문. DB 오류 원문은 싣지 않는다.
+  // DB 오류가 매핑되면 code 와 detail 이 그 매핑 값이고, 아니면 BACKFILL_APPLY_FAILED 다.
+  function applyFailure(
+    status: number,
+    extra: Record<string, unknown> = {},
+    code = "BACKFILL_APPLY_FAILED",
+    detail = "백필 반영 중 일부 청크가 실패했습니다.",
+  ) {
     return new ApiError({
       status,
-      code: "BACKFILL_APPLY_FAILED",
+      code,
       detail,
       problem: {
         type: "about:blank",
         title: "t",
         status,
         detail,
-        code: "BACKFILL_APPLY_FAILED",
+        code,
         applied: 0,
         step: "upsert",
         range: "1~2",
@@ -198,13 +202,15 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
-  it("서버가 4xx 중복으로 거절하면 제목에는 되돌려지지 않는다는 문구 없이 행 범위만 붙고 설명은 서버 문장을 보인다", async () => {
+  it("서버가 4xx 중복으로 청크 실패를 알리면 제목에 행 범위와 되돌려지지 않는다는 안내가 붙고 설명은 중복 안내를 보인다", async () => {
     vi.spyOn(window, "alert").mockImplementation(() => {});
     mocks.post.mockRejectedValue(
-      applyFailure(409, {
-        dbCode: "DB_UNIQUE_VIOLATION",
-        columns: ["university_name", "department_name"],
-      }),
+      applyFailure(
+        409,
+        { applied: 500, columns: [] },
+        "DB_UNIQUE_VIOLATION",
+        "이미 등록된 값입니다(중복).",
+      ),
     );
     await renderAndApply();
 
@@ -212,15 +218,13 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
       const title = document.querySelector('[data-slot="toast-title"]');
       expect(title).toHaveTextContent("백필 적용 실패(1~2행)");
     });
-    // 4xx 는 아무것도 쓰지 않은 거절이라 제목에 부분 반영 안내가 붙지 않는다.
+    // 4xx 여도 앞 청크는 이미 쓰였다. 서버가 청크 범위를 알려 오면 부분 반영 안내를 붙인다.
     expect(
       document.querySelector('[data-slot="toast-title"]'),
-    ).not.toHaveTextContent("되돌려지지 않습니다");
-    // 오류 코드가 BACKFILL_APPLY_FAILED 라 DB_UNIQUE_VIOLATION 라벨 매핑은 타지 않고
-    // 서버가 쓴 detail 이 그대로 설명이 된다(dbCode 는 화면에서 쓰지 않는다).
+    ).toHaveTextContent("이미 반영된 청크는 되돌려지지 않습니다");
     expect(
       document.querySelector('[data-slot="toast-description"]'),
-    ).toHaveTextContent("백필 반영 중 일부 청크가 실패했습니다");
+    ).toHaveTextContent("이미 등록된 값입니다(중복).");
     expect(document.body.textContent).not.toContain("duplicate key");
   });
 

@@ -165,7 +165,8 @@ function chunkRangeOf(error: unknown): string | null {
   return typeof range === "string" ? range : null;
 }
 
-// 서버 쓰기가 중간까지 갔을 수 있는 실패(5xx, 응답 없음)인지. 4xx 는 아무것도 쓰지 않은 거절이다.
+// 서버 쓰기가 중간까지 갔을 수 있는 실패(5xx, 응답 없음)인지.
+// 청크 실패(range 가 있는 응답)는 상태와 무관하게 앞 청크가 이미 쓰였으므로 호출부가 따로 본다.
 function mayHavePartialWrite(error: unknown): boolean {
   return (
     !(error instanceof ApiError) || error.status === null || error.status >= 500
@@ -244,7 +245,7 @@ function GoalCutsBackfillPanel({ onReload }) {
               )
             : "백필 적용 실패";
           reportAdminError(
-            mayHavePartialWrite(err)
+            range !== null || mayHavePartialWrite(err)
               ? `${title}. 이미 반영된 청크는 되돌려지지 않습니다`
               : title,
             err,
