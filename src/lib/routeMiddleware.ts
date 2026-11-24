@@ -124,7 +124,9 @@ async function assertAdminSectionAccess(request: Request, userId: string) {
   let permissions: AdminPermissionMap = new Map();
   let isSuperAdmin = false;
   try {
-    ({ permissions, isSuper: isSuperAdmin } = await queryClient.fetchQuery(
+    // 캐시된 맵이 있으면 기다리지 않고 쓰고 뒤에서 갱신한다(없으면 첫 진입처럼 기다린다).
+    ({ permissions, isSuper: isSuperAdmin } = await resolveStaleWhileRevalidate(
+      queryClient,
       adminPermissionsQueryOptions(userId),
     ));
   } catch (error) {
@@ -208,9 +210,22 @@ async function checkAdminAccess(request: Request, userId: string) {
 
   // 관리자 판정은 서버가 한다: 권한 조회가 성공하면 관리자, 403 이면 관리자가 아니다.
   // 그 밖의 실패(401, 500, 네트워크, 시간 초과, 스키마)는 판정 불가라 캐시하지 않고 막는다.
+  //
+  // 역할 캐시(15초)가 만료돼도 권한 쿼리에 성공 데이터가 남아 있으면 기다리지 않고 관리자로 본다
+  // (뒤에서 갱신한다). 단, 마지막 갱신이 403 이었다면 그 데이터는 쓰지 않는다: 관리자에서 내려온 사람이
+  // 낡은 맵으로 통과하면 안 되므로 쿼리를 지우고 아래의 기다리는 경로(활성화 시도 포함)로 보낸다.
+  const permissionsQuery = adminPermissionsQueryOptions(userId);
+  const lastError = queryClient.getQueryState(permissionsQuery.queryKey)?.error;
+  if (lastError instanceof ApiError && lastError.status === 403) {
+    queryClient.removeQueries({
+      queryKey: permissionsQuery.queryKey,
+      exact: true,
+    });
+  }
+
   let isAdmin = false;
   try {
-    await queryClient.fetchQuery(adminPermissionsQueryOptions(userId));
+    await resolveStaleWhileRevalidate(queryClient, permissionsQuery);
     isAdmin = true;
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 403) {
