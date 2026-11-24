@@ -455,12 +455,17 @@ export default defineHandler({
         refundRequestId,
         completeError,
       );
+      // WC 코드는 함수가 직접 만든 한국어 안내문이라 그대로 싣는다. 그 밖의 DB 오류는 내부
+      // 정보(테이블 이름, 제약 이름)가 섞일 수 있어 고정 문구만 보낸다(원문은 위 로그).
+      const isOwnError = /^WC\d+$/.test(completeError.code ?? "");
       return sendError(
         res,
         "problem",
         409,
-        completeError.message,
-        completeError.code || "REFUND_COMPLETE_FAILED",
+        isOwnError
+          ? completeError.message
+          : "환불 완료 처리에 실패했습니다. 잠시 뒤 다시 눌러 주세요.",
+        isOwnError ? (completeError.code as string) : "REFUND_COMPLETE_FAILED",
       );
     }
 
