@@ -4,7 +4,7 @@ import type { VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { parseInput } from "./parseInput.js";
 
-export const couponPayloadSchema = z.strictObject({
+const couponFields = {
   slug: z.string().trim().min(1),
   code: z.string().trim().min(1).nullable(),
   tenant_id: z.uuid().nullable(),
@@ -19,7 +19,20 @@ export const couponPayloadSchema = z.strictObject({
   valid_until: z.iso.date().nullable(),
   max_uses_per_user: z.int().nullable(),
   max_redemptions: z.int().nullable(),
-});
+};
+
+// coupons 의 나머지 컬럼(database.types.ts Row). 행 스냅샷을 그대로 보내도 조용히 버리고 쓰지 않는다.
+// 이 밖의 키는 coupons 컬럼이 아니므로 strict 가 400 으로 막는다.
+export const couponPayloadSchema = z
+  .strictObject({
+    ...couponFields,
+    id: z.unknown().optional(),
+    created_at: z.unknown().optional(),
+    org_code: z.unknown().optional(),
+  })
+  .transform(
+    ({ id: _id, created_at: _createdAt, org_code: _orgCode, ...rest }) => rest,
+  );
 
 export type CouponPayload = z.output<typeof couponPayloadSchema>;
 

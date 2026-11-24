@@ -3,6 +3,7 @@
 // GET: 쿠폰 한 건. PATCH: 같은 본문(CouponPayload)으로 전체 수정. 없는 id 는 404 NOT_FOUND.
 // id 는 경로 구간이고 dispatch 가 req.query.id 에 담는다(uuid 가 아니면 400). 저장 제약 위반은 sendCouponSaveError 가 409, 422 로 바꾼다.
 // 권한: 메뉴 coupons(GET view, PATCH edit).
+// 예전 화면도 쿠폰에 소속 범위를 두지 않았다(RLS 는 is_admin 뿐). 그래서 id 읽기와 수정은 소속으로 거르지 않는다.
 
 import { z } from "zod";
 import { sendNotFound } from "../../../_lib/coupon/notFound.js";

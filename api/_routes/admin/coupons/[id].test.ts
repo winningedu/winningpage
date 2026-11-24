@@ -152,6 +152,28 @@ describe("PATCH /api/admin/coupons/:id", () => {
     expect(problemCode(r.body)).toBe("NOT_FOUND");
   });
 
+  test("coupons 컬럼이지만 화면이 만들지 않는 키는 조용히 버리고 13개 키만 고친다", async () => {
+    const admin = setup("edit");
+    const r = await patch({
+      ...PAYLOAD,
+      id: ID,
+      created_at: "2026-11-24T00:00:00Z",
+      org_code: "X",
+    });
+    expect(r.status).toBe(200);
+    expect(argsOf(firstQuery(admin, "coupons"), "update")).toEqual([PAYLOAD]);
+  });
+
+  test("DELETE 는 405 이고 아무것도 쓰지 않는다", async () => {
+    const admin = setup("edit");
+    const r = await callRoute(handler, {
+      method: "DELETE",
+      query: { id: ID },
+    });
+    expect(r.status).toBe(405);
+    expect(admin.queries).toEqual([]);
+  });
+
   test.each([
     ["정의되지 않은 키", { ...PAYLOAD, extra: 1 }],
     ["빈 title", { ...PAYLOAD, title: "" }],

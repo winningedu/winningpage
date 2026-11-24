@@ -253,6 +253,26 @@ describe("POST /api/admin/coupons", () => {
     expect(argsOf(firstQuery(admin, "coupons"), "insert")).toEqual([PAYLOAD]);
   });
 
+  test("coupons 컬럼이지만 화면이 만들지 않는 키는 조용히 버리고 13개 키만 저장한다", async () => {
+    adminTables.coupons = ok({ id: "new" });
+    const admin = setup("edit");
+    const r = await post({
+      ...PAYLOAD,
+      id: "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11",
+      created_at: "2026-11-24T00:00:00Z",
+      org_code: "X",
+    });
+    expect(r.status).toBe(201);
+    expect(argsOf(firstQuery(admin, "coupons"), "insert")).toEqual([PAYLOAD]);
+  });
+
+  test("DELETE 는 405 이고 아무것도 쓰지 않는다", async () => {
+    const admin = setup("edit");
+    const r = await callRoute(handler, { method: "DELETE" });
+    expect(r.status).toBe(405);
+    expect(admin.queries).toEqual([]);
+  });
+
   test.each([
     ["빈 slug", { slug: "  " }],
     ["빈 code", { code: "" }],
