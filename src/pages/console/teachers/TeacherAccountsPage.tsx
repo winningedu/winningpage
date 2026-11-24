@@ -34,7 +34,12 @@ import IssueDialog from "./IssueDialog";
 import IssuedPanel from "./IssuedPanel";
 import type { IssuedRow } from "./issuedFile";
 import MoreMenu from "./MoreMenu";
-import { type AccountItem, classText, lastLoginText } from "./roster";
+import {
+  type AccountItem,
+  classText,
+  lastLoginText,
+  registeredDateText,
+} from "./roster";
 import TeacherDialog from "./TeacherDialog";
 
 const PAGE_SIZE = 50;
@@ -241,20 +246,27 @@ export default function TeacherAccountsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>이름</TableHead>
+                    <TableHead>이름 (등록일)</TableHead>
                     <TableHead>구분</TableHead>
                     <TableHead>담당</TableHead>
                     <TableHead>아이디</TableHead>
                     <TableHead>비밀번호</TableHead>
                     <TableHead>상태</TableHead>
                     <TableHead className="text-right">최근 로그인</TableHead>
-                    <TableHead>관리</TableHead>
+                    <TableHead className="w-[15.75rem]">관리</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {list.data.items.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell>{t.name}</TableCell>
+                      <TableCell>
+                        <span className="block w-[4.625rem] truncate">
+                          {t.name}
+                        </span>
+                        <span className="block text-app-caption text-ink-sub">
+                          {registeredDateText(t.createdAt)}
+                        </span>
+                      </TableCell>
                       <TableCell>{roleLabel(t)}</TableCell>
                       <TableCell>{scopeText(t, gradeLabel)}</TableCell>
                       <TableCell>{t.loginId}</TableCell>

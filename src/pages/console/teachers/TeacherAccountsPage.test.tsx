@@ -58,6 +58,7 @@ const ITEMS = [
     name: "최민정",
     role: "school_admin",
     phoneLast4: "5678",
+    createdAt: new Date(2026, 1, 20, 12).toISOString(),
     loginId: "SM26HB83R4TXW9",
     status: "active",
     passwordSet: true,
@@ -68,6 +69,7 @@ const ITEMS = [
     name: "박지훈",
     role: "homeroom",
     phoneLast4: "5678",
+    createdAt: new Date(2026, 1, 25, 12).toISOString(),
     lastLoginAt: "2026-11-03T08:15:00",
     loginId: "SM26HB83K7MPQ2",
     status: "active",
@@ -79,6 +81,7 @@ const ITEMS = [
     name: "최유나",
     role: "homeroom",
     phoneLast4: "2468",
+    createdAt: new Date(2026, 9, 30, 12).toISOString(),
     loginId: "SM26HB83Y6GH2E",
     status: "inactive",
     passwordSet: false,
@@ -141,7 +144,7 @@ describe("W16 목록", () => {
       screen.getByRole("heading", { level: 1, name: "선생님 계정 관리" }),
     ).toBeTruthy();
     for (const head of [
-      "이름",
+      "이름 (등록일)",
       "구분",
       "담당",
       "아이디",
@@ -157,6 +160,8 @@ describe("W16 목록", () => {
       within(rows[0] as HTMLElement).getByText("전체 관리자"),
     ).toBeTruthy();
     const park = rows[1] as HTMLElement;
+    expect(within(park).getByText("2026.02.25")).toBeTruthy();
+    expect(within(park).getByText("박지훈").className).toContain("truncate");
     expect(within(park).getByText("담임 선생님")).toBeTruthy();
     expect(within(park).getByText("2학년 3반(주) + 2학년 5반")).toBeTruthy();
     expect(within(park).getByText("SM26HB83K7MPQ2")).toBeTruthy();
@@ -393,6 +398,7 @@ const OWN = {
   name: "본인관리자",
   role: "school_admin",
   phoneLast4: "1111",
+  createdAt: new Date(2026, 1, 20, 12).toISOString(),
   loginId: "SM26HB83R4TXW9",
   status: "active",
   passwordSet: true,
