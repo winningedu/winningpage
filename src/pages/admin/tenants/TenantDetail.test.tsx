@@ -480,7 +480,9 @@ describe("TenantDetail 이동과 불러오기 실패", () => {
   test("불러오는 중에도 목록으로 버튼이 목록으로 이동한다", async () => {
     renderDetail();
 
-    expect(screen.getByText("데이터를 불러오는 중입니다.")).toBeTruthy();
+    expect(
+      screen.getByRole("status", { name: "기관 정보를 불러오는 중입니다." }),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "목록으로" }));
     expect(await screen.findByText("기관 목록 화면")).toBeTruthy();
   });

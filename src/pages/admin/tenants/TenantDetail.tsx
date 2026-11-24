@@ -10,6 +10,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import { fetchTenantDetail, patchTenant, type TenantDetailRow } from "./api";
 import { mouLabel } from "./contract";
@@ -45,6 +46,9 @@ const TABS: { key: TenantTab; label: string }[] = [
   { key: "service-settings", label: "서비스 설정" },
   { key: "school-admins", label: "전체 관리자" },
 ];
+
+// 기관 정보 탭의 입력칸 수(소속코드 포함). 스켈레톤 행 수가 된다.
+const TENANT_FORM_FIELD_COUNT = 19;
 
 const MOU_OPTIONS = ["pending", "signed", "ended"];
 
@@ -112,16 +116,21 @@ export default function TenantDetail() {
         <div className="mb-5 flex justify-end">
           <BackToList />
         </div>
-        <div
-          role={query.isError ? "alert" : "status"}
-          className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
-        >
-          {query.isError
-            ? notFound
+        {query.isError ? (
+          <div
+            role="alert"
+            className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
+          >
+            {notFound
               ? "기관을 찾을 수 없어요."
-              : "기관 정보를 불러오지 못했어요."
-            : "데이터를 불러오는 중입니다."}
-        </div>
+              : "기관 정보를 불러오지 못했어요."}
+          </div>
+        ) : (
+          <AdminDetailSkeleton
+            rows={TENANT_FORM_FIELD_COUNT}
+            label="기관 정보를 불러오는 중입니다."
+          />
+        )}
       </div>
     );
   }
