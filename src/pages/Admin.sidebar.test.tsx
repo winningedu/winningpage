@@ -83,6 +83,16 @@ beforeEach(() => {
   state.allowed = new Set(["popups", "banners", "admissionGuidelines"]);
 });
 
+describe("AdminSidebar 하위 경로", () => {
+  it("/admin/coupons/c1/edit 에서도 쿠폰관리 항목이 현재 섹션으로 강조된다", async () => {
+    state.allowed = new Set(["coupons", "banners"]);
+    renderShell("/admin/coupons/c1/edit");
+
+    const current = await screen.findByRole("link", { name: "쿠폰관리" });
+    expect(current).toHaveAttribute("aria-current", "page");
+  });
+});
+
 describe("AdminSidebar 메뉴", () => {
   it("메뉴 항목은 링크이고 현재 섹션에만 aria-current 가 붙는다", async () => {
     renderShell("/admin/banners");

@@ -6,6 +6,16 @@ export const routes: Record<string, RouteLoader> = {
   "admin/me/activate": () => import("./admin/me/activate.js"),
   "admin/ai-telemetry": () => import("./admin/ai-telemetry.js"),
   "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
+  "admin/coupons": () => import("./admin/coupons.js"),
+  "admin/coupons/[id]": () => import("./admin/coupons/[id].js"),
+  "admin/coupons/[id]/redemptions": () =>
+    import("./admin/coupons/[id]/redemptions.js"),
+  "admin/coupons/[id]/grants": () => import("./admin/coupons/[id]/grants.js"),
+  "admin/coupons/grants/[id]/revoke": () =>
+    import("./admin/coupons/grants/[id]/revoke.js"),
+  "admin/coupons/redemptions/[id]/void": () =>
+    import("./admin/coupons/redemptions/[id]/void.js"),
+  "admin/coupons/user-search": () => import("./admin/coupons/user-search.js"),
   "admin/growth-grant": () => import("./admin/growth-grant.js"),
   "admin/home-section-copy/[sectionKey]": () =>
     import("./admin/home-section-copy/[sectionKey].js"),
@@ -34,6 +44,9 @@ export const routes: Record<string, RouteLoader> = {
   "admin/selfeval-grant": () => import("./admin/selfeval-grant.js"),
   "admin/selfeval-recover": () => import("./admin/selfeval-recover.js"),
   "admin/selfeval-sessions": () => import("./admin/selfeval-sessions.js"),
+  "admin/revenue": () => import("./admin/revenue.js"),
+  "admin/revenue/pending": () => import("./admin/revenue/pending.js"),
+  "admin/revenue/services": () => import("./admin/revenue/services.js"),
   "admin/send-message": () => import("./admin/send-message.js"),
   "admin/service-credit-adjust": () =>
     import("./admin/service-credit-adjust.js"),

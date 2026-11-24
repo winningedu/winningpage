@@ -964,9 +964,6 @@
   "src/pages/admin/admission/AdmissionPanels.tsx": {
     "browserDb": 6
   },
-  "src/pages/admin/coupons/CouponAdmin.tsx": {
-    "browserDb": 14
-  },
   "src/pages/admin/goal/GoalCutsPanels.tsx": {
     "browserDb": 8
   },
@@ -1008,9 +1005,6 @@
   },
   "src/pages/admin/premium-book/PremiumBookAdmin.tsx": {
     "browserDb": 11
-  },
-  "src/pages/admin/revenue/RevenueAdmin.tsx": {
-    "browserDb": 4
   },
   "src/pages/admin/selfeval/SelfevalSessionsAdmin.tsx": {
     "browserDb": 1
