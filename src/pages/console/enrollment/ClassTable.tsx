@@ -17,6 +17,7 @@ import {
   SERVICES,
   studentListPath,
 } from "./format";
+import UnenrolledCount from "./UnenrolledCount";
 
 interface Props {
   rows: ClassRow[];
@@ -93,9 +94,7 @@ export default function ClassTable({ rows, edit }: Props) {
               )}
             </TableCell>
             <TableCell className="text-right text-app-label text-ink">
-              <Link to={studentListPath(r)} className="underline">
-                {`${r.pendingCount}`}
-              </Link>
+              <UnenrolledCount row={r} />
             </TableCell>
             <TableCell className="text-right text-app-label text-ink">
               {`${r.joined} / ${r.total}`}

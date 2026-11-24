@@ -179,3 +179,23 @@ describe("enrollmentFileName", () => {
     },
   );
 });
+
+describe("buildEnrollmentGrid 미가입(QA 52)", () => {
+  it("반별 미가입과 합계 행이 화면과 같은 값이다", () => {
+    const grid = buildEnrollmentGrid({
+      rows: [
+        row({ total: 8, capacity: 12, pendingCount: 0 }),
+        row({ classId: "c2", total: 30, capacity: 32, pendingCount: 3 }),
+      ],
+      filter: { grade: "", class: "" },
+      asOf: "2026-11-05",
+      scopeLabel: "",
+      gradeLabel: (g) => gradeLabel(g, false),
+    });
+
+    const header = grid.findIndex((r) => r[0] === "담임 선생님");
+    expect(grid[header + 1]?.[5]).toBe(4);
+    expect(grid[header + 2]?.[5]).toBe(3);
+    expect(grid[header + 3]?.[5]).toBe(7);
+  });
+});
