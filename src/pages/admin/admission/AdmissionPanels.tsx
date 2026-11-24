@@ -28,6 +28,7 @@ import {
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import { pad2, triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";
+import { chunkItemsBySize } from "./chunkItems";
 
 // 대입모집요강 공개 노출 연도 표시, 변경(admissionGuidelines의 ListSummary,
 // AcceptanceRateSummary와 같은 확장점, 목록 페이지 헤더에서만 렌더된다.
@@ -239,6 +240,10 @@ const BULK_XLSX_TONE_CLASS = {
 // 불필요한 재생성이 일어난다(team-lead가 명시적으로 강조한 지점).
 const BULK_XLSX_RAW_CATEGORY_KEYS = Object.keys(HWP_SECTION_JSON_KEYS);
 
+// Vercel Functions는 4.5MB 넘는 요청 본문을 거부한다. 한 번에 보내는
+// JSON.stringify({ items }) 크기를 이 값 이하로 나눠 보낸다.
+const GUIDELINES_APPLY_MAX_BYTES = 3 * 1024 * 1024;
+
 function AdmissionBulkXlsxPanel({ rows, onReload }) {
   const [exportTruncatedCells, setExportTruncatedCells] = useState<
     ReturnType<typeof exportAdmissionRowsToXlsx>["truncatedCells"]
@@ -253,14 +258,14 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   // 파서(.js)가 돌려주는 rows는 Record<string, unknown>[]로 느슨하다. 서버 zod가 검증한다.
-  const apply = useMutation({
+  // 오류 안내는 handleApply가 청크 행 범위를 붙여 띄운다.
+  const applyChunk = useMutation({
     mutationFn: (items: Record<string, unknown>[]) =>
       api
         .put("admin/admission/guidelines/bulk", { json: { items } })
         .json(z.object({ upserted: z.number() })),
-    onError: (err) => reportAdminError("엑셀 적용 실패", err),
   });
-  const applying = apply.isPending;
+  const [applying, setApplying] = useState(false);
 
   const totalRows = (rows || []).length;
 
@@ -331,11 +336,32 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
 
   async function handleApply() {
     if (!parseResult || !confirmChecked || applying) return;
+    setApplying(true);
+    let done = 0;
     try {
-      await apply.mutateAsync(parseResult.rows);
-    } catch {
-      return; // 오류 안내는 mutation의 onError가 이미 띄웠다
+      for (const chunk of chunkItemsBySize(
+        parseResult.rows,
+        GUIDELINES_APPLY_MAX_BYTES,
+      )) {
+        await applyChunk.mutateAsync(chunk).catch((error) => {
+          throw new AdminChunkError(
+            "엑셀 적용 실패",
+            `${done + 1}~${done + chunk.length}`,
+            error,
+          );
+        });
+        done += chunk.length;
+      }
+    } catch (err) {
+      setApplying(false);
+      reportAdminError(
+        `${withChunkRows("엑셀 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
+        err,
+      );
+      if (done > 0) onReload?.();
+      return;
     }
+    setApplying(false);
     const { summary } = parseResult;
     setParseResult(null);
     setConfirmChecked(false);

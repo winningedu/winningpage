@@ -246,6 +246,67 @@ describe("모집요강 엑셀 적용", () => {
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
+  describe("큰 파일은 크기 기준으로 나눠 보낸다", () => {
+    // 행 하나가 약 1.2MB라 3MB 한도에서 2행씩 묶인다
+    const big = Array.from({ length: 5 }, (_, i) => ({
+      admission_year: 2027,
+      university_key: `u${i}`,
+      html: "x".repeat(1_200_000),
+    }));
+
+    async function openBigPreview() {
+      mocks.get.mockReturnValue(reply({ year: 2027 }));
+      mocks.parseGuidelines.mockReturnValue({
+        rows: big,
+        errors: [],
+        warnings: [],
+        summary,
+      });
+      const onReload = vi.fn();
+      wrap(<AdmissionListSummary rows={[]} onReload={onReload} />);
+      await screen.findByText("2027학년도");
+      pickFile("모집요강 xlsx 파일 선택");
+      fireEvent.click(await screen.findByRole("checkbox"));
+      return onReload;
+    }
+
+    test("같은 경로로 순서대로 여러 번 PUT하고 목록은 한 번만 다시 읽는다", async () => {
+      mocks.put.mockImplementation(() => reply({ upserted: 0 }));
+      const onReload = await openBigPreview();
+      fireEvent.click(screen.getByRole("button", { name: "적용" }));
+      await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalled());
+      const bodies = mocks.put.mock.calls.map(([path, opts]) => {
+        expect(path).toBe("admin/admission/guidelines/bulk");
+        return opts.json.items as typeof big;
+      });
+      expect(bodies.map((b) => b.length)).toEqual([2, 2, 1]);
+      expect(bodies.flat()).toEqual(big);
+      expect(onReload).toHaveBeenCalledTimes(1);
+    });
+
+    test("둘째 청크가 실패하면 행 범위를 붙여 알리고 멈춘다", async () => {
+      const err = new ApiError({
+        status: 400,
+        code: "VALIDATION_FAILED",
+        detail: "1번째 행: 오류",
+      });
+      mocks.put
+        .mockReturnValueOnce(reply({ upserted: 2 }))
+        .mockReturnValueOnce(fail(err));
+      const onReload = await openBigPreview();
+      fireEvent.click(screen.getByRole("button", { name: "적용" }));
+      await waitFor(() => expect(mocks.reportAdminError).toHaveBeenCalled());
+      const [label, reported] = mocks.reportAdminError.mock.calls[0] ?? [];
+      expect(label).toBe(
+        "엑셀 적용 실패(3~4행). 이미 반영된 청크는 되돌려지지 않습니다",
+      );
+      expect(reported).toBeInstanceOf(AdminChunkError);
+      expect(mocks.put).toHaveBeenCalledTimes(2);
+      expect(onReload).toHaveBeenCalledTimes(1);
+      expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    });
+  });
+
   test("서버가 행을 거부하면 reportAdminError로 알리고 미리보기를 유지한다", async () => {
     const err = new ApiError({
       status: 400,
@@ -257,8 +318,8 @@ describe("모집요강 엑셀 적용", () => {
     fireEvent.click(screen.getByRole("button", { name: "적용" }));
     await waitFor(() =>
       expect(mocks.reportAdminError).toHaveBeenCalledWith(
-        "엑셀 적용 실패",
-        err,
+        "엑셀 적용 실패(1~2행). 이미 반영된 청크는 되돌려지지 않습니다",
+        expect.objectContaining({ cause: err }),
       ),
     );
     expect(onReload).not.toHaveBeenCalled();
