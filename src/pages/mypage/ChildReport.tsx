@@ -146,6 +146,14 @@ export default function ChildReport() {
     });
   }
 
+  function handlePeriodKeyChange(key: string) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("at", key);
+      return params;
+    });
+  }
+
   if (child === undefined) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-white pt-16">
@@ -223,6 +231,9 @@ export default function ChildReport() {
         onPeriodChange={handlePeriodChange}
         report={result.report}
         studentName={child.student_name}
+        periodOptions={result.report.periodOptions}
+        activePeriod={result.report.activePeriod}
+        onPeriodKeyChange={handlePeriodKeyChange}
       />
     </main>
   );
