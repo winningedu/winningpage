@@ -624,3 +624,81 @@ describe("W7 이용현황", () => {
     expect(screen.queryByRole("button", { name: "정원 입력" })).toBeNull();
   });
 });
+
+describe("QA 52 미가입 표시", () => {
+  const withCapacityRows = {
+    ...SCHOOL,
+    classes: [
+      classRow({
+        classId: "a",
+        className: "1",
+        homeroomName: "가담임",
+        total: 8,
+        capacity: 12,
+        pendingCount: 0,
+      }),
+      classRow({
+        classId: "b",
+        className: "2",
+        homeroomName: "나담임",
+        total: 30,
+        capacity: 32,
+        pendingCount: 3,
+      }),
+      classRow({
+        classId: "c",
+        className: "3",
+        homeroomName: "다담임",
+        total: 4,
+        capacity: 4,
+        pendingCount: 0,
+      }),
+    ],
+  };
+
+  it("표의 미가입은 정원 빈자리와 명단 대기 중 큰 값이고 요약 카드는 그 합이다", async () => {
+    stubPage({ [SUMMARY_URL]: { body: withCapacityRows } });
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const a = await screen.findByRole("row", { name: /가담임/ });
+    const cells = (row: HTMLElement) =>
+      within(row)
+        .getAllByRole("cell")
+        .map((c) => c.textContent);
+    expect(cells(a)[4]).toBe("4");
+    expect(cells(screen.getByRole("row", { name: /나담임/ }))[4]).toBe("3");
+    expect(cells(screen.getByRole("row", { name: /다담임/ }))[4]).toBe("0");
+    const card = screen.getByRole("region", { name: "미가입 학생" });
+    expect(within(card).getByText("7명")).toBeTruthy();
+  });
+
+  it("미가입 숫자는 보이는 값이 명단 대기 수와 같고 0보다 클 때만 학생 목록 링크다", async () => {
+    stubPage({ [SUMMARY_URL]: { body: withCapacityRows } });
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const a = await screen.findByRole("row", { name: /가담임/ });
+    expect(within(a).queryByRole("link", { name: "4" })).toBeNull();
+    expect(
+      within(screen.getByRole("row", { name: /나담임/ })).getByRole("link", {
+        name: "3",
+      }),
+    ).toBeTruthy();
+    const c = screen.getByRole("row", { name: /다담임/ });
+    expect(within(c).queryByRole("link", { name: "0" })).toBeNull();
+  });
+
+  it("휴대폰 카드도 같은 값과 링크 규칙을 쓴다", async () => {
+    useMobileScreen();
+    stubPage({ [SUMMARY_URL]: { body: withCapacityRows } });
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const a = await screen.findByRole("article", { name: "가담임" });
+    expect(within(a).queryByRole("link", { name: "4" })).toBeNull();
+    expect(within(a).getAllByText("4").length).toBeGreaterThan(0);
+    const b = screen.getByRole("article", { name: "나담임" });
+    expect(within(b).getByRole("link", { name: "3" })).toBeTruthy();
+  });
+});

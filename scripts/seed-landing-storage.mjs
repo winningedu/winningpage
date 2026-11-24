@@ -3,7 +3,7 @@
 // (docs/landing-image-admin-plan.md §1 참고)
 //
 // 사용법:
-//   SEED_SUPABASE_URL=... SEED_SERVICE_ROLE_KEY=... \
+//   SEED_SUPABASE_URL=... SEED_SECRET_KEY=... \
 //     node scripts/seed-landing-storage.mjs --env dev [--apply-db] [--out ./landing-url-map.json]
 //
 //   --env dev|prod  : 라벨·안전확인용. dev면 SEED_SUPABASE_URL에 dev 프로젝트 ref가
@@ -323,9 +323,9 @@ async function main() {
   const { env, applyDb, out } = parseCliArgs();
 
   const supabaseUrl = process.env.SEED_SUPABASE_URL;
-  const serviceRoleKey = process.env.SEED_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.error("환경변수 SEED_SUPABASE_URL, SEED_SERVICE_ROLE_KEY 필요");
+  const secretKey = process.env.SEED_SECRET_KEY;
+  if (!supabaseUrl || !secretKey) {
+    console.error("환경변수 SEED_SUPABASE_URL, SEED_SECRET_KEY 필요");
     process.exit(1);
   }
 
@@ -343,7 +343,7 @@ async function main() {
     process.exit(1);
   });
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  const supabase = createClient(supabaseUrl, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const sharp = await loadSharp();

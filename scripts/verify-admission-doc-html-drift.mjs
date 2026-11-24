@@ -27,7 +27,7 @@
 //   node scripts/verify-admission-doc-html-drift.mjs [--admission-year 2027] [--keys-file <path>]
 //
 // 키 조회 순서(하드코딩 금지) — scripts/load-admission-content.mjs와 동일:
-//   1) SEED_SUPABASE_URL / SEED_SERVICE_ROLE_KEY 환경변수
+//   1) SEED_SUPABASE_URL / SEED_SECRET_KEY 환경변수
 //   2) --keys-file <path>
 //   3) 기본값: 저장소 루트의 .dev-keys.json (gitignore 처리됨,
 //      SEED_KEYS_FILE 로 재지정 가능)
@@ -75,7 +75,7 @@ const MAX_DIFF_SAMPLES = 30;
 // golden.mjs 사고와 동일 유형 — 내가 이 파일을 만들면서도 반복했다).
 async function resolveCredentials(keysFileOverride) {
   const envUrl = process.env.SEED_SUPABASE_URL;
-  const envKey = process.env.SEED_SERVICE_ROLE_KEY;
+  const envKey = process.env.SEED_SECRET_KEY;
   if (envUrl && envKey) return { url: envUrl, serviceKey: envKey };
 
   const keysFile =

@@ -12,7 +12,7 @@
 # 필요 secrets (GitHub repo Settings > Secrets and variables > Actions 에서
 # 사용자가 직접 등록해야 한다 — 이 파일은 참조만 한다):
 #   - SEED_SUPABASE_URL
-#   - SEED_SERVICE_ROLE_KEY
+#   - SEED_SECRET_KEY
 # secrets가 등록돼 있지 않으면 위 두 스크립트가 DB 접속에 실패하며
 # `npm run verify` 스텝이 non-zero exit로 종료되고, 아래 실패 알림 스텝이
 # 자동으로 GitHub Issue를 생성한다.
@@ -44,7 +44,7 @@ jobs:
       issues: write
     env:
       SEED_SUPABASE_URL: ${{ secrets.SEED_SUPABASE_URL }}
-      SEED_SERVICE_ROLE_KEY: ${{ secrets.SEED_SERVICE_ROLE_KEY }}
+      SEED_SECRET_KEY: ${{ secrets.SEED_SECRET_KEY }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -74,7 +74,7 @@ jobs:
               "",
               `실행 로그: ${runUrl}`,
               "",
-              "SEED_SUPABASE_URL / SEED_SERVICE_ROLE_KEY secrets가 등록돼 있는지 먼저 확인하세요.",
+              "SEED_SUPABASE_URL / SEED_SECRET_KEY secrets가 등록돼 있는지 먼저 확인하세요.",
             ].join("\n");
 
             const { data: open } = await github.rest.issues.listForRepo({

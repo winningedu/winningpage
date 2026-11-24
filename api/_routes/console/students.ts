@@ -411,7 +411,8 @@ export default defineHandler({
           weeklyGoalRate: extras.rates.get(e.student_id) ?? null,
           weeklyGoalLevel: weeklyGoalLevel(extras.rates.get(e.student_id)),
           specialReasons: extras.reasonsOf(e.student_id),
-          canEdit: actor.kind === "homeroom",
+          // 학적 수정 API 가 허용하는 행위자만(담임, 학교 관리자, 읽기 전용이 아닌 본사 대행). 읽기 전용 대행은 쓰기가 403 이다.
+          canEdit: !actor.readOnly,
           enrollmentVersion: e.version,
         };
       }),

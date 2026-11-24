@@ -413,3 +413,123 @@ describe("W14 등록과 창", () => {
     ).toBeTruthy();
   });
 });
+
+describe("QA 51 빈 반 삭제", () => {
+  const EMPTY = row({
+    classId: "c-3-1",
+    grade: "중3",
+    className: "1",
+    activeStudents: 0,
+    teacher: null,
+    loginId: null,
+    accountStatus: null,
+    classCount: 0,
+  });
+  const NOT_EMPTY = row({
+    classId: "c-3-2",
+    grade: "중3",
+    className: "2",
+    activeStudents: 3,
+    teacher: null,
+    loginId: null,
+    accountStatus: null,
+    classCount: 0,
+  });
+  const DELETE_URL = "POST /api/console/classes/delete";
+
+  it("담임도 학생도 없는 반에만 삭제 버튼이 있다", async () => {
+    stubPage({ [LIST_URL]: { body: listBody([EMPTY, NOT_EMPTY]) } });
+
+    renderRoutes(routes, "/teacher/teachers");
+
+    const empty = (await screen.findByText("1반")).closest("tr") as HTMLElement;
+    expect(within(empty).getByRole("button", { name: "삭제" })).toBeTruthy();
+    const other = screen.getByText("2반").closest("tr") as HTMLElement;
+    expect(within(other).queryByRole("button", { name: "삭제" })).toBeNull();
+  });
+
+  it("확인 창에 반 이름과 안내를 보이고 삭제하면 반 요청을 보낸 뒤 목록과 반 선택지를 다시 읽는다", async () => {
+    let listCalls = 0;
+    let classCalls = 0;
+    const calls = stubPage({
+      [LIST_URL]: () => {
+        listCalls += 1;
+        return { body: listBody([EMPTY]) };
+      },
+      "GET /api/console/classes": () => {
+        classCalls += 1;
+        return { body: { classes: [] } };
+      },
+      [DELETE_URL]: { body: { ok: true } },
+    });
+
+    renderRoutes(routes, "/teacher/teachers");
+    const empty = (await screen.findByText("1반")).closest("tr") as HTMLElement;
+    fireEvent.click(within(empty).getByRole("button", { name: "삭제" }));
+
+    expect(await screen.findByText("3학년 1반을 삭제할까요?")).toBeTruthy();
+    expect(
+      screen.getByText(/목록과 가입할 때 반 선택에서 사라져요/),
+    ).toBeTruthy();
+    const listBefore = listCalls;
+    const classBefore = classCalls;
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "삭제" }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(calls.find((c) => c.key === DELETE_URL)?.body).toEqual({
+      classId: "c-3-1",
+    });
+    await waitFor(() => expect(listCalls).toBeGreaterThan(listBefore));
+    await waitFor(() => expect(classCalls).toBeGreaterThan(classBefore));
+  });
+
+  it("서버가 막으면(409) 그 문구를 창에 보이고 닫지 않는다", async () => {
+    stubPage({
+      [LIST_URL]: { body: listBody([EMPTY]) },
+      [DELETE_URL]: {
+        status: 409,
+        body: {
+          error: {
+            code: "CLASS_NOT_EMPTY",
+            message: "비어 있지 않은 반이에요",
+          },
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/teachers");
+    const empty = (await screen.findByText("1반")).closest("tr") as HTMLElement;
+    fireEvent.click(within(empty).getByRole("button", { name: "삭제" }));
+    fireEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "삭제",
+      }),
+    );
+
+    expect(await screen.findByText("비어 있지 않은 반이에요")).toBeTruthy();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("이미 지워진 반(404)은 삭제된 것으로 보고 창을 닫는다", async () => {
+    stubPage({
+      [LIST_URL]: { body: listBody([EMPTY]) },
+      [DELETE_URL]: {
+        status: 404,
+        body: { error: { code: "CLASS_NOT_FOUND", message: "없는 반이에요" } },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/teachers");
+    const empty = (await screen.findByText("1반")).closest("tr") as HTMLElement;
+    fireEvent.click(within(empty).getByRole("button", { name: "삭제" }));
+    fireEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "삭제",
+      }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+});

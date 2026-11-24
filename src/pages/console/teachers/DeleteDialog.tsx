@@ -1,5 +1,6 @@
 // W14d 한 명 삭제 확인 창(교 #118, #204). 재학생 수와 연결 계정 삭제를 알린다. 학생 정보는 남고 담임 표시는 "(미등록)"이 된다.
 
+import { TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { consoleRequest, errorMessage } from "../api";
 import Notice from "../Notice";
@@ -19,6 +20,18 @@ export async function deleteTeachers(ids: string[]): Promise<string | null> {
     body: { teacherIds: ids },
   });
   return res.status === 200 ? null : (errorMessage(res.body) ?? FAILED_MESSAGE);
+}
+
+/** 선생님 삭제 창 맨 위 경고(QA 53). 한 명 삭제와 선택, 일괄 삭제가 같이 쓴다. */
+export function DeleteWarning() {
+  return (
+    <Notice tone="Danger">
+      <span className="flex items-center gap-2 font-semibold">
+        <TriangleAlert aria-hidden className="size-4 shrink-0" />
+        삭제하면 되돌릴 수 없어요
+      </span>
+    </Notice>
+  );
 }
 
 interface DeleteDialogProps {
@@ -50,6 +63,7 @@ export default function DeleteDialog({
       onClose={onClose}
     >
       <div className="flex flex-col gap-3 text-app-body text-ink">
+        <DeleteWarning />
         <p>{`이 선생님이 맡은 반의 재학생 ${teacher.activeStudents}명은 그대로 남고, 담임 선생님 표시는 (미등록)으로 바뀌어요. 가입할 때 그 반을 고를 수 없게 돼요.`}</p>
         <p>연결 계정도 함께 삭제돼요. 학생 정보는 그대로 남아요</p>
         {error && <Notice tone="Danger">{error}</Notice>}

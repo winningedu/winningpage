@@ -9,6 +9,7 @@ import {
   percent,
   SERVICES,
   totalsOf,
+  unenrolledOf,
 } from "./format";
 
 type Cell = string | number;
@@ -61,7 +62,7 @@ export function buildEnrollmentGrid(input: {
       safe(`${r.className}반`),
       r.total,
       r.capacity ?? "",
-      r.pendingCount,
+      unenrolledOf(r),
       r.joined,
       ...SERVICES.map((s) => countWithRate(r.services[s.key], r.total)),
       r.goalRateAvg === null ? "" : `${r.goalRateAvg}%`,

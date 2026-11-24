@@ -8,7 +8,11 @@ import ReportV3View from "./ReportV3View";
 import { FRONT_PAGES } from "./testPages";
 
 vi.mock("@/config/site", () => ({
-  site: { brandName: "TEST", features: { callmentor: true } },
+  site: {
+    brandName: "TEST",
+    features: { callmentor: true },
+    logo: { horizontal: "/logo.svg" },
+  },
 }));
 
 /** Discriminators and codes the components switch on; every other string is display copy. */
@@ -57,7 +61,18 @@ const literalBreaks = (root: HTMLElement) => {
 
 describe("v3 report line breaks", () => {
   it("renders every <br> marker of the payload as a line break, never as text", () => {
-    const front = withBreaks(FRONT_PAGES) as typeof FRONT_PAGES;
+    const broken = withBreaks(FRONT_PAGES) as typeof FRONT_PAGES;
+    // The shared cover prints name, grade and date as plain values (profile data,
+    // not COPY_TEXT copy), so they carry no marker.
+    const front = {
+      ...broken,
+      cover: {
+        ...broken.cover,
+        studentName: "김위닝",
+        gradeLabel: FRONT_PAGES.cover.gradeLabel,
+        diagnosedAt: FRONT_PAGES.cover.diagnosedAt,
+      },
+    };
     const later = withBreaks(laterPages) as DiagnosisV3Pages;
     const { container } = render(
       <ReportV3View pages={front} laterPages={<LaterPages pages={later} />} />,

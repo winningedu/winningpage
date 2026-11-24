@@ -1,5 +1,11 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import Header from "./Header";
@@ -385,6 +391,50 @@ describe("Header — MY 컬럼 역할별 항목(§6-3, buildMyMenu 단일 소스
     expect(screen.getByText("내 정보 수정")).toBeInTheDocument();
     expect(screen.getByText("나의 서비스")).toBeInTheDocument();
     expect(screen.queryByText("자녀 등록 및 수정")).not.toBeInTheDocument();
+  });
+});
+
+describe("Header — 선생님 계정의 선생님 화면 바로가기", () => {
+  function loginAsTeacher() {
+    mockProfileRow = {
+      id: "u4",
+      email: "teacher@test.com",
+      name: "박지훈",
+      member_type: "teacher",
+      role: "user",
+    };
+    mockUseAuth.mockReturnValue({
+      session: { user: { id: "u4", email: "teacher@test.com" } },
+      user: { id: "u4", email: "teacher@test.com" },
+      isReady: true,
+    });
+  }
+
+  it("데스크톱 MY 컬럼에 선생님 화면 링크만 있고 학생용 항목은 없다", async () => {
+    loginAsTeacher();
+    renderHeader();
+    const nameChip = await screen.findByRole("link", { name: "마이페이지" });
+    fireEvent.mouseOver(nameChip.parentElement?.parentElement as Element);
+
+    expect(screen.getByRole("link", { name: "선생님 화면" })).toHaveAttribute(
+      "href",
+      "/teacher",
+    );
+    expect(screen.queryByText("나의 서비스")).not.toBeInTheDocument();
+    expect(screen.queryByText("신청 내역")).not.toBeInTheDocument();
+  });
+
+  it("모바일 드로어에도 선생님 화면 링크만 있고 학생용 항목은 없다", async () => {
+    loginAsTeacher();
+    renderHeader();
+    await screen.findByRole("link", { name: "마이페이지" });
+    fireEvent.click(screen.getByRole("button", { name: "전체 메뉴 열기" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("link", { name: "선생님 화면" }),
+    ).toHaveAttribute("href", "/teacher");
+    expect(within(dialog).queryByText("나의 서비스")).not.toBeInTheDocument();
   });
 });
 

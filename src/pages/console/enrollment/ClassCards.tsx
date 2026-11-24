@@ -9,6 +9,7 @@ import {
   SERVICES,
   studentListPath,
 } from "./format";
+import UnenrolledCount from "./UnenrolledCount";
 
 interface Props {
   rows: ClassRow[];
@@ -65,12 +66,10 @@ export default function ClassCards({ rows, edit }: Props) {
             </div>
             <div className="flex items-center justify-between gap-3">
               <span className="text-app-caption text-ink-sub">미가입</span>
-              <Link
-                to={studentListPath(r)}
-                className="text-app-label font-medium text-ink underline"
-              >
-                {`${r.pendingCount}`}
-              </Link>
+              <UnenrolledCount
+                row={r}
+                className="text-app-label font-medium text-ink"
+              />
             </div>
             <div className="flex items-center justify-between gap-3">
               <span className="text-app-caption text-ink-sub">이용 학생</span>

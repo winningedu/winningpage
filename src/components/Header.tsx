@@ -25,6 +25,7 @@ import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { classifyMember, getMemberLabel } from "@/lib/memberAccess";
 import { queryClient } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
+import { CONSOLE_BASE } from "@/pages/console/menu";
 import type { Tables } from "@/types/database.types";
 import MobileNavDrawer from "./MobileNavDrawer";
 import { buildMyMenu, toMyMenuRole } from "./myMenuItems";
@@ -1284,6 +1285,15 @@ export default function Header() {
         onLogout={handleLogout}
         triggerRef={mobileNavTriggerRef}
         activeGroupTitle={activePathTitle}
+        teacher={
+          memberKind === "teacher"
+            ? {
+                name: displayName,
+                roleLabel: memberLabel,
+                consoleHref: CONSOLE_BASE,
+              }
+            : undefined
+        }
       />
     </header>
   );

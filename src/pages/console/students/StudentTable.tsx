@@ -1,6 +1,5 @@
 // W6 표(데스크톱과 태블릿). 태블릿은 표가 좁아 가로로 밀어 본다(이름 칸은 고정).
 
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -12,6 +11,7 @@ import {
 import Chip from "../Chip";
 import NameCell from "../NameCell";
 import { useGradeLabel } from "../useConsoleMe";
+import EditIconButton from "./EditIconButton";
 import RateCell from "./RateCell";
 import ServiceIcons from "./ServiceIcons";
 import SpecialReasons from "./SpecialReasons";
@@ -22,7 +22,6 @@ import UrgencyChip from "./UrgencyChip";
 interface StudentTableProps {
   rows: StudentRow[];
   academy: boolean;
-  showEdit: boolean;
   /** 특이학생만 보는 중이면 사유 열을 더한다. */
   showReasons: boolean;
   thresholds: SpecialThresholds;
@@ -33,7 +32,6 @@ interface StudentTableProps {
 export default function StudentTable({
   rows,
   academy,
-  showEdit,
   showReasons,
   thresholds,
   onOpen,
@@ -53,7 +51,6 @@ export default function StudentTable({
             <TableHead>주간 목표시간 달성율</TableHead>
             <TableHead>이용서비스</TableHead>
             {showReasons && <TableHead>특이 사유</TableHead>}
-            {showEdit && <TableHead />}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -71,17 +68,22 @@ export default function StudentTable({
                     </span>
                   </span>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => onOpen(row.studentId)}
-                    title={row.displayName}
-                    className="flex flex-col items-start gap-0.5 text-left"
-                  >
-                    <NameCell name={row.displayName} />
-                    <span className="pl-11 text-app-caption text-ink-sub">
-                      {joinedLabel(row.joinedAt)}
-                    </span>
-                  </button>
+                  <span className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onOpen(row.studentId)}
+                      title={row.displayName}
+                      className="flex flex-col items-start gap-0.5 text-left"
+                    >
+                      <NameCell name={row.displayName} />
+                      <span className="pl-11 text-app-caption text-ink-sub">
+                        {joinedLabel(row.joinedAt)}
+                      </span>
+                    </button>
+                    {row.canEdit && (
+                      <EditIconButton onClick={() => onEdit(row.studentId)} />
+                    )}
+                  </span>
                 )}
               </TableCell>
               <TableCell>
@@ -106,20 +108,6 @@ export default function StudentTable({
                     reasons={row.specialReasons}
                     thresholds={thresholds}
                   />
-                </TableCell>
-              )}
-              {showEdit && (
-                <TableCell className="text-right">
-                  {row.canEdit && !row.pending && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => onEdit(row.studentId)}
-                      className="h-8 rounded-lg bg-surface-muted px-3 text-sm font-medium text-primary"
-                    >
-                      편집하기
-                    </Button>
-                  )}
                 </TableCell>
               )}
             </TableRow>

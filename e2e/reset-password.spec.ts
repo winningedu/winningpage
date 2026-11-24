@@ -7,9 +7,9 @@
 //      띄우지 않는다 — playwright.config.ts 상단 주석 참고):
 //        npm run dev -- --port 5303 --strictPort
 //   2) 다음 환경변수를 채워서 실행한다:
-//        SEED_SUPABASE_URL=... SEED_SERVICE_ROLE_KEY=... npx playwright test e2e/reset-password.spec.ts
-//      VITE_SUPABASE_ANON_KEY는 .env.local에 이미 있으면 그대로 쓰인다.
-//      없으면 E2E_SUPABASE_ANON_KEY로 별도 지정한다.
+//        SEED_SUPABASE_URL=... SEED_SECRET_KEY=... npx playwright test e2e/reset-password.spec.ts
+//      VITE_SUPABASE_PUBLISHABLE_KEY는 .env.local에 이미 있으면 그대로 쓰인다.
+//      없으면 E2E_SUPABASE_PUBLISHABLE_KEY로 별도 지정한다.
 //   둘 중 하나라도 없으면 이 파일의 모든 테스트를 스킵한다(로컬 키 없이도
 //   타입체크·린트는 통과해야 한다).
 //
@@ -21,14 +21,15 @@ import { expect, test } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
 const SEED_SUPABASE_URL = process.env.SEED_SUPABASE_URL;
-const SEED_SERVICE_ROLE_KEY = process.env.SEED_SERVICE_ROLE_KEY;
-const ANON_KEY =
-  process.env.VITE_SUPABASE_ANON_KEY ?? process.env.E2E_SUPABASE_ANON_KEY;
+const SEED_SECRET_KEY = process.env.SEED_SECRET_KEY;
+const PUBLISHABLE_KEY =
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+  process.env.E2E_SUPABASE_PUBLISHABLE_KEY;
 
-const hasEnv = Boolean(SEED_SUPABASE_URL && SEED_SERVICE_ROLE_KEY && ANON_KEY);
+const hasEnv = Boolean(SEED_SUPABASE_URL && SEED_SECRET_KEY && PUBLISHABLE_KEY);
 
 test.describe("비밀번호 재설정 — token_hash 모드", () => {
-  test.skip(!hasEnv, "SEED_SUPABASE_URL/SEED_SERVICE_ROLE_KEY/anon key 없음");
+  test.skip(!hasEnv, "SEED_SUPABASE_URL/SEED_SECRET_KEY/publishable key 없음");
 
   const email = `e2e-reset-${Date.now()}@winning.test`;
   const oldPassword = "Old!pass1";
@@ -42,7 +43,7 @@ test.describe("비밀번호 재설정 — token_hash 모드", () => {
 
     const admin = createClient(
       SEED_SUPABASE_URL as string,
-      SEED_SERVICE_ROLE_KEY as string,
+      SEED_SECRET_KEY as string,
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
 
@@ -70,7 +71,7 @@ test.describe("비밀번호 재설정 — token_hash 모드", () => {
 
     const admin = createClient(
       SEED_SUPABASE_URL as string,
-      SEED_SERVICE_ROLE_KEY as string,
+      SEED_SECRET_KEY as string,
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
     await admin.auth.admin.deleteUser(userId);
@@ -94,17 +95,21 @@ test.describe("비밀번호 재설정 — token_hash 모드", () => {
 
     await expect(page.getByText("비밀번호가 변경됐어요")).toBeVisible();
 
-    const anon = createClient(SEED_SUPABASE_URL as string, ANON_KEY as string, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const publishable = createClient(
+      SEED_SUPABASE_URL as string,
+      PUBLISHABLE_KEY as string,
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+      },
+    );
 
-    const signedInWithNew = await anon.auth.signInWithPassword({
+    const signedInWithNew = await publishable.auth.signInWithPassword({
       email,
       password: newPassword,
     });
     expect(signedInWithNew.error).toBeNull();
 
-    const signedInWithOld = await anon.auth.signInWithPassword({
+    const signedInWithOld = await publishable.auth.signInWithPassword({
       email,
       password: oldPassword,
     });

@@ -11,8 +11,9 @@
 // 탭 키는 useMyPageTab.ts의 `?tab=` 쿼리 계약을 그대로 따른다.
 
 import { classifyMember } from "@/lib/memberAccess";
+import { CONSOLE_BASE } from "@/pages/console/menu";
 
-export type MyMenuRole = "student" | "parent" | "admin";
+export type MyMenuRole = "student" | "parent" | "admin" | "teacher";
 
 export type MyMenuItem = {
   label: string;
@@ -38,8 +39,12 @@ const MY_PROFILE: MyMenuItem = {
 };
 export const ADMIN_MENU: MyMenuItem = { label: "관리자 메뉴", to: "/admin" };
 
+const TEACHER_CONSOLE: MyMenuItem = { label: "선생님 화면", to: CONSOLE_BASE };
+
 export function buildMyMenu(role: MyMenuRole): MyMenuItem[] {
   switch (role) {
+    case "teacher":
+      return [TEACHER_CONSOLE];
     case "parent":
       return [MY_PAGE, MY_CHILDREN, MY_PAYMENTS, MY_PROFILE];
     case "admin":
@@ -50,9 +55,11 @@ export function buildMyMenu(role: MyMenuRole): MyMenuItem[] {
 }
 
 // 회원 유형(lib/memberAccess.ts의 MemberKind, b2b 헤더의 status 포함)에서 MY 메뉴 역할을
-// 정한다. 관리자와 학부모 외엔 학생 메뉴를 쓴다.
+// 정한다. 관리자, 학부모, 선생님 외엔 학생 메뉴를 쓴다.
 export function toMyMenuRole(kind: string): MyMenuRole {
-  return kind === "admin" || kind === "parent" ? kind : "student";
+  return kind === "admin" || kind === "parent" || kind === "teacher"
+    ? kind
+    : "student";
 }
 
 // Header.tsx가 profile에서 MY 메뉴 역할을 정하는 규칙.

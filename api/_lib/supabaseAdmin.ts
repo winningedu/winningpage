@@ -1,4 +1,4 @@
-// service_role 키로 만드는 Supabase 관리자 클라이언트.
+// secret 키(SUPABASE_SECRET_KEY)로 만드는 Supabase 관리자 클라이언트.
 //
 // 기존 api/ 파일들이 각자 같은 코드를 들고 있었는데(create-order.js,
 // confirm-payment.js, create-service-ticket.js), 신규 파일부터는 여기로 모은다.
@@ -15,7 +15,7 @@ import type { Database } from "../../src/types/database.types.js";
 // 공통 "서버 설정이 올바르지 않습니다." 500을 낸다(dev 원본 ~20파일의 개별
 // `try { createSupabaseAdmin() } catch { ... }` 패턴과 동일 문구를 재현).
 export const SUPABASE_CONFIG_ERROR_MESSAGE =
-  "WINNING_SUPABASE_URL / WINNING_SUPABASE_SERVICE_ROLE_KEY 환경변수가 필요합니다.";
+  "WINNING_SUPABASE_URL / SUPABASE_SECRET_KEY 환경변수가 필요합니다.";
 
 export function isSupabaseConfigError(error: unknown): boolean {
   return (
@@ -41,12 +41,7 @@ export function createSupabaseAdmin() {
     "SUPABASE_URL",
     "VITE_SUPABASE_URL",
   );
-  const key = getEnv(
-    "WINNING_SUPABASE_SERVICE_ROLE_KEY",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "WINNING_SUPABASE_KEY",
-    "SUPABASE_KEY",
-  );
+  const key = getEnv("SUPABASE_SECRET_KEY");
 
   if (!url || !key) {
     throw new Error(SUPABASE_CONFIG_ERROR_MESSAGE);

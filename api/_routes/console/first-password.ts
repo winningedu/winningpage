@@ -1,16 +1,20 @@
 // POST /api/console/first-password  { password }
 //
 // 첫 비밀번호 설정(W2, 교 #16, 사 #130). 임시 비밀번호 상태의 교사 본인만 쓸 수 있다.
-// 순서: 규칙 검사 -> Auth 비밀번호 교체 -> 다른 세션 로그아웃 -> DB 임시 상태 해제 -> 감사 로그.
+// 순서: 규칙 검사 -> Auth 비밀번호 교체 -> 새 비밀번호로 다시 로그인 -> 그 세션 외 로그아웃 -> DB 임시 상태 해제 -> 감사 로그.
+// 관리자 API 의 비밀번호 교체는 요청을 보낸 세션을 포함해 사용자의 모든 세션을 끝낸다. 그래서 요청에 쓴 토큰으로는
+// signOut 할 수 없고, 새 비밀번호로 만든 세션을 응답으로 돌려주면 클라이언트가 setSession 한다(change-password 와 같다).
 // 다른 라우트와 달리 Auth 를 먼저 바꾼다. 반대로 하면 DB 만 해제되고 Auth 교체가 실패했을 때
 // 임시 비밀번호가 변경 강제 없이 계속 유효해진다. 이 순서면 실패해도 변경 강제가 남아 같은 요청을 다시 보내면 된다.
 // 권한: 로그인한 교사(임시 비밀번호 상태 허용, allowMustChange).
 
+import { createLoginAuthClient } from "../../_lib/auth/login.js";
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
 import {
   checkNewPassword,
   PASSWORD_RULE_MESSAGES,
   RpcError,
+  syntheticEmail,
   TEACHERS_RESOURCE_KEY,
   verifyTempPassword,
 } from "../../_lib/console/teacherAccounts.js";
@@ -20,6 +24,7 @@ import {
 } from "../../_lib/console/teacherManage.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
+import { getClientIp } from "../../_lib/phoneCode.js";
 import {
   isPwnedAuthError,
   PASSWORD_PWNED_CODE,
@@ -41,7 +46,8 @@ export default defineHandler({
   handler: async (req, res, ctx) => {
     const actor = ctx.console;
     if (!actor) throw new Error("console actor missing");
-    if (!actor.teacherId) {
+    const loginId = actor.loginId;
+    if (!actor.teacherId || !loginId) {
       sendError(
         res,
         "coded",
@@ -117,10 +123,17 @@ export default defineHandler({
       }
       if (authError) throw new AuthSyncError("password");
 
-      // 임시 비밀번호로 연 이 세션만 남기고 다른 세션은 끝낸다. DB 임시 상태 해제보다 먼저 해서
-      // 실패해도 변경 강제가 남아 같은 요청을 다시 보내면 된다.
+      // 교체로 모든 세션이 끝났으므로 새 비밀번호로 다시 로그인해 새 세션만 남긴다. DB 임시 상태 해제보다
+      // 먼저 해서 실패해도 변경 강제가 남아 같은 요청을 다시 보내면 된다.
+      const { data: signedIn, error: signInError } =
+        await createLoginAuthClient(getClientIp(req)).auth.signInWithPassword({
+          email: syntheticEmail(loginId),
+          password,
+        });
+      const session = signedIn?.session;
+      if (signInError || !session) throw new AuthSyncError("signIn");
       const { error: signOutError } = await admin.auth.admin.signOut(
-        ctx.token as string,
+        session.access_token,
         "others",
       );
       if (signOutError) throw new AuthSyncError("signOut");
@@ -145,7 +158,14 @@ export default defineHandler({
           meta: { kind: "first" },
         },
       );
-      res.status(200).json({ ok: true });
+      res.status(200).json({
+        ok: true,
+        session: {
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          expires_at: session.expires_at ?? 0,
+        },
+      });
     } catch (error) {
       if (sendTeacherError(res, error)) return;
       throw error;

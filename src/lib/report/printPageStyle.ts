@@ -13,5 +13,11 @@ export const REPORT_PRINT_PAGE_BASE_STYLE = `
       print-color-adjust: exact;
       -webkit-print-color-adjust: exact;
     }
+    /* mm 는 rem 규칙의 의도된 예외다. 인쇄 가능 폭 = A4 210mm - 여백 15mm x 2. 표지는
+       첫 쪽 여백 0(page :first) 이라 Chrome 이 문서를 210mm 로 배치하는 경우가 있어, 루트를 묶지 않으면
+       2쪽 이후 내용이 오른쪽에서 잘린다. 표지(210mm)는 루트 밖으로 넘쳐도 첫 쪽에 다 들어간다. */
+    body > * {
+      max-width: 180mm;
+    }
   }
 `;

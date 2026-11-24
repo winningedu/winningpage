@@ -8,7 +8,7 @@ import FilterSelect from "../FilterSelect";
 import Notice from "../Notice";
 import { useGradeLabel } from "../useConsoleMe";
 import { GRADES } from "./ClassRowFields";
-import { deleteTeachers } from "./DeleteDialog";
+import { DeleteWarning, deleteTeachers } from "./DeleteDialog";
 import { classText, type TeacherSummary } from "./roster";
 import TeacherDialog, {
   CancelButton,
@@ -105,6 +105,7 @@ export default function BulkDeleteDialog({
 
   return (
     <TeacherDialog title="선생님 삭제하기" onClose={onClose} wide>
+      <DeleteWarning />
       <div role="tablist" className="flex gap-6 border-b border-line">
         {(
           [

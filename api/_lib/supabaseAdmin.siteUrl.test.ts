@@ -1,12 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const URL_KEYS = ["WINNING_SUPABASE_URL", "SUPABASE_URL", "VITE_SUPABASE_URL"];
-const KEY_KEYS = [
-  "WINNING_SUPABASE_SERVICE_ROLE_KEY",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "WINNING_SUPABASE_KEY",
-  "SUPABASE_KEY",
-];
+const KEY_KEYS = ["SUPABASE_SECRET_KEY"];
 
 function clearSupabaseEnv() {
   for (const k of [...URL_KEYS, ...KEY_KEYS]) vi.stubEnv(k, "");
@@ -29,11 +24,11 @@ afterEach(() => {
 
 describe("server Supabase admin client picks URL and key from the deployment env", () => {
   it.each([
-    ["winning", "https://winning-env.example.test", "service-winning"],
+    ["winning", "https://winning-env.example.test", "sb_secret_winning"],
     [
       "schoolmentor",
       "https://schoolmentor-env.example.test",
-      "service-schoolmentor",
+      "sb_secret_schoolmentor",
     ],
   ])(
     "%s deployment uses its own env URL and key as given",
@@ -41,7 +36,7 @@ describe("server Supabase admin client picks URL and key from the deployment env
       clearSupabaseEnv();
       vi.stubEnv("SITE", site);
       vi.stubEnv("WINNING_SUPABASE_URL", url);
-      vi.stubEnv("WINNING_SUPABASE_SERVICE_ROLE_KEY", key);
+      vi.stubEnv("SUPABASE_SECRET_KEY", key);
 
       const { createSupabaseAdmin, createClient } = await loadAdmin();
       createSupabaseAdmin();
@@ -59,7 +54,7 @@ describe("server Supabase admin client picks URL and key from the deployment env
   it("uses only the env URL when only the generic SUPABASE_URL is set", async () => {
     clearSupabaseEnv();
     vi.stubEnv("SUPABASE_URL", "https://generic-env.example.test");
-    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service-generic");
+    vi.stubEnv("SUPABASE_SECRET_KEY", "sb_secret_generic");
 
     const { createSupabaseAdmin, createClient } = await loadAdmin();
     createSupabaseAdmin();
@@ -71,7 +66,7 @@ describe("server Supabase admin client picks URL and key from the deployment env
 
   it("fails loudly with the config error when the URL is missing", async () => {
     clearSupabaseEnv();
-    vi.stubEnv("WINNING_SUPABASE_SERVICE_ROLE_KEY", "service");
+    vi.stubEnv("SUPABASE_SECRET_KEY", "sb_secret_test");
 
     const { createSupabaseAdmin, createClient, isSupabaseConfigError } =
       await loadAdmin();
@@ -101,5 +96,10 @@ describe("server Supabase admin client picks URL and key from the deployment env
     }
     expect(isSupabaseConfigError(thrown)).toBe(true);
     expect(createClient).not.toHaveBeenCalled();
+  });
+
+  it("names SUPABASE_SECRET_KEY in the config error message", async () => {
+    const { SUPABASE_CONFIG_ERROR_MESSAGE } = await loadAdmin();
+    expect(SUPABASE_CONFIG_ERROR_MESSAGE).toContain("SUPABASE_SECRET_KEY");
   });
 });

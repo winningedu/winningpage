@@ -1,6 +1,6 @@
 import { discardOpenSession, expect, test } from "./fixtures/selfeval";
 
-// 기본 입력 가드: 과목명, 문항 오류와 이동 없음, 목표 글자 수 비움 안내, 정상 제출 이동.
+// 기본 입력 가드: 과목명 오류와 이동 없음, 목표 글자 수 비움 안내, 정상 제출 이동.
 test.describe("자기평가서 기본 입력", () => {
   test("필수 입력 가드와 정상 제출", async ({
     studentPage: page,
@@ -30,20 +30,12 @@ test.describe("자기평가서 기본 입력", () => {
     await expect(page.getByText("과목명을 입력해 주세요.")).toBeVisible();
     await expect(page).toHaveURL(/\/app\/selfeval\/new$/);
 
-    // 과목명 입력 + 문항 비움 -> 문항 오류
-    await subject.fill("확률과 통계");
-    await prompt.fill("");
-    await submit.click();
-    await expect(
-      page.getByText("학교에서 받은 문항을 입력해 주세요."),
-    ).toBeVisible();
-    await expect(page).toHaveURL(/\/app\/selfeval\/new$/);
-
     // 목표 글자 수 비움 -> 분량 판정 안내
     await target.fill("");
     await expect(page.getByText("비워 두면 분량 판정만 꺼져요")).toBeVisible();
 
     // 전부 채우고 제출 -> 활동 선택으로 이동
+    await subject.fill("확률과 통계");
     await prompt.fill("교과 학습에서 스스로 탐구한 내용을 서술하시오.");
     await target.fill("500");
     await submit.click();

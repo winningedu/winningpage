@@ -205,7 +205,6 @@ export default function StudentListPage() {
               <StudentCards
                 rows={data.items}
                 academy={academy}
-                showEdit={homeroom}
                 showReasons={special}
                 thresholds={specialThresholds(data)}
                 onOpen={setOpenedId}
@@ -215,7 +214,6 @@ export default function StudentListPage() {
               <StudentTable
                 rows={data.items}
                 academy={academy}
-                showEdit={homeroom}
                 showReasons={special}
                 thresholds={specialThresholds(data)}
                 onOpen={setOpenedId}

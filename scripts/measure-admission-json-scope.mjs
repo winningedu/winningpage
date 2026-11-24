@@ -31,7 +31,7 @@
 //   node scripts/measure-admission-json-scope.mjs --admission-year 2027
 //
 // 키 조회 순서(하드코딩 금지) — scripts/normalize-admission-html.mjs와 동일 컨벤션:
-//   1) SEED_SUPABASE_URL / SEED_SERVICE_ROLE_KEY 환경변수
+//   1) SEED_SUPABASE_URL / SEED_SECRET_KEY 환경변수
 //   2) --keys-file <path>
 //   둘 다 없고 --bundle-only도 아니면, 죽은 scratchpad 절대경로로 폴백하지
 //   않고 명확한 에러 메시지와 함께 즉시 종료한다.
@@ -90,13 +90,13 @@ let args = {};
 // -----------------------------------------------------------------------
 async function resolveCredentials() {
   const envUrl = process.env.SEED_SUPABASE_URL;
-  const envKey = process.env.SEED_SERVICE_ROLE_KEY;
+  const envKey = process.env.SEED_SECRET_KEY;
   if (envUrl && envKey) return { url: envUrl, serviceKey: envKey };
 
   const keysFile = args["keys-file"] || process.env.SEED_KEYS_FILE;
   if (!keysFile) {
     throw new Error(
-      "DB 자격증명을 찾을 수 없습니다. SEED_SUPABASE_URL/SEED_SERVICE_ROLE_KEY 환경변수를 " +
+      "DB 자격증명을 찾을 수 없습니다. SEED_SUPABASE_URL/SEED_SECRET_KEY 환경변수를 " +
         "설정하거나 --keys-file <path>를 지정하세요. DB 없이 번들만 측정하려면 " +
         "--bundle-only 플래그를 사용하세요.",
     );
