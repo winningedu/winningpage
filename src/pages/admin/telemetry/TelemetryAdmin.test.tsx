@@ -56,9 +56,9 @@ describe("요약 탭", () => {
       throw new FakeApiError(500, "INTERNAL_ERROR", "조회에 실패했습니다.");
     });
     renderTelemetry();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "데이터를 불러오는 중입니다.",
-    );
+    expect(
+      screen.getByRole("status", { name: "요약을 불러오는 중" }),
+    ).toBeInTheDocument();
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "조회에 실패했습니다.",
     );

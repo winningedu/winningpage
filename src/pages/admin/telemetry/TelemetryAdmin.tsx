@@ -2,6 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AdminCardsSkeleton } from "@/pages/admin/shared/skeletons/AdminCardsSkeleton";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   errorMessage,
   fetchCalls,
@@ -116,12 +119,15 @@ export default function TelemetryAdmin({ config }: Props) {
       )}
 
       {active.isPending ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+        tab === "summary" ? (
+          <AdminCardsSkeleton count={6} label="요약을 불러오는 중" />
+        ) : tab === "calls" ? (
+          <AdminTableSkeleton columns={15} label="호출 목록을 불러오는 중" />
+        ) : tab === "citations" ? (
+          <AdminTableSkeleton columns={7} label="인용 목록을 불러오는 중" />
+        ) : (
+          <AdminDetailSkeleton rows={4} label="단가를 불러오는 중" />
+        )
       ) : (
         <>
           {tab === "summary" && summary.data && (
