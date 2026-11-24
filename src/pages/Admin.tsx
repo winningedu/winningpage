@@ -68,6 +68,7 @@ import AccessLogsAdmin from "./admin/access-logs/AccessLogsAdmin";
 import {
   ADMIN_DEFAULT_SECTION_KEY,
   ADMIN_SECTION_KEYS,
+  ADMIN_SERVER_PAGINATE_SECTION_KEYS,
   type AdminSectionKey,
 } from "./admin/adminSectionKeys";
 import {
@@ -88,7 +89,6 @@ import {
   createSectionRow,
   deleteSectionRow,
   fetchExportChunk,
-  fetchSectionList,
   fetchSectionRow,
   markSectionReviewed,
   requestEmbedding,
@@ -96,6 +96,7 @@ import {
   updateSectionMeta,
   updateSectionRow,
 } from "./admin/engine/api";
+import { sectionListQueryOptions } from "./admin/engine/sectionList";
 import {
   type ListUrlState,
   parseListSearch,
@@ -816,13 +817,14 @@ export function AdminSectionRoute({ section }: { section: string }) {
 
   // 목록은 서버(/api/admin/sections)에서 받는다. 서버 페이지네이션 탭은 page 와 q 가 키에 들어가
   // 바뀔 때마다 다시 받고, 그 외 탭은 섹션 키 하나로 전량을 받는다.
-  const paginate = Boolean(config.serverPaginate);
-  const listParams = paginate ? { page, q: searchTerm } : undefined;
+  // 키와 요청은 라우트 미들웨어의 선받기와 같은 sectionListQueryOptions 로 만든다(둘이 어긋나면 선받기가 헛돈다).
+  const paginate = (
+    ADMIN_SERVER_PAGINATE_SECTION_KEYS as readonly string[]
+  ).includes(activeKey);
   const listEnabled = !config.custom && !config.comingSoon;
   const isList = view.kind === "list";
   const listQuery = useQuery({
-    queryKey: sectionKeys.list(activeKey, listParams),
-    queryFn: ({ signal }) => fetchSectionList(activeKey, listParams, signal),
+    ...sectionListQueryOptions(activeKey, { page, q: searchTerm }),
     enabled: listEnabled && isList,
     refetchOnWindowFocus: false,
   });
