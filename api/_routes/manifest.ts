@@ -28,6 +28,11 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/learning-diagnosis/programs.js"),
   "admin/learning-diagnosis/programs/[id]": () =>
     import("./admin/learning-diagnosis/programs/[id].js"),
+  "admin/mentor-applications": () => import("./admin/mentor-applications.js"),
+  "admin/mentor-applications/[id]": () =>
+    import("./admin/mentor-applications/[id].js"),
+  "admin/mentor-applications/[id]/proof-url": () =>
+    import("./admin/mentor-applications/[id]/proof-url.js"),
   "admin/growth-grant": () => import("./admin/growth-grant.js"),
   "admin/home-section-copy/[sectionKey]": () =>
     import("./admin/home-section-copy/[sectionKey].js"),
