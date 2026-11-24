@@ -1,5 +1,5 @@
 // W14b 개별 등록. 이름과 전화번호는 필수, 학년그룹과 반은 선택이고 여러 줄을 더할 수 있다(교 #115, #219).
-// 같은 이름과 전화번호면 새 아이디 없이 반만 더하고(same-person), 이름만 같으면 다른 선생님이다(same-name).
+// 같은 이름과 전화번호면 새 아이디 없이 담당 반만 추가하고(same-person, class-added), 이름만 같으면 다른 선생님이다(same-name).
 // 전화번호만 같거나 이미 담임이 있는 학급은 서버가 거절하고 그 문구를 창에 보인다(error).
 
 import { useRef, useState } from "react";
@@ -16,7 +16,7 @@ import ClassRowFields, {
 } from "./ClassRowFields";
 import IssuedPanel from "./IssuedPanel";
 import type { IssuedRow } from "./issuedFile";
-import type { TeacherSummary } from "./roster";
+import { classText, type TeacherSummary } from "./roster";
 import TeacherDialog, {
   CancelButton,
   ConfirmButton,
@@ -57,7 +57,8 @@ export default function RegisterDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [issued, setIssued] = useState<IssuedRow[] | null>(null);
-  const [added, setAdded] = useState(false);
+  /** 같은 선생님이라 반만 더했을 때의 결과 문구. */
+  const [added, setAdded] = useState<string | null>(null);
   const groups = useGroups();
 
   const sameName = existing.some(
@@ -91,7 +92,19 @@ export default function RegisterDialog({
     }
     onDone();
     if (!body.tempPassword) {
-      setAdded(true);
+      const groupName = (id?: string) =>
+        groups.data?.find((g) => g.id === id)?.name ?? null;
+      const labels = classes.map((c) =>
+        classText(
+          { grade: c.grade, groupName: groupName(c.groupId), name: c.name },
+          gradeLabel,
+        ),
+      );
+      setAdded(
+        labels.length > 0
+          ? `${name.trim()} 선생님의 담당 반에 ${labels.join(", ")}을 추가했어요. 새 아이디는 만들지 않았어요`
+          : "이미 등록된 선생님이라 새 아이디는 만들지 않았어요",
+      );
       return;
     }
     setIssued([
@@ -115,11 +128,8 @@ export default function RegisterDialog({
   }
   if (added) {
     return (
-      <TeacherDialog title="반을 더했어요" onClose={onClose}>
-        <Notice tone="Info">
-          이미 등록된 선생님이라 새 아이디를 만들지 않고 그 아이디에 반만
-          더했어요
-        </Notice>
+      <TeacherDialog title="담당 반을 추가했어요" onClose={onClose}>
+        <p className="text-app-body text-ink">{added}</p>
         <DialogFooter>
           <CancelButton onClick={onClose}>닫기</CancelButton>
         </DialogFooter>
