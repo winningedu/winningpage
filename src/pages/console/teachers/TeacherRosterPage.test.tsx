@@ -11,7 +11,13 @@ vi.mock("../useIdleLogout", () => ({ useIdleLogout: vi.fn() }));
 
 import ConsoleGate from "../ConsoleGate";
 import ConsoleLayout from "../ConsoleLayout";
-import { type ApiHandler, adminMe, renderRoutes, stubApi } from "../testUtils";
+import {
+  type ApiHandler,
+  adminMe,
+  proxyMe,
+  renderRoutes,
+  stubApi,
+} from "../testUtils";
 import TeacherRosterPage from "./TeacherRosterPage";
 
 const routes = [
@@ -531,5 +537,63 @@ describe("QA 51 빈 반 삭제", () => {
     );
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+});
+
+describe("W14 본인 행", () => {
+  const OWN_ROWS = [
+    row({ teacher: { id: "teacher-2", name: "본인관리자" }, classCount: 1 }),
+    row({ classId: "c-2-9", className: "9" }),
+  ];
+
+  it("PC 표에서 본인 행은 삭제 버튼이 없고 수정은 있다", async () => {
+    stubPage({ [LIST_URL]: { body: listBody(OWN_ROWS) } });
+
+    renderRoutes(routes, "/teacher/teachers");
+    const own = (await screen.findByText("본인관리자")).closest(
+      "tr",
+    ) as HTMLElement;
+
+    expect(within(own).queryByRole("button", { name: "삭제" })).toBeNull();
+    expect(within(own).getByRole("button", { name: "수정" })).toBeTruthy();
+    const other = screen.getByText("9반").closest("tr") as HTMLElement;
+    expect(within(other).getByRole("button", { name: "삭제" })).toBeTruthy();
+  });
+
+  it("전체 관리자 대리 접속에서는 본인 행 삭제도 감추지 않는다", async () => {
+    stubPage({ [LIST_URL]: { body: listBody(OWN_ROWS) } }, proxyMe);
+
+    renderRoutes(routes, "/teacher/teachers");
+    const own = (await screen.findByText("본인관리자")).closest(
+      "tr",
+    ) as HTMLElement;
+
+    expect(within(own).getByRole("button", { name: "삭제" })).toBeTruthy();
+  });
+
+  it("선생님 삭제하기 창에는 본인을 넣지 않는다", async () => {
+    stubPage({
+      [LIST_URL]: {
+        body: {
+          ...listBody(OWN_ROWS),
+          teachers: [
+            ...TEACHERS,
+            { ...TEACHERS[0], id: "teacher-2", name: "본인관리자" },
+          ],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/teachers");
+    fireEvent.click(
+      await screen.findByRole("button", { name: "선생님 삭제하기" }),
+    );
+
+    expect(
+      await screen.findByRole("checkbox", { name: "박지훈 선택" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("checkbox", { name: "본인관리자 선택" }),
+    ).toBeNull();
   });
 });

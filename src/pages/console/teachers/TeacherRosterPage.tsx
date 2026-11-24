@@ -1,5 +1,6 @@
 // W14 교사 정보 입력관리. 교사 콘솔 /teacher/teachers. 담임은 셸(ConsoleLayout)이 막는다.
 // 담당 학급마다 한 줄이고 같은 선생님은 같은 아이디로 나온다(교 #222). 휴대폰(768 미만)은 계정 생성, 삭제, 발급을 감춘다(결정 8).
+// 로그인한 본인 행은 삭제 버튼을 감추고, 선생님 삭제하기 창에서도 뺀다.
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -23,7 +24,7 @@ import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
 import { gradesOf, useClasses } from "../useClasses";
-import { useGradeLabel } from "../useConsoleMe";
+import { useConsoleMe, useGradeLabel } from "../useConsoleMe";
 import { useGroupOptions } from "../useGroups";
 import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
 import { usePageParam } from "../usePageParam";
@@ -94,6 +95,7 @@ type DialogState =
 
 export default function TeacherRosterPage() {
   const gradeLabel = useGradeLabel();
+  const ownId = useConsoleMe().me.teacher?.id;
   // 학급이 없는 담임 줄은 "-", 학년 없는 학급은 다학년이다.
   const gradeCell = (item: RosterRow) =>
     item.classId === null
@@ -326,19 +328,21 @@ export default function TeacherRosterPage() {
                             >
                               수정
                             </Button>
-                            <Button
-                              type="button"
-                              onClick={() =>
-                                setDialog({
-                                  kind: "delete",
-                                  teacherId: (item.teacher as { id: string })
-                                    .id,
-                                })
-                              }
-                              className={smallButton}
-                            >
-                              삭제
-                            </Button>
+                            {item.teacher.id !== ownId && (
+                              <Button
+                                type="button"
+                                onClick={() =>
+                                  setDialog({
+                                    kind: "delete",
+                                    teacherId: (item.teacher as { id: string })
+                                      .id,
+                                  })
+                                }
+                                className={smallButton}
+                              >
+                                삭제
+                              </Button>
+                            )}
                           </span>
                         )}
                       </TableCell>
@@ -417,6 +421,7 @@ export default function TeacherRosterPage() {
       {dialog?.kind === "bulk" && (
         <BulkDeleteDialog
           teachers={teachers}
+          ownId={ownId}
           onDeleted={closeAndRefresh}
           onClose={() => setDialog(null)}
         />

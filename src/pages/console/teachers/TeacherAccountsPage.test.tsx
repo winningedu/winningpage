@@ -18,7 +18,13 @@ vi.mock("./issuedFile", async (importOriginal) => ({
 
 import ConsoleGate from "../ConsoleGate";
 import ConsoleLayout from "../ConsoleLayout";
-import { type ApiHandler, adminMe, renderRoutes, stubApi } from "../testUtils";
+import {
+  type ApiHandler,
+  adminMe,
+  proxyMe,
+  renderRoutes,
+  stubApi,
+} from "../testUtils";
 import TeacherAccountsPage from "./TeacherAccountsPage";
 
 const routes = [
@@ -332,5 +338,123 @@ describe("W16 휴대폰", () => {
     expect(
       screen.getByText("신규 계정 발급은 PC나 태블릿에서 할 수 있어요"),
     ).toBeTruthy();
+  });
+});
+
+const OWN = {
+  id: "teacher-2",
+  name: "본인관리자",
+  role: "school_admin",
+  phoneLast4: "1111",
+  loginId: "SM26HB83R4TXW9",
+  status: "active",
+  passwordSet: true,
+  classes: [],
+};
+
+describe("W16 수정과 삭제", () => {
+  it("관리 열에 수정, 담당 변경/추가, 임시 비밀번호 재발급, 삭제가 이 순서로 있다", async () => {
+    stubPage();
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const rows = (await screen.findAllByRole("row")).slice(1);
+    const names = within(rows[2] as HTMLElement)
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+
+    expect(names).toEqual([
+      "활성화",
+      "수정",
+      "담당 변경/추가",
+      "임시 비밀번호 재발급",
+      "삭제",
+    ]);
+  });
+
+  it("수정은 이름 창을 열고 저장하면 이름을 바꾸는 요청을 보낸 뒤 닫는다", async () => {
+    const calls = stubPage({
+      "PATCH /api/console/teachers/name": { body: { ok: true } },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const rows = (await screen.findAllByRole("row")).slice(1);
+    fireEvent.click(
+      within(rows[1] as HTMLElement).getByRole("button", { name: "수정" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByRole("textbox"), {
+      target: { value: "박지훈B" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "저장" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      calls.find((c) => c.key === "PATCH /api/console/teachers/name")?.body,
+    ).toEqual({ teacherId: "t-park", name: "박지훈B" });
+  });
+
+  it("삭제는 반별 재학생 수를 더해 확인 창을 열고 삭제하면 요청을 보낸 뒤 닫는다", async () => {
+    const calls = stubPage({
+      "POST /api/console/teachers/delete": { body: { ok: true } },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const rows = (await screen.findAllByRole("row")).slice(1);
+    fireEvent.click(
+      within(rows[1] as HTMLElement).getByRole("button", { name: "삭제" }),
+    );
+
+    expect(await screen.findByText("박지훈 선생님을 삭제할까요?")).toBeTruthy();
+    expect(screen.getByText(/재학생 60명/)).toBeTruthy();
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "삭제" }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      calls.find((c) => c.key === "POST /api/console/teachers/delete")?.body,
+    ).toEqual({ teacherIds: ["t-park"] });
+  });
+});
+
+describe("W16 본인 행", () => {
+  it("PC 표에서 본인 행은 삭제와 비활성화가 없고 상태 표시와 수정은 있다", async () => {
+    stubPage({ [LIST_URL]: { body: body([OWN, ...ITEMS]) } });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const rows = (await screen.findAllByRole("row")).slice(1);
+    const own = rows[0] as HTMLElement;
+
+    expect(within(own).getByText("본인관리자")).toBeTruthy();
+    expect(within(own).queryByRole("button", { name: "삭제" })).toBeNull();
+    expect(within(own).queryByRole("button", { name: "비활성화" })).toBeNull();
+    expect(within(own).getByText("활성")).toBeTruthy();
+    expect(within(own).getByRole("button", { name: "수정" })).toBeTruthy();
+    expect(
+      within(rows[1] as HTMLElement).getByRole("button", { name: "삭제" }),
+    ).toBeTruthy();
+  });
+
+  it("휴대폰 카드에서도 본인 카드는 비활성화가 없다", async () => {
+    useMobileScreen();
+    stubPage({ [LIST_URL]: { body: body([OWN, ITEMS[1]]) } });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+
+    expect(await screen.findByText("선생님 계정 2개")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "비활성화" })).toHaveLength(1);
+  });
+
+  it("전체 관리자 대리 접속(본인 선생님 없음)에서는 아무것도 감추지 않는다", async () => {
+    stubPage({
+      "GET /api/console/me": { body: proxyMe },
+      [LIST_URL]: { body: body([OWN]) },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const row = (await screen.findAllByRole("row"))[1] as HTMLElement;
+
+    expect(within(row).getByRole("button", { name: "삭제" })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "비활성화" })).toBeTruthy();
   });
 });

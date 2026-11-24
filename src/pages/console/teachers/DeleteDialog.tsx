@@ -35,7 +35,7 @@ export function DeleteWarning() {
 }
 
 interface DeleteDialogProps {
-  teacher: TeacherSummary;
+  teacher: Pick<TeacherSummary, "id" | "name" | "activeStudents">;
   onDeleted: () => void;
   onClose: () => void;
 }

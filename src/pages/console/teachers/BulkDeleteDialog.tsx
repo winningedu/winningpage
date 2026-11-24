@@ -1,5 +1,6 @@
 // W14e 선생님 삭제하기. "선택 삭제"는 체크한 선생님, "일괄 삭제"는 학년그룹과 그룹 조건에 맞는 선생님을 한 번에 지운다(교 #211).
 // 활성 학교 전체 관리자가 한 명도 남지 않게 되면 막는다(blocked). 서버도 같은 규칙으로 거절한다.
+// 로그인한 본인(ownId)은 삭제할 수 없어 목록과 조건 결과에서 빼고, 뺐다는 안내를 보인다.
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -18,12 +19,15 @@ import TeacherDialog, {
 
 const BLOCKED_MESSAGE =
   "활성 전체 관리자가 한 명도 남지 않아 삭제할 수 없어요. 다른 전체 관리자를 먼저 지정해 주세요";
+const OWN_LEFT_OUT_MESSAGE = "본인 계정은 삭제할 수 없어서 목록에서 뺐어요";
 const ALL = { value: "", label: "전체" };
 
 type Mode = "select" | "condition";
 
 interface BulkDeleteDialogProps {
   teachers: TeacherSummary[];
+  /** 로그인한 선생님의 id. 대리 접속이면 없다. */
+  ownId?: string | undefined;
   onDeleted: () => void;
   onClose: () => void;
 }
@@ -35,6 +39,7 @@ const classesLabel = (t: TeacherSummary, gradeLabel: GradeLabeler) =>
 
 export default function BulkDeleteDialog({
   teachers,
+  ownId,
   onDeleted,
   onClose,
 }: BulkDeleteDialogProps) {
@@ -46,12 +51,14 @@ export default function BulkDeleteDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const candidates = teachers.filter((t) => t.id !== ownId);
+  const ownLeftOut = candidates.length < teachers.length;
   const gradesInUse = new Set(
-    teachers.flatMap((t) => t.classes.map((c) => c.grade)),
+    candidates.flatMap((t) => t.classes.map((c) => c.grade)),
   );
   const grades = GRADES.filter((g) => gradesInUse.has(g));
   const groups = new Map(
-    teachers.flatMap((t) =>
+    candidates.flatMap((t) =>
       t.classes
         .filter(
           (c) => c.groupId && c.groupName && (!grade || c.grade === grade),
@@ -62,10 +69,10 @@ export default function BulkDeleteDialog({
 
   const targets =
     mode === "select"
-      ? teachers.filter((t) => picked.includes(t.id))
+      ? candidates.filter((t) => picked.includes(t.id))
       : grade === ""
         ? []
-        : teachers.filter((t) =>
+        : candidates.filter((t) =>
             t.classes.some(
               (c) => c.grade === grade && (!groupId || c.groupId === groupId),
             ),
@@ -125,9 +132,10 @@ export default function BulkDeleteDialog({
           </button>
         ))}
       </div>
+      {ownLeftOut && <Notice tone="Info">{OWN_LEFT_OUT_MESSAGE}</Notice>}
       {mode === "select" ? (
         <ul className="flex max-h-72 flex-col overflow-y-auto">
-          {teachers.map((t) => (
+          {candidates.map((t) => (
             <li
               key={t.id}
               className="flex items-center gap-3 border-b border-line py-2 text-app-label text-ink"

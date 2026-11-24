@@ -1,6 +1,7 @@
 // W16 교사 계정 관리. 교사 콘솔 /teacher/teachers/accounts. 담임은 셸(ConsoleLayout)이 막는다.
 // 계정이 있는 교사만 학교 전체 관리자 먼저, 이어서 학년과 반 순으로 보인다(교 #126). 비밀번호는 가림 표시다.
 // 신규 발급은 휴대폰에서 감춘다(결정 8). 최근 로그인 열은 읽을 수 있는 값이 서버에 없어 그리지 않는다.
+// PC 표에 이름 수정과 삭제 버튼을 둔다. 로그인한 본인 행은 삭제와 비활성화 버튼을 감춘다.
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -23,10 +24,12 @@ import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
 import { ADMIN_ROLE_LABEL, HOMEROOM_ROLE_LABEL } from "../roleLabel";
-import { useGradeLabel } from "../useConsoleMe";
+import { useConsoleMe, useGradeLabel } from "../useConsoleMe";
 import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
 import { usePageParam } from "../usePageParam";
 import AssignDialog from "./AssignDialog";
+import DeleteDialog from "./DeleteDialog";
+import EditNameDialog from "./EditNameDialog";
 import IssueDialog from "./IssueDialog";
 import IssuedPanel from "./IssuedPanel";
 import type { IssuedRow } from "./issuedFile";
@@ -50,6 +53,7 @@ function scopeText(t: AccountItem, gradeLabel: GradeLabeler): string {
 
 export default function TeacherAccountsPage() {
   const gradeLabel = useGradeLabel();
+  const ownId = useConsoleMe().me.teacher?.id;
   const mobile = useIsMobile();
   const queryClient = useQueryClient();
   const [page, setPage] = usePageParam();
@@ -61,12 +65,19 @@ export default function TeacherAccountsPage() {
   );
   const [error, setError] = useState<string | null>(null);
   const [assignId, setAssignId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [issuing, setIssuing] = useState(false);
   const [reissued, setReissued] = useState<IssuedRow[] | null>(null);
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
     void queryClient.invalidateQueries({ queryKey: ["console", "teachers"] });
+  };
+  const closeAndRefresh = () => {
+    setEditId(null);
+    setDeleteId(null);
+    refresh();
   };
 
   const toggleStatus = async (t: AccountItem) => {
@@ -115,6 +126,8 @@ export default function TeacherAccountsPage() {
   };
 
   const assignTarget = list.data?.items.find((t) => t.id === assignId);
+  const editTarget = list.data?.items.find((t) => t.id === editId);
+  const deleteTarget = list.data?.items.find((t) => t.id === deleteId);
   const small =
     "h-8 rounded-lg bg-surface-muted px-3 text-app-label font-semibold text-ink-strong hover:bg-surface-muted";
   const statusChip = (t: AccountItem) => (
@@ -180,13 +193,15 @@ export default function TeacherAccountsPage() {
                       {`최근 로그인 ${lastLoginText(t.lastLoginAt)}`}
                     </span>
                     <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        onClick={() => void toggleStatus(t)}
-                        className="h-11 flex-1 rounded-lg bg-surface-muted text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
-                      >
-                        {t.status === "active" ? "비활성화" : "활성화"}
-                      </Button>
+                      {t.id !== ownId && (
+                        <Button
+                          type="button"
+                          onClick={() => void toggleStatus(t)}
+                          className="h-11 flex-1 rounded-lg bg-surface-muted text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
+                        >
+                          {t.status === "active" ? "비활성화" : "활성화"}
+                        </Button>
+                      )}
                       {t.role === "homeroom" && (
                         <Button
                           type="button"
@@ -225,13 +240,15 @@ export default function TeacherAccountsPage() {
                       <TableCell>
                         <span className="flex items-center gap-2">
                           {statusChip(t)}
-                          <Button
-                            type="button"
-                            onClick={() => void toggleStatus(t)}
-                            className={small}
-                          >
-                            {t.status === "active" ? "비활성화" : "활성화"}
-                          </Button>
+                          {t.id !== ownId && (
+                            <Button
+                              type="button"
+                              onClick={() => void toggleStatus(t)}
+                              className={small}
+                            >
+                              {t.status === "active" ? "비활성화" : "활성화"}
+                            </Button>
+                          )}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
@@ -239,6 +256,13 @@ export default function TeacherAccountsPage() {
                       </TableCell>
                       <TableCell>
                         <span className="flex gap-2">
+                          <Button
+                            type="button"
+                            onClick={() => setEditId(t.id)}
+                            className={small}
+                          >
+                            수정
+                          </Button>
                           {t.role === "homeroom" && (
                             <Button
                               type="button"
@@ -255,6 +279,15 @@ export default function TeacherAccountsPage() {
                               className={small}
                             >
                               임시 비밀번호 재발급
+                            </Button>
+                          )}
+                          {t.id !== ownId && (
+                            <Button
+                              type="button"
+                              onClick={() => setDeleteId(t.id)}
+                              className={small}
+                            >
+                              삭제
                             </Button>
                           )}
                         </span>
@@ -293,6 +326,27 @@ export default function TeacherAccountsPage() {
           teacher={assignTarget}
           onChanged={refresh}
           onClose={() => setAssignId(null)}
+        />
+      )}
+      {editTarget && (
+        <EditNameDialog
+          teacher={editTarget}
+          onSaved={closeAndRefresh}
+          onClose={() => setEditId(null)}
+        />
+      )}
+      {deleteTarget && (
+        <DeleteDialog
+          teacher={{
+            id: deleteTarget.id,
+            name: deleteTarget.name,
+            activeStudents: deleteTarget.classes.reduce(
+              (sum, c) => sum + c.activeStudents,
+              0,
+            ),
+          }}
+          onDeleted={closeAndRefresh}
+          onClose={() => setDeleteId(null)}
         />
       )}
       {issuing && (
