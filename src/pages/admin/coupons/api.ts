@@ -48,7 +48,29 @@ export const couponKeys = {
   all: ["admin", "coupons"] as const,
   list: () => [...couponKeys.all, "list"] as const,
   detail: (id: string) => [...couponKeys.all, "detail", id] as const,
+  redemptions: (couponId: string) =>
+    [...couponKeys.all, "redemptions", couponId] as const,
 };
+
+// 사용자 이름은 서버가 profiles 에서 붙인다. 조회에 실패했거나 게스트 결제면 null 이다.
+const userSummarySchema = z
+  .object({ name: z.string().nullable(), email: z.string().nullable() })
+  .nullable();
+
+const redemptionSchema = z.looseObject({
+  id: z.number(),
+  coupon_id: z.string(),
+  order_id: z.string().nullish(),
+  user_id: z.string().nullable(),
+  discount_amount: z.number(),
+  created_at: z.string(),
+  voided_at: z.string().nullable(),
+  void_reason: z.string().nullish(),
+  user: userSummarySchema,
+});
+export type RedemptionRow = z.infer<typeof redemptionSchema>;
+
+const redemptionListSchema = z.object({ items: z.array(redemptionSchema) });
 
 // 서버 CouponPayload 와 같은 모양. 검사는 화면(validateForm)과 서버 zod 가 각자 한다.
 export interface CouponPayload {
@@ -88,6 +110,49 @@ export function useCoupon(id: string | undefined) {
           signal,
         })
         .json(couponSchema),
+  });
+}
+
+/** 쿠폰 하나의 사용 이력. 서버가 최근 200건까지 준다. */
+export function useRedemptions(couponId: string) {
+  return useQuery({
+    queryKey: couponKeys.redemptions(couponId),
+    queryFn: ({ signal }) =>
+      api
+        .get("admin/coupons/redemptions", {
+          searchParams: { couponId },
+          signal,
+        })
+        .json(redemptionListSchema),
+  });
+}
+
+/** 사용 이력 무효화. 이력과 목록의 사용 건수를 다시 받는다. 사유가 비면 키를 뺀다. */
+export function useVoidRedemption(couponId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      redemptionId,
+      reason,
+    }: {
+      redemptionId: number;
+      reason: string;
+    }) =>
+      api
+        .post("admin/coupons/redemption-void", {
+          json: {
+            redemptionId,
+            ...(reason.trim() ? { reason: reason.trim() } : {}),
+          },
+        })
+        .json(z.looseObject({})),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: couponKeys.redemptions(couponId),
+        }),
+        queryClient.invalidateQueries({ queryKey: couponKeys.list() }),
+      ]),
   });
 }
 
