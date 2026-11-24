@@ -711,7 +711,7 @@
     "browserDb": 4
   },
   "src/lib/admissionSettings.ts": {
-    "browserDb": 2
+    "browserDb": 1
   },
   "src/lib/appSettings.ts": {
     "browserDb": 1
@@ -836,9 +836,6 @@
   },
   "src/pages/TeacherResetPassword.tsx": {
     "legacyFetch": 1
-  },
-  "src/pages/admin/admission/AdmissionPanels.tsx": {
-    "browserDb": 6
   },
   "src/pages/admin/hq-dashboard/api.ts": {
     "legacyFetch": 2
