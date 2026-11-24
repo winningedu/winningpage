@@ -64,7 +64,7 @@ function replaceUrls(value: unknown, urls: Map<string, string>): unknown {
  */
 export async function promoteTempUploads<T>(
   admin: SupabaseClient,
-  entry: SectionEntry,
+  entry: Pick<SectionEntry, "uploads">,
   payload: T,
 ): Promise<T> {
   const names = new Set<string>();
@@ -121,7 +121,7 @@ export async function promoteTempUploads<T>(
 export async function promoteForWrite<T>(
   res: VercelResponse,
   admin: SupabaseClient,
-  entry: SectionEntry,
+  entry: Pick<SectionEntry, "uploads">,
   payload: T,
 ): Promise<T | null> {
   try {

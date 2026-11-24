@@ -173,6 +173,68 @@ describe("POST /api/admin/uploads", () => {
   });
 });
 
+describe("premiumBookPages 업로드 규칙", () => {
+  const premium = (overrides: Record<string, unknown> = {}) =>
+    issue({ section: "premiumBookPages", ...overrides });
+
+  beforeEach(() => {
+    seedAdmin(kit.state, "edit", "premiumBookPages");
+  });
+
+  test("image_url 은 이미지 2MB 까지 받고 넘으면 400", async () => {
+    expect((await post(premium({ size: 2 * MB }))).status).toBe(201);
+    const over = await post(premium({ size: 2 * MB + 1 }));
+    expect(over.status).toBe(400);
+    expect(over.body).toMatchObject({ errors: [{ path: "size" }] });
+  });
+
+  test("booklet_pdf 는 pdf 만, page_webp 는 webp 이미지를 받는다", async () => {
+    const pdf = {
+      field: "booklet_pdf",
+      fileName: "booklet.pdf",
+      contentType: "application/pdf",
+    };
+    expect((await post(premium(pdf))).status).toBe(201);
+    expect(
+      (await post(premium({ ...pdf, fileName: "booklet.zip" }))).status,
+    ).toBe(400);
+    const webp = {
+      field: "page_webp",
+      fileName: "p01.webp",
+      contentType: "image/webp",
+    };
+    expect((await post(premium(webp))).status).toBe(201);
+    expect((await post(premium({ ...webp, fileName: "p01.pdf" }))).status).toBe(
+      400,
+    );
+  });
+
+  test("모르는 필드는 400 이고 스토리지를 부르지 않는다", async () => {
+    const r = await post(premium({ field: "title" }));
+    expect(r.status).toBe(400);
+    expect(kit.fake.calls).toHaveLength(0);
+  });
+
+  test("view 권한은 403", async () => {
+    seedAdmin(kit.state, "view", "premiumBookPages");
+    expect((await post(premium())).status).toBe(403);
+  });
+
+  test("DELETE 는 premium-book/ 아래만 지우고 밖은 400", async () => {
+    kit.fake.put("banners", "premium-book/p01.webp");
+    const ok = await del({
+      section: "premiumBookPages",
+      paths: ["premium-book/p01.webp"],
+    });
+    expect(ok.status).toBe(204);
+    const bad = await del({
+      section: "premiumBookPages",
+      paths: ["landing/hero/a.png"],
+    });
+    expect(bad.status).toBe(400);
+  });
+});
+
 describe("DELETE /api/admin/uploads", () => {
   test("섹션 업로드 폴더 아래 경로만 banners 에서 지우고 204", async () => {
     const paths = ["landing/hero/a-b.png", "landing/hero/sub/c.png"];

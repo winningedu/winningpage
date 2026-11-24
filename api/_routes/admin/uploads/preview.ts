@@ -4,7 +4,7 @@
 // 저장 때 섹션 라우트가 이 URL 을 banners 공개 URL 로 바꾼다(promote.ts).
 
 import { z } from "zod";
-import { getSection } from "../../../_lib/admin-sections/registry.js";
+import { uploadRulesFor } from "../../../_lib/admin-sections/uploadRules.js";
 import {
   parseTempName,
   SIGNED_URL_TTL_SECONDS,
@@ -29,7 +29,7 @@ export default defineHandler({
   handler: async (_req, res, ctx) => {
     const { section, path } = ctx.body;
     const parsed = parseTempName(path);
-    if (!parsed || !getSection(section)?.uploads[parsed.fieldKey]) {
+    if (!parsed || !uploadRulesFor(section)?.[parsed.fieldKey]) {
       sendError(
         res,
         "problem",
