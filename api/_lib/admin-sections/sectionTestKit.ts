@@ -20,6 +20,7 @@ export interface SectionCall {
   or?: string;
   orders: [column: string, ascending: boolean][];
   range?: [from: number, to: number];
+  limit?: number;
   count: boolean;
   values?: Row;
 }
@@ -96,6 +97,10 @@ class Builder {
     this.call.range = [from, to];
     return this;
   }
+  limit(count: number) {
+    this.call.limit = count;
+    return this;
+  }
   single() {
     this.mode = "single";
     return this;
@@ -152,6 +157,9 @@ class Builder {
         });
       }
       if (range) affected = affected.slice(range[0], range[1] + 1);
+      if (this.call.limit !== undefined) {
+        affected = affected.slice(0, this.call.limit);
+      }
     }
     const count = this.call.count ? total : null;
     if (op !== "select" && !this.returning) {

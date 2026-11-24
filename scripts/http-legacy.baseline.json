@@ -121,20 +121,12 @@
     "legacyError": 3,
     "okSuccess": 2
   },
-  "api/_routes/admin/send-message.ts": {
-    "legacyError": 6,
-    "okSuccess": 1
-  },
   "api/_routes/admin/service-credit-adjust.ts": {
     "legacyError": 6,
     "okSuccess": 1
   },
   "api/_routes/admin/service-credit-summary.ts": {
     "legacyError": 2,
-    "okSuccess": 1
-  },
-  "api/_routes/admin/tenants/move-student.ts": {
-    "legacyError": 5,
     "okSuccess": 1
   },
   "api/_routes/admin/web-analytics.ts": {
@@ -956,10 +948,6 @@
   "src/pages/admin/learning-diagnosis/LearningDiagnosisAdmin.tsx": {
     "browserDb": 12
   },
-  "src/pages/admin/members/MembersAdmin.tsx": {
-    "browserDb": 10,
-    "legacyFetch": 1
-  },
   "src/pages/admin/mentor/MentorApplicationsAdmin.tsx": {
     "browserDb": 3
   },
@@ -987,9 +975,6 @@
     "browserDb": 8
   },
   "src/pages/admin/telemetry/api.ts": {
-    "legacyFetch": 1
-  },
-  "src/pages/admin/tenants/MoveStudentForm.tsx": {
     "legacyFetch": 1
   },
   "src/pages/admin/web-analytics/api.ts": {

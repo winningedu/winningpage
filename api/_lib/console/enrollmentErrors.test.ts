@@ -150,3 +150,64 @@ describe("sendEnrollmentRpcError", () => {
     expect(run(null).handled).toBe(false);
   });
 });
+
+describe("sendEnrollmentRpcError problem 응답", () => {
+  function runProblem(
+    error: { code?: string; details?: string | null },
+    occupant?: Parameters<typeof sendEnrollmentRpcError>[2],
+  ) {
+    const captured = {
+      status: 0,
+      body: undefined as unknown,
+      headers: {} as Record<string, string>,
+    };
+    const res = {
+      setHeader: (key: string, value: string) => {
+        captured.headers[key] = value;
+      },
+      status(code: number) {
+        captured.status = code;
+        return res;
+      },
+      end(payload: string) {
+        captured.body = JSON.parse(payload);
+        return res;
+      },
+    } as unknown as VercelResponse;
+    const handled = sendEnrollmentRpcError(res, error, occupant, "problem");
+    return { handled, ...captured };
+  }
+
+  test("같은 상태와 코드와 문구를 problem 바디로 낸다", () => {
+    const r = runProblem({ code: "WC096" });
+
+    expect(r.handled).toBe(true);
+    expect(r.status).toBe(409);
+    expect(r.headers["Content-Type"]).toBe("application/problem+json");
+    expect(r.body).toMatchObject({
+      status: 409,
+      code: "PHONE_TAKEN",
+      detail:
+        "이 기관에 같은 휴대폰 번호로 가입한 계정이 있어요. 선생님께 문의해 주세요.",
+    });
+  });
+
+  test("WC077 점유 정보는 최상위 키로 싣고 이름은 가린다", () => {
+    const r = runProblem(
+      { code: "WC077", details: "김하늘" },
+      { slot: SLOT, maskName: true },
+    );
+
+    expect(r.body).toMatchObject({
+      code: "NUMBER_TAKEN",
+      occupant: { ...SLOT, displayName: "김*늘" },
+    });
+  });
+
+  test("모르는 코드는 false 이고 아무것도 보내지 않는다", () => {
+    const r = runProblem({ code: "XX000" });
+
+    expect(r.handled).toBe(false);
+    expect(r.status).toBe(0);
+  });
+});

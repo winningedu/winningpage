@@ -52,6 +52,8 @@ beforeEach(() => {
     })),
     error: null,
   });
+  // auth:"admin" 로 옮긴 라우트(send-message, move-student)가 resolveAdmin 에서 읽는 role 이다.
+  kit.state.rows.profiles = () => ({ role: "admin" });
   kit.state.rows.admin_members = () => ({
     profile_id: "hq-1",
     status: "active",

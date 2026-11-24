@@ -41,7 +41,8 @@ export async function assertSectionPermission(
   }
 }
 
-async function hasSectionPermission(
+/** 메뉴 권한 여부만 돌려준다. assertSectionPermission 과 같은 규칙이고, 조회 실패는 던진다. */
+export async function hasSectionPermission(
   admin: SupabaseClient,
   profileId: string,
   sectionKey: string,

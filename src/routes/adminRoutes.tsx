@@ -41,6 +41,7 @@ const SPLAT_SECTION_KEYS: ReadonlySet<string> = new Set([
   "tenants",
   "memberPurge",
   "coupons",
+  "members",
 ]);
 
 const adminRoutes: RouteObject[] = [

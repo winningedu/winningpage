@@ -36,6 +36,8 @@ beforeEach(() => {
   vi.stubEnv("SITE", "schoolmentor");
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
+  // 관리자 판정(resolveAdmin)이 읽는 role 이다.
+  kit.state.rows.profiles = () => ({ role: "admin" });
   kit.state.rpc.fn_admin_effective_permissions = () => ({
     data: [{ resource_key: "members", level: "edit" }],
     error: null,
@@ -84,8 +86,18 @@ describe("POST /api/admin/tenants/move-student", () => {
     const r = await post(VALID);
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(r.body).toMatchObject({ status: 403, code: "FORBIDDEN" });
     expect(moveArgs).toHaveLength(0);
+  });
+
+  test("QA 계정은 옮기지 못한다", async () => {
+    kit.state.rows.qa_accounts = () => ({ profile_id: "hq-1" });
+
+    const r = await post(VALID);
+
+    expect(r.status).toBe(403);
+    expect(moveArgs).toHaveLength(0);
+    expect(kit.state.inserts).toHaveLength(0);
   });
 
   test("성공하면 본문의 값으로 이동 함수를 실행자와 함께 부르고 결과를 돌려준다", async () => {
@@ -93,7 +105,6 @@ describe("POST /api/admin/tenants/move-student", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
-      ok: true,
       fromTenantId: "tenant-1",
       tenantId: "tenant-9",
       enrollmentId: "e-1",
@@ -167,6 +178,10 @@ describe("POST /api/admin/tenants/move-student", () => {
     const r = await post(body);
 
     expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({
+      code: "VALIDATION_FAILED",
+      detail: "입력값을 확인해 주세요.",
+    });
     expect(moveArgs).toHaveLength(0);
     expect(kit.state.inserts).toHaveLength(0);
   });
@@ -189,7 +204,7 @@ describe("POST /api/admin/tenants/move-student", () => {
       const r = await post(VALID);
 
       expect(r.status).toBe(status);
-      expect(r.body).toMatchObject({ error: { code: appCode } });
+      expect(r.body).toMatchObject({ status, code: appCode });
       expect(kit.state.inserts).toHaveLength(0);
     },
   );
@@ -204,7 +219,7 @@ describe("POST /api/admin/tenants/move-student", () => {
 
     expect(r.status).toBe(409);
     expect(r.body).toMatchObject({
-      error: { code: "NUMBER_TAKEN" },
+      code: "NUMBER_TAKEN",
       occupant: {
         grade: "고2",
         className: "3반",
