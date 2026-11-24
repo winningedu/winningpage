@@ -22,6 +22,7 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { studentSearchQueryOptions } from "@/pages/admin/shared/studentSearch";
 import {
   type AdjustBody,
@@ -362,9 +363,11 @@ function StudentCredits({ studentId }: { studentId: string }) {
   if (!summary.data) {
     return (
       <div className="bg-white px-6 py-5 shadow-sm">
-        <p role="status" className="text-sm font-medium text-gray-500">
-          불러오는 중...
-        </p>
+        <AdminTableSkeleton
+          columns={6}
+          rows={4}
+          label="서비스 이용횟수를 불러오는 중"
+        />
       </div>
     );
   }
