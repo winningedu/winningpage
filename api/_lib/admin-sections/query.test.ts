@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "vitest";
 import { createKitState } from "../console/consoleTestKit.js";
-import { buildListQuery } from "./query.js";
+import { buildListQuery, shiftSortOrder } from "./query.js";
 import { SECTIONS } from "./registry.js";
 import { createSectionAdmin, createSectionDb } from "./sectionTestKit.js";
 
@@ -86,5 +86,59 @@ describe("buildListQuery", () => {
   test("count 를 켜면 전체 건수를 센다", () => {
     expect(run("notices", SECTIONS.notices, { count: true })?.count).toBe(true);
     expect(run("notices", SECTIONS.notices)?.count).toBe(false);
+  });
+});
+
+describe("shiftSortOrder", () => {
+  function setup(rows: { id: string; sort_order: number }[]) {
+    const db = createSectionDb({ faqs: rows });
+    const admin = createSectionAdmin(createKitState(), db);
+    return { db, admin };
+  }
+  const order = (db: ReturnType<typeof setup>["db"]) =>
+    Object.fromEntries(
+      (db.tables.faqs ?? []).map((row) => [row.id, row.sort_order]),
+    );
+
+  test("지정 값부터 이어지는 구간만 큰 값부터 하나씩 민다", async () => {
+    const { db, admin } = setup([
+      { id: "a", sort_order: 1 },
+      { id: "b", sort_order: 2 },
+      { id: "c", sort_order: 3 },
+      { id: "d", sort_order: 5 },
+    ]);
+    await shiftSortOrder(admin as never, SECTIONS.faqs, 2);
+    expect(order(db)).toEqual({ a: 1, b: 3, c: 4, d: 5 });
+    const updates = db.calls.filter((call) => call.op === "update");
+    expect(updates.map((call) => call.values)).toEqual([
+      { sort_order: 4 },
+      { sort_order: 3 },
+    ]);
+  });
+
+  test("지정 값이 비어 있으면 아무것도 밀지 않는다", async () => {
+    const { db, admin } = setup([
+      { id: "a", sort_order: 1 },
+      { id: "b", sort_order: 3 },
+    ]);
+    await shiftSortOrder(admin as never, SECTIONS.faqs, 2);
+    expect(order(db)).toEqual({ a: 1, b: 3 });
+  });
+
+  test("수정 중인 행은 구간에서 뺀다", async () => {
+    const { db, admin } = setup([
+      { id: "a", sort_order: 2 },
+      { id: "b", sort_order: 3 },
+    ]);
+    await shiftSortOrder(admin as never, SECTIONS.faqs, 2, "a");
+    expect(order(db)).toEqual({ a: 2, b: 3 });
+  });
+
+  test("조회나 갱신이 실패하면 던진다", async () => {
+    const { db, admin } = setup([{ id: "a", sort_order: 2 }]);
+    db.errors.push({ table: "faqs", op: "update", error: { code: "x" } });
+    await expect(
+      shiftSortOrder(admin as never, SECTIONS.faqs, 2),
+    ).rejects.toThrow();
   });
 });

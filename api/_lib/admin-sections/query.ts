@@ -106,3 +106,40 @@ export function buildPayload(
   }
   return { ok: true, payload };
 }
+
+/**
+ * sort_order 를 특정 값으로 지정해 저장하면 그 값부터 빈틈없이 이어지는 구간을 +1 씩 민다.
+ * 큰 값부터 한 행씩 올리고 트랜잭션은 없다(화면 saveRow 와 같다). 수정이면 자기 행은 뺀다.
+ */
+export async function shiftSortOrder(
+  admin: SupabaseClient,
+  entry: SectionEntry,
+  target: number,
+  excludeId?: string,
+): Promise<void> {
+  let conflicts = admin
+    .from(entry.table)
+    .select("id, sort_order")
+    .gte("sort_order", target)
+    .order("sort_order", { ascending: true });
+  if (excludeId !== undefined) conflicts = conflicts.neq("id", excludeId);
+  const { data, error } = await conflicts;
+  if (error) throw new Error(`${entry.table} sort_order read failed`);
+
+  // 지정값부터 빈틈없이 이어지는 구간만 민다(1,2,3,5 중 2 를 지정하면 2, 3 만 민다).
+  const run: { id: string; sort_order: number }[] = [];
+  let expected = target;
+  for (const row of (data ?? []) as { id: string; sort_order: number }[]) {
+    if (Number(row.sort_order) !== expected) break;
+    run.push(row);
+    expected += 1;
+  }
+
+  for (const row of run.reverse()) {
+    const { error: updateError } = await admin
+      .from(entry.table)
+      .update({ sort_order: Number(row.sort_order) + 1 })
+      .eq("id", row.id);
+    if (updateError) throw new Error(`${entry.table} sort_order shift failed`);
+  }
+}
