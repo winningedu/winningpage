@@ -68,18 +68,18 @@ function LocationProbe() {
 }
 
 function renderScreen(initialEntry = "/admin/adminAccessLogs") {
-  return render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const view = render(
+    <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[initialEntry]}>
         <AccessLogsAdmin />
         <LocationProbe />
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return { client, ...view };
 }
 
 beforeEach(() => {
@@ -159,6 +159,57 @@ describe("AccessLogsAdmin", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.queryByText("박교사")).toBeNull();
+  });
+
+  test("캐시에 있는 쪽으로 돌아오면 옛 행 대신 스켈레톤을 보인 뒤 새 행을 보인다", async () => {
+    http.get.mockReturnValueOnce(
+      respondWith({ items: [ENTRY], page: 1, hasNext: true }),
+    );
+    http.get.mockReturnValueOnce(
+      respondWith({
+        items: [{ ...ENTRY, id: "log-2", teacherName: "이교사" }],
+        page: 2,
+        hasNext: false,
+      }),
+    );
+    renderScreen();
+    await screen.findByText("박교사");
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    await screen.findByText("이교사");
+
+    let release: (page: PageBody) => void = () => {};
+    http.get.mockReturnValue({
+      json: (schema: { parse: (value: unknown) => unknown }) =>
+        new Promise((resolve) => {
+          release = (page) => resolve(schema.parse(page));
+        }),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "이전" }));
+    expect(
+      await screen.findByRole("status", {
+        name: "접근 로그를 불러오는 중입니다.",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("박교사")).toBeNull();
+
+    release({
+      items: [{ ...ENTRY, teacherName: "새교사" }],
+      page: 1,
+      hasNext: true,
+    });
+    expect(await screen.findByText("새교사")).toBeInTheDocument();
+  });
+
+  test("같은 쪽의 배경 재조회는 행을 그대로 둔다", async () => {
+    const view = renderScreen();
+    await screen.findByText("박교사");
+    http.get.mockReturnValue({ json: () => new Promise(() => {}) });
+    void view.client.refetchQueries({ queryKey: ["admin", "access-logs"] });
+    await waitFor(() => expect(view.client.isFetching()).toBe(1));
+    expect(screen.getByText("박교사")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("status", { name: "접근 로그를 불러오는 중입니다." }),
+    ).toBeNull();
   });
 
   test("열 머리글은 scope col 을 가진다", async () => {

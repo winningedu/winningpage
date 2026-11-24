@@ -151,6 +151,31 @@ test("창 포커스 같은 배경 재조회는 행을 그대로 두고 스켈레
   expect(screen.queryByRole("status", { name: LIST_LABEL })).toBeNull();
 });
 
+test("캐시에 있는 목록으로 다시 들어오면 옛 행 대신 스켈레톤을 보인 뒤 새 행을 보인다", async () => {
+  const first = renderMentor();
+  await screen.findByRole("button", { name: "열기 김지원" });
+  first.unmount();
+
+  let release: (value: unknown) => void = () => {};
+  on(
+    "GET",
+    BASE,
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  renderMentor(PATH, first.client);
+  expect(
+    await screen.findByRole("status", { name: LIST_LABEL }),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "열기 김지원" })).toBeNull();
+  release({ items: [app2] });
+  expect(
+    await screen.findByRole("button", { name: "열기 박서준" }),
+  ).toBeInTheDocument();
+});
+
 test("초기화를 누르면 스켈레톤을 보인 뒤 새 행을 보인다", async () => {
   renderMentor();
   await screen.findByRole("button", { name: "열기 김지원" });

@@ -19,7 +19,7 @@ export type MentorApplicationRow = z.infer<typeof applicationSchema>;
 
 const listSchema = z.object({ items: z.array(applicationSchema) });
 
-const keys = {
+export const keys = {
   all: ["admin", "mentor-applications"] as const,
   list: () => [...keys.all, "list"] as const,
   detail: (id: string) => [...keys.all, "detail", id] as const,

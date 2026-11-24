@@ -19,6 +19,7 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
+import { useListSkeleton } from "@/pages/admin/shared/useListSkeleton";
 import { type AccessLogFilter, accessLogsQueryOptions } from "./api";
 
 // ---------------------------------------------------------------------------
@@ -72,7 +73,13 @@ export default function AccessLogsAdmin() {
   const setFilter = (next: AccessLogFilter) =>
     setSearchParams(paramsFromFilter(next));
   const [draft, setDraft] = useState<AccessLogFilter>(filter);
-  const { data, error, isPending } = useQuery(accessLogsQueryOptions(filter));
+  const options = accessLogsQueryOptions(filter);
+  const { data, error, isPending, isFetching, dataUpdatedAt } =
+    useQuery(options);
+  const showSkeleton = useListSkeleton(
+    { isPending, isFetching, dataUpdatedAt },
+    options.queryKey,
+  );
   const errorMessage = error
     ? error instanceof ApiError
       ? error.detail
@@ -138,7 +145,7 @@ export default function AccessLogsAdmin() {
           {errorMessage}
         </p>
       )}
-      {isPending ? (
+      {showSkeleton ? (
         <AdminTableSkeleton
           columns={COLUMNS.length}
           label="접근 로그를 불러오는 중입니다."

@@ -51,6 +51,23 @@ test("목록을 불러오는 동안 상태 안내를 보인다", async () => {
   ).toBeInTheDocument();
 });
 
+test("캐시에 있는 목록으로 다시 들어오면 옛 행 대신 스켈레톤을 보인다", async () => {
+  const first = renderPremiumBook();
+  await screen.findByLabelText("PDF 선택");
+  await waitFor(() =>
+    expect(screen.queryByRole("status")).not.toBeInTheDocument(),
+  );
+  first.unmount();
+
+  on("GET", PAGES_PATH, () => new Promise(() => {}));
+  renderPremiumBook("/admin/premiumBookPages", first.client);
+  expect(
+    await screen.findByRole("status", {
+      name: "프리미엄 책자 목록을 불러오는 중입니다.",
+    }),
+  ).toBeInTheDocument();
+});
+
 test("PDF를 고른 뒤 같은 파일을 다시 고를 수 있게 입력값을 비운다", async () => {
   renderPremiumBook();
   await screen.findByLabelText("PDF 선택");

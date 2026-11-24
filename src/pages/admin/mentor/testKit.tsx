@@ -29,10 +29,12 @@ export const app1 = {
 };
 export const app2 = { ...app1, id: ID2, name: "박서준" };
 
-export function renderMentor(initialPath = PATH) {
-  const client = new QueryClient({
+export function renderMentor(
+  initialPath = PATH,
+  client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  }),
+) {
   const router = createMemoryRouter(
     [
       {

@@ -24,10 +24,10 @@ export const pageRow = (id: number, sortOrder: number) => ({
 
 export function renderPremiumBook(
   initialEntry: InitialEntry = "/admin/premiumBookPages",
-) {
-  const client = new QueryClient({
+  client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  }),
+) {
   const router = createMemoryRouter(
     [
       {

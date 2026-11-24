@@ -10,7 +10,9 @@ import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { downloadCsv, searchable } from "@/pages/admin/shared/csvExport";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
+import { useListSkeleton } from "@/pages/admin/shared/useListSkeleton";
 import {
+  keys,
   type MentorApplicationRow,
   useLoadErrorToast,
   useMentorApplicationList,
@@ -29,6 +31,7 @@ export default function MentorApplicationList({
   const keyword = searchParams.get("q") ?? "";
   const page = Number(searchParams.get("page")) || 1;
   const query = useMentorApplicationList();
+  const showSkeleton = useListSkeleton(query, keys.list());
   const resetList = useResetMentorList();
   useLoadErrorToast(`${config.title} 조회 실패`, query.error);
 
@@ -134,7 +137,7 @@ export default function MentorApplicationList({
         <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
 
-      {query.isPending ? (
+      {showSkeleton ? (
         <AdminTableSkeleton
           // 번호 + 설정 열 + 관리, AdminTable 머리글과 같다.
           columns={config.columns.length + 2}

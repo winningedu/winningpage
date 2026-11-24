@@ -6,7 +6,13 @@ import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
-import { type PremiumBookPageRow, useDeletePage, usePageList } from "./api";
+import { useListSkeleton } from "@/pages/admin/shared/useListSkeleton";
+import {
+  type PremiumBookPageRow,
+  premiumBookKeys,
+  useDeletePage,
+  usePageList,
+} from "./api";
 import { Heading } from "./Heading";
 import { PdfPanel } from "./PdfPanel";
 import { PREMIUM_BOOK_PATH } from "./paths";
@@ -22,6 +28,7 @@ export function PremiumBookList({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const list = usePageList();
+  const showSkeleton = useListSkeleton(list, premiumBookKeys.list());
   const remove = useDeletePage();
   useLoadErrorToast(list.error, config.title);
 
@@ -107,7 +114,7 @@ export function PremiumBookList({
         </Button>
       </div>
 
-      {list.isPending ? (
+      {showSkeleton ? (
         <AdminTableSkeleton
           // 번호 + 설정 열 + 관리, AdminTable 머리글과 같다.
           columns={config.columns.length + 2}

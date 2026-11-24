@@ -60,10 +60,10 @@ function holdResponses() {
   return release;
 }
 
-function renderPopups(entry = "/admin/popups") {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
+function renderPopups(
+  entry = "/admin/popups",
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   const view = render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[entry]}>
@@ -123,6 +123,26 @@ describe("Admin 엔진 목록 스켈레톤", () => {
 
     expect(screen.getByText("가을 팝업")).toBeInTheDocument();
     expect(screen.queryByRole("status", { name: LIST_LABEL })).toBeNull();
+  });
+
+  it("이미 캐시에 있는 목록으로 다시 들어오면 옛 행 대신 스켈레톤을 보인 뒤 새 행을 보인다", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const first = renderPopups("/admin/popups", client);
+    await screen.findByText("가을 팝업");
+    first.unmount();
+
+    const release = holdResponses();
+    engine.items = [row(8, "겨울 팝업")];
+    renderPopups("/admin/popups", client);
+    expect(
+      await screen.findByRole("status", { name: LIST_LABEL }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("가을 팝업")).toBeNull();
+
+    release();
+    expect(await screen.findByText("겨울 팝업")).toBeInTheDocument();
   });
 
   it("초기화를 누르면 스켈레톤을 보인 뒤 새 행을 보인다", async () => {

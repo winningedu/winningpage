@@ -61,6 +61,7 @@ import RevenueAdmin from "@/pages/admin/revenue/RevenueAdmin";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
+import { useListSkeleton } from "@/pages/admin/shared/useListSkeleton";
 import AdminMembersAdmin from "@/pages/admin/staff/AdminMembersAdmin";
 import AdminRolesAdmin from "@/pages/admin/staff/AdminRolesAdmin";
 import MemberPurgeAdmin from "@/pages/admin/tenants/MemberPurgeAdmin";
@@ -853,7 +854,12 @@ export function AdminSectionRoute({ section }: { section: string }) {
   // 서버 페이지네이션 탭의 전체 건수. 전량 로드 탭은 rows.length가 곧 전체다.
   const totalCount = paginate ? (listData?.total ?? 0) : rows.length;
   // 처음과 쪽, 검색어 키가 바뀔 때만 스켈레톤이다. 배경 재조회는 행을 그대로 둔다.
-  const loading = listEnabled && isList && listQuery.isPending;
+  const listOptions = sectionListQueryOptions(activeKey, {
+    page,
+    q: searchTerm,
+  });
+  const listSkeleton = useListSkeleton(listQuery, listOptions.queryKey);
+  const loading = listEnabled && isList && listSkeleton;
   // 사용자가 직접 한 등록, 수정, 삭제와 [초기화] 뒤에는 목록 쿼리를 비우고 다시 받아
   // 옛 행 대신 스켈레톤 뒤에 새 행을 보인다. 수정 화면의 행 쿼리(row)는 건드리지 않는다.
   function loadRows() {
