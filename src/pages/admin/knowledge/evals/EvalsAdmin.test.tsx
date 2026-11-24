@@ -502,6 +502,20 @@ describe("EvalsAdmin", () => {
   });
 });
 
+describe("EvalsAdmin 응답 전 대기", () => {
+  test("문제집 응답 전에는 스켈레톤만 보이고 활성 문항 수와 표는 없다", async () => {
+    on("GET", QUERIES, () => new Promise(() => {}));
+    renderAdmin();
+    expect(
+      await screen.findByRole("status", { name: "문제집을 불러오는 중" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText((_, el) => el?.textContent === "활성 0문항"),
+    ).toBeNull();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+});
+
 describe("EvalsAdmin 주소의 탭과 지식 유형", () => {
   test("처음 그릴 때 주소의 tab 과 type 을 읽는다", async () => {
     renderAdmin("/evals?tab=run&type=verified_resource");
