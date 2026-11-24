@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
   AlertDialog,
@@ -17,7 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchAdminPermissions } from "@/lib/adminPermissions";
+import { useAuth } from "@/context/AuthProvider";
+import { adminPermissionsQueryOptions } from "@/lib/adminPermissions";
 import { supabase } from "@/lib/supabase";
 import {
   ActionButton,
@@ -59,24 +61,13 @@ export default function MemberPurgeAdmin() {
   // 가장 최근에 미리보기를 요청한 기관. 늦게 도착한 옛 기관의 응답은 버린다.
   const requestedTenant = useRef("");
   const cancelRef = useRef<HTMLButtonElement>(null);
-  // 서버도 tenants edit 권한을 본다. 못 읽었으면 막아 둔다(fail-closed).
-  const [canEdit, setCanEdit] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        const userId = data.session?.user?.id;
-        return userId ? fetchAdminPermissions(userId) : null;
-      })
-      .then((permissions) => {
-        if (active) setCanEdit(permissions?.get("tenants") === "edit");
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  // 서버도 tenants edit 권한을 본다. 읽는 중이거나 못 읽었으면 막아 둔다(fail-closed).
+  const { userId } = useAuth();
+  const { data: access } = useQuery({
+    ...adminPermissionsQueryOptions(userId ?? ""),
+    enabled: !!userId,
+  });
+  const canEdit = access?.permissions.get("tenants") === "edit";
 
   useEffect(() => {
     let active = true;
