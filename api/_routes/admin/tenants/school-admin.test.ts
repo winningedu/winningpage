@@ -1,4 +1,4 @@
-// POST /api/admin/tenants/school-admin 계약 검증. 본사 권한 tenants edit 만 요구하고 대행 세션은 필요 없다.
+// POST /api/admin/tenants/school-admin 계약 검증. 본사 메뉴 tenants edit 만 요구하고 대행 세션은 필요 없다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -11,6 +11,10 @@ import {
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
 vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (...keys: string[]) => {
+    for (const key of keys) if (process.env[key]) return process.env[key];
+    return "";
+  },
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
@@ -24,6 +28,7 @@ const VALID = { tenantId: "tenant-7", name: "박관리", phone: "010-9999-8888" 
 beforeEach(() => {
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
+  kit.state.rows.profiles = () => ({ role: "admin" });
   kit.state.rpc.fn_admin_effective_permissions = () => ({
     data: [{ resource_key: "tenants", level: "edit" }],
     error: null,
@@ -60,7 +65,7 @@ describe("POST /api/admin/tenants/school-admin", () => {
     const r = await post(VALID);
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(r.body).toMatchObject({ status: 403, code: "FORBIDDEN" });
     expect(kit.state.events).not.toContain("rpc:fn_teacher_register");
   });
 
@@ -78,8 +83,8 @@ describe("POST /api/admin/tenants/school-admin", () => {
 
     expect(r.status).toBe(200);
     const body = r.body as Record<string, unknown>;
+    expect(body).not.toHaveProperty("ok");
     expect(body).toMatchObject({
-      ok: true,
       teacherId: "teacher-9",
       loginId: "ABCD2345XY7Z9K",
       verdict: "created",
@@ -159,7 +164,16 @@ describe("POST /api/admin/tenants/school-admin", () => {
     const r = await post({ ...VALID, ...extra });
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(r.body).toMatchObject({ status: 400, code: "VALIDATION_FAILED" });
+    expect(kit.state.events).not.toContain("rpc:fn_teacher_register");
+  });
+
+  test("QA 계정은 발급하지 못한다", async () => {
+    kit.state.rows.qa_accounts = () => ({ profile_id: "hq-1" });
+
+    const r = await post(VALID);
+
+    expect(r.status).toBe(403);
     expect(kit.state.events).not.toContain("rpc:fn_teacher_register");
   });
 
@@ -192,7 +206,7 @@ describe("POST /api/admin/tenants/school-admin", () => {
     const r = await post(VALID);
 
     expect(r.status).toBe(404);
-    expect(r.body).toMatchObject({ error: { code: "TENANT_NOT_FOUND" } });
+    expect(r.body).toMatchObject({ status: 404, code: "TENANT_NOT_FOUND" });
   });
 
   test("전화번호가 다른 이름이면 409 PHONE_IN_USE", async () => {
@@ -204,7 +218,7 @@ describe("POST /api/admin/tenants/school-admin", () => {
     const r = await post(VALID);
 
     expect(r.status).toBe(409);
-    expect(r.body).toMatchObject({ error: { code: "PHONE_IN_USE" } });
+    expect(r.body).toMatchObject({ status: 409, code: "PHONE_IN_USE" });
   });
 
   test.each([
@@ -215,7 +229,7 @@ describe("POST /api/admin/tenants/school-admin", () => {
     const r = await post(body);
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(r.body).toMatchObject({ status: 400, code: "VALIDATION_FAILED" });
     expect(kit.state.events).not.toContain("rpc:fn_teacher_register");
   });
 });
