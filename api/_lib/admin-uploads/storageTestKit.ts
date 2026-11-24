@@ -11,7 +11,16 @@ export interface FakeObject {
   name: string;
   /** list 가 돌려줄 생성 시각(없으면 폴더로 본다). */
   createdAt?: string;
+  /** info 가 돌려줄 크기와 형식(없으면 1바이트, 이름 확장자에서 고른 형식). */
+  size?: number;
+  contentType?: string;
 }
+
+const MIME_BY_EXT: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  pdf: "application/pdf",
+};
 
 type Failure = { bucket?: string; op: string };
 
@@ -78,6 +87,25 @@ export function createFakeStorage(
             return {
               data: {
                 signedUrl: `https://storage.test/storage/v1/object/sign/${bucket}/${path}?token=read`,
+              },
+              error: null,
+            };
+          },
+          async info(path: string) {
+            record("info", path);
+            const object = buckets.get(bucket)?.get(path);
+            if (failed(bucket, "info") || !object) {
+              return { data: null, error: storageError };
+            }
+            const ext = path.slice(path.lastIndexOf(".") + 1);
+            return {
+              data: {
+                name: path,
+                size: object.size ?? 1,
+                contentType:
+                  object.contentType ??
+                  MIME_BY_EXT[ext] ??
+                  "application/octet-stream",
               },
               error: null,
             };

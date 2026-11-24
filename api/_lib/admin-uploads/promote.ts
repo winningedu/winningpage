@@ -11,6 +11,7 @@ import {
   parseTempName,
   sendUploadExpired,
   TMP_BUCKET,
+  validateUpload,
 } from "./tmp.js";
 
 /** 저장하려는 임시 파일이 사라졌다(2시간 URL 만료나 24시간 정리). 라우트가 409 UPLOAD_EXPIRED 로 바꾼다. */
@@ -76,8 +77,22 @@ export async function promoteTempUploads<T>(
     if (!parsed || !field) {
       throw new RouteParamError("values", "올바르지 않은 업로드 경로입니다.");
     }
-    return { name, dest: destinationPath(field.folder, parsed) };
+    return { name, field, parsed, dest: destinationPath(field.folder, parsed) };
   });
+
+  // 업로드 URL 은 서명만 있으면 아무 본문이나 올릴 수 있어서, 옮기기 전에 저장된 크기와 형식을
+  // 필드 규칙(POST /api/admin/uploads 와 같은 validateUpload)에 다시 대 본다.
+  // 객체가 없으면(이미 옮겼거나 만료) 아래 move 단계가 기존대로 판정한다.
+  for (const { name, field, parsed } of plan) {
+    const { data: info } = await admin.storage.from(TMP_BUCKET).info(name);
+    if (!info) continue;
+    const rejection = validateUpload(field, {
+      fileName: `${parsed.safeName}.${parsed.ext}`,
+      contentType: info.contentType ?? "",
+      size: info.size ?? Number.POSITIVE_INFINITY,
+    });
+    if (rejection) throw new RouteParamError("values", rejection.message);
+  }
 
   const urls = new Map<string, string>();
   for (const { name, dest } of plan) {
