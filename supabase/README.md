@@ -84,8 +84,8 @@ rename)은 expand-contract 2단계로 나눠서 이전 코드가 새 스키마�
 - 시드 화이트리스트(`scripts/seed-from-dev.mjs`)에 유저 데이터 테이블 추가 금지. 예외는 위의
   QA 계정 범위뿐이다.
 - `db:reseed`의 dev 접속 정보는 **`.env.seed.local`**(gitignore됨)에 둔다.
-  `SUPABASE_URL=https://<dev>.supabase.co`와 `SUPABASE_SERVICE_ROLE_KEY=<dev service key>`
-  두 줄. 이 파일이 없으면 `.env.local`을 읽는데, 기본 상태(로컬 블록 활성)에서는
+  `SUPABASE_URL=https://<dev>.supabase.co` 한 줄. `scripts/seed-from-dev.mjs`는 dev 읽기를
+  로그인된 CLI로 하므로 키가 필요 없다. 이 파일이 없으면 `.env.local`을 읽는데, 기본 상태(로컬 블록 활성)에서는
   안전 가드에 걸려 시드가 중단된다.
 - **로컬 스택은 워크트리별로 격리되지 않는 공유 자원**이다. `supabase db reset`(=
   `db:reseed`의 첫 단계)은 다른 워크트리나 세션이 로컬 DB에 만들어 둔 데이터까지 전부

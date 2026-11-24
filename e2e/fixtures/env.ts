@@ -8,7 +8,7 @@ import { sharedQaAccountWarning } from "./marker";
 //
 // E2E_BASE_URL                  앱 주소. 없으면 playwright.config 기본값.
 // E2E_API_BASE                  API 주소. 없으면 앱 주소 + "/api".
-// E2E_SUPABASE_URL, E2E_SUPABASE_ANON_KEY, E2E_SUPABASE_SERVICE_ROLE_KEY
+// E2E_SUPABASE_URL, E2E_SUPABASE_PUBLISHABLE_KEY, E2E_SUPABASE_SECRET_KEY
 //                               셋 다 없으면 `supabase status -o env` 에서 읽는다. 일부만 있으면 오류.
 // E2E_STUDENT_EMAIL, E2E_STUDENT_PASSWORD
 //                               E2E 학생 계정. 없으면 오류. E2E_STUDENT_EMAIL 은 전용 계정
@@ -29,12 +29,12 @@ export function apiBase(): string {
 
 export type SupabaseEnv = {
   url: string;
-  anonKey: string;
-  serviceRoleKey: string;
+  publishableKey: string;
+  secretKey: string;
 };
 let cachedSupabaseEnv: SupabaseEnv | undefined;
 
-/** supabase status 의 API_URL, ANON_KEY, SERVICE_ROLE_KEY. */
+/** supabase status 의 API_URL, PUBLISHABLE_KEY, SECRET_KEY. */
 function readStatusEnv(): SupabaseEnv {
   const out = execFileSync("supabase", ["status", "-o", "env"], {
     encoding: "utf8",
@@ -48,8 +48,8 @@ function readStatusEnv(): SupabaseEnv {
   };
   return {
     url: pick("API_URL"),
-    anonKey: pick("ANON_KEY"),
-    serviceRoleKey: pick("SERVICE_ROLE_KEY"),
+    publishableKey: pick("PUBLISHABLE_KEY"),
+    secretKey: pick("SECRET_KEY"),
   };
 }
 
@@ -57,14 +57,14 @@ function readStatusEnv(): SupabaseEnv {
 export function supabaseEnv(): SupabaseEnv {
   if (cachedSupabaseEnv) return cachedSupabaseEnv;
   const url = process.env.E2E_SUPABASE_URL;
-  const anonKey = process.env.E2E_SUPABASE_ANON_KEY;
-  const serviceRoleKey = process.env.E2E_SUPABASE_SERVICE_ROLE_KEY;
-  const given = [url, anonKey, serviceRoleKey].filter(Boolean).length;
+  const publishableKey = process.env.E2E_SUPABASE_PUBLISHABLE_KEY;
+  const secretKey = process.env.E2E_SUPABASE_SECRET_KEY;
+  const given = [url, publishableKey, secretKey].filter(Boolean).length;
   if (given === 3) {
     cachedSupabaseEnv = {
       url: (url as string).replace(/\/+$/, ""),
-      anonKey: anonKey as string,
-      serviceRoleKey: serviceRoleKey as string,
+      publishableKey: publishableKey as string,
+      secretKey: secretKey as string,
     };
   } else if (given === 0) {
     cachedSupabaseEnv = readStatusEnv();
@@ -76,11 +76,11 @@ export function supabaseEnv(): SupabaseEnv {
 
 let cachedClient: SupabaseClient | undefined;
 
-/** service role 클라이언트. 이용권, 테스트 데이터 정리와 조회에만 쓴다. */
+/** secret 키 클라이언트. 이용권, 테스트 데이터 정리와 조회에만 쓴다. */
 export function serviceRoleClient(): SupabaseClient {
   if (cachedClient) return cachedClient;
-  const { url, serviceRoleKey } = supabaseEnv();
-  cachedClient = createClient(url, serviceRoleKey, {
+  const { url, secretKey } = supabaseEnv();
+  cachedClient = createClient(url, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return cachedClient;
@@ -139,12 +139,11 @@ export function resolveStudentProfileId(): Promise<string> {
 
 /** auth admin API 로 계정을 만든다. 이미 있으면 그대로 쓴다. 프로필은 가입 트리거가 만든다. */
 export async function ensureAuthUser(email: string, password: string) {
-  const { url, serviceRoleKey } = supabaseEnv();
+  const { url, secretKey } = supabaseEnv();
   const res = await fetch(`${url}/auth/v1/admin/users`, {
     method: "POST",
     headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
+      apikey: secretKey,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({

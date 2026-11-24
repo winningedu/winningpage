@@ -14,12 +14,12 @@ export { ensureAuthUser };
 // 세 스위트(성장설계, 자기평가서, 심화탐구)는 같은 env 계약을 쓴다. 로컬은 vite 5303 과 vercel dev 3000 을
 // 띄우고 `E2E_API_BASE=http://127.0.0.1:3000/api` 만 더 주면 Supabase 값은 `supabase status` 에서 읽는다.
 // dev 프리뷰는 `E2E_BASE_URL=https://winningpage-git-dev-winningedu-s-projects.vercel.app` 와
-// `E2E_SUPABASE_URL=https://gjowqdiopinhixfivnkx.supabase.co`, `E2E_SUPABASE_ANON_KEY`,
-// `E2E_SUPABASE_SERVICE_ROLE_KEY`(Supabase Management API `GET /v1/projects/<ref>/api-keys?reveal=true` 로
+// `E2E_SUPABASE_URL=https://gjowqdiopinhixfivnkx.supabase.co`, `E2E_SUPABASE_PUBLISHABLE_KEY`,
+// `E2E_SUPABASE_SECRET_KEY`(Supabase Management API `GET /v1/projects/<ref>/api-keys?reveal=true` 로
 // 받고 값은 기록하지 않는다), 계정 `E2E_STUDENT_EMAIL`/`E2E_STUDENT_PASSWORD` 를 준다.
 // 같은 계정을 공유하므로 반드시 `--workers=1`. 연동 케이스는 그 계정에 완료된 성장설계 리포트 1건이 있어야
 // 한다(없으면 `E2E_GROWTH_FULL=1 npx playwright test e2e/growth-full.spec.ts --workers=1` 을 같은 계정으로
-// 먼저 돌린다). 예: `E2E_BASE_URL=... E2E_SUPABASE_URL=... E2E_SUPABASE_ANON_KEY=... E2E_SUPABASE_SERVICE_ROLE_KEY=... E2E_STUDENT_EMAIL=... E2E_STUDENT_PASSWORD=... npx playwright test e2e/inquiry-*.spec.ts --workers=1`
+// 먼저 돌린다). 예: `E2E_BASE_URL=... E2E_SUPABASE_URL=... E2E_SUPABASE_PUBLISHABLE_KEY=... E2E_SUPABASE_SECRET_KEY=... E2E_STUDENT_EMAIL=... E2E_STUDENT_PASSWORD=... npx playwright test e2e/inquiry-*.spec.ts --workers=1`
 
 /** E2E_INQUIRY_FULL=1 일 때만 모델을 부르는 스펙을 돌린다. */
 export const INQUIRY_FULL = Boolean(process.env.E2E_INQUIRY_FULL);

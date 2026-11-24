@@ -39,8 +39,8 @@ function loadEnv() {
 
 const env = loadEnv();
 const SUPABASE_URL = env.SUPABASE_URL;
-const SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
-const ANON_KEY = env.VITE_SUPABASE_ANON_KEY;
+const SECRET_KEY = env.SUPABASE_SECRET_KEY;
+const PUBLISHABLE_KEY = env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const ref = SUPABASE_URL?.match(/https:\/\/([a-z0-9]+)\./)?.[1];
 if (ref !== EXPECTED_REF) {
@@ -49,7 +49,7 @@ if (ref !== EXPECTED_REF) {
 }
 console.log(`[env] dev DB ref 확인: ${ref}`);
 
-const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+const admin = createClient(SUPABASE_URL, SECRET_KEY);
 
 let failures = 0;
 function check(name, cond, detail = "") {
@@ -179,8 +179,7 @@ async function mintSession(email) {
   const glRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
     method: "POST",
     headers: {
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      apikey: SECRET_KEY,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ type: "magiclink", email }),
@@ -191,7 +190,7 @@ async function mintSession(email) {
 
   const vfRes = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
     method: "POST",
-    headers: { apikey: ANON_KEY, "Content-Type": "application/json" },
+    headers: { apikey: PUBLISHABLE_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({ type: "magiclink", token_hash: tokenHash }),
   });
   const session = await vfRes.json();
@@ -220,7 +219,7 @@ async function rpcAsUser(email, fn, args) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
     headers: {
-      apikey: ANON_KEY,
+      apikey: PUBLISHABLE_KEY,
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },

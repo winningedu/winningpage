@@ -40,8 +40,9 @@
 // 그래서 별도 보정 절차 없이 재클릭이 곧 복구 경로다.
 //
 // 필요 환경변수: TOSS_SECRET_KEY(api/_routes/confirm-payment.ts와 동일), Supabase
-// URL/서비스롤 키(api/_lib/supabaseAdmin.js), anon 키(VITE_SUPABASE_ANON_KEY —
-// 7)단계에서 어드민 토큰을 실어 보내는 클라이언트 생성용).
+// URL/secret 키(SUPABASE_SECRET_KEY, api/_lib/supabaseAdmin.js), publishable 키
+// (VITE_SUPABASE_PUBLISHABLE_KEY, 7)단계에서 어드민 토큰을 실어 보내는
+// 클라이언트 생성용).
 
 import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
@@ -383,14 +384,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // 7) 상태 전이 — 어드민 본인 토큰으로 호출해 fn_complete_refund 내부의
   // is_admin()(auth.uid() 기반)을 satisfy 한다(위 파일 상단 주석 참고).
-  const anonKey = getEnv("VITE_SUPABASE_ANON_KEY", "SUPABASE_ANON_KEY");
+  const publishableKey = getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
   const supabaseUrl = getEnv(
     "WINNING_SUPABASE_URL",
     "SUPABASE_URL",
     "VITE_SUPABASE_URL",
   );
   const adminToken = getBearerToken(req as { headers: Record<string, string> });
-  const supabaseAsAdmin = createClient(supabaseUrl, anonKey, {
+  const supabaseAsAdmin = createClient(supabaseUrl, publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: `Bearer ${adminToken}` } },
   });

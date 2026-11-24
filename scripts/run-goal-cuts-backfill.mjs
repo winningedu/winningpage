@@ -24,7 +24,7 @@
 //
 // 환경변수(.env.local 에서 로드):
 //   SUPABASE_URL
-//   SUPABASE_SERVICE_ROLE_KEY
+//   SUPABASE_SECRET_KEY
 // =====================================================================
 
 import { readFile } from "node:fs/promises";
@@ -149,12 +149,11 @@ async function main() {
 
   const env = await loadEnvLocal();
   const supabaseUrl = process.env.SUPABASE_URL || env.SUPABASE_URL;
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+  const secretKey = process.env.SUPABASE_SECRET_KEY || env.SUPABASE_SECRET_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !secretKey) {
     throw new Error(
-      ".env.local 에서 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 를 찾을 수 없습니다.",
+      ".env.local 에서 SUPABASE_URL / SUPABASE_SECRET_KEY 를 찾을 수 없습니다.",
     );
   }
   // 🔴 운영 오조작 방지 가드. dev ref 가 아니면 무조건 중단한다.
@@ -164,7 +163,7 @@ async function main() {
     );
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const supabase = createClient(supabaseUrl, secretKey);
 
   const payloads =
     cutType === "jungsi"

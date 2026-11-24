@@ -8,7 +8,7 @@
 //   TOSS_SECRET_KEY                 (예: test_sk_xxxxxxxx)
 //   결제-사용자 매핑/저장용 Supabase(필수 — 미설정 시 토스 승인 호출 전에 500):
 //   WINNING_SUPABASE_URL / SUPABASE_URL / VITE_SUPABASE_URL
-//   WINNING_SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SERVICE_ROLE_KEY / WINNING_SUPABASE_KEY / SUPABASE_KEY
+//   SUPABASE_SECRET_KEY
 //
 // 하드닝 변경 요약(임무 d):
 //   - 주문 조회에 approval_status/payment_key 를 포함시켜 승인 호출 전 게이트를

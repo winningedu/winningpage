@@ -86,14 +86,14 @@ function readEnvFile(file) {
     if (m) env[m[1]] = (m[2] ?? "").replace(/^["']|["']$/g, "");
   }
   const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = env.SUPABASE_SECRET_KEY;
   if (!url || !key)
-    throw new Error(`${file}에 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 필요`);
+    throw new Error(`${file}에 SUPABASE_URL / SUPABASE_SECRET_KEY 필요`);
   return { url: url.replace(/\/$/, ""), key };
 }
 
 const { url: SUPABASE_URL, key: SERVICE_KEY } = readEnvFile(ENV_FILE);
-const HEADERS = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` };
+const HEADERS = { apikey: SERVICE_KEY };
 const JSON_HEADERS = { ...HEADERS, "Content-Type": "application/json" };
 
 // ---------------------------------------------------------------------------
