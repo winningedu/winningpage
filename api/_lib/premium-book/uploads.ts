@@ -15,8 +15,19 @@ export const PREMIUM_BOOK_IMAGE: UploadField = {
   maxBytes: 2 * 1024 * 1024,
 };
 
+// PDF 적용(apply)의 원본 PDF 와 페이지 이미지.
+export const PREMIUM_BOOK_PDF: UploadField = {
+  kind: "file",
+  folder: PREMIUM_BOOK_FOLDER,
+  accept: ["pdf"],
+};
+export const PREMIUM_BOOK_PAGE: UploadField = {
+  kind: "image",
+  folder: PREMIUM_BOOK_FOLDER,
+};
+
 export const PREMIUM_BOOK_UPLOADS: Readonly<Record<string, UploadField>> = {
   image_url: PREMIUM_BOOK_IMAGE,
-  booklet_pdf: { kind: "file", folder: PREMIUM_BOOK_FOLDER, accept: ["pdf"] },
-  page_webp: { kind: "image", folder: PREMIUM_BOOK_FOLDER },
+  booklet_pdf: PREMIUM_BOOK_PDF,
+  page_webp: PREMIUM_BOOK_PAGE,
 };
