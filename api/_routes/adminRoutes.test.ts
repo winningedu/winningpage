@@ -44,6 +44,25 @@ function routeFiles(dir: string): string[] {
   });
 }
 
+// 자동 감사 행을 끄거나 동작을 바꾼 라우트. 나머지 쓰기 라우트는 메서드 기본값(POST create, PATCH, PUT update, DELETE delete)을 쓴다.
+const AUDIT_OFF = "audit: false";
+const AUDIT_EXPECTATIONS: Record<string, string> = {
+  "admin/access-logs.ts": AUDIT_OFF,
+  "admin/tenants/member-purge.ts": AUDIT_OFF,
+  "admin/tenants/school-admin.ts": AUDIT_OFF,
+  "admin/tenants/move-student.ts": AUDIT_OFF,
+  "admin/coupons/grants/[id]/revoke.ts": 'audit: { action: "update" }',
+  "admin/coupons/redemptions/[id]/void.ts": 'audit: { action: "update" }',
+  "admin/sections/[key]/[id]/reviewed.ts": 'audit: { action: "update" }',
+  "admin/growth-recover.ts": 'audit: { action: "update" }',
+  "admin/inquiry-recover.ts": 'audit: { action: "update" }',
+  "admin/selfeval-recover.ts": 'audit: { action: "update" }',
+  "goal/admin/reset-student.ts": 'audit: { action: "update" }',
+  "admin/knowledge-search.ts": 'audit: { action: "view" }',
+  "admin/knowledge-dedupe.ts": 'audit: { action: "view" }',
+  "admin/uploads/preview.ts": 'audit: { action: "view" }',
+};
+
 describe("checkAdminRouteSource", () => {
   const good = `
     // defineHandler 를 설명하는 주석
@@ -102,4 +121,23 @@ describe("관리자 라우트 규칙", () => {
       ).toEqual([]);
     },
   );
+});
+
+describe("감사 옵션", () => {
+  test.each(Object.entries(AUDIT_EXPECTATIONS))(
+    "%s 는 %s",
+    (name, expected) => {
+      const source = readFileSync(join(ROUTES_DIR, name), "utf8");
+      expect(source).toContain(expected);
+    },
+  );
+
+  test("표에 없는 라우트는 audit 옵션을 쓰지 않는다", () => {
+    const files = SCAN_DIRS.flatMap((dir) => routeFiles(join(ROUTES_DIR, dir)));
+    for (const file of files) {
+      const name = relative(ROUTES_DIR, file);
+      if (name in AUDIT_EXPECTATIONS) continue;
+      expect(readFileSync(file, "utf8"), name).not.toMatch(/\baudit:/);
+    }
+  });
 });

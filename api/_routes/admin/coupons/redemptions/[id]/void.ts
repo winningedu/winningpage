@@ -23,6 +23,8 @@ export default defineHandler({
   auth: "admin",
   errorShape: "problem",
   permission: { key: "coupons" },
+  // 기존 사용 이력을 바꾸는 일이라 등록이 아니라 수정으로 남긴다.
+  audit: { action: "update" },
   unhandledMessage: "쿠폰 사용 이력을 취소하지 못했어요.",
   logLabel: "[admin/coupons/redemptions/[id]/void]",
   query: z.object({ id: positiveIntPath }),

@@ -239,6 +239,8 @@ const postHandler = defineHandler({
       typeof req.body?.resourceKey === "string" ? req.body.resourceKey : "",
     level: "view",
   },
+  // 이 라우트가 곧 접근 로그 적재라 자동 감사 행을 따로 남기지 않는다.
+  audit: false,
   unhandledMessage: "접근 기록을 남기지 못했습니다.",
   logLabel: "[admin/access-logs]",
   body: postBodySchema,

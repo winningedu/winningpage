@@ -40,6 +40,8 @@ export default defineHandler({
   errorShape: "problem",
   permission: { key: "inquirySessions" },
   methodNotAllowedMessage: "POST만 허용됩니다.",
+  // 종결된 원본 세션을 고치는 복구라 수정으로 남긴다.
+  audit: { action: "update" },
   unhandledMessage: "심화탐구 세션 복구에 실패했습니다.",
   logLabel: "admin/inquiry-recover",
   headers: { "Cache-Control": "no-store" },

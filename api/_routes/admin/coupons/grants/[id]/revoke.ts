@@ -23,6 +23,8 @@ export default defineHandler({
   auth: "admin",
   errorShape: "problem",
   permission: { key: "coupons" },
+  // 기존 발급 행을 바꾸는 일이라 등록이 아니라 수정으로 남긴다.
+  audit: { action: "update" },
   unhandledMessage: "쿠폰 발급을 회수하지 못했어요.",
   logLabel: "[admin/coupons/grants/[id]/revoke]",
   query: z.object({ id: positiveIntPath }),

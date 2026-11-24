@@ -68,6 +68,8 @@ export default defineHandler({
   errorShape: "problem",
   permission: { key: "tenants" },
   body: bodySchema,
+  // registerTeacherWithAccount 가 account_issue 행을 직접 남긴다.
+  audit: false,
   unhandledMessage: "전체 관리자를 발급하지 못했습니다.",
   logLabel: "[admin/tenants/school-admin]",
   headers: { "Cache-Control": "no-store" },

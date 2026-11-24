@@ -31,6 +31,8 @@ export default defineHandler({
   errorShape: "problem",
   permission: { key: "memberPurge" },
   body: bodySchema,
+  // fn_anonymize_expired_b2b_members 가 member_purge 행을 직접 남긴다.
+  audit: false,
   unhandledMessage: "계약 종료 회원 삭제를 하지 못했습니다.",
   logLabel: "[admin/tenants/member-purge]",
   headers: { "Cache-Control": "no-store" },

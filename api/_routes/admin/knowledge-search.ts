@@ -44,6 +44,8 @@ export default defineHandler({
   errorShape: "problem",
   permission: { key: knowledgeSectionKey, level: "view" },
   body: knowledgeBodySchema(validateSearchPreviewBody),
+  // 데이터를 바꾸지 않는 읽기 POST 라 조회로 남긴다.
+  audit: { action: "view" },
   unhandledMessage: "검색 테스트에 실패했습니다.",
   logLabel: "admin/knowledge-search",
   headers: { "Cache-Control": "no-store" },
