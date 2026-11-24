@@ -216,6 +216,41 @@ export function defineHandler<
   Q extends ZodSchema | undefined = undefined,
 >(opts: DefineHandlerOptions<B, Q>) {
   return async (req: VercelRequest, res: VercelResponse): Promise<void> => {
+    // ctx.supabaseAdmin은 lazy getter다 — 실제로 접근하는 시점에만
+    // createSupabaseAdmin()을 호출한다(내부적으로 module-level 싱글턴이라 여러
+    // 번 접근해도 클라이언트는 하나만 만들어진다). auth:"none" 핸들러가 토큰·
+    // service_key 검증 같은 early return을 supabaseAdmin 없이 먼저 처리하는
+    // dev 원본 순서(예: create-service-ticket.ts의 suhaeng 200, monthly-report.ts의
+    // not_month_end 200 skip)를 재현하기 위함이다 — env 미설정이어도 그 경로들은
+    // 여전히 200을 낸다.
+    const ctx = {} as HandlerCtx;
+    let cachedAdmin: SupabaseClient | undefined;
+    Object.defineProperty(ctx, "supabaseAdmin", {
+      enumerable: true,
+      configurable: true,
+      get(): SupabaseClient {
+        if (!cachedAdmin) cachedAdmin = createSupabaseAdmin();
+        return cachedAdmin;
+      },
+    });
+
+    const startedAt = performance.now();
+    // 응답이 끝날 때 요청당 한 줄만 남긴다. 토큰, 본문, 쿼리, 개인정보는 싣지 않는다.
+    // 테스트용 가짜 res 에는 on 이 없을 수 있어 옵셔널 호출로 건다.
+    res.on?.("finish", () => {
+      const requestId = req.headers["x-vercel-id"];
+      console.log(
+        JSON.stringify({
+          requestId: typeof requestId === "string" ? requestId : null,
+          route: req.url ? req.url.split("?")[0] : null,
+          method: req.method ?? null,
+          status: res.statusCode,
+          durationMs: Math.round(performance.now() - startedAt),
+          userId: ctx.userId ?? null,
+        }),
+      );
+    });
+
     if (
       !assertMethod(
         req,
@@ -239,24 +274,6 @@ export function defineHandler<
     }
 
     try {
-      // ctx.supabaseAdmin은 lazy getter다 — 실제로 접근하는 시점에만
-      // createSupabaseAdmin()을 호출한다(내부적으로 module-level 싱글턴이라 여러
-      // 번 접근해도 클라이언트는 하나만 만들어진다). auth:"none" 핸들러가 토큰·
-      // service_key 검증 같은 early return을 supabaseAdmin 없이 먼저 처리하는
-      // dev 원본 순서(예: create-service-ticket.ts의 suhaeng 200, monthly-report.ts의
-      // not_month_end 200 skip)를 재현하기 위함이다 — env 미설정이어도 그 경로들은
-      // 여전히 200을 낸다.
-      const ctx = {} as HandlerCtx;
-      let cachedAdmin: SupabaseClient | undefined;
-      Object.defineProperty(ctx, "supabaseAdmin", {
-        enumerable: true,
-        configurable: true,
-        get(): SupabaseClient {
-          if (!cachedAdmin) cachedAdmin = createSupabaseAdmin();
-          return cachedAdmin;
-        },
-      });
-
       // 인증보다 먼저 읽는다: 모든 auth 모드에서 잘못된 값은 같은 400 이다.
       const timeZone = readTimeZone(req);
       if (timeZone) ctx.timeZone = timeZone;
