@@ -11,7 +11,13 @@ vi.mock("../useIdleLogout", () => ({ useIdleLogout: vi.fn() }));
 
 import ConsoleGate from "../ConsoleGate";
 import ConsoleLayout from "../ConsoleLayout";
-import { type ApiHandler, adminMe, renderRoutes, stubApi } from "../testUtils";
+import {
+  type ApiHandler,
+  adminMe,
+  proxyMe,
+  renderRoutes,
+  stubApi,
+} from "../testUtils";
 import TeacherRosterPage from "./TeacherRosterPage";
 
 const routes = [
@@ -286,27 +292,113 @@ describe("W14 빈 상태와 필터", () => {
 });
 
 describe("W14 휴대폰", () => {
-  it("계정 생성, 선생님 삭제, 삭제, 발급 버튼을 감추고 미리보기와 수정만 둔다", async () => {
+  it("감춤 안내 없이 상단 버튼과 카드의 삭제, 발급, 빈 반 삭제를 둔다", async () => {
     useMobileScreen();
-    stubPage();
+    stubPage({
+      [LIST_URL]: {
+        body: listBody([
+          ...ROWS,
+          row({
+            classId: "c-3-3",
+            grade: "고3",
+            className: "3",
+            activeStudents: 0,
+            teacher: null,
+            loginId: null,
+            accountStatus: null,
+            classCount: 0,
+          }),
+        ]),
+      },
+    });
 
     renderRoutes(routes, "/teacher/teachers");
 
-    expect(await screen.findByText("총 5개 반")).toBeTruthy();
+    expect(await screen.findByText("총 6개 반")).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "학생 가입 연결 미리보기" }),
-    ).toBeTruthy();
-    expect(
-      screen.getAllByRole("button", { name: "수정" }).length,
-    ).toBeGreaterThan(0);
-    for (const name of ["계정 생성하기", "선생님 삭제하기", "삭제", "발급"]) {
-      expect(screen.queryByRole("button", { name })).toBeNull();
-    }
-    expect(
-      screen.getByText(
+      screen.queryByText(
         "선생님 등록, 삭제, 계정 발급은 PC나 태블릿에서 할 수 있어요",
       ),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "선생님 삭제하기" }),
     ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "계정 생성하기" })).toBeTruthy();
+    // 선생님 카드 4장(박지훈 2, 이수민, 최유나)과 빈 반 카드 1장
+    expect(screen.getAllByRole("button", { name: "삭제" })).toHaveLength(5);
+    expect(screen.getAllByRole("button", { name: "발급" })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "발급" }));
+    expect(
+      await screen.findByRole("heading", { name: "신규 계정 발급" }),
+    ).toBeTruthy();
+  });
+
+  it("빈 반 카드의 삭제는 반 삭제 창을 연다", async () => {
+    useMobileScreen();
+    stubPage({
+      [LIST_URL]: {
+        body: listBody([
+          row({
+            classId: "c-3-3",
+            grade: "고3",
+            className: "3",
+            activeStudents: 0,
+            teacher: null,
+            loginId: null,
+            accountStatus: null,
+            classCount: 0,
+          }),
+        ]),
+      },
+    });
+
+    renderRoutes(routes, "/teacher/teachers");
+    fireEvent.click(await screen.findByRole("button", { name: "삭제" }));
+
+    expect(await screen.findByText("3학년 3반을 삭제할까요?")).toBeTruthy();
+  });
+
+  it("본인 카드에는 삭제가 없다", async () => {
+    useMobileScreen();
+    stubPage({
+      [LIST_URL]: {
+        body: listBody([
+          row({
+            teacher: {
+              id: (adminMe.teacher as { id: string }).id,
+              name: "본인관리자",
+            },
+            classCount: 1,
+          }),
+        ]),
+      },
+    });
+
+    renderRoutes(routes, "/teacher/teachers");
+
+    expect(await screen.findByText("본인관리자")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "삭제" })).toBeNull();
+    expect(screen.getByRole("button", { name: "수정" })).toBeTruthy();
+  });
+});
+
+describe("W14 빈 화면", () => {
+  it("선생님이 한 명도 없으면 선생님 삭제하기가 꺼진다", async () => {
+    stubPage({
+      [LIST_URL]: { body: { ...listBody([]), teachers: [] } },
+    });
+
+    renderRoutes(routes, "/teacher/teachers");
+
+    expect(await screen.findByText("등록된 선생님이 없어요")).toBeTruthy();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "선생님 삭제하기",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
   });
 });
 
@@ -399,9 +491,8 @@ describe("W14 등록과 창", () => {
     stubPage({ "GET /api/console/groups": { body: { groups: [] } } });
 
     renderRoutes(routes, "/teacher/teachers");
-    fireEvent.click(
-      await screen.findByRole("button", { name: "선생님 삭제하기" }),
-    );
+    await screen.findByText("총 5개 반");
+    fireEvent.click(screen.getByRole("button", { name: "선생님 삭제하기" }));
     expect(await screen.findByRole("tab", { name: "일괄 삭제" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "취소" }));
 
@@ -468,9 +559,8 @@ describe("QA 51 빈 반 삭제", () => {
     fireEvent.click(within(empty).getByRole("button", { name: "삭제" }));
 
     expect(await screen.findByText("3학년 1반을 삭제할까요?")).toBeTruthy();
-    expect(
-      screen.getByText(/목록과 가입할 때 반 선택에서 사라져요/),
-    ).toBeTruthy();
+    expect(screen.getByText(/삭제하면 선생님 목록에서 사라져요/)).toBeTruthy();
+    expect(screen.queryByText(/가입할 때/)).toBeNull();
     const listBefore = listCalls;
     const classBefore = classCalls;
     fireEvent.click(
@@ -531,5 +621,62 @@ describe("QA 51 빈 반 삭제", () => {
     );
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+});
+
+describe("W14 본인 행", () => {
+  const OWN_ROWS = [
+    row({ teacher: { id: "teacher-2", name: "본인관리자" }, classCount: 1 }),
+    row({ classId: "c-2-9", className: "9" }),
+  ];
+
+  it("PC 표에서 본인 행은 삭제 버튼이 없고 수정은 있다", async () => {
+    stubPage({ [LIST_URL]: { body: listBody(OWN_ROWS) } });
+
+    renderRoutes(routes, "/teacher/teachers");
+    const own = (await screen.findByText("본인관리자")).closest(
+      "tr",
+    ) as HTMLElement;
+
+    expect(within(own).queryByRole("button", { name: "삭제" })).toBeNull();
+    expect(within(own).getByRole("button", { name: "수정" })).toBeTruthy();
+    const other = screen.getByText("9반").closest("tr") as HTMLElement;
+    expect(within(other).getByRole("button", { name: "삭제" })).toBeTruthy();
+  });
+
+  it("전체 관리자 대리 접속에서는 본인 행 삭제도 감추지 않는다", async () => {
+    stubPage({ [LIST_URL]: { body: listBody(OWN_ROWS) } }, proxyMe);
+
+    renderRoutes(routes, "/teacher/teachers");
+    const own = (await screen.findByText("본인관리자")).closest(
+      "tr",
+    ) as HTMLElement;
+
+    expect(within(own).getByRole("button", { name: "삭제" })).toBeTruthy();
+  });
+
+  it("선생님 삭제하기 창에는 본인을 넣지 않는다", async () => {
+    stubPage({
+      [LIST_URL]: {
+        body: {
+          ...listBody(OWN_ROWS),
+          teachers: [
+            ...TEACHERS,
+            { ...TEACHERS[0], id: "teacher-2", name: "본인관리자" },
+          ],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/teachers");
+    await screen.findByText("본인관리자");
+    fireEvent.click(screen.getByRole("button", { name: "선생님 삭제하기" }));
+
+    expect(
+      await screen.findByRole("checkbox", { name: "박지훈 선택" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("checkbox", { name: "본인관리자 선택" }),
+    ).toBeNull();
   });
 });

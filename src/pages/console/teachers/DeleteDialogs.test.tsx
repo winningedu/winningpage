@@ -66,6 +66,19 @@ describe("W14d 한 명 삭제", () => {
     expect(calls[0]?.body).toEqual({ teacherIds: ["t-han"] });
   });
 
+  it("반은 그대로 남는다고 알리고 가입 때 반을 고를 수 없다는 말은 하지 않는다", () => {
+    mount(
+      <DeleteDialog
+        teacher={teacher()}
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/반은 그대로 남아요/)).toBeTruthy();
+    expect(screen.queryByText(/가입할 때/)).toBeNull();
+  });
+
   it("서버가 막으면 그 문구를 창에 보이고 닫지 않는다", async () => {
     stubApi({
       "POST /api/console/teachers/delete": {
@@ -207,6 +220,84 @@ describe("W14e 일괄 삭제", () => {
     await waitFor(() => expect(onDeleted).toHaveBeenCalledTimes(1));
     expect(calls[0]?.body).toEqual({ teacherIds: ["t-lee", "t-jin"] });
   });
+
+  it("조건은 학년과 반이고 반을 고르면 그 반을 맡은 선생님만 남는다", async () => {
+    const calls = stubApi({
+      "POST /api/console/teachers/delete": { body: { ok: true } },
+    });
+    mount(
+      <BulkDeleteDialog
+        teachers={PEOPLE}
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "일괄 삭제" }));
+    expect(screen.queryByLabelText("그룹")).toBeNull();
+    fireEvent.change(screen.getByLabelText("학년"), {
+      target: { value: "고1" },
+    });
+    const klass = screen.getByLabelText("반") as HTMLSelectElement;
+    expect([...klass.options].map((o) => o.text)).toEqual([
+      "전체",
+      "2반",
+      "5반",
+    ]);
+    fireEvent.change(klass, {
+      target: { value: [...klass.options][2]?.value },
+    });
+
+    const list = screen.getByRole("list", { name: "삭제 대상" });
+    expect(within(list).getByText("진다솜")).toBeTruthy();
+    expect(within(list).queryByText("이수민")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.body).toEqual({ teacherIds: ["t-jin"] });
+  });
+
+  it("학원 반은 그룹 이름을 붙여 고른다", () => {
+    stubApi({});
+    mount(
+      <BulkDeleteDialog
+        teachers={[
+          teacher({
+            classes: [
+              { grade: "고1", groupId: "g-a", groupName: "A레벨", name: "2" },
+            ],
+          }),
+        ]}
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "일괄 삭제" }));
+    fireEvent.change(screen.getByLabelText("학년"), {
+      target: { value: "고1" },
+    });
+
+    expect(
+      [...(screen.getByLabelText("반") as HTMLSelectElement).options].map(
+        (o) => o.text,
+      ),
+    ).toEqual(["전체", "A레벨 2반"]);
+  });
+
+  it("두 탭 모두 학생 정보는 지워지지 않는다고 알린다", () => {
+    stubApi({});
+    mount(
+      <BulkDeleteDialog
+        teachers={PEOPLE}
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/학생 정보는 지워지지 않아요/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "일괄 삭제" }));
+    expect(screen.getByText(/학생 정보는 지워지지 않아요/)).toBeTruthy();
+  });
 });
 
 describe("QA 53 삭제 경고", () => {
@@ -241,5 +332,64 @@ describe("QA 53 삭제 경고", () => {
     expect(screen.getByText(WARNING)).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "일괄 삭제" }));
     expect(screen.getByText(WARNING)).toBeTruthy();
+  });
+});
+
+describe("본인 계정 제외", () => {
+  const NOTICE = "본인 계정은 삭제할 수 없어서 목록에서 뺐어요";
+
+  it("선택 삭제 목록에서 본인을 빼고 안내를 한 줄 보인다", () => {
+    mount(
+      <BulkDeleteDialog
+        teachers={PEOPLE}
+        ownId="t-han"
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("checkbox", { name: "정하나 선택" })).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "이수민 선택" })).toBeTruthy();
+    expect(screen.getAllByText(NOTICE)).toHaveLength(1);
+  });
+
+  it("일괄 삭제 조건 결과에서도 본인을 빼고 요청에 본인 id가 없다", async () => {
+    const calls = stubApi({
+      "POST /api/console/teachers/delete": { body: { ok: true } },
+    });
+    mount(
+      <BulkDeleteDialog
+        teachers={PEOPLE}
+        ownId="t-lee"
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "일괄 삭제" }));
+    fireEvent.change(screen.getByLabelText("학년"), {
+      target: { value: "고1" },
+    });
+
+    const list = screen.getByRole("list", { name: "삭제 대상" });
+    expect(within(list).queryByText("이수민")).toBeNull();
+    expect(within(list).getByText("진다솜")).toBeTruthy();
+    expect(screen.getByText(NOTICE)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.body).toEqual({ teacherIds: ["t-jin"] });
+  });
+
+  it("본인이 목록에 없으면 안내를 보이지 않는다", () => {
+    mount(
+      <BulkDeleteDialog
+        teachers={PEOPLE}
+        ownId="nobody"
+        onDeleted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(NOTICE)).toBeNull();
   });
 });

@@ -164,6 +164,13 @@ describe("W14b 개별 등록", () => {
     });
     expect(onDone).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Ab3!xYz9Qk")).toBeNull();
+    expect(
+      screen.getByText(
+        (_, el) =>
+          el?.tagName === "LI" &&
+          el.textContent === "윤서진 선생님, 아이디 SM26HB83W2RF7H",
+      ),
+    ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "안내 파일 내려받기" }));
     await waitFor(() =>
@@ -182,7 +189,7 @@ describe("W14b 개별 등록", () => {
 });
 
 describe("W14b 결과 상태", () => {
-  it("이미 등록된 사람이면 새 아이디 없이 반만 더했다고 알리고 안내 파일은 없다", async () => {
+  it("이미 등록된 사람이면 담당 반을 추가했다고 이름과 반으로 알리고 안내 파일은 없다", async () => {
     stubApi({
       "GET /api/console/groups": { body: GROUPS },
       "POST /api/console/teachers/register": {
@@ -199,11 +206,18 @@ describe("W14b 결과 상태", () => {
     await screen.findByText("개별 등록");
     fill("이름", "박지훈");
     fill("전화번호", "01012345678");
+    fireEvent.change(screen.getByLabelText("학년"), {
+      target: { value: "고3" },
+    });
+    fill("반", "2");
     fireEvent.click(screen.getByRole("button", { name: "등록" }));
 
     expect(
-      await screen.findByText(
-        "이미 등록된 선생님이라 새 아이디를 만들지 않고 그 아이디에 반만 더했어요",
+      await screen.findByRole("heading", { name: "담당 반을 추가했어요" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "박지훈 선생님의 담당 반에 3학년 2반을 추가했어요. 새 아이디는 만들지 않았어요",
       ),
     ).toBeTruthy();
     expect(

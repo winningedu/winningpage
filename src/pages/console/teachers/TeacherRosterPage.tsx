@@ -1,5 +1,6 @@
 // W14 교사 정보 입력관리. 교사 콘솔 /teacher/teachers. 담임은 셸(ConsoleLayout)이 막는다.
-// 담당 학급마다 한 줄이고 같은 선생님은 같은 아이디로 나온다(교 #222). 휴대폰(768 미만)은 계정 생성, 삭제, 발급을 감춘다(결정 8).
+// 담당 학급마다 한 줄이고 같은 선생님은 같은 아이디로 나온다(교 #222). 휴대폰(768 미만)도 PC와 같은 동작을 카드에 둔다.
+// 로그인한 본인 행은 삭제 버튼을 감추고, 선생님 삭제하기 창에서도 뺀다. 선생님이 없으면 선생님 삭제하기는 꺼진다.
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -14,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 import Chip from "../Chip";
 import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
@@ -23,7 +25,7 @@ import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
 import { gradesOf, useClasses } from "../useClasses";
-import { useGradeLabel } from "../useConsoleMe";
+import { useConsoleMe, useGradeLabel } from "../useConsoleMe";
 import { useGroupOptions } from "../useGroups";
 import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
 import { usePageParam } from "../usePageParam";
@@ -50,8 +52,7 @@ function LoginCell({
   onIssue,
 }: {
   row: RosterRow;
-  /** 휴대폰에서는 발급 버튼이 없다(결정 8). */
-  onIssue?: (teacherId: string) => void;
+  onIssue: (teacherId: string) => void;
 }) {
   if (!row.teacher) return <span className="text-ink-sub">-</span>;
   if (row.accountStatus === "unissued") {
@@ -59,15 +60,13 @@ function LoginCell({
     return (
       <span className="flex items-center gap-2">
         <span className="text-ink-sub">미발급</span>
-        {onIssue && (
-          <Button
-            type="button"
-            onClick={() => onIssue(teacherId)}
-            className="h-8 rounded-lg bg-surface-muted px-3 text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
-          >
-            발급
-          </Button>
-        )}
+        <Button
+          type="button"
+          onClick={() => onIssue(teacherId)}
+          className="h-8 rounded-lg bg-surface-muted px-3 text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
+        >
+          발급
+        </Button>
       </span>
     );
   }
@@ -92,8 +91,59 @@ type DialogState =
   | { kind: "deleteClass"; row: RosterRow }
   | { kind: "issue"; teacherId?: string };
 
+/** 선생님이 없고 재학생도 없는 반. 이 행만 반 삭제(W14f)를 둔다. */
+const emptyClass = (row: RosterRow) =>
+  !row.teacher && row.classId !== null && row.activeStudents === 0;
+
+/** 행의 수정, 삭제 버튼. PC 표와 휴대폰 카드가 같은 규칙을 쓴다. 본인 행은 삭제가 없다. */
+function RowActions({
+  row,
+  ownId,
+  className,
+  onOpen,
+}: {
+  row: RosterRow;
+  ownId: string | undefined;
+  className: string;
+  onOpen: (dialog: DialogState) => void;
+}) {
+  if (!row.teacher) {
+    return emptyClass(row) ? (
+      <Button
+        type="button"
+        onClick={() => onOpen({ kind: "deleteClass", row })}
+        className={className}
+      >
+        삭제
+      </Button>
+    ) : null;
+  }
+  const teacherId = row.teacher.id;
+  return (
+    <>
+      <Button
+        type="button"
+        onClick={() => onOpen({ kind: "edit", teacherId })}
+        className={className}
+      >
+        수정
+      </Button>
+      {teacherId !== ownId && (
+        <Button
+          type="button"
+          onClick={() => onOpen({ kind: "delete", teacherId })}
+          className={className}
+        >
+          삭제
+        </Button>
+      )}
+    </>
+  );
+}
+
 export default function TeacherRosterPage() {
   const gradeLabel = useGradeLabel();
+  const ownId = useConsoleMe().me.teacher?.id;
   // 학급이 없는 담임 줄은 "-", 학년 없는 학급은 다학년이다.
   const gradeCell = (item: RosterRow) =>
     item.classId === null
@@ -138,6 +188,8 @@ export default function TeacherRosterPage() {
     setDialog(null);
     refresh();
   };
+  const openIssue = (teacherId: string) =>
+    setDialog({ kind: "issue", teacherId });
   const teachers = list.data?.teachers ?? [];
   const target =
     dialog && "teacherId" in dialog && dialog.teacherId
@@ -153,7 +205,6 @@ export default function TeacherRosterPage() {
       <PageHeader
         title="선생님 정보 입력관리"
         subtitle="선생님 이름, 학년, 반을 등록해 학생 가입 때 반 매칭에 사용합니다"
-        notice="선생님 등록, 삭제, 계정 발급은 PC나 태블릿에서 할 수 있어요"
       />
       <div className="flex max-w-content flex-col px-4 pb-24 md:px-8 lg:px-12">
         <div className="flex flex-wrap items-center gap-2.5 pb-6">
@@ -194,24 +245,21 @@ export default function TeacherRosterPage() {
             >
               학생 가입 연결 미리보기
             </Button>
-            {!mobile && (
-              <>
-                <Button
-                  type="button"
-                  onClick={() => setDialog({ kind: "bulk" })}
-                  className={grayButton}
-                >
-                  선생님 삭제하기
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => setDialog({ kind: "choice" })}
-                  className="h-10 rounded-lg px-4 text-app-label font-semibold"
-                >
-                  계정 생성하기
-                </Button>
-              </>
-            )}
+            <Button
+              type="button"
+              disabled={teachers.length === 0}
+              onClick={() => setDialog({ kind: "bulk" })}
+              className={cn(grayButton, "disabled:opacity-40")}
+            >
+              선생님 삭제하기
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setDialog({ kind: "choice" })}
+              className="h-10 rounded-lg px-4 text-app-label font-semibold"
+            >
+              계정 생성하기
+            </Button>
           </div>
         </div>
         {previewOpen && <ConnectPreviewPanel />}
@@ -236,24 +284,20 @@ export default function TeacherRosterPage() {
                       <span className="text-app-label font-semibold text-ink-strong">
                         {item.teacher?.name ?? "(미등록)"}
                       </span>
-                      <LoginCell row={item} />
+                      <LoginCell row={item} onIssue={openIssue} />
                     </div>
                     <span className="text-app-caption text-ink-sub">
                       {`${gradeCell(item)} ${item.className ? `${item.className}반` : ""}`}
                     </span>
-                    {item.teacher && (
-                      <Button
-                        type="button"
-                        onClick={() =>
-                          setDialog({
-                            kind: "edit",
-                            teacherId: (item.teacher as { id: string }).id,
-                          })
-                        }
-                        className="h-11 w-full rounded-lg bg-surface-muted text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
-                      >
-                        수정
-                      </Button>
+                    {(item.teacher || emptyClass(item)) && (
+                      <div className="flex gap-2">
+                        <RowActions
+                          row={item}
+                          ownId={ownId}
+                          className="h-11 flex-1 rounded-lg bg-surface-muted text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
+                          onOpen={setDialog}
+                        />
+                      </div>
                     )}
                   </div>
                 ))}
@@ -288,59 +332,17 @@ export default function TeacherRosterPage() {
                         {item.classId ? item.activeStudents : "-"}
                       </TableCell>
                       <TableCell>
-                        <LoginCell
-                          row={item}
-                          onIssue={(teacherId) =>
-                            setDialog({ kind: "issue", teacherId })
-                          }
-                        />
+                        <LoginCell row={item} onIssue={openIssue} />
                       </TableCell>
                       <TableCell>
-                        {!item.teacher &&
-                          item.classId &&
-                          item.activeStudents === 0 && (
-                            <span className="flex justify-end">
-                              <Button
-                                type="button"
-                                onClick={() =>
-                                  setDialog({ kind: "deleteClass", row: item })
-                                }
-                                className={smallButton}
-                              >
-                                삭제
-                              </Button>
-                            </span>
-                          )}
-                        {item.teacher && (
-                          <span className="flex justify-end gap-2">
-                            <Button
-                              type="button"
-                              onClick={() =>
-                                setDialog({
-                                  kind: "edit",
-                                  teacherId: (item.teacher as { id: string })
-                                    .id,
-                                })
-                              }
-                              className={smallButton}
-                            >
-                              수정
-                            </Button>
-                            <Button
-                              type="button"
-                              onClick={() =>
-                                setDialog({
-                                  kind: "delete",
-                                  teacherId: (item.teacher as { id: string })
-                                    .id,
-                                })
-                              }
-                              className={smallButton}
-                            >
-                              삭제
-                            </Button>
-                          </span>
-                        )}
+                        <span className="flex justify-end gap-2">
+                          <RowActions
+                            row={item}
+                            ownId={ownId}
+                            className={smallButton}
+                            onOpen={setDialog}
+                          />
+                        </span>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -417,6 +419,7 @@ export default function TeacherRosterPage() {
       {dialog?.kind === "bulk" && (
         <BulkDeleteDialog
           teachers={teachers}
+          ownId={ownId}
           onDeleted={closeAndRefresh}
           onClose={() => setDialog(null)}
         />

@@ -18,7 +18,13 @@ vi.mock("./issuedFile", async (importOriginal) => ({
 
 import ConsoleGate from "../ConsoleGate";
 import ConsoleLayout from "../ConsoleLayout";
-import { type ApiHandler, adminMe, renderRoutes, stubApi } from "../testUtils";
+import {
+  type ApiHandler,
+  adminMe,
+  proxyMe,
+  renderRoutes,
+  stubApi,
+} from "../testUtils";
 import TeacherAccountsPage from "./TeacherAccountsPage";
 
 const routes = [
@@ -52,6 +58,7 @@ const ITEMS = [
     name: "최민정",
     role: "school_admin",
     phoneLast4: "5678",
+    createdAt: new Date(2026, 1, 20, 12).toISOString(),
     loginId: "SM26HB83R4TXW9",
     status: "active",
     passwordSet: true,
@@ -62,6 +69,7 @@ const ITEMS = [
     name: "박지훈",
     role: "homeroom",
     phoneLast4: "5678",
+    createdAt: new Date(2026, 1, 25, 12).toISOString(),
     lastLoginAt: "2026-11-03T08:15:00",
     loginId: "SM26HB83K7MPQ2",
     status: "active",
@@ -73,6 +81,7 @@ const ITEMS = [
     name: "최유나",
     role: "homeroom",
     phoneLast4: "2468",
+    createdAt: new Date(2026, 9, 30, 12).toISOString(),
     loginId: "SM26HB83Y6GH2E",
     status: "inactive",
     passwordSet: false,
@@ -135,7 +144,7 @@ describe("W16 목록", () => {
       screen.getByRole("heading", { level: 1, name: "선생님 계정 관리" }),
     ).toBeTruthy();
     for (const head of [
-      "이름",
+      "이름 (등록일)",
       "구분",
       "담당",
       "아이디",
@@ -151,6 +160,8 @@ describe("W16 목록", () => {
       within(rows[0] as HTMLElement).getByText("전체 관리자"),
     ).toBeTruthy();
     const park = rows[1] as HTMLElement;
+    expect(within(park).getByText("2026.02.25")).toBeTruthy();
+    expect(within(park).getByText("박지훈").className).toContain("truncate");
     expect(within(park).getByText("담임 선생님")).toBeTruthy();
     expect(within(park).getByText("2학년 3반(주) + 2학년 5반")).toBeTruthy();
     expect(within(park).getByText("SM26HB83K7MPQ2")).toBeTruthy();
@@ -312,25 +323,209 @@ describe("W16 담당 변경, 신규 발급, 재발급", () => {
 });
 
 describe("W16 휴대폰", () => {
-  it("카드로 보이고 상태 변경과 담당 변경/추가만 두며 신규 발급과 재발급은 감춘다", async () => {
+  it("카드에 수정과 담당 변경/추가를 보이고 머리에 신규 계정 발급을 둔다", async () => {
     useMobileScreen();
     stubPage();
 
     renderRoutes(routes, "/teacher/teachers/accounts");
 
     expect(await screen.findByText("선생님 계정 3개")).toBeTruthy();
-    expect(
-      screen.getAllByRole("button", { name: "비활성화" }).length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "수정" })).toHaveLength(3);
     expect(
       screen.getAllByRole("button", { name: "담당 변경/추가" }),
     ).toHaveLength(2);
-    expect(screen.queryByRole("button", { name: "신규 계정 발급" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "더보기" })).toHaveLength(3);
+    expect(screen.queryByRole("button", { name: "비활성화" })).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "임시 비밀번호 재발급" }),
+      screen.queryByText("신규 계정 발급은 PC나 태블릿에서 할 수 있어요"),
     ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "신규 계정 발급" }));
     expect(
-      screen.getByText("신규 계정 발급은 PC나 태블릿에서 할 수 있어요"),
+      await screen.findByRole("heading", { name: "신규 계정 발급" }),
     ).toBeTruthy();
+  });
+
+  it("더보기 메뉴는 비밀번호 미설정이면 재발급, 상태에 따라 비활성화나 활성화, 삭제를 둔다", async () => {
+    useMobileScreen();
+    stubPage();
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const more = await screen.findAllByRole("button", { name: "더보기" });
+
+    fireEvent.click(more[2] as HTMLElement);
+    const yuna = await screen.findByRole("menu");
+    expect(
+      within(yuna)
+        .getAllByRole("menuitem")
+        .map((i) => i.textContent),
+    ).toEqual(["임시 비밀번호 재발급", "활성화", "삭제"]);
+    fireEvent.keyDown(yuna, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+
+    fireEvent.click(more[1] as HTMLElement);
+    const park = await screen.findByRole("menu");
+    expect(
+      within(park)
+        .getAllByRole("menuitem")
+        .map((i) => i.textContent),
+    ).toEqual(["비활성화", "삭제"]);
+  });
+
+  it("더보기의 비활성화는 상태 요청을 보내고 삭제는 확인 창을 연다", async () => {
+    useMobileScreen();
+    const calls = stubPage({
+      "POST /api/console/teachers/status": { body: { ok: true } },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const more = await screen.findAllByRole("button", { name: "더보기" });
+    fireEvent.click(more[1] as HTMLElement);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "비활성화" }));
+    await waitFor(() =>
+      expect(
+        calls.find((c) => c.key === "POST /api/console/teachers/status")?.body,
+      ).toEqual({ teacherId: "t-park", status: "inactive" }),
+    );
+
+    fireEvent.click(more[1] as HTMLElement);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "삭제" }));
+    expect(await screen.findByText("박지훈 선생님을 삭제할까요?")).toBeTruthy();
+  });
+});
+
+const OWN = {
+  id: "teacher-2",
+  name: "본인관리자",
+  role: "school_admin",
+  phoneLast4: "1111",
+  createdAt: new Date(2026, 1, 20, 12).toISOString(),
+  loginId: "SM26HB83R4TXW9",
+  status: "active",
+  passwordSet: true,
+  classes: [],
+};
+
+describe("W16 수정과 삭제", () => {
+  it("관리 열에 수정, 담당 변경/추가, 임시 비밀번호 재발급, 삭제가 이 순서로 있다", async () => {
+    stubPage();
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const rows = (await screen.findAllByRole("row")).slice(1);
+    const names = within(rows[2] as HTMLElement)
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+
+    expect(names).toEqual([
+      "활성화",
+      "수정",
+      "담당 변경/추가",
+      "임시 비밀번호 재발급",
+      "삭제",
+    ]);
+  });
+
+  it("수정은 이름 창을 열고 저장하면 이름을 바꾸는 요청을 보낸 뒤 닫는다", async () => {
+    const calls = stubPage({
+      "PATCH /api/console/teachers/name": { body: { ok: true } },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const rows = (await screen.findAllByRole("row")).slice(1);
+    fireEvent.click(
+      within(rows[1] as HTMLElement).getByRole("button", { name: "수정" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByRole("textbox"), {
+      target: { value: "박지훈B" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "저장" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      calls.find((c) => c.key === "PATCH /api/console/teachers/name")?.body,
+    ).toEqual({ teacherId: "t-park", name: "박지훈B" });
+  });
+
+  it("삭제는 반별 재학생 수를 더해 확인 창을 열고 삭제하면 요청을 보낸 뒤 닫는다", async () => {
+    const calls = stubPage({
+      "POST /api/console/teachers/delete": { body: { ok: true } },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const rows = (await screen.findAllByRole("row")).slice(1);
+    fireEvent.click(
+      within(rows[1] as HTMLElement).getByRole("button", { name: "삭제" }),
+    );
+
+    expect(await screen.findByText("박지훈 선생님을 삭제할까요?")).toBeTruthy();
+    expect(screen.getByText(/재학생 60명/)).toBeTruthy();
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "삭제" }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      calls.find((c) => c.key === "POST /api/console/teachers/delete")?.body,
+    ).toEqual({ teacherIds: ["t-park"] });
+  });
+});
+
+describe("W16 본인 행", () => {
+  it("PC 표에서 본인 행은 삭제와 비활성화가 없고 상태 표시와 수정은 있다", async () => {
+    stubPage({ [LIST_URL]: { body: body([OWN, ...ITEMS]) } });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const rows = (await screen.findAllByRole("row")).slice(1);
+    const own = rows[0] as HTMLElement;
+
+    expect(within(own).getByText("본인관리자")).toBeTruthy();
+    expect(within(own).queryByRole("button", { name: "삭제" })).toBeNull();
+    expect(within(own).queryByRole("button", { name: "비활성화" })).toBeNull();
+    expect(within(own).getByText("활성")).toBeTruthy();
+    expect(within(own).getByRole("button", { name: "수정" })).toBeTruthy();
+    expect(
+      within(rows[1] as HTMLElement).getByRole("button", { name: "삭제" }),
+    ).toBeTruthy();
+  });
+
+  it("휴대폰 본인 카드는 수정만 있고 더보기가 없다", async () => {
+    useMobileScreen();
+    stubPage({ [LIST_URL]: { body: body([OWN, ITEMS[1]]) } });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+
+    expect(await screen.findByText("선생님 계정 2개")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "수정" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "더보기" })).toHaveLength(1);
+  });
+
+  it("휴대폰 대리 접속에서는 전체 관리자 카드에도 더보기(비활성화, 삭제)가 있다", async () => {
+    useMobileScreen();
+    stubPage({
+      "GET /api/console/me": { body: proxyMe },
+      [LIST_URL]: { body: body([OWN]) },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    fireEvent.click(await screen.findByRole("button", { name: "더보기" }));
+
+    expect(
+      within(await screen.findByRole("menu"))
+        .getAllByRole("menuitem")
+        .map((i) => i.textContent),
+    ).toEqual(["비활성화", "삭제"]);
+  });
+
+  it("전체 관리자 대리 접속(본인 선생님 없음)에서는 아무것도 감추지 않는다", async () => {
+    stubPage({
+      "GET /api/console/me": { body: proxyMe },
+      [LIST_URL]: { body: body([OWN]) },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+    const row = (await screen.findAllByRole("row"))[1] as HTMLElement;
+
+    expect(within(row).getByRole("button", { name: "삭제" })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "비활성화" })).toBeTruthy();
   });
 });

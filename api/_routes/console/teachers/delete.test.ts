@@ -91,6 +91,25 @@ describe("POST /api/console/teachers/delete", () => {
     expect(kit.state.events).not.toContain("rpc:fn_teacher_soft_delete");
   });
 
+  test("DB 가 본인 계정 삭제를 WC108 로 거절하면 409 SELF_CHANGE 이고 감사 로그와 Auth 삭제를 하지 않는다", async () => {
+    kit.state.rpc.fn_teacher_soft_delete = () => ({
+      data: null,
+      error: { code: "WC108" },
+    });
+
+    const r = await post({ teacherIds: ["t1"] });
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({
+      error: {
+        code: "SELF_CHANGE",
+        message: "본인 계정은 삭제할 수 없습니다.",
+      },
+    });
+    expect(kit.state.inserts).toHaveLength(0);
+    expect(kit.state.auth.deleteUser).not.toHaveBeenCalled();
+  });
+
   test("마지막 학교 관리자가 끼면 409 LAST_SCHOOL_ADMIN 이고 Auth 를 지우지 않는다", async () => {
     kit.state.rpc.fn_teacher_soft_delete = () => ({
       data: null,

@@ -63,6 +63,8 @@ export interface AccountItem {
   loginId: string;
   status: "active" | "inactive";
   passwordSet: boolean;
+  /** 등록 시각(ISO, UTC). */
+  createdAt: string;
   classes: {
     id: string;
     grade: string | null;
@@ -80,4 +82,11 @@ export function lastLoginText(iso: string | null): string {
   const d = new Date(iso);
   const two = (n: number) => String(n).padStart(2, "0");
   return `${two(d.getMonth() + 1)}/${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
+}
+
+/** 등록일 표기 "2026.02.20"(기기의 시간대). */
+export function registeredDateText(iso: string): string {
+  const d = new Date(iso);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}.${two(d.getMonth() + 1)}.${two(d.getDate())}`;
 }

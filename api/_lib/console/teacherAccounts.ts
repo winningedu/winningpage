@@ -341,6 +341,11 @@ const DB_ERRORS: Record<
     code: "SELF_CHANGE",
     message: "본인 계정의 상태는 바꿀 수 없습니다.",
   },
+  WC108: {
+    status: 409,
+    code: "SELF_CHANGE",
+    message: "본인 계정은 삭제할 수 없습니다.",
+  },
   WC092: {
     status: 409,
     code: "LAST_CLASS_REQUIRED",
