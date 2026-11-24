@@ -20,13 +20,16 @@ Repo-specific facts and exceptions. General placement and naming rules live in t
 
 - `api/_lib/` holds shared modules that Vercel does not turn into endpoints. All non-route server code goes here.
 - Relative imports inside `api/` use the `.js` extension. `.ts` breaks production.
-- New endpoints use `defineHandler` from `api/_lib/handler.ts`.
+- New endpoints use `defineHandler` from `api/_lib/handler.ts` with `errorShape: "problem"` (RFC 9457, `application/problem+json`, always a `code`) and zod `body` / `query` schemas for input. Success bodies are the resource itself with no `ok` field; lists are wrapped in an object (`{ items }`). The older shapes (`detail`, `okDetail`, `error`, `coded`) stay only on routes not yet migrated.
 - Endpoints live in `api/_routes/<path>.ts` and must be registered in a manifest chosen by `maxDuration`: `manifest.ts` (none), `manifest-30.ts`, `manifest-60.ts`. A new limit needs a new `api/router-<n>.ts` entry, a manifest, and a `vercel.json` rewrite.
 - `api/router*.ts` are the only general entry functions. Cron targets (`vercel.json` `crons`), `zoom-webhook.ts`, and `report-pdf.ts` (Chromium memory isolation) stay as standalone files in `api/`. `api/_routes/manifest.test.ts` enforces this.
 - URLs are unchanged: `/api/<path>`.
 - The `vercel.json` catch-all rewrite excludes paths with a `.` or `..` segment: Vercel matches the raw path but hands the function a normalized `req.url`, so `/api/goal/../change-phone` would otherwise reach the `change-phone` handler.
 
 ## Code
+
+- Browser requests to `/api` use `api` from `src/lib/http/client.ts` (ky, `retry: 0`) inside react-query `useQuery` / `useMutation`. Pass the query `signal`. Request failures (HTTP error, timeout, network) arrive as `ApiError` (`status`, `code`, `detail`, `supportCode`); a response that fails `.json(schema)` throws ky `SchemaValidationError` instead, which means the client and server contracts disagree. Never add new browser `supabase.from` / `rpc` / `storage` calls or new `apiFetch` callers; `apiFetch` goes away when its last caller moves.
+- `src/lib/http/problem.ts` is the one problem body schema, shared by `api/` and `src/`.
 
 - npm only. Never run pnpm or yarn.
 - No fallback constants. Missing data means do not render, or surface an error.
