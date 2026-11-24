@@ -22,9 +22,10 @@ export class UploadExpiredError extends Error {
   }
 }
 
-// 스킴부터 쿼리 끝까지 통째로 잡는다(토큰이 남으면 안 된다). 공백, 따옴표, 꺾쇠에서 끊는다.
+// 스킴부터 쿼리 끝까지 통째로 잡는다(토큰이 남으면 안 된다). 호스트는 슬래시 전까지만 잡아 붙어 있는
+// 다음 URL 을 삼키지 않게 하고, 공백, 따옴표, 꺾쇠, 괄호, 쉼표, 대괄호에서 끊는다.
 const TEMP_URL =
-  /https?:\/\/[^\s"'<>]*\/storage\/v1\/object\/sign\/admin-uploads-tmp\/([^\s"'<>?#/]+)(?:\?[^\s"'<>#]*)?/g;
+  /https?:\/\/[^\s"'<>/]+\/storage\/v1\/object\/sign\/admin-uploads-tmp\/([^\s"'<>()[\],?#/]+)(?:\?[^\s"'<>()[\],#]*)?/g;
 
 function collectNames(value: unknown, names: Set<string>): void {
   if (typeof value === "string") {

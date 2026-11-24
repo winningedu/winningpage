@@ -157,6 +157,26 @@ describe("promoteTempUploads", () => {
   });
 });
 
+describe("promoteTempUploads URL 경계", () => {
+  test("마크다운에 붙어 있는 임시 URL 두 개를 모두 옮기고 닫는 괄호는 남긴다", async () => {
+    const first = `${U1}.image_urls.b.png`;
+    fake.put("admin-uploads-tmp", first);
+    const u1 = `${SUPA}/sign/admin-uploads-tmp/${first}`;
+    const u2 = `${SUPA}/sign/admin-uploads-tmp/${U2}.image_urls.a_b.jpg`;
+    const out = (await promoteTempUploads(admin(), SECTIONS.notices, {
+      image_urls: [],
+      attachments: [],
+      content: `![](${u1}?token=a)![](${u2}?token=b)`,
+    })) as { content: string };
+
+    expect(out.content).toBe(
+      `![](${pub(`admin/${U1}-b.png`)})![](${pub(`admin/${U2}-a_b.jpg`)})`,
+    );
+    expect(out.content).not.toContain("token=");
+    expect(fake.calls.filter((c) => c.op === "move")).toHaveLength(2);
+  });
+});
+
 describe("promoteTempUploads 저장된 객체 검증", () => {
   const moves = () => fake.calls.filter((c) => c.op === "move");
 
