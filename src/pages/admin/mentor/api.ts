@@ -46,7 +46,13 @@ export function useMentorApplication(id: string) {
   });
 }
 
-/** 상태 저장. 끝나면 목록과 상세를 다시 받는다. */
+/** 목록을 비우고 다시 받는다. 사용자가 직접 누른 초기화는 옛 행 대신 스켈레톤을 거친다. */
+export function useResetMentorList() {
+  const queryClient = useQueryClient();
+  return () => queryClient.resetQueries({ queryKey: keys.list() });
+}
+
+/** 상태 저장. 끝나면 목록과 상세를 비우고 다시 받아 스켈레톤 뒤에 새 값을 보인다. */
 export function useSaveMentorStatus(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -54,7 +60,7 @@ export function useSaveMentorStatus(id: string) {
       api
         .patch(`${BASE}/${encodeURIComponent(id)}`, { json: { status } })
         .json(applicationSchema),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.all }),
+    onSuccess: () => queryClient.resetQueries({ queryKey: keys.all }),
   });
 }
 
