@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
@@ -44,6 +44,7 @@ import {
   type OrderRow,
   type ProfileRow,
   type ProgramAccessRow,
+  patchMember,
 } from "@/pages/admin/members/api";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import {
@@ -528,14 +529,12 @@ function MemberDetail({
   const [categoryDraft, setCategoryDraft] = useState(
     member.member_category || "",
   );
-  const [savingCategory, setSavingCategory] = useState(false);
   // 학부모 핸드폰(guardian_phone) — 회원구분과 마찬가지로 이 화면이 custom 으로
   // 바뀌며 제네릭 편집 폼이 없어져서 인라인으로 직접 편집한다. SMS 인증 없이
   // 어드민이 바로 고쳐 쓰는 값이다(연락·복구 채널 승격).
   const [guardianPhoneDraft, setGuardianPhoneDraft] = useState(
     member.guardian_phone || "",
   );
-  const [savingGuardianPhone, setSavingGuardianPhone] = useState(false);
   // 소속(테넌트) 배정/해제(2026-09-22, WC072) — categoryDraft 와 같은 인라인
   // 편집 패턴. 값은 tenants.id(uuid) 또는 빈 문자열(소속 없음)이다.
   const [tenantDraft, setTenantDraft] = useState(member.tenant_id || "");
@@ -630,46 +629,34 @@ function MemberDetail({
     }
   }
 
-  async function saveMemberCategory() {
-    if (savingCategory) return;
-    setSavingCategory(true);
+  // 회원구분과 학부모 핸드폰은 각자 그 필드만 PATCH 로 보낸다.
+  const saveCategory = useMutation({
+    mutationFn: (next: string | null) =>
+      patchMember(member.id, { member_category: next }),
+    onSuccess: (updated) => {
+      syncMember(updated);
+      toastSuccess("회원구분을 저장했습니다.");
+    },
+    onError: (error) => reportAdminError("회원구분 저장 실패", error),
+  });
+  const saveGuardian = useMutation({
+    mutationFn: (next: string | null) =>
+      patchMember(member.id, { guardian_phone: next }),
+    onSuccess: (updated) => {
+      syncMember(updated);
+      toastSuccess("학부모 핸드폰을 저장했습니다.");
+    },
+    onError: (error) => reportAdminError("학부모 핸드폰 저장 실패", error),
+  });
 
-    const next = categoryDraft.trim() || null;
-    const { error } = await supabase
-      .from("profiles")
-      .update({ member_category: next })
-      .eq("id", member.id);
-
-    setSavingCategory(false);
-
-    if (error) {
-      reportAdminError("회원구분 저장 실패", error);
-      return;
-    }
-
-    syncMember({ ...member, member_category: next });
-    toastSuccess("회원구분을 저장했습니다.");
+  function saveMemberCategory() {
+    if (saveCategory.isPending) return;
+    saveCategory.mutate(categoryDraft.trim() || null);
   }
 
-  async function saveGuardianPhone() {
-    if (savingGuardianPhone) return;
-    setSavingGuardianPhone(true);
-
-    const next = guardianPhoneDraft.trim() || null;
-    const { error } = await supabase
-      .from("profiles")
-      .update({ guardian_phone: next })
-      .eq("id", member.id);
-
-    setSavingGuardianPhone(false);
-
-    if (error) {
-      reportAdminError("학부모 핸드폰 저장 실패", error);
-      return;
-    }
-
-    syncMember({ ...member, guardian_phone: next });
-    toastSuccess("학부모 핸드폰을 저장했습니다.");
+  function saveGuardianPhone() {
+    if (saveGuardian.isPending) return;
+    saveGuardian.mutate(guardianPhoneDraft.trim() || null);
   }
 
   // 소속 배정/해제(2026-09-22, WC072) — categoryDraft/guardianPhoneDraft 와
@@ -882,11 +869,11 @@ function MemberDetail({
               categoryDraft={categoryDraft}
               setCategoryDraft={setCategoryDraft}
               onSaveCategory={saveMemberCategory}
-              savingCategory={savingCategory}
+              savingCategory={saveCategory.isPending}
               guardianPhoneDraft={guardianPhoneDraft}
               setGuardianPhoneDraft={setGuardianPhoneDraft}
               onSaveGuardianPhone={saveGuardianPhone}
-              savingGuardianPhone={savingGuardianPhone}
+              savingGuardianPhone={saveGuardian.isPending}
               tenants={tenants}
               tenantDraft={tenantDraft}
               setTenantDraft={setTenantDraft}
