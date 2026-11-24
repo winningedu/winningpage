@@ -8,6 +8,8 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/admission/active-year.js"),
   "admin/admission/results/count": () =>
     import("./admin/admission/results/count.js"),
+  "admin/admission/results/rows": () =>
+    import("./admin/admission/results/rows.js"),
   "admin/ai-telemetry": () => import("./admin/ai-telemetry.js"),
   "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
   "admin/coupons": () => import("./admin/coupons.js"),
