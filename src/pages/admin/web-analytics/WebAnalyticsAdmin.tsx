@@ -16,6 +16,8 @@ import { ApiError } from "@/lib/http/client";
 import { addDaysYmd, ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
 import { ActionButton, Field } from "@/pages/admin/shared/formFields";
+import { AdminCardsSkeleton } from "@/pages/admin/shared/skeletons/AdminCardsSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   type WebAnalyticsEventName,
   type WebAnalyticsProperty,
@@ -309,9 +311,14 @@ export default function WebAnalyticsAdmin() {
         </p>
       )}
       {query.isPending && (
-        <p role="status" className="text-sm text-muted-foreground">
-          불러오는 중이에요.
-        </p>
+        <div className="space-y-8">
+          <AdminCardsSkeleton count={2} label="방문 요약을 불러오는 중" />
+          <AdminTableSkeleton
+            columns={3}
+            rows={5}
+            label="많이 본 페이지를 불러오는 중"
+          />
+        </div>
       )}
       {query.data && <ReportBody report={query.data} />}
     </div>

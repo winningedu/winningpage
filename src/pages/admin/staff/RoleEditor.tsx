@@ -9,6 +9,7 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import {
   fetchRole,
@@ -65,14 +66,7 @@ export function RoleEditorRoute({ config }: Props) {
 
   const loading = Boolean(roleId) && detail.isPending;
   if (!error && (loading || options.isPending)) {
-    return (
-      <div
-        role="status"
-        className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-      >
-        데이터를 불러오는 중입니다.
-      </div>
-    );
+    return <AdminDetailSkeleton rows={3} label="권한 묶음을 불러오는 중" />;
   }
 
   if (!options.data || (roleId && !detail.data)) {

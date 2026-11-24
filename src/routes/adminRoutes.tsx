@@ -10,21 +10,9 @@ import {
   ADMIN_ENGINE_SECTION_KEYS,
   ADMIN_SECTION_KEYS,
 } from "@/pages/admin/adminSectionKeys";
-
-// 청크(../pages/Admin) 다운로드 대기 중 표시 — route.lazy가 대기하는 동안
-// (middleware 판정 + JS 청크 로딩을 함께 블록한다) 정적 최상위 HydrateFallback으로
-// 둬야 한다 — lazy() 반환 객체 안에 넣으면 그 자체가 아직 resolve 되기 전이라
-// 첫 렌더에 이 라우트가 fallbackIndex 후보에서 빠져 상위(RootLayout, 자체 폴백 없음)
-// 까지 올라가 빈 화면이 뜬다.
-function AdminChunkLoadingFallback() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F7F4EF] pt-16 text-[#0D1B2A]">
-      <div className="rounded-2xl border border-[#0D1B2A]/10 bg-white px-6 py-4 text-sm font-extrabold shadow-[0_18px_45px_rgba(13,27,42,0.10)]">
-        관리자 페이지 불러오는 중...
-      </div>
-    </main>
-  );
-}
+// HydrateFallback에 쓰는 셸 스켈레톤. react, ui/skeleton, utils만 import하는 가벼운 모듈이라
+// Admin 청크를 끌어오지 않는다.
+import { AdminShellSkeleton } from "@/pages/admin/shared/skeletons/AdminShellSkeleton";
 
 // Admin.jsx 전면 route화(§5-1) — 각 CONFIGS 도메인 섹션이 실제 개별 RouteObject다.
 // AdminLayout(사이드바/탑바)은 부모 라우트로 한 번만 마운트되어 섹션을
@@ -79,7 +67,12 @@ const adminRoutes: RouteObject[] = [
       return { Component: AdminLayout };
     },
     middleware: [requireAdminMiddleware],
-    HydrateFallback: AdminChunkLoadingFallback,
+    // 청크(../pages/Admin) 다운로드 대기 중 표시. route.lazy가 대기하는 동안
+    // (middleware 판정과 JS 청크 로딩을 함께 블록한다) 정적 최상위 HydrateFallback으로
+    // 둬야 한다. lazy() 반환 객체 안에 넣으면 그 자체가 아직 resolve 되기 전이라
+    // 첫 렌더에 이 라우트가 fallbackIndex 후보에서 빠져 상위(RootLayout, 자체 폴백 없음)
+    // 까지 올라가 빈 화면이 뜬다.
+    HydrateFallback: AdminShellSkeleton,
     ErrorBoundary: AdminAccessBoundary,
     children: [
       {

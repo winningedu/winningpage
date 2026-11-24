@@ -2,6 +2,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Field, Select } from "@/pages/admin/shared/formFields";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { errorText, evalKeys, fetchRuns } from "./api";
 import ErrorBox from "./ErrorBox";
 import type { KnowledgeType } from "./form";
@@ -109,6 +111,9 @@ export default function EvalsAdmin({ config }: Props) {
       {tab === "run" && (
         <>
           <ErrorBox message={runsError} />
+          {runsQuery.isPending && (
+            <AdminDetailSkeleton rows={7} label="평가 설정을 불러오는 중" />
+          )}
           {productionParams && (
             <RunTab
               key={knowledgeType}
@@ -122,6 +127,9 @@ export default function EvalsAdmin({ config }: Props) {
       {tab === "history" && (
         <>
           <ErrorBox message={runsError} />
+          {runsQuery.isPending && (
+            <AdminTableSkeleton columns={11} label="실행 이력을 불러오는 중" />
+          )}
           {runs && <HistoryTab key={knowledgeType} runs={runs.items} />}
         </>
       )}

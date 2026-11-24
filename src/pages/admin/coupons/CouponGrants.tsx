@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Ban, Check, ChevronLeft, Plus, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
@@ -12,7 +13,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toastError, toastSuccess } from "@/pages/admin/shared/adminToast";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
+  couponKeys,
   type FoundUser,
   type GrantRow,
   mappedErrorText,
@@ -43,6 +47,9 @@ import {
 } from "./copy";
 import { COUPONS_PATH } from "./paths";
 
+// 번호, 데이터 6열, 관리. 스켈레톤 열 수가 된다.
+const GRANT_COLUMN_COUNT = 8;
+
 // 쿠폰 하나의 발급 관리. 쿠폰 머리글과 발급 목록을 주소의 id 로 각각 받아 새로고침에도 열린다.
 export default function CouponGrants() {
   const { id = "" } = useParams();
@@ -50,12 +57,14 @@ export default function CouponGrants() {
   const couponQuery = useCoupon(id);
   const grantsQuery = useGrants(id);
   useLoadErrorToast(grantsQuery.error);
+  const queryClient = useQueryClient();
   const grantCoupon = useGrantCoupon(id);
   const revokeGrant = useRevokeGrant(id);
 
   const coupon = couponQuery.data;
   const grantRows: GrantRow[] = grantsQuery.data?.items ?? [];
-  const grantLoading = grantsQuery.isFetching;
+  // 응답이 없는 동안만 스켈레톤이다. 창 포커스 재조회는 행을 그대로 둔다.
+  const grantLoading = grantsQuery.isPending;
   const actionBusy = grantCoupon.isPending || revokeGrant.isPending;
 
   const [revokingId, setRevokingId] = useState<number | null>(null);
@@ -66,7 +75,7 @@ export default function CouponGrants() {
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
   const searchQuery = useUserSearch(submittedQuery);
   useLoadErrorToast(searchQuery.error);
-  const userSearching = submittedQuery !== null && searchQuery.isFetching;
+  const userSearching = submittedQuery !== null && searchQuery.isPending;
   const userResults: FoundUser[] | null =
     submittedQuery === null
       ? null
@@ -92,7 +101,8 @@ export default function CouponGrants() {
       setSubmittedQuery(null);
       return;
     }
-    if (query === submittedQuery) void searchQuery.refetch();
+    if (query === submittedQuery)
+      void queryClient.resetQueries({ queryKey: couponKeys.userSearch(query) });
     else setSubmittedQuery(query);
   }
 
@@ -191,8 +201,11 @@ export default function CouponGrants() {
         </div>
 
         {userSearching && (
-          <div className="mt-4 text-sm font-bold text-gray-500">
-            데이터를 불러오는 중입니다.
+          <div className="mt-4">
+            <AdminDetailSkeleton
+              rows={3}
+              label="사용자 검색 결과를 불러오는 중입니다."
+            />
           </div>
         )}
 
@@ -234,7 +247,8 @@ export default function CouponGrants() {
                       <Button
                         type="button"
                         onClick={() => submitGrant(profile)}
-                        disabled={actionBusy}
+                        // 발급 목록을 받는 동안은 누가 이미 발급받았는지 모른다.
+                        disabled={actionBusy || grantsQuery.isPending}
                         size="lg"
                         className="font-semibold"
                       >
@@ -251,12 +265,10 @@ export default function CouponGrants() {
       </div>
 
       {grantLoading ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+        <AdminTableSkeleton
+          columns={GRANT_COLUMN_COUNT}
+          label="발급 목록을 불러오는 중입니다."
+        />
       ) : (
         <div className="bg-white p-6 shadow-sm">
           <div className="mb-4 text-sm font-bold text-gray-500">

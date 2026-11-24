@@ -27,6 +27,7 @@ import {
 } from "@/pages/admin/shared/adminErrors";
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
+import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { pad2, triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";
 import { chunkItemsBySize } from "./chunkItems";
 
@@ -139,7 +140,7 @@ function AdmissionActiveYearSummary({ rows }) {
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-white p-4 text-sm shadow-sm">
       <div className="font-semibold">
         {loadingActiveYear ? (
-          "공개 연도 확인 중…"
+          <AdminLineSkeleton label="공개 연도를 확인하는 중" />
         ) : notSet ? (
           "공개 연도가 지정되지 않았습니다"
         ) : activeYear === null ? (

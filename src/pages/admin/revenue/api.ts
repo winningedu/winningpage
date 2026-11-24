@@ -38,11 +38,14 @@ export type ServiceTab = z.infer<
 >["items"][number];
 
 const revenueKey = ["admin", "revenue"] as const;
+export const revenueRowsKey = [...revenueKey, "rows"] as const;
 
 /** from 포함, to 미포함인 UTC 순간(ISO Z)으로 기간 안의 행을 받는다. */
 export function revenueRowsQuery(from: string, to: string) {
   return queryOptions({
-    queryKey: [...revenueKey, "rows", from, to],
+    queryKey: [...revenueRowsKey, from, to],
+    // 기간 키를 바꾸거나 화면에 다시 들어올 때 지난 행을 먼저 보이지 않는다.
+    gcTime: 0,
     queryFn: async ({ signal }) =>
       (
         await api

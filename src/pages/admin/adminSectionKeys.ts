@@ -124,3 +124,10 @@ export const ADMIN_ENGINE_SECTION_KEYS: readonly AdminSectionKey[] = [
   "refundRequests",
   "refundLedger",
 ];
+
+// 목록을 서버 페이지네이션으로 받는 엔진 섹션(config.serverPaginate). 목록 쿼리 키에 page 와 q 가 들어가는 섹션이며
+// 미들웨어 선받기와 Admin.tsx 가 같은 키를 쓰도록 여기서 한 번만 든다. adminSectionKeys.test.ts 가 CONFIGS 와 같은지 본다.
+export const ADMIN_SERVER_PAGINATE_SECTION_KEYS: readonly AdminSectionKey[] = [
+  "admissionResults",
+  "goalUniversityCuts",
+];

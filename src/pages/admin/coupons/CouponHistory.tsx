@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toastError, toastSuccess } from "@/pages/admin/shared/adminToast";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   mappedErrorText,
   type RedemptionRow,
@@ -35,6 +36,9 @@ import {
 } from "./copy";
 import { COUPONS_PATH } from "./paths";
 
+// 번호, 데이터 6열, 관리. 스켈레톤 열 수가 된다.
+const HISTORY_COLUMN_COUNT = 8;
+
 // 쿠폰 하나의 사용 이력. 쿠폰 머리글과 이력을 주소의 id 로 각각 받아 새로고침에도 열린다.
 export default function CouponHistory() {
   const { id = "" } = useParams();
@@ -46,7 +50,8 @@ export default function CouponHistory() {
 
   const coupon = couponQuery.data;
   const historyRows = query.data?.items ?? [];
-  const historyLoading = query.isFetching;
+  // 응답이 없는 동안만 스켈레톤이다. 창 포커스 재조회는 행을 그대로 둔다.
+  const historyLoading = query.isPending;
   // 무효화는 삭제가 아니라 사유 입력을 한 단계 끼우는 2단계 액션이다.
   const [voidingId, setVoidingId] = useState<number | null>(null);
   const [voidReason, setVoidReason] = useState("");
@@ -100,12 +105,10 @@ export default function CouponHistory() {
       </div>
 
       {historyLoading ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+        <AdminTableSkeleton
+          columns={HISTORY_COLUMN_COUNT}
+          label="사용 이력을 불러오는 중입니다."
+        />
       ) : (
         <div className="bg-white p-6 shadow-sm">
           <div className="mb-4 text-sm font-bold text-gray-500">

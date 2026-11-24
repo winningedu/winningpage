@@ -77,8 +77,8 @@ export function useSaveStudentUsage() {
       api
         .put("admin/tenants/student-usage", { json: { rows } })
         .json(savedSchema),
-    // 저장한 값이 화면에 보이도록 보던 학생의 현황을 다시 읽는다.
+    // 저장한 값이 화면에 보이도록 보던 학생의 현황을 비우고 스켈레톤 뒤에 다시 읽는다.
     onSettled: () =>
-      client.invalidateQueries({ queryKey: ["admin", "student-usage"] }),
+      client.resetQueries({ queryKey: ["admin", "student-usage"] }),
   });
 }

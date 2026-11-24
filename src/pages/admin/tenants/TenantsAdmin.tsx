@@ -32,6 +32,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { useKeywordParam } from "@/pages/admin/shared/useKeywordParam";
 import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import {
@@ -210,7 +211,8 @@ function TenantCreate({
       {
         onSuccess: (created) => {
           done.current = true;
-          queryClient.invalidateQueries({ queryKey: tenantKeys.list() });
+          // 내가 등록했으니 목록은 옛 행을 보이지 않고 스켈레톤 뒤에 새로 받는다.
+          queryClient.resetQueries({ queryKey: tenantKeys.list() });
           if (site.features.hqTenantAdmin) {
             navigate(tenantPaths.detail(created.id), { replace: true });
             return;
@@ -294,6 +296,7 @@ function TenantCreate({
 
 function TenantList({ config }: TenantsAdminProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [keyword, setKeyword] = useKeywordParam();
   const query = useQuery({
     queryKey: tenantKeys.list(),
@@ -302,7 +305,8 @@ function TenantList({ config }: TenantsAdminProps) {
   const rows = query.data?.items ?? [];
   // 유예 종료일이 빈 기관의 삭제 D-day 계산에 쓰는 기본 유예 일수. 서버가 없으면 null 이다.
   const graceDays = query.data?.graceDays ?? null;
-  const loading = query.isFetching;
+  // 응답이 없는 동안만 스켈레톤이다. 창 포커스 재조회는 행을 그대로 둔다.
+  const loading = query.isPending;
 
   useEffect(() => {
     if (query.error) reportApiError(`${config.title} 조회 실패`, query.error);
@@ -333,7 +337,9 @@ function TenantList({ config }: TenantsAdminProps) {
               type="button"
               variant="outline"
               size="lg"
-              onClick={() => query.refetch()}
+              onClick={() =>
+                queryClient.resetQueries({ queryKey: tenantKeys.list() })
+              }
             >
               <RefreshCw size={14} aria-hidden="true" />
               초기화
@@ -362,12 +368,10 @@ function TenantList({ config }: TenantsAdminProps) {
       </div>
 
       {loading ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+        <AdminTableSkeleton
+          columns={hq ? 11 : 7}
+          label="기관 목록을 불러오는 중입니다."
+        />
       ) : (
         <div className="bg-white p-6 shadow-sm">
           <div className="mb-4 text-sm font-medium text-gray-500">

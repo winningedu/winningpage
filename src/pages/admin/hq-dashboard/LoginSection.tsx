@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/native-select";
 import { ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
+import { AdminCardsSkeleton } from "@/pages/admin/shared/skeletons/AdminCardsSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { fetchLoginLog, fetchLoginStats } from "./api";
 import ErrorBox from "./ErrorBox";
 import {
@@ -25,17 +27,6 @@ import LoginLogTable from "./LoginLogTable";
 import LoginStats from "./LoginStats";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-function Loading() {
-  return (
-    <div
-      role="status"
-      className="bg-white p-12 text-center text-sm text-muted-foreground shadow-sm"
-    >
-      데이터를 불러오는 중입니다.
-    </div>
-  );
-}
 
 export default function LoginSection() {
   const id = useId();
@@ -141,7 +132,7 @@ export default function LoginSection() {
       ) : statsQuery.data ? (
         <LoginStats data={statsQuery.data} />
       ) : (
-        <Loading />
+        <AdminCardsSkeleton count={2} label="이용자 통계를 불러오는 중" />
       )}
 
       {logQuery.error ? (
@@ -149,7 +140,7 @@ export default function LoginSection() {
       ) : logQuery.data ? (
         <LoginLogTable data={logQuery.data} onPage={setPage} />
       ) : (
-        <Loading />
+        <AdminTableSkeleton columns={5} label="로그인 기록을 불러오는 중" />
       )}
     </section>
   );

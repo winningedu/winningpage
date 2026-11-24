@@ -113,7 +113,7 @@ function renderAdmin(path = "/admin/tenants") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  const invalidate = vi.spyOn(client, "invalidateQueries");
+  const reset = vi.spyOn(client, "resetQueries");
   const router = createMemoryRouter(
     [{ path: "/admin/tenants/*", element: <TenantsAdmin config={CONFIG} /> }],
     { initialEntries: [path] },
@@ -125,7 +125,24 @@ function renderAdmin(path = "/admin/tenants") {
       <Toaster />
     </QueryClientProvider>,
   );
-  return { router, invalidate };
+  return { router, reset, client };
+}
+
+// 다음 목록 요청을 resolve 를 부를 때까지 붙잡아 둔다.
+async function holdNextFetch() {
+  const api = await import("./api");
+  let resolve: () => void = () => {};
+  const gate = new Promise<void>((r) => {
+    resolve = r;
+  });
+  vi.mocked(api.fetchTenants).mockImplementationOnce(
+    async (signal?: AbortSignal) => {
+      state.fetches.push(signal);
+      await gate;
+      return { items: state.rows, graceDays: state.graceDays } as never;
+    },
+  );
+  return resolve;
 }
 
 function openCreate() {
@@ -196,6 +213,79 @@ describe("TenantsAdmin 목록 불러오기", () => {
     fireEvent.click(screen.getByRole("button", { name: "초기화" }));
 
     await waitFor(() => expect(state.fetches).toHaveLength(2));
+  });
+});
+
+describe("TenantsAdmin 목록 스켈레톤", () => {
+  test("처음 받는 동안은 표 스켈레톤이 보이고 응답이 오면 행으로 바뀐다", async () => {
+    const resolve = await holdNextFetch();
+    renderAdmin();
+
+    expect(
+      screen.getByRole("status", { name: "기관 목록을 불러오는 중입니다." }),
+    ).toBeTruthy();
+    expect(screen.queryByText("한빛고")).toBeNull();
+
+    resolve();
+    expect(await screen.findByText("한빛고")).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  test("창 포커스 같은 백그라운드 재조회는 행을 그대로 두고 스켈레톤을 띄우지 않는다", async () => {
+    const { client } = renderAdmin();
+    await screen.findByText("한빛고");
+    const resolve = await holdNextFetch();
+
+    const refetching = client.refetchQueries({ queryKey: tenantKeys.list() });
+    await waitFor(() => expect(state.fetches).toHaveLength(2));
+
+    expect(screen.getByText("한빛고")).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
+    resolve();
+    await refetching;
+  });
+
+  test("등록한 뒤 목록으로 돌아오면 옛 행 대신 스켈레톤을 거쳐 새 행이 보인다", async () => {
+    state.created = {
+      ...BASE,
+      id: "tenant-new",
+      code: "NEWC2345",
+      name: "새기관",
+    };
+    const { router } = renderAdmin();
+    await screen.findByText("한빛고");
+    openCreate();
+    fillName("새기관");
+    openCreate();
+    await screen.findByText("기관 상세 tenant-new");
+
+    const resolve = await holdNextFetch();
+    await router.navigate("/admin/tenants");
+
+    expect(
+      await screen.findByRole("status", {
+        name: "기관 목록을 불러오는 중입니다.",
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText("한빛고")).toBeNull();
+    resolve();
+    expect(await screen.findByText("한빛고")).toBeTruthy();
+  });
+
+  test("초기화를 누르면 스켈레톤을 거쳐 새로 받은 행이 보인다", async () => {
+    renderAdmin();
+    await screen.findByText("한빛고");
+    const resolve = await holdNextFetch();
+
+    fireEvent.click(screen.getByRole("button", { name: "초기화" }));
+
+    expect(
+      await screen.findByRole("status", {
+        name: "기관 목록을 불러오는 중입니다.",
+      }),
+    ).toBeTruthy();
+    resolve();
+    expect(await screen.findByText("한빛고")).toBeTruthy();
   });
 });
 
@@ -411,7 +501,7 @@ describe("TenantsAdmin 등록", () => {
 
   test("스쿨멘토에서 등록하면 입력값을 보내고 목록을 갱신 대상으로 만든 뒤 새 기관의 상세 주소로 간다", async () => {
     state.created = NEW_TENANT;
-    const { router, invalidate } = renderAdmin();
+    const { router, reset } = renderAdmin();
     await screen.findByText("한빛고");
 
     openCreate();
@@ -423,7 +513,7 @@ describe("TenantsAdmin 등록", () => {
       { name: "새기관", region: "서울", org_type: "기관", tier: "W" },
     ]);
     expect(router.state.location.pathname).toBe("/admin/tenants/tenant-new");
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: tenantKeys.list() });
+    expect(reset).toHaveBeenCalledWith({ queryKey: tenantKeys.list() });
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 

@@ -55,9 +55,20 @@ function respondWith(result: () => unknown) {
   });
 }
 
+/** 권한 조회 횟수만 센다. 엔진 섹션 주소는 목록 선받기 요청도 같은 get 으로 나간다. */
+function permissionCalls() {
+  return mocks.get.mock.calls.filter(
+    ([path]) => path === "admin/me/permissions",
+  );
+}
+
 function permissions(map: Record<string, "view" | "edit">, isSuper = false) {
-  mocks.get.mockImplementation(
-    respondWith(() => ({ permissions: map, isSuper })),
+  mocks.get.mockImplementation((path: string) =>
+    respondWith(() =>
+      path === "admin/me/permissions"
+        ? { permissions: map, isSuper }
+        : { items: [], total: 0 },
+    )(),
   );
 }
 
@@ -101,7 +112,7 @@ describe("requireAdminMiddleware", () => {
     permissions({ banners: "edit" });
 
     await expect(enter("/admin/banners")).resolves.toBeUndefined();
-    expect(mocks.get).toHaveBeenCalledTimes(1);
+    expect(permissionCalls()).toHaveLength(1);
     expect(mocks.post).not.toHaveBeenCalled();
   });
 
@@ -150,7 +161,7 @@ describe("requireAdminMiddleware", () => {
     expect(await rejection("/admin/banners")).toBeInstanceOf(
       AdminForbiddenError,
     );
-    expect(mocks.get).toHaveBeenCalledTimes(1);
+    expect(permissionCalls()).toHaveLength(1);
     expect(mocks.post).toHaveBeenCalledTimes(1);
   });
 
@@ -175,18 +186,19 @@ describe("requireAdminMiddleware", () => {
 
   it("초대받은 관리자는 활성화되면 통과한다", async () => {
     let calls = 0;
-    mocks.get.mockImplementation(
+    mocks.get.mockImplementation((path: string) =>
       respondWith(() => {
+        if (path !== "admin/me/permissions") return { items: [], total: 0 };
         calls += 1;
         if (calls === 1) throw apiError(403, "FORBIDDEN");
         return { permissions: { banners: "edit" }, isSuper: false };
-      }),
+      })(),
     );
     activation(() => ({ status: "active" }));
 
     await expect(enter("/admin/banners")).resolves.toBeUndefined();
     expect(mocks.post).toHaveBeenCalledTimes(1);
-    expect(mocks.get).toHaveBeenCalledTimes(2);
+    expect(permissionCalls()).toHaveLength(2);
   });
 
   it("서버 오류는 막되 캐시하지 않아 다음 이동에서 다시 묻는다", async () => {
@@ -211,7 +223,7 @@ describe("requireAdminMiddleware", () => {
     await enter("/admin/banners");
     await enter("/admin/popups");
 
-    expect(mocks.get).toHaveBeenCalledTimes(1);
+    expect(permissionCalls()).toHaveLength(1);
   });
 
   it("/demo 는 메뉴 권한을 보지 않고 관리자만 통과시킨다", async () => {

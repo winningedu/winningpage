@@ -10,6 +10,7 @@ vi.mock(
 );
 
 import { toast } from "@/components/ui/toast";
+import { couponKeys } from "./api";
 import { callsTo, FakeApiError, on, resetApi } from "./fakeApi";
 import { couponRow, listBody, renderCoupons } from "./testKit";
 
@@ -47,6 +48,24 @@ function toastTexts() {
     description: document.querySelector('[data-slot="toast-description"]')
       ?.textContent,
   };
+}
+
+const HISTORY_LABEL = "사용 이력을 불러오는 중입니다.";
+
+// 첫 요청은 바로, 이후 요청은 release 를 부를 때까지 붙잡는다.
+function holdAfterFirstHistory() {
+  let release: () => void = () => {};
+  let count = 0;
+  on("GET", "admin/coupons/c1/redemptions", async () => {
+    count += 1;
+    if (count > 1) {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    }
+    return { items: rows };
+  });
+  return () => release();
 }
 
 async function startVoid(reason?: string) {
@@ -171,4 +190,61 @@ test("이력 조회에 실패하면 조회 실패 토스트가 보인다", async
   renderCoupons("/admin/coupons/c1/history");
   await waitFor(() => expect(toastTexts().title).toBe("쿠폰관리 조회 실패"));
   expect(toastTexts().description).toBe("잠시 후 다시 시도해 주세요.");
+});
+
+test("처음 받는 동안은 표 스켈레톤이 보이고 응답이 오면 행으로 바뀐다", async () => {
+  let release: () => void = () => {};
+  on("GET", "admin/coupons/c1/redemptions", async () => {
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { items: rows };
+  });
+  renderCoupons("/admin/coupons/c1/history");
+
+  expect(
+    await screen.findByRole("status", { name: HISTORY_LABEL }),
+  ).toBeVisible();
+  expect(screen.queryByText("홍길동")).toBeNull();
+
+  release();
+  expect(await screen.findByText("홍길동")).toBeVisible();
+  expect(screen.queryByRole("status", { name: HISTORY_LABEL })).toBeNull();
+});
+
+test("창 포커스 같은 백그라운드 재조회는 행을 그대로 두고 스켈레톤을 띄우지 않는다", async () => {
+  const release = holdAfterFirstHistory();
+  const { client } = renderCoupons("/admin/coupons/c1/history");
+  await screen.findByText("홍길동");
+
+  const refetching = client.refetchQueries({
+    queryKey: couponKeys.redemptions("c1"),
+  });
+  await waitFor(() =>
+    expect(callsTo("GET", "admin/coupons/c1/redemptions")).toHaveLength(2),
+  );
+
+  expect(screen.getByText("홍길동")).toBeVisible();
+  expect(screen.queryByRole("status", { name: HISTORY_LABEL })).toBeNull();
+  release();
+  await refetching;
+});
+
+test("무효화하면 이력이 스켈레톤을 거쳐 새로 받은 행으로 바뀐다", async () => {
+  on("POST", "admin/coupons/redemptions/7/void", { id: 7 });
+  const release = holdAfterFirstHistory();
+  renderCoupons("/admin/coupons/c1/history");
+  await screen.findByText("홍길동");
+  rows = [
+    { ...redemption, voided_at: "2026-08-03T01:00:00Z", void_reason: "오발급" },
+  ];
+
+  await startVoid("오발급");
+
+  expect(
+    await screen.findByRole("status", { name: HISTORY_LABEL }),
+  ).toBeVisible();
+  expect(screen.queryByText("홍길동")).toBeNull();
+  release();
+  expect(await screen.findByText("오발급")).toBeVisible();
 });

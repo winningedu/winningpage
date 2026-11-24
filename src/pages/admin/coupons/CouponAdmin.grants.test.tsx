@@ -10,6 +10,7 @@ vi.mock(
 );
 
 import { toast } from "@/components/ui/toast";
+import { couponKeys } from "./api";
 import { callsTo, FakeApiError, on, resetApi } from "./fakeApi";
 import { couponRow, listBody, renderCoupons } from "./testKit";
 
@@ -45,6 +46,25 @@ afterEach(() => {
   toast.close();
   vi.restoreAllMocks();
 });
+
+const GRANTS_LABEL = "발급 목록을 불러오는 중입니다.";
+const SEARCH_LABEL = "사용자 검색 결과를 불러오는 중입니다.";
+
+// 첫 요청은 바로, 이후 요청은 release 를 부를 때까지 붙잡는다.
+function holdAfterFirst(path: string, body: () => unknown) {
+  let release: () => void = () => {};
+  let count = 0;
+  on("GET", path, async () => {
+    count += 1;
+    if (count > 1) {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    }
+    return body();
+  });
+  return () => release();
+}
 
 function toastTexts() {
   return {
@@ -227,4 +247,206 @@ test("조합 중 Enter는 사용자 조회를 부르지 않고 조합이 끝난 
   await waitFor(() =>
     expect(callsTo("GET", "admin/coupons/user-search")).toHaveLength(1),
   );
+});
+
+test("발급 목록을 처음 받는 동안은 표 스켈레톤이 보이고 응답이 오면 행으로 바뀐다", async () => {
+  let release: () => void = () => {};
+  on("GET", "admin/coupons/c1/grants", async () => {
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { items: grants };
+  });
+  renderCoupons("/admin/coupons/c1/grants");
+
+  expect(
+    await screen.findByRole("status", { name: GRANTS_LABEL }),
+  ).toBeVisible();
+  expect(screen.queryByText("홍길동")).toBeNull();
+
+  release();
+  expect(await screen.findByText("홍길동")).toBeVisible();
+  expect(screen.queryByRole("status", { name: GRANTS_LABEL })).toBeNull();
+});
+
+test("창 포커스 같은 백그라운드 재조회는 발급 행을 그대로 두고 스켈레톤을 띄우지 않는다", async () => {
+  const release = holdAfterFirst("admin/coupons/c1/grants", () => ({
+    items: grants,
+  }));
+  const { client } = renderCoupons("/admin/coupons/c1/grants");
+  await screen.findByText("홍길동");
+
+  const refetching = client.refetchQueries({
+    queryKey: couponKeys.grants("c1"),
+  });
+  await waitFor(() =>
+    expect(callsTo("GET", "admin/coupons/c1/grants")).toHaveLength(2),
+  );
+
+  expect(screen.getByText("홍길동")).toBeVisible();
+  expect(screen.queryByRole("status", { name: GRANTS_LABEL })).toBeNull();
+  release();
+  await refetching;
+});
+
+test("발급하면 발급 목록이 스켈레톤을 거쳐 새로 받은 행으로 바뀐다", async () => {
+  on("POST", "admin/coupons/c1/grants", { id: 6 });
+  const release = holdAfterFirst("admin/coupons/c1/grants", () => ({
+    items: grants,
+  }));
+  renderCoupons("/admin/coupons/c1/grants");
+  await search("kim");
+  grants = [
+    {
+      ...grant,
+      id: 6,
+      user_id: "u2",
+      user: { name: "김철수", email: "kim@example.com" },
+    },
+  ];
+  fireEvent.click(await screen.findByRole("button", { name: "등록" }));
+
+  expect(
+    await screen.findByRole("status", { name: GRANTS_LABEL }),
+  ).toBeVisible();
+  release();
+  await waitFor(() =>
+    expect(screen.queryByRole("status", { name: GRANTS_LABEL })).toBeNull(),
+  );
+  expect(screen.getAllByText("김철수").length).toBeGreaterThan(0);
+});
+
+test("발급 목록을 다시 받는 동안은 등록 버튼을 누를 수 없고 새 응답이 오면 발급 상태가 반영된다", async () => {
+  on("POST", "admin/coupons/c1/grants", { id: 6 });
+  const release = holdAfterFirst("admin/coupons/c1/grants", () => ({
+    items: grants,
+  }));
+  renderCoupons("/admin/coupons/c1/grants");
+  await search("kim");
+  grants = [
+    grant,
+    {
+      ...grant,
+      id: 6,
+      user_id: "u2",
+      user: { name: "김철수", email: "kim@example.com" },
+    },
+  ];
+  fireEvent.click(await screen.findByRole("button", { name: "등록" }));
+
+  await screen.findByRole("status", { name: GRANTS_LABEL });
+  const buttons = screen.getAllByRole("button", { name: "등록" });
+  expect(buttons.length).toBeGreaterThan(0);
+  for (const button of buttons) expect(button).toBeDisabled();
+
+  release();
+  await waitFor(() =>
+    expect(
+      screen.getAllByRole("img", { name: "이미 발급된 사용자입니다." }),
+    ).toHaveLength(2),
+  );
+  expect(screen.queryByRole("button", { name: "등록" })).toBeNull();
+});
+
+test("발급 목록을 처음 받는 동안에도 등록 버튼을 누를 수 없다", async () => {
+  let release: () => void = () => {};
+  on("GET", "admin/coupons/c1/grants", async () => {
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { items: grants };
+  });
+  renderCoupons("/admin/coupons/c1/grants");
+  await search("kim");
+  await screen.findByText("김철수");
+
+  const buttons = screen.getAllByRole("button", { name: "등록" });
+  expect(buttons.length).toBeGreaterThan(0);
+  for (const button of buttons) expect(button).toBeDisabled();
+
+  release();
+  await waitFor(() =>
+    expect(screen.getAllByRole("button", { name: "등록" })).toHaveLength(1),
+  );
+  expect(screen.getByRole("button", { name: "등록" })).toBeEnabled();
+});
+
+test("회수하면 발급 목록이 스켈레톤을 거쳐 새로 받은 행으로 바뀐다", async () => {
+  on("POST", "admin/coupons/grants/5/revoke", { id: 5 });
+  const release = holdAfterFirst("admin/coupons/c1/grants", () => ({
+    items: grants,
+  }));
+  renderCoupons("/admin/coupons/c1/grants");
+  fireEvent.click(await screen.findByRole("button", { name: "회수" }));
+  grants = [
+    { ...grant, revoked_at: "2026-08-03T01:00:00Z", revoke_reason: "잘못 줌" },
+  ];
+  fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+  expect(
+    await screen.findByRole("status", { name: GRANTS_LABEL }),
+  ).toBeVisible();
+  expect(screen.queryByText("홍길동")).toBeNull();
+  release();
+  expect(await screen.findByText("잘못 줌")).toBeVisible();
+});
+
+test("사용자 검색 결과를 기다리는 동안 스켈레톤을 보이고 오면 결과로 바뀐다", async () => {
+  let release: () => void = () => {};
+  on("GET", "admin/coupons/user-search", async () => {
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { items: found };
+  });
+  renderCoupons("/admin/coupons/c1/grants");
+  await search("kim");
+
+  expect(
+    await screen.findByRole("status", { name: SEARCH_LABEL }),
+  ).toBeVisible();
+  expect(screen.queryByText("김철수")).toBeNull();
+
+  release();
+  expect(await screen.findByText("김철수")).toBeVisible();
+  expect(screen.queryByRole("status", { name: SEARCH_LABEL })).toBeNull();
+});
+
+test("창 포커스 같은 백그라운드 재조회는 검색 결과를 그대로 두고 스켈레톤을 띄우지 않는다", async () => {
+  const release = holdAfterFirst("admin/coupons/user-search", () => ({
+    items: found,
+  }));
+  const { client } = renderCoupons("/admin/coupons/c1/grants");
+  await search("kim");
+  await screen.findByText("김철수");
+
+  const refetching = client.refetchQueries({
+    queryKey: couponKeys.userSearch("kim"),
+  });
+  await waitFor(() =>
+    expect(callsTo("GET", "admin/coupons/user-search")).toHaveLength(2),
+  );
+
+  expect(screen.getByText("김철수")).toBeVisible();
+  expect(screen.queryByRole("status", { name: SEARCH_LABEL })).toBeNull();
+  release();
+  await refetching;
+});
+
+test("같은 검색어로 조회를 다시 누르면 스켈레톤을 거쳐 새로 받은 결과가 보인다", async () => {
+  const release = holdAfterFirst("admin/coupons/user-search", () => ({
+    items: found,
+  }));
+  renderCoupons("/admin/coupons/c1/grants");
+  await search("kim");
+  await screen.findByText("김철수");
+
+  fireEvent.click(screen.getByRole("button", { name: "조회" }));
+
+  expect(
+    await screen.findByRole("status", { name: SEARCH_LABEL }),
+  ).toBeVisible();
+  expect(screen.queryByText("김철수")).toBeNull();
+  release();
+  expect(await screen.findByText("김철수")).toBeVisible();
 });

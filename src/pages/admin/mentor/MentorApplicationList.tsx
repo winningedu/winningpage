@@ -9,10 +9,14 @@ import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { downloadCsv, searchable } from "@/pages/admin/shared/csvExport";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
+import { useListSkeleton } from "@/pages/admin/shared/useListSkeleton";
 import {
+  keys,
   type MentorApplicationRow,
   useLoadErrorToast,
   useMentorApplicationList,
+  useResetMentorList,
 } from "./api";
 import type { MentorApplicationsAdminProps } from "./MentorApplicationsAdmin";
 import { MENTOR_APPLICATIONS_PATH } from "./paths";
@@ -27,6 +31,8 @@ export default function MentorApplicationList({
   const keyword = searchParams.get("q") ?? "";
   const page = Number(searchParams.get("page")) || 1;
   const query = useMentorApplicationList();
+  const showSkeleton = useListSkeleton(query, keys.list());
+  const resetList = useResetMentorList();
   useLoadErrorToast(`${config.title} 조회 실패`, query.error);
 
   // 개인정보 반출 게이트 (QA 270, 228).
@@ -102,7 +108,7 @@ export default function MentorApplicationList({
               type="button"
               variant="outline"
               size="lg"
-              onClick={() => void query.refetch()}
+              onClick={() => void resetList()}
             >
               <RefreshCw aria-hidden="true" />
               초기화
@@ -131,13 +137,12 @@ export default function MentorApplicationList({
         <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
 
-      {query.isFetching ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+      {showSkeleton ? (
+        <AdminTableSkeleton
+          // 번호 + 설정 열 + 관리, AdminTable 머리글과 같다.
+          columns={config.columns.length + 2}
+          label="멘토 신청 목록을 불러오는 중입니다."
+        />
       ) : (
         <AdminTable
           config={config}

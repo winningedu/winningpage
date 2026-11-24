@@ -99,6 +99,76 @@ async function search() {
   await screen.findByText("김하늘");
 }
 
+// 값이 오는 시점을 test 가 정하는 사용 현황 응답.
+function heldUsage() {
+  let release: (body: unknown) => void = () => {};
+  const body = new Promise<unknown>((resolve) => {
+    release = resolve;
+  });
+  return {
+    release,
+    response: {
+      json: async (schema: { parse: (value: unknown) => unknown }) =>
+        schema.parse(await body),
+    },
+  };
+}
+
+describe("StudentUsageAdmin 스켈레톤", () => {
+  test("사용 현황을 기다리는 동안 스켈레톤을 보이고 오면 서비스 행으로 바뀐다", async () => {
+    const held = heldUsage();
+    http.get.mockImplementation(() => held.response);
+    renderAt("/admin/serviceCreditAdjust?student=s-1");
+
+    expect(
+      await screen.findByRole("status", {
+        name: "사용 현황을 불러오는 중입니다.",
+      }),
+    ).toBeTruthy();
+    expect(screen.queryAllByTestId("usage-row")).toHaveLength(0);
+
+    held.release(usage());
+    expect(await screen.findAllByTestId("usage-row")).toHaveLength(6);
+    expect(
+      screen.queryByRole("status", { name: "사용 현황을 불러오는 중입니다." }),
+    ).toBeNull();
+  });
+
+  test("학생을 고르기 전에는 스켈레톤을 보이지 않는다", () => {
+    renderAt();
+
+    expect(
+      screen.queryByRole("status", { name: "사용 현황을 불러오는 중입니다." }),
+    ).toBeNull();
+  });
+
+  test("저장하면 사용 현황이 스켈레톤을 거쳐 새로 받은 값으로 바뀐다", async () => {
+    renderAt("/admin/serviceCreditAdjust?student=s-1");
+    await screen.findByText("한빛고");
+    fireEvent.change(screen.getByLabelText("성장설계 월 조정"), {
+      target: { value: "9" },
+    });
+    const held = heldUsage();
+    http.get.mockImplementation(() => held.response);
+    fireEvent.click(
+      screen.getByRole("button", { name: "선택한 1명에게 저장" }),
+    );
+
+    expect(
+      await screen.findByRole("status", {
+        name: "사용 현황을 불러오는 중입니다.",
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText("성장설계 월 조정")).toBeNull();
+
+    held.release(usage({ override: { monthlyLimit: 9, termLimit: null } }));
+    expect(
+      ((await screen.findByLabelText("성장설계 월 조정")) as HTMLInputElement)
+        .value,
+    ).toBe("9");
+  });
+});
+
 describe("StudentUsageAdmin", () => {
   test("학생 검색이 실패하면 서버가 준 안내를 보여 준다", async () => {
     http.get.mockImplementation((path: string) =>

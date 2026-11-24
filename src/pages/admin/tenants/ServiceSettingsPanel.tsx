@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { ActionButton } from "@/pages/admin/shared/formFields";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { fetchServiceSettings, putServiceSetting } from "./api";
 import {
   buildServiceRows,
@@ -32,6 +33,9 @@ interface ServiceSettingsPanelProps {
   isCatchAll: boolean;
 }
 
+// 서비스 설정 행 수(학습진단, 목표관리, 성장설계, 수행평가, 심화탐구, 자기평가). 스켈레톤 행 수가 된다.
+const SERVICE_COUNT = 6;
+
 const INPUT_CLASS = "h-9";
 
 export default function ServiceSettingsPanel({
@@ -56,11 +60,17 @@ export default function ServiceSettingsPanel({
     );
   }
   if (!query.data) {
+    if (!query.isError) {
+      return (
+        <AdminDetailSkeleton
+          rows={SERVICE_COUNT}
+          label="서비스 설정을 불러오는 중입니다."
+        />
+      );
+    }
     return (
       <div className="bg-white p-6 text-sm font-medium text-gray-500 shadow-sm">
-        {query.isError
-          ? "서비스 설정을 불러오지 못했어요."
-          : "데이터를 불러오는 중입니다."}
+        서비스 설정을 불러오지 못했어요.
       </div>
     );
   }

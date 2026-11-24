@@ -169,12 +169,13 @@ export function useVoidRedemption(couponId: string) {
           json: reason.trim() ? { reason: reason.trim() } : {},
         })
         .json(z.looseObject({})),
+    // 내가 무효화했으니 이력과 목록의 사용 건수를 비우고 스켈레톤 뒤에 새로 받는다.
     onSuccess: () =>
       Promise.all([
-        queryClient.invalidateQueries({
+        queryClient.resetQueries({
           queryKey: couponKeys.redemptions(couponId),
         }),
-        queryClient.invalidateQueries({ queryKey: couponKeys.list() }),
+        queryClient.resetQueries({ queryKey: couponKeys.list() }),
       ]),
   });
 }
@@ -207,7 +208,7 @@ export function useUserSearch(q: string | null) {
   });
 }
 
-/** 개별 발급. 발급 목록만 다시 받는다. */
+/** 개별 발급. 발급 목록만 비우고 스켈레톤 뒤에 새로 받는다. */
 export function useGrantCoupon(couponId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -218,11 +219,11 @@ export function useGrantCoupon(couponId: string) {
         })
         .json(z.looseObject({})),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: couponKeys.grants(couponId) }),
+      queryClient.resetQueries({ queryKey: couponKeys.grants(couponId) }),
   });
 }
 
-/** 발급 회수. 사유가 비면 키를 뺀다. 발급 목록만 다시 받는다. */
+/** 발급 회수. 사유가 비면 키를 뺀다. 발급 목록만 비우고 스켈레톤 뒤에 새로 받는다. */
 export function useRevokeGrant(couponId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -233,7 +234,7 @@ export function useRevokeGrant(couponId: string) {
         })
         .json(z.looseObject({})),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: couponKeys.grants(couponId) }),
+      queryClient.resetQueries({ queryKey: couponKeys.grants(couponId) }),
   });
 }
 
@@ -249,8 +250,8 @@ export function useSaveCoupon(id: string | undefined) {
               json: payload,
             })
             .json(couponSchema),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: couponKeys.list() }),
+    // 내가 저장했으니 옛 목록을 비우고 스켈레톤 뒤에 새로 받는다.
+    onSuccess: () => queryClient.resetQueries({ queryKey: couponKeys.list() }),
   });
 }
 

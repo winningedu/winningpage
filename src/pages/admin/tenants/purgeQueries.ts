@@ -110,9 +110,9 @@ export function useMemberPurge() {
       api
         .post("admin/tenants/member-purge", { json: body })
         .json(purgeResultSchema),
-    // 지운 학생이 목록에서 빠지도록 미리보기를 다시 읽는다.
+    // 지운 학생이 목록에서 빠지도록 미리보기를 비우고 스켈레톤 뒤에 다시 읽는다.
     onSettled: (_data, _error, body) =>
-      client.invalidateQueries({
+      client.resetQueries({
         queryKey: ["admin", "member-purge", "preview", body.tenantId],
       }),
   });
