@@ -28,7 +28,7 @@ export const memberRowSchema = z.looseObject({
   memo: text,
   member_category: text,
   tenant_id: text,
-  tenant_name: z.string().optional(),
+  tenant_name: z.string().nullish(),
   service_labels: z.string().optional(),
   is_active: flag,
   terms_service_agreed: flag,
