@@ -372,6 +372,36 @@ describe("입결 유도 백필", () => {
     expect(onReload).toHaveBeenCalled();
   });
 
+  test("서버가 4xx 중복으로 거절하면 행 범위만 붙이고 되돌려지지 않는다는 문구는 붙이지 않는다", async () => {
+    const onReload = renderPanels();
+    await screen.findByText(/전체 4건/);
+    await computePreview();
+    const failure = new ApiError({
+      status: 409,
+      code: "BACKFILL_APPLY_FAILED",
+      detail: "백필 반영 중 일부 청크가 실패했습니다.",
+      problem: {
+        type: "about:blank",
+        title: "t",
+        status: 409,
+        detail: "백필 반영 중 일부 청크가 실패했습니다.",
+        code: "BACKFILL_APPLY_FAILED",
+        applied: 0,
+        range: "1~100",
+        dbCode: "DB_UNIQUE_VIOLATION",
+      },
+    });
+    mocks.post.mockRejectedValue(failure);
+    fireEvent.click(screen.getByLabelText(/영향받는 6행을 확인했습니다/));
+    fireEvent.click(screen.getByRole("button", { name: "적용" }));
+    await waitFor(() => expect(mocks.reportAdminError).toHaveBeenCalled());
+    expect(mocks.reportAdminError).toHaveBeenCalledWith(
+      "백필 적용 실패(1~100행)",
+      failure,
+    );
+    expect(onReload).toHaveBeenCalled();
+  });
+
   test("미리보기 이후 데이터가 바뀌어 409 면 미리보기를 닫고 다시 계산하라고 알린다", async () => {
     renderPanels();
     await screen.findByText(/전체 4건/);
