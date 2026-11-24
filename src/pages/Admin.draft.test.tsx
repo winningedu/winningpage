@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +14,10 @@ vi.mock("@/lib/supabase", () => ({
       }),
     },
   },
+}));
+
+vi.mock("@/context/AuthProvider", () => ({
+  useAuth: () => ({ userId: null }),
 }));
 
 vi.mock("./admin/shared/adminSession", () => ({
@@ -34,9 +39,11 @@ describe("Admin 학습진단 초안", () => {
     localStorage.setItem("diagnosis-draft:u1", "{}");
     localStorage.setItem("other-key", "keep");
     render(
-      <MemoryRouter initialEntries={["/admin"]}>
-        <AdminLayout />
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={["/admin"]}>
+          <AdminLayout />
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "로그아웃" }));

@@ -130,6 +130,42 @@ describe("경로 파라미터", () => {
     },
   );
 
+  test.each([
+    "/api/admin/sections/[key]",
+    "/api/admin/sections/[key]/[id]",
+    "/api/admin/sections/[key]/export",
+    "/api/admin/sections/%5Bkey%5D",
+    "/api/admin/sections/%5Bkey%5D/%5Bid%5D",
+  ])(
+    "원문 키에 대괄호가 있는 %s 는 쿼리 값이 있어도 로더 없이 404 다",
+    async (url) => {
+      const handler = vi.fn();
+      const loader = vi.fn(async () => ({ default: handler }));
+      const { res } = await run(
+        {
+          "admin/sections/[key]": loader,
+          "admin/sections/[key]/[id]": loader,
+          "admin/sections/[key]/export": loader,
+        },
+        `${url}?key=adminMembers`,
+        { key: "adminMembers" },
+      );
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(loader).not.toHaveBeenCalled();
+      expect(handler).not.toHaveBeenCalled();
+    },
+  );
+
+  test("정확한 키 분기는 대괄호 키를 건너뛴다", async () => {
+    // 원문 키 검사를 지나도 정확한 키로는 패턴 라우트에 닿지 않아야 한다
+    const loader = vi.fn(async () => ({ default: vi.fn() }));
+    const { res } = await run({ "a/[key]": loader }, "/api/a/[key]");
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(loader).not.toHaveBeenCalled();
+  });
+
   test("구간 수가 다르면 404 다", async () => {
     const handler = vi.fn();
     const routes = { "a/[key]/[id]": loaderOf(handler) };

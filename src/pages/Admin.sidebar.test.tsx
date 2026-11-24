@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, useNavigate } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -19,11 +20,23 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
-vi.mock("@/lib/adminPermissions", async (importActual) => ({
-  ...(await importActual<typeof import("@/lib/adminPermissions")>()),
-  fetchAdminPermissions: async () =>
-    new Map([...state.allowed].map((k) => [k, "edit"])),
-  fetchIsSuperAdmin: async () => false,
+vi.mock("@/context/AuthProvider", () => ({
+  useAuth: () => ({ userId: "u1" }),
+}));
+
+vi.mock("@/lib/http/client", async (importActual) => ({
+  ...(await importActual<typeof import("@/lib/http/client")>()),
+  api: {
+    get: () => ({
+      json: async (schema: { parse: (v: unknown) => unknown }) =>
+        schema.parse({
+          permissions: Object.fromEntries(
+            [...state.allowed].map((k) => [k, "edit"]),
+          ),
+          isSuper: false,
+        }),
+    }),
+  },
 }));
 
 vi.mock("./admin/shared/adminSession", () => ({
@@ -32,11 +45,17 @@ vi.mock("./admin/shared/adminSession", () => ({
 
 import { AdminLayout } from "./Admin";
 
+function newQueryClient() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+}
+
 function renderShell(path = "/admin/banners") {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <AdminLayout />
-    </MemoryRouter>,
+    <QueryClientProvider client={newQueryClient()}>
+      <MemoryRouter initialEntries={[path]}>
+        <AdminLayout />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -51,10 +70,12 @@ function GoTo({ to }: { to: string }) {
 
 function renderShellWithNav(path: string, to: string) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <GoTo to={to} />
-      <AdminLayout />
-    </MemoryRouter>,
+    <QueryClientProvider client={newQueryClient()}>
+      <MemoryRouter initialEntries={[path]}>
+        <GoTo to={to} />
+        <AdminLayout />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

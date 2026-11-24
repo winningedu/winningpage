@@ -123,15 +123,13 @@ describe("visibility (13 H, 16 r33-r35)", () => {
     expect(errorsOf({ ...H12, q8: 4, q8d: 2 })).toEqual(hidden("q8d"));
   });
 
-  test("subject grades are hidden for M3 only (06 C51 is 사용)", () => {
+  test("recent grade and mock exams are hidden for M3 only (06 C51 is 사용)", () => {
     const grades = {
-      q6s: { KOR: 2 },
       q6r: 2.1,
       q6m: { month: 9, grades: { KOR: 3 } },
     };
     expect(errorsOf({ ...H12, ...grades })).toEqual([]);
     expect(errorsOf({ ...M3, ...grades })).toEqual([
-      ...hidden("q6s"),
       ...hidden("q6r"),
       ...hidden("q6m"),
     ]);
@@ -379,4 +377,55 @@ describe("grade ranges per q4 (review W3, 16 r6-r9, 12 B5)", () => {
       ).toEqual([{ question: "q6m", reason: "invalid" }]);
     },
   );
+});
+
+describe("M3 subject scores (고객 답 2026-11-24 학습진단 5번)", () => {
+  const M3 = validAnswers("M3");
+  const SIX = { KOR: 95, MATH: 60, ENG: 90, SOC: 80, SCI: 80, HISTORY: 70 };
+  const accepted = (input: unknown) => {
+    const result = validateAnswers(input, DAY1);
+    return result.ok ? result.answers : null;
+  };
+
+  test("all six scores are required, a missing or partial q6s is reported", () => {
+    expect(errorsOf(without(M3, "q6s"))).toEqual([
+      { question: "q6s", reason: "missing" },
+    ]);
+    expect(errorsOf({ ...M3, q6s: { KOR: 90, MATH: 80 } })).toEqual([
+      { question: "q6s", reason: "missing" },
+    ]);
+  });
+
+  test("q6 is recomputed from the six scores, whatever the client sent", () => {
+    expect(accepted({ ...M3, q6s: SIX, q6: 3 })?.q6).toBe(79.2);
+    expect(accepted({ ...M3, q6s: SIX, q6: "x" })?.q6).toBe(79.2);
+    expect(accepted({ ...without(M3, "q6"), q6s: SIX })?.q6).toBe(79.2);
+  });
+
+  test("q6 is no longer required for M3 when the six scores are there", () => {
+    expect(errorsOf({ ...without(M3, "q6"), q6s: SIX })).toEqual([]);
+  });
+
+  test("scores are 0 to 100 raw whatever q4 says; 역사 is allowed", () => {
+    expect(errorsOf({ ...M3, q4: 1, q6s: SIX })).toEqual([]);
+    expect(errorsOf({ ...M3, q6s: { ...SIX, KOR: 101 } })).toEqual([
+      { question: "q6s", reason: "invalid" },
+    ]);
+    expect(errorsOf({ ...M3, q6s: { ...SIX, KOR: -1 } })).toEqual([
+      { question: "q6s", reason: "invalid" },
+    ]);
+    expect(errorsOf({ ...M3, q6s: { ...SIX, KOREAN: 2 } })).toEqual([
+      { question: "q6s", reason: "invalid" },
+    ]);
+  });
+
+  test("high school keeps five subjects and rejects 역사", () => {
+    expect(errorsOf({ ...H12, q6s: { KOR: 2, HISTORY: 2 } })).toEqual([
+      { question: "q6s", reason: "invalid" },
+    ]);
+  });
+
+  test("the high school q6 is kept as sent", () => {
+    expect(accepted({ ...H12, q6s: { KOR: 2 }, q6: 1.4 })?.q6).toBe(1.4);
+  });
 });

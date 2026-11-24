@@ -36,18 +36,12 @@ export function filledSteps(cover: ReportCover): boolean[] {
   return STEP_ORDER.map((key) => cover.steps[key]);
 }
 
-/**
- * 표지 정보 줄. 서비스는 individual 일 때만 라벨을 붙인다. standard 는 명세에 표시 라벨이 없어
- * 아무것도 붙이지 않는다(열린 결정).
- */
+/** 표지 정보 줄. 서비스 유형은 표지에 그리지 않는다(고객 답 2026-11-24, 명세 No.135). */
 export function coverInfoItems(cover: ReportCover, studentName: string | null) {
-  const individual = cover.serviceTier === "individual";
   return [
     { label: "학생명", value: studentName },
     { label: "학년", value: cover.gradeLabel },
-    individual
-      ? { label: "저장일, 서비스", value: `${cover.savedAt}, 개별관리` }
-      : { label: "저장일", value: cover.savedAt },
+    { label: "저장일", value: cover.savedAt },
   ];
 }
 

@@ -30,7 +30,12 @@ export function buildPage11(
       label: copyCell("06_긴급도", urgencyId, 1),
       text: copy(urgencyId),
     },
-    ...buildPlanPage(scores.plan, context.diagnosedAt, answers.q13),
+    ...buildPlanPage(
+      scores.plan,
+      context.diagnosedAt,
+      answers.q13,
+      answers.q21.weekend,
+    ),
     ...(styleTips.length > 0 ? { styleTips } : {}),
   };
 }

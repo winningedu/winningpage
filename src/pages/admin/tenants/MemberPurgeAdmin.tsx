@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
   Route,
@@ -24,9 +25,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchAdminPermissions } from "@/lib/adminPermissions";
+import { useAuth } from "@/context/AuthProvider";
+import { adminPermissionsQueryOptions } from "@/lib/adminPermissions";
 import { ApiError } from "@/lib/http/client";
-import { supabase } from "@/lib/supabase";
 import {
   ActionButton,
   Field,
@@ -120,24 +121,13 @@ function PurgePanel({
   const [result, setResult] = useState<PurgeResult | null>(null);
   const running = purge.isPending;
   const cancelRef = useRef<HTMLButtonElement>(null);
-  // 서버도 tenants edit 권한을 본다. 못 읽었으면 막아 둔다(fail-closed).
-  const [canEdit, setCanEdit] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        const userId = data.session?.user?.id;
-        return userId ? fetchAdminPermissions(userId) : null;
-      })
-      .then((permissions) => {
-        if (active) setCanEdit(permissions?.get("tenants") === "edit");
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  // 서버도 tenants edit 권한을 본다. 읽는 중이거나 못 읽었으면 막아 둔다(fail-closed).
+  const { userId } = useAuth();
+  const { data: access } = useQuery({
+    ...adminPermissionsQueryOptions(userId ?? ""),
+    enabled: !!userId,
+  });
+  const canEdit = access?.permissions.get("tenants") === "edit";
 
   // 미리보기가 새로 오면(처음, 삭제 뒤 다시 읽기) 유료 전환이 아닌 학생을 기본으로 고른다.
   useEffect(() => {

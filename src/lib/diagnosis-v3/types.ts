@@ -38,6 +38,8 @@ export type LikertBlock = {
 
 /** q6s subjects, 13 F12 (국, 수, 영, 사, 과). */
 export type SubjectCode = "KOR" | "MATH" | "ENG" | "SOC" | "SCI";
+/** 중학교 3학년 q6s adds 역사 (customer answer 2026-11-24 학습진단 5번); not the mock 한국사 key HIST. */
+export type MiddleSubjectCode = SubjectCode | "HISTORY";
 /** q6m adds 한국사 (judge-report R3: input only, not judged). */
 export type MockSubjectCode = SubjectCode | "HIST";
 
@@ -92,10 +94,10 @@ export type DiagnosisV3Answers = {
   readonly q3r?: readonly Ordinal[];
   readonly q4: Ordinal;
   readonly q5: Ordinal;
-  /** overall average in the q4 grade system */
+  /** overall average in the q4 grade system; M3: the server sets it from the six q6s scores */
   readonly q6: number;
-  /** shown when 06 C51 is 사용 and the track is not M3 */
-  readonly q6s?: Readonly<Partial<Record<SubjectCode, number>>>;
+  /** shown when 06 C51 is 사용; M3 enters six subjects (with 역사), all required */
+  readonly q6s?: Readonly<Partial<Record<MiddleSubjectCode, number>>>;
   readonly q6r?: number;
   readonly q6m?: {
     /** exam month 3..11 */
@@ -153,6 +155,8 @@ export type DiagnosisV3Context = {
     readonly year: number;
   } | null;
   readonly studentName: string | null;
+  /** service codes the site does not offer (Schoolmentor: CALL); dropped from the 16p ranking */
+  readonly excludedServices: readonly ServiceCode[];
 };
 
 // ---------------------------------------------------------------------------
@@ -302,7 +306,7 @@ export type DiagnosisV3Scores = {
   readonly examOps: "RISK" | "MID" | "OK";
   /** 22 r44; null when 22 r45 applies */
   readonly subjects: Readonly<
-    Partial<Record<SubjectCode, SubjectVerdict>>
+    Partial<Record<MiddleSubjectCode, SubjectVerdict>>
   > | null;
   readonly temperament: {
     readonly dims: Readonly<
@@ -354,7 +358,7 @@ export type DiagnosisV3Scores = {
   readonly services: {
     /** 07 C16-C21 candidate scope */
     readonly scope: "ALL" | "M3" | "NSU" | "G3LATE";
-    readonly ranked: readonly [ServiceFit, ServiceFit];
+    readonly ranked: readonly [ServiceFit] | readonly [ServiceFit, ServiceFit];
     readonly counselPinned: boolean;
   };
   readonly urgency: {
@@ -565,7 +569,7 @@ export type Page3 = {
   /** 22 r43 */
   readonly bars?: {
     readonly school: readonly {
-      readonly subject: SubjectCode;
+      readonly subject: MiddleSubjectCode;
       readonly grade: number;
     }[];
     readonly mock?: {
@@ -581,7 +585,7 @@ export type Page3 = {
     | {
         readonly kind: "table";
         readonly rows: readonly {
-          readonly subject: SubjectCode;
+          readonly subject: MiddleSubjectCode;
           readonly verdict: SubjectVerdict;
           readonly text: string;
         }[];
@@ -889,6 +893,8 @@ export type Page11 = {
     readonly logMinutes: number;
     readonly rates: readonly number[];
     readonly minLoad: string;
+    /** q21 weekend option label; absent in reports stored before it existed */
+    readonly weekend?: string;
   };
   /** 22 r106, absent when nothing applies */
   readonly styleTips?: readonly string[];
@@ -938,7 +944,9 @@ export type Page16 = {
   /** 22 r116 */
   readonly preferences: readonly string[];
   /** 22 r117 */
-  readonly services: readonly [ServiceCard, ServiceCard];
+  readonly services:
+    | readonly [ServiceCard]
+    | readonly [ServiceCard, ServiceCard];
   /** 22 r118 */
   readonly scopeNote?: string;
   /** candidate scope behind scopeNote (07 B30); render layer picks the closed-site notice by it */

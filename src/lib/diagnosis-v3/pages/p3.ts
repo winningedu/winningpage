@@ -10,8 +10,12 @@ import {
 import { LIKERT_LEVELS } from "../likert.js";
 import { OPTIONS } from "../options.js";
 import type { Engine } from "../report.js";
-import { SUBJECT_CODES, subjectTextId } from "../subjects.js";
-import type { MockSubjectCode, Page3, SubjectCode } from "../types.js";
+import {
+  MIDDLE_SUBJECT_CODES,
+  SUBJECT_CODES,
+  subjectTextId,
+} from "../subjects.js";
+import type { MiddleSubjectCode, MockSubjectCode, Page3 } from "../types.js";
 import { gpaText, trendText } from "./p1.js";
 
 // 13 F12 subjects plus 한국사 (types MockSubjectCode, judge-report R3)
@@ -36,7 +40,7 @@ const recentText = (q6: number, q6r: number | undefined) => {
   });
 };
 
-const gradesOf = <S extends MockSubjectCode>(
+const gradesOf = <S extends MockSubjectCode | MiddleSubjectCode>(
   codes: readonly S[],
   grades: Readonly<Partial<Record<S, number>>>,
 ) =>
@@ -61,7 +65,10 @@ const examOpsEvidence = (answers: Engine["answers"]) => {
 
 export function buildPage3(engine: Engine): Page3 {
   const { answers, scores } = engine;
-  const school = gradesOf<SubjectCode>(SUBJECT_CODES, answers.q6s ?? {});
+  const school = gradesOf<MiddleSubjectCode>(
+    MIDDLE_SUBJECT_CODES,
+    answers.q6s ?? {},
+  );
   const verdicts = scores.subjects;
   return {
     // 22 r38: 7번 option number, NA when unanswered
@@ -90,7 +97,7 @@ export function buildPage3(engine: Engine): Page3 {
     subjects: verdicts
       ? {
           kind: "table",
-          rows: SUBJECT_CODES.flatMap((subject) => {
+          rows: MIDDLE_SUBJECT_CODES.flatMap((subject) => {
             const verdict = verdicts[subject];
             return verdict === undefined
               ? []

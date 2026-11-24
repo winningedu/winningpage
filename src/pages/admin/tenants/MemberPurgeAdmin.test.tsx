@@ -32,11 +32,10 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
-vi.mock("@/lib/adminPermissions", () => ({
-  fetchAdminPermissions: vi.fn(),
+vi.mock("@/context/AuthProvider", () => ({
+  useAuth: () => ({ userId: "hq-1" }),
 }));
 
-import { fetchAdminPermissions } from "@/lib/adminPermissions";
 import { ApiError } from "@/lib/http/client";
 import MemberPurgeAdmin from "./MemberPurgeAdmin";
 
@@ -100,6 +99,10 @@ const reply = (body: unknown) => ({
 
 const db = {
   tenants: [] as Record<string, unknown>[],
+  permissions: {
+    permissions: {} as Record<string, "view" | "edit">,
+    isSuper: false,
+  },
   previewFor: (_tenantId: string): unknown => preview(-36),
 };
 
@@ -107,14 +110,14 @@ beforeEach(() => {
   vi.resetAllMocks();
   db.tenants = [TENANT];
   db.previewFor = () => preview(-36);
+  db.permissions = { permissions: { tenants: "edit" }, isSuper: false };
   http.get.mockImplementation(
     (url: string, options?: { searchParams?: { tenantId: string } }) =>
-      url === "admin/tenants"
-        ? reply({ items: db.tenants, graceDays: null })
-        : reply(db.previewFor(options?.searchParams?.tenantId ?? "")),
-  );
-  vi.mocked(fetchAdminPermissions).mockResolvedValue(
-    new Map([["tenants", "edit"]]),
+      url === "admin/me/permissions"
+        ? reply(db.permissions)
+        : url === "admin/tenants"
+          ? reply({ items: db.tenants, graceDays: null })
+          : reply(db.previewFor(options?.searchParams?.tenantId ?? "")),
   );
 });
 
@@ -342,9 +345,7 @@ describe("MemberPurgeAdmin", () => {
   });
 
   test("tenants 편집 권한이 없으면 삭제 실행 버튼이 막힌다", async () => {
-    vi.mocked(fetchAdminPermissions).mockResolvedValue(
-      new Map([["tenants", "view"]]),
-    );
+    db.permissions = { permissions: { tenants: "view" }, isSuper: false };
     await openTenant();
 
     expect(

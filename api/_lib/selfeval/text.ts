@@ -5,6 +5,7 @@ import {
   CAUSAL_LINK_PHRASES,
   CLICHES,
   PLAN_EXPRESSIONS,
+  PLAN_SENTENCE_END_EXPRESSION,
 } from "./dictionaries.js";
 import type { CharCount, TargetCharsMode } from "./types.js";
 
@@ -118,10 +119,23 @@ export function clicheDensity(
   return { density: Math.round((hits.length / len) * 1000 * 100) / 100, hits };
 }
 
-/** 본문에서 찾은 계획 표현. 공백을 지우고 비교하고 사전 원문을 사전 순서로, 중복 없이 돌려준다. */
+const PLAN_SENTENCE_END = new RegExp(
+  `${PLAN_SENTENCE_END_EXPRESSION.replace(/\s/g, "\\s*")}$`,
+);
+
+/**
+ * 본문에서 찾은 계획 표현. 공백을 지우고 비교하고 사전 원문을 사전 순서로, 중복 없이 돌려준다.
+ * 문장이 "고자 함" 으로 끝나면(끝 공백과 마지막 문장부호는 무시) 사전 표현 뒤에 "고자 함" 을 붙인다.
+ */
 export function findPlanExpressions(text: string): string[] {
   const compact = text.replace(/\s/g, "");
-  return PLAN_EXPRESSIONS.filter((p) => compact.includes(p.replace(/\s/g, "")));
+  const hits = PLAN_EXPRESSIONS.filter((p) =>
+    compact.includes(p.replace(/\s/g, "")),
+  );
+  const endsWithPurpose = splitSentences(text).some((s) =>
+    PLAN_SENTENCE_END.test(s.replace(/[\s.?!]+$/, "")),
+  );
+  return endsWithPurpose ? [...hits, PLAN_SENTENCE_END_EXPRESSION] : hits;
 }
 
 /** 본문에서 찾은 인과 연계 표현(명세 No.193). 공백을 지우고 비교하고 사전 원문으로 돌려준다. */

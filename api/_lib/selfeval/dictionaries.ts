@@ -22,7 +22,8 @@ export const CLICHES: readonly string[] = [
 /**
  * 계획 표현(명세 No.56). 본문에는 실제로 한 일만 쓰므로 미래 계획 문장을 막는다.
  * 상투어 사전과 같은 곳에 둔다. "~할 것임", "~하고 싶음" 은 어미 부분만 사전에 둔다.
- * "~고자 함" 은 제품 확인 전이라 넣지 않는다.
+ * "~고자 함" 은 문장 끝에 올 때만 계획 표현이다(고객 답 2026-11-24 자기평가 2번). 문장 중간의
+ * 목적 표현("~하고자 ~함")은 제외해야 하므로 이 목록에 넣지 않고 PLAN_SENTENCE_END_EXPRESSION 으로 따로 둔다.
  */
 export const PLAN_EXPRESSIONS: readonly string[] = [
   "계획을 세움",
@@ -31,6 +32,9 @@ export const PLAN_EXPRESSIONS: readonly string[] = [
   "할 것임",
   "하고 싶음",
 ];
+
+/** 문장 끝에서만 계획 표현으로 보는 "~고자 함". 돌려줄 때 쓰는 표시 문구이기도 하다. */
+export const PLAN_SENTENCE_END_EXPRESSION = "고자 함";
 
 /**
  * 확인하지 않은 암묵 연계를 인과나 출처로 단정하는 표현(명세 No.193). 본문에서 그 기록을 인용한

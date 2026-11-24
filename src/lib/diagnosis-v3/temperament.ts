@@ -475,6 +475,10 @@ export function scoreTemperament(input: TemperamentInput): TemperamentResult {
   };
 }
 
+/** First word of a "{first}\u00b7{second}형" type name, for the mixed hero name. */
+const firstWord = (typeName: string): string =>
+  typeName.split("\u00b7")[0] ?? typeName;
+
 /** 22 r86-r94: page 9 text for the temperament result (copy sheet 13, 10, 11). */
 export function temperamentPage9(
   result: TemperamentResult,
@@ -500,7 +504,12 @@ export function temperamentPage9(
     lead: copy("TEMP_LEAD"),
     scaleNote: copy("TEMP_SCALE_NOTE"),
     hero: {
-      name: names ? fill("temp.mixed", names) : typeCopy(top, "NAME"),
+      name: mixed
+        ? fill("temp.mixed", {
+            a: firstWord(typeCopy(mixed[0], "NAME")),
+            b: firstWord(typeCopy(mixed[1], "NAME")),
+          })
+        : typeCopy(top, "NAME"),
       sub: fill("temp.hero_sub", {
         top: DIM_LABELS[top],
         second: DIM_LABELS[second],
