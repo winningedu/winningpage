@@ -53,6 +53,7 @@ export const routes: Record<string, RouteLoader> = {
   "admin/service-credit-summary": () =>
     import("./admin/service-credit-summary.js"),
   "admin/staff": () => import("./admin/staff.js"),
+  "admin/staff/[profileId]": () => import("./admin/staff/[profileId].js"),
   "admin/tenant-options": () => import("./admin/tenant-options.js"),
   "admin/tenants": () => import("./admin/tenants.js"),
   "admin/tenants/[id]": () => import("./admin/tenants/[id].js"),
