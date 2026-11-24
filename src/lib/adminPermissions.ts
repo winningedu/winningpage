@@ -1,13 +1,15 @@
+import { queryOptions } from "@tanstack/react-query";
+import { z } from "zod";
 import { site } from "@/config/site";
 import {
   isSuperOnlySection,
   permissionKeyFor,
 } from "./admin-permission/sections";
-import { getCached, setCached } from "./routeMiddlewareCache";
-import { supabase } from "./supabase";
+import { api } from "./http/client";
 
 // ---------------------------------------------------------------------------
 // 어드민 메뉴별 권한 판정 — 20260822000010_admin_permissions 의 화면 쪽 소비자.
+// 권한 조회는 브라우저가 rpc 를 부르지 않고 GET /api/admin/me/permissions 를 쓴다.
 //
 // 왜 필요한가
 //   권한 테이블·판정 함수는 2026-08-22 에 만들어졌는데, 화면과 라우트가 그걸
@@ -28,59 +30,37 @@ export type AdminLevel = "view" | "edit";
 /** 메뉴 키 → 최종 권한. 여기 **없는 키는 접근 불가**다(규칙 3, default deny). */
 export type AdminPermissionMap = Map<string, AdminLevel>;
 
-const PERMISSIONS_CACHE_KIND = "admin-permissions";
-const SUPER_CACHE_KIND = "admin-is-super";
+const PERMISSIONS_STALE_MS = 15_000;
 
-/** 내 최종 권한 목록. 실패하면 빈 맵을 준다 — 못 읽었으면 열지 않는다(fail-closed). */
-export async function fetchAdminPermissions(
-  userId: string,
-): Promise<AdminPermissionMap> {
-  const cached = getCached<AdminPermissionMap>(userId, PERMISSIONS_CACHE_KIND);
-  if (cached) return cached;
+const permissionsResponseSchema = z.object({
+  permissions: z.record(z.string(), z.enum(["view", "edit"])),
+  isSuper: z.boolean(),
+});
 
-  const { data, error } = await supabase.rpc("fn_admin_effective_permissions", {
-    p_profile_id: userId,
+/**
+ * GET /api/admin/me/permissions — 내 최종 권한 맵과 최고 관리자 여부.
+ *
+ * 라우트 가드와 사이드바가 같은 키를 쓰므로 15초 안에는 요청 하나를 나눠 쓴다
+ * (예전 routeMiddlewareCache TTL 과 같은 창). 못 읽으면 호출부가 빈 맵으로 닫는다(fail-closed).
+ * retry 를 끄는 이유: 가드가 403 이나 오류를 곧바로 받아야 하고, 재시도로 이동이 늦어지면 안 된다.
+ */
+export function adminPermissionsQueryOptions(userId: string) {
+  return queryOptions({
+    queryKey: ["admin", "me", "permissions", userId] as const,
+    queryFn: async ({
+      signal,
+    }): Promise<{ permissions: AdminPermissionMap; isSuper: boolean }> => {
+      const body = await api
+        .get("admin/me/permissions", { signal })
+        .json(permissionsResponseSchema);
+      return {
+        permissions: new Map(Object.entries(body.permissions)),
+        isSuper: body.isSuper,
+      };
+    },
+    staleTime: PERMISSIONS_STALE_MS,
+    retry: false,
   });
-
-  const map: AdminPermissionMap = new Map();
-
-  if (error) {
-    console.error("어드민 권한 조회 실패:", error);
-    // 캐시에 넣지 않는다 — 일시 오류를 15초 동안 굳히면 그동안 메뉴가 통째로
-    // 사라진 것처럼 보인다. 다음 이동에서 다시 시도하게 둔다.
-    return map;
-  }
-
-  for (const row of data || []) {
-    const key = String(row.resource_key || "");
-    const level = String(row.level || "");
-    // 'none' 은 판정 함수가 이미 제외하지만(규칙 1: deny-wins), 방어적으로 거른다.
-    if (key && (level === "view" || level === "edit")) {
-      map.set(key, level);
-    }
-  }
-
-  setCached(userId, PERMISSIONS_CACHE_KIND, map);
-  return map;
-}
-
-/** 최고 관리자인지. 실패하면 false — 못 읽었으면 최고 권한으로 치지 않는다. */
-export async function fetchIsSuperAdmin(userId: string): Promise<boolean> {
-  const cached = getCached<boolean>(userId, SUPER_CACHE_KIND);
-  if (cached !== undefined) return cached;
-
-  const { data, error } = await supabase.rpc("fn_is_super_admin", {
-    p_profile_id: userId,
-  });
-
-  if (error) {
-    console.error("최고 관리자 판정 실패:", error);
-    return false;
-  }
-
-  const isSuper = data === true;
-  setCached(userId, SUPER_CACHE_KIND, isSuper);
-  return isSuper;
 }
 
 /**
