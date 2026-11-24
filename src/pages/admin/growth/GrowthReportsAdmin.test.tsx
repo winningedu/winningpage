@@ -1,7 +1,13 @@
 // 성장 리포트 목록과 상세 라우트. 목록 조건은 주소 검색 파라미터에, 상세는 /admin/growthReports/:id 에 있다.
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("@/lib/http/client", async (importOriginal) => ({
@@ -54,9 +60,9 @@ describe("GrowthReportsAdmin 목록", () => {
   test("조회 중에는 role=status 로 알린다", () => {
     on("GET", LIST, () => new Promise(() => {}));
     renderGrowth();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "데이터를 불러오는 중입니다.",
-    );
+    expect(
+      screen.getByRole("status", { name: "회차 목록을 불러오는 중" }),
+    ).toBeInTheDocument();
   });
 
   test("조회가 실패하면 서버 detail 을 role=alert 로 알린다", async () => {
@@ -150,7 +156,9 @@ describe("GrowthReportsAdmin 상세 라우트", () => {
     on("GET", detailPath("r-1"), () => new Promise(() => {}));
     renderGrowth("/admin/growthReports/r-1");
     const dialog = await screen.findByRole("dialog");
-    expect(dialog).toHaveTextContent("데이터를 불러오는 중입니다.");
+    expect(
+      within(dialog).getByRole("status", { name: "회차 상세를 불러오는 중" }),
+    ).toBeInTheDocument();
   });
 
   test("없는 회차는 서버 404 메시지를 보여준다", async () => {
