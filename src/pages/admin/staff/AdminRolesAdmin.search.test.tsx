@@ -1,46 +1,65 @@
 // AdminRolesAdmin 검색. 입력하는 대로 목록이 걸러지고, 동작 없는 검색 버튼은 두지 않는다.
 
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-vi.mock("@/lib/supabase", () => {
-  type Result = { data: unknown; error: unknown };
-  const query = (result: Result): Promise<Result> =>
-    Object.assign(Promise.resolve(result), {
-      select: () => query(result),
-      order: () => query(result),
-      eq: () => query(result),
-    });
-  const tables: Record<string, unknown[]> = {
-    admin_roles: [
-      { id: "r1", name: "운영팀", is_super: false, is_system: false },
-      { id: "r2", name: "재무팀", is_super: false, is_system: false },
-    ],
-  };
-  return {
-    supabase: {
-      from: (table: string) => ({
-        select: () => query({ data: tables[table] ?? [], error: null }),
-      }),
-    },
-  };
-});
+const http = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
+}));
 
-import AdminRolesAdmin from "./AdminRolesAdmin";
+vi.mock("@/lib/http/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/http/client")>()),
+  api: http,
+}));
 
-const CONFIG = { title: "권한 관리", searchPlaceholder: "검색" };
+import { renderRoles, routeApi } from "./testHelpers";
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
+  routeApi(http.get, {
+    "admin/roles": {
+      items: [
+        {
+          id: "r1",
+          name: "운영팀",
+          description: null,
+          is_super: false,
+          is_system: false,
+          permissions: [],
+        },
+        {
+          id: "r2",
+          name: "재무팀",
+          description: "정산 담당",
+          is_super: false,
+          is_system: false,
+          permissions: [],
+        },
+      ],
+      resources: [],
+    },
+  });
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.clearAllMocks();
+});
+
+test("목록은 GET admin/roles 로 그린다", async () => {
+  renderRoles();
+
+  expect(await screen.findByText("운영팀")).toBeInTheDocument();
+  expect(http.get).toHaveBeenCalledWith("admin/roles", expect.anything());
 });
 
 test("동작 없는 검색 버튼은 없다", async () => {
-  render(<AdminRolesAdmin config={CONFIG} />);
+  renderRoles();
   await screen.findByText("운영팀");
 
   expect(
@@ -48,8 +67,8 @@ test("동작 없는 검색 버튼은 없다", async () => {
   ).not.toBeInTheDocument();
 });
 
-test("입력하는 대로 목록이 걸러진다", async () => {
-  render(<AdminRolesAdmin config={CONFIG} />);
+test("입력하는 대로 이름과 설명으로 목록이 걸러진다", async () => {
+  renderRoles();
   await screen.findByText("운영팀");
 
   fireEvent.change(screen.getByLabelText("권한 묶음 검색"), {
@@ -58,4 +77,9 @@ test("입력하는 대로 목록이 걸러진다", async () => {
 
   expect(screen.getByText("재무팀")).toBeInTheDocument();
   expect(screen.queryByText("운영팀")).not.toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("권한 묶음 검색"), {
+    target: { value: "정산" },
+  });
+  expect(screen.getByText("재무팀")).toBeInTheDocument();
 });
