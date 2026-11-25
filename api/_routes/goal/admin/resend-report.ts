@@ -1,5 +1,5 @@
 // POST /api/goal/admin/resend-report
-// Authorization: Bearer <supabase access token>   (관리자 = is_winning_admin() 미러)
+// Authorization: Bearer <supabase access token>   (관리자 + 메뉴 권한 goalStudents edit)
 //
 // 목표관리 리포트 알림톡(일간·주간·월간)은 크론이 정해진 시각에 자동 발송만
 // 한다. 학부모가 알림톡을 거부했거나 번호를 바꿨거나 실수로 지웠을 때 관리자가
@@ -23,6 +23,7 @@
 // [studentProfileId] 하나로 넘기면 그 학생 한 명분만 조회한다(기록이 없어도
 // 항목은 만들어진다 — "기록이 없어도 재발송 허용" 요구사항).
 
+import { z } from "zod";
 import {
   diffDaysYMD,
   getMondayYMD,
@@ -145,7 +146,6 @@ export function validateResendPeriod(
 }
 
 export type ResendReportResponse = {
-  ok: true;
   sent: number;
   failed: number;
   skipped: number;
@@ -178,27 +178,25 @@ export function buildResendResponse(
     };
   });
 
-  return { ok: true, sent, failed, skipped, recipients };
+  return { sent, failed, skipped, recipients };
 }
 
 export default defineHandler({
   methods: ["POST"],
-  auth: "winningAdmin",
-  errorShape: "detail",
+  auth: "admin",
+  errorShape: "problem",
+  permission: { key: "goalStudents" },
+  // kind, periodKey 는 validateResendPeriod 가 한글 사유와 함께 검증한다(형식과 2주 규칙이 한 곳에 있다).
+  body: z.object({
+    studentProfileId: z.string().min(1),
+    kind: z.unknown(),
+    periodKey: z.unknown(),
+  }),
   unhandledMessage: "리포트 알림톡 재발송 중 오류가 발생했습니다.",
   logLabel: "goal/admin/resend-report",
-  handler: async (req, res, ctx) => {
+  handler: async (_req, res, ctx) => {
     const supabaseAdmin = ctx.supabaseAdmin;
-    const { studentProfileId, kind, periodKey } = req.body || {};
-
-    if (!studentProfileId || typeof studentProfileId !== "string") {
-      return void sendError(
-        res,
-        "detail",
-        400,
-        "studentProfileId가 필요합니다.",
-      );
-    }
+    const { studentProfileId, kind, periodKey } = ctx.body;
 
     // 발송 시각과 "오늘"은 리포트를 받는 학생의 시간대 기준이다.
     const { data: studentRow, error: studentError } = await supabaseAdmin
@@ -210,7 +208,13 @@ export default defineHandler({
       throw new Error(`학생 시간대 조회 실패: ${studentError.message}`);
     }
     if (!studentRow) {
-      return void sendError(res, "detail", 404, "학생을 찾을 수 없습니다.");
+      return void sendError(
+        res,
+        "problem",
+        404,
+        "학생을 찾을 수 없습니다.",
+        "NOT_FOUND",
+      );
     }
 
     const validation = validateResendPeriod(
@@ -220,7 +224,13 @@ export default defineHandler({
       new Date(),
     );
     if (!validation.ok) {
-      return void sendError(res, "detail", 400, validation.detail);
+      return void sendError(
+        res,
+        "problem",
+        400,
+        validation.detail,
+        "VALIDATION_FAILED",
+      );
     }
 
     // 자동 발송(크론)의 dedupeKey와 절대 겹치지 않게 매 요청마다 새 suffix를 쓴다.

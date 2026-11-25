@@ -68,6 +68,7 @@ let rpcArgs: Record<string, unknown>[] = [];
 beforeEach(() => {
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
+  kit.state.rows.profiles = () => ({ role: "admin" });
   rpcArgs = [];
   kit.state.rpc.fn_admin_effective_permissions = () => ({
     data: [{ resource_key: "hqDashboard", level: "view" }],
@@ -87,12 +88,23 @@ describe("권한과 입력", () => {
     });
     const res = await get();
     expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ code: "FORBIDDEN" });
     expect(kit.state.events).not.toContain("rpc:fn_hq_tenant_usage");
   });
 
-  test("GET 이 아니면 405", async () => {
+  test("hqDashboard 편집 권한이어도 읽을 수 있다", async () => {
+    kit.state.rpc.fn_admin_effective_permissions = () => ({
+      data: [{ resource_key: "hqDashboard", level: "edit" }],
+      error: null,
+    });
+    const res = await get();
+    expect(res.status).toBe(200);
+  });
+
+  test("GET 이 아니면 405 problem", async () => {
     const res = await callHandler(handler, {}, "POST");
     expect(res.status).toBe(405);
+    expect(res.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
   });
 
   test("기본은 QA, 관리자 계정을 뺀다(p_include_internal false)", async () => {
@@ -109,6 +121,7 @@ describe("권한과 입력", () => {
   test("includeInternal 이 1, 0 이 아니면 400", async () => {
     const res = await get({ includeInternal: "yes" });
     expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: "VALIDATION_FAILED" });
     expect(rpcArgs).toEqual([]);
   });
 
@@ -127,9 +140,10 @@ describe("사용량 행", () => {
     const res = await get();
     expect(res.status).toBe(200);
     expect(res.headers["Cache-Control"]).toBe("no-store");
+    expect(res.body).not.toHaveProperty("ok");
+    expect(res.body).not.toHaveProperty("usage");
     expect(res.body).toMatchObject({
-      ok: true,
-      usage: [
+      items: [
         {
           tenantId: "t-a",
           programKey: "diagnose",
@@ -155,6 +169,6 @@ describe("사용량 행", () => {
     );
     kit.state.rpc.fn_hq_tenant_usage = () => ({ data: rows, error: null });
     const res = await get();
-    expect((res.body as { usage: unknown[] }).usage).toHaveLength(1250);
+    expect((res.body as { items: unknown[] }).items).toHaveLength(1250);
   });
 });

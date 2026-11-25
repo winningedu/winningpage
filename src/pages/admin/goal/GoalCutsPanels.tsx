@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,23 +11,33 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  computeGoalCutBackfill,
-  fetchBackfillSourceRows,
   GOAL_BACKFILL_YEAR_MODES,
   type GoalBackfillYearMode,
-  type GoalCutBackfillPayload,
-  type GoalCutBackfillStats,
-  goalCutConflictKey,
 } from "@/lib/goal/goalCutBackfill";
+import { ApiError } from "@/lib/http/client";
 import { withDedupedKeys } from "@/lib/reactKeys";
-import { supabase } from "@/lib/supabase";
 import {
   AdminChunkError,
   reportAdminError,
   withChunkRows,
 } from "@/pages/admin/shared/adminErrors";
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
+import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { pad2, triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";
+import {
+  applyBackfill,
+  type BackfillPreview,
+  type BulkRow,
+  type CutsSummary,
+  cutsKeys,
+  fetchAllCutRows,
+  fetchBackfillPreview,
+  fetchCutsSummary,
+  fetchJungsiMissing,
+  type OrphanMode,
+  type PreserveMode,
+  postBulkRows,
+} from "./cutsApi";
 import {
   exportGoalUniversityCutRowsToXlsx,
   parseGoalUniversityCutRowsFromXlsx,
@@ -43,17 +54,11 @@ import {
 // serverPaginate 탭이므로 세 블록 모두 props 의 rows 를 쓰지 않는다,
 // AdminTable 이 들고 있는 건 현재 페이지 10행뿐이라 그걸로 집계하면
 // 전부 틀린 수치가 나온다(AdmissionResultsBulkXlsxPanel 과 같은 이유).
-// 필요한 데이터는 각 블록이 직접 PostgREST 상한(1,000행)에 맞춰
-// .range() 청크 반복으로 읽는다.
+// 필요한 데이터는 서버 API(goal/admin/cuts/...)에서 받는다. 요약 수치와
+// 백필 계산은 서버가 하고, 엑셀 패널만 전량 행을 청크로 이어 받는다.
 // =====================================================================
 
-const GOAL_CUTS_TABLE = "goal_university_cuts";
-// sql/83_goal_admin_options_rls.sql 이 만든 (대학, 학과) 단위 집계 뷰.
-// has_normal/has_special/has_jungsi 플래그를 준다.
-const GOAL_CUTS_OPTIONS_VIEW = "goal_university_options";
-// PostgREST 기본 응답 상한과 맞춘 읽기 청크.
-const GOAL_CUTS_READ_CHUNK = 1000;
-// upsert/update 배치 크기. 백필 최대 산출이 13,000행대라 27회 요청이 된다.
+// 한 번에 서버로 보내는 최대 행 수. 서버 bulk 라우트의 상한(500)과 같다.
 const GOAL_CUTS_APPLY_CHUNK = 500;
 
 const GOAL_CUTS_WARNING_GROUPS = [
@@ -96,274 +101,26 @@ const GOAL_CUTS_TONE_CLASS = {
   neutral: "border-gray-300 bg-gray-50 text-gray-600",
 };
 
-async function goalCutsCount(applyFilters?) {
-  let query = supabase
-    .from(GOAL_CUTS_TABLE)
-    .select("id", { count: "exact", head: true });
-  if (applyFilters) query = applyFilters(query);
-  const { count, error } = await query;
-  if (error) throw new Error(error.message);
-  return count ?? 0;
-}
-
-// id 오름차순으로 청크 반복해 전량을 읽는다. order 없이 .range() 만 반복하면
-// PostgREST 가 매 요청마다 정렬을 보장하지 않아 페이지 경계에서 행이 중복,
-// 누락된다(admissionResults 쪽과 같은 논리).
-async function fetchAllGoalCutRows(columns, onProgress?) {
-  const total = await goalCutsCount();
-  const all: Record<string, unknown>[] = [];
-  for (let from = 0; from < total; from += GOAL_CUTS_READ_CHUNK) {
-    const { data, error } = await supabase
-      .from(GOAL_CUTS_TABLE)
-      .select(columns)
-      .order("id", { ascending: true })
-      .range(from, from + GOAL_CUTS_READ_CHUNK - 1);
-    if (error) throw new Error(error.message);
-    if (!data || data.length === 0) break;
-    // columns가 호출부마다 다른 동적 문자열이라 supabase-js가 컬럼을 정적으로
-    // 못 읽어 data를 GenericStringError[]로 잡는다(런타임 값은 평범한 행 객체 배열).
-    all.push(...(data as unknown as Record<string, unknown>[]));
-    onProgress?.({ done: all.length, total });
-  }
-  return all;
-}
-
-// 엑셀 업로드 검증용. id: 그 행의 현재 cut_type 을 통째로 읽어 Map 으로
-// 돌려준다, idNotFound 와 cutTypeChanged 를 **같은 조회 결과**로 판정한다.
-// 캐시하지 않는다: 그 사이 다른 관리자가 지운 id 를 놓치지 않기 위해서다.
-async function fetchGoalCutIdCutTypeMap(onProgress) {
-  const rows = await fetchAllGoalCutRows("id, cut_type", onProgress);
-  return new Map<number, string>(
-    rows.map((r) => [r.id as number, r.cut_type as string]),
-  );
-}
-
-// goal_university_options 뷰 전량. (대학, 학과) 단위로 이미 접혀 있어
-// 조합 약 6,600건이면 한 번의 청크 반복으로 충분하다. 뷰에는 id 가 없어
-// 정렬 축을 university_key + department_key 로 잡는다(이 둘이 뷰의
-// group by 축이라 조합이 유일하다).
-async function fetchGoalUniversityOptionRows() {
-  const { count, error: countError } = await supabase
-    .from(GOAL_CUTS_OPTIONS_VIEW)
-    .select("university_key", { count: "exact", head: true });
-  if (countError) throw new Error(countError.message);
-  const total = count ?? 0;
-  const all: {
-    university_key: unknown;
-    university_name: unknown;
-    department_key: unknown;
-    department_name: unknown;
-    has_normal: unknown;
-    has_special: unknown;
-    has_jungsi: unknown;
-  }[] = [];
-  for (let from = 0; from < total; from += GOAL_CUTS_READ_CHUNK) {
-    const { data, error } = await supabase
-      .from(GOAL_CUTS_OPTIONS_VIEW)
-      .select(
-        "university_key, university_name, department_key, department_name, has_normal, has_special, has_jungsi",
-      )
-      .order("university_key", { ascending: true })
-      .order("department_key", { ascending: true })
-      .range(from, from + GOAL_CUTS_READ_CHUNK - 1);
-    if (error) throw new Error(error.message);
-    if (!data || data.length === 0) break;
-    all.push(...data);
-  }
-  return all;
-}
-
-// H-2 백필, 소스 조회 + 순수 집계는 src/lib/goal/goalCutBackfill.js 로
-// 옮겼다(scripts/run-goal-cuts-backfill.mjs 와 로직을 공유한다). 이 파일은
-// 위 import 로 그 함수들을 그대로 쓴다.
-
-// 산출 payload 를 기존 행과 대조한다. 순수 함수다.
-// (블록 주석 금지, 위 computeGoalCutBackfill 머리말의 회귀 가드 설명 참고.)
-//
-// 반환:
-//   overlapCount   기존 행과 자연키가 겹치는 산출 행 수
-//   manualCount / inactiveCount / notedCount  보존 술어별 건수(중복 가능)
-//   preservedKeys  보존 대상 conflictKey 집합(= 산출에서 제외할 대상)
-//   orphanIds      이번 산출에 없는 기존 유도 행(source=admission_results,
-//                  is_active=true)의 id. source='manual' 은 절대 대상이 아니다.
-//   nameAxisKeys   🔴 goal_university_cuts_name_key(partial UNIQUE, where
-//                  is_active)와 충돌해 청크 전체를 23505 로 죽일 산출 행.
-//                  key 축에서는 안 걸리는데 name 축에서만 걸리는 경우다,
-//                  기존 행의 key 와 name 이 다를 때 생긴다(dev 실측으로
-//                  409/23505 재현 확인). 어드민은 key := name 을 강제하므로
-//                  정상 운영에서는 0이지만, 나면 청크 500행이 통째로
-//                  날아가므로 미리보기에서 걸러 낸다.
-// fetchAllGoalCutRows("id, cut_type, university_key, university_name,
-// department_key, department_name, source, is_active, note")가 넘겨주는 행 셰이프.
-type GoalCutExistingRow = {
-  id: number;
-  cut_type: string;
-  university_key: string;
-  university_name: string;
-  department_key: string;
-  department_name: string;
-  source: string;
-  is_active: boolean;
-  note?: string | null;
-};
-
-function analyzeGoalCutBackfillAgainstExisting(
-  payloads: GoalCutBackfillPayload[],
-  existingRows: GoalCutExistingRow[] | null | undefined,
-) {
-  const existingByConflictKey = new Map<string, GoalCutExistingRow>();
-  const activeConflictKeyByNameKey = new Map<string, string>();
-  (existingRows || []).forEach((row) => {
-    const conflictKey = goalCutConflictKey(
-      row.cut_type,
-      row.university_key,
-      row.department_key,
-    );
-    existingByConflictKey.set(conflictKey, row);
-    if (row.is_active) {
-      const nameKey = goalCutConflictKey(
-        row.cut_type,
-        row.university_name,
-        row.department_name,
-      );
-      if (!activeConflictKeyByNameKey.has(nameKey)) {
-        activeConflictKeyByNameKey.set(nameKey, conflictKey);
-      }
-    }
-  });
-
-  let overlapCount = 0;
-  let manualCount = 0;
-  let inactiveCount = 0;
-  let notedCount = 0;
-  const preservedKeys = new Set<string>();
-  const nameAxisKeys = new Set<string>();
-  const producedKeys = new Set<string>();
-
-  payloads.forEach((p) => {
-    const conflictKey = goalCutConflictKey(
-      p.cut_type,
-      p.university_key,
-      p.department_key,
-    );
-    producedKeys.add(conflictKey);
-
-    const existing = existingByConflictKey.get(conflictKey);
-    if (existing) {
-      overlapCount += 1;
-      let preserved = false;
-      if (existing.source === "manual") {
-        manualCount += 1;
-        preserved = true;
-      }
-      if (existing.is_active === false) {
-        inactiveCount += 1;
-        preserved = true;
-      }
-      if (String(existing.note ?? "").trim() !== "") {
-        notedCount += 1;
-        preserved = true;
-      }
-      if (preserved) preservedKeys.add(conflictKey);
-    }
-
-    // key := name 이므로 payload 의 nameKey 는 conflictKey 와 같은 문자열이다.
-    // 기존 활성 행이 같은 name 축을 다른 key 축으로 점유하고 있으면 23505 다.
-    const holder = activeConflictKeyByNameKey.get(conflictKey);
-    if (holder && holder !== conflictKey) nameAxisKeys.add(conflictKey);
-  });
-
-  const orphanIds = (existingRows || [])
-    .filter(
-      (row) =>
-        row.source === "admission_results" &&
-        row.is_active === true &&
-        !producedKeys.has(
-          goalCutConflictKey(
-            row.cut_type,
-            row.university_key,
-            row.department_key,
-          ),
-        ),
-    )
-    .map((row) => row.id);
-
-  return {
-    overlapCount,
-    manualCount,
-    inactiveCount,
-    notedCount,
-    preservedKeys,
-    nameAxisKeys,
-    orphanIds,
-  };
-}
-
 // ---------------------------------------------------------------------
 // H-1 현황 요약
 // ---------------------------------------------------------------------
 
-function GoalCutsOverviewBlock({ refreshToken, mutationSeq }) {
-  const [summary, setSummary] = useState<{
-    total: number;
-    active: number;
-    normal: number;
-    special: number;
-    jungsi: number;
-    missing: number;
-    comboTotal: number;
-    comboNoJungsi: number;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: TODO(useEffectEvent) refreshToken/mutationSeq는 effect 안에서 읽지 않는 트리거 전용 카운터, 부모가 변이 후 값을 올려 재조회를 강제한다.
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    (async () => {
-      // head:true 카운트(본문 0바이트) 6회 + 뷰 전량 1회.
-      const [total, active, normal, special, jungsi, missing] =
-        await Promise.all([
-          goalCutsCount(),
-          goalCutsCount((q) => q.eq("is_active", true)),
-          goalCutsCount((q) => q.eq("cut_type", "normal")),
-          goalCutsCount((q) => q.eq("cut_type", "special")),
-          goalCutsCount((q) => q.eq("cut_type", "jungsi")),
-          goalCutsCount((q) => q.is("avg_cut", null)),
-        ]);
-      const options = await fetchGoalUniversityOptionRows();
-      const comboTotal = options.length;
-      const comboNoJungsi = options.filter((o) => !o.has_jungsi).length;
-      if (!cancelled) {
-        setSummary({
-          total,
-          active,
-          normal,
-          special,
-          jungsi,
-          missing,
-          comboTotal,
-          comboNoJungsi,
-        });
-      }
-    })()
-      // 실패해도 화면을 막지 않는다, 참고 지표일 뿐이다.
-      .catch(() => {
-        if (!cancelled) setSummary(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshToken, mutationSeq]);
-
-  if (loading && !summary) {
+function GoalCutsOverviewBlock({
+  summary,
+  isPending,
+}: {
+  summary: CutsSummary | undefined;
+  isPending: boolean;
+}) {
+  // 실패해도 화면을 막지 않는다, 참고 지표일 뿐이다.
+  if (isPending && !summary) {
     return (
       <div className="bg-white p-4 text-sm shadow-sm">
         <div className="font-semibold">현황 요약</div>
-        <p className="mt-2 text-xs text-gray-500">불러오는 중…</p>
+        <AdminLineSkeleton
+          className="mt-2 h-4 w-80"
+          label="현황 요약을 불러오는 중"
+        />
       </div>
     );
   }
@@ -378,7 +135,7 @@ function GoalCutsOverviewBlock({ refreshToken, mutationSeq }) {
     );
   }
 
-  const n = (v) => v.toLocaleString();
+  const n = (v: number) => v.toLocaleString();
   return (
     <div className="bg-white p-4 text-sm shadow-sm">
       <div className="font-semibold">현황 요약</div>
@@ -405,29 +162,40 @@ function GoalCutsOverviewBlock({ refreshToken, mutationSeq }) {
 // H-2 입결 유도 백필
 // ---------------------------------------------------------------------
 
+// 서버가 청크 중간에 실패하면 problem 확장 멤버 range 로 실패 행 범위를 준다.
+function chunkRangeOf(error: unknown): string | null {
+  if (!(error instanceof ApiError)) return null;
+  const range = error.problem?.range;
+  return typeof range === "string" ? range : null;
+}
+
+// 서버 쓰기가 중간까지 갔을 수 있는 실패(5xx, 응답 없음)인지.
+// 청크 실패(range 가 있는 응답)는 상태와 무관하게 앞 청크가 이미 쓰였으므로 호출부가 따로 본다.
+function mayHavePartialWrite(error: unknown): boolean {
+  return (
+    !(error instanceof ApiError) || error.status === null || error.status >= 500
+  );
+}
+
 function GoalCutsBackfillPanel({ onReload }) {
   const [yearMode, setYearMode] = useState<GoalBackfillYearMode>("prefer2026");
-  const [preserveMode, setPreserveMode] = useState("preserve"); // preserve | overwrite
-  const [orphanMode, setOrphanMode] = useState("keep"); // keep | deactivate
-  const [sourceProgress, setSourceProgress] = useState<{
-    done: number;
-    total: number;
-  } | null>(null);
-  const [computing, setComputing] = useState(false);
-  const [preview, setPreview] = useState<{
-    stats: GoalCutBackfillStats;
-    analysis: ReturnType<typeof analyzeGoalCutBackfillAgainstExisting>;
-    applyPayloads: GoalCutBackfillPayload[];
-    sourceRowCount: number;
-  } | null>(null);
+  const [preserveMode, setPreserveMode] = useState<PreserveMode>("preserve");
+  const [orphanMode, setOrphanMode] = useState<OrphanMode>("keep");
+  const [preview, setPreview] = useState<BackfillPreview | null>(null);
   const [confirmChecked, setConfirmChecked] = useState(false);
-  const [applying, setApplying] = useState(false);
-  const [applyProgress, setApplyProgress] = useState<{
-    done: number;
-    total: number;
-  } | null>(null);
 
-  const busy = Boolean(sourceProgress || computing || applying);
+  const compute = useMutation({
+    mutationFn: fetchBackfillPreview,
+    onSuccess: setPreview,
+    onError: (err) => {
+      setPreview(null);
+      reportAdminError("미리보기 계산 실패", err);
+    },
+  });
+  const apply = useMutation({ mutationFn: applyBackfill });
+  const computing = compute.isPending;
+  const applying = apply.isPending;
+  const busy = computing || applying;
 
   // 옵션이 바뀌면 미리보기를 버린다, 산출값(N)이 확인 게이트 문구와
   // 적용 대상 양쪽의 근거라, 옵션과 어긋난 미리보기를 남겨 두면
@@ -437,134 +205,71 @@ function GoalCutsBackfillPanel({ onReload }) {
     setConfirmChecked(false);
   }
 
-  async function handleCompute() {
+  function handleCompute() {
     if (busy) return;
-    setComputing(true);
     setPreview(null);
     setConfirmChecked(false);
-    try {
-      setSourceProgress({ done: 0, total: 0 });
-      const sourceRows = await fetchBackfillSourceRows(
-        supabase,
-        yearMode,
-        (p) => setSourceProgress(p),
-      );
-      setSourceProgress(null);
-      const { payloads, stats } = computeGoalCutBackfill(sourceRows, yearMode);
-      const existingRows = await fetchAllGoalCutRows(
-        "id, cut_type, university_key, university_name, department_key, department_name, source, is_active, note",
-      );
-      const analysis = analyzeGoalCutBackfillAgainstExisting(
-        payloads,
-        // fetchAllGoalCutRows는 컬럼 문자열이 동적이라 범용 Record[]를 반환한다,
-        // 위 select 목록이 실제로 GoalCutExistingRow 셰이프임을 호출부에서 보증한다.
-        existingRows as unknown as GoalCutExistingRow[],
-      );
-      const applyPayloads = payloads.filter((p) => {
-        const key = goalCutConflictKey(
-          p.cut_type,
-          p.university_key,
-          p.department_key,
-        );
-        if (analysis.nameAxisKeys.has(key)) return false;
-        if (preserveMode === "preserve" && analysis.preservedKeys.has(key))
-          return false;
-        return true;
-      });
-      setPreview({
-        stats,
-        analysis,
-        applyPayloads,
-        sourceRowCount: sourceRows.length,
-      });
-    } catch (err) {
-      setPreview(null);
-      reportAdminError("미리보기 계산 실패", err);
-    } finally {
-      setSourceProgress(null);
-      setComputing(false);
-    }
+    compute.mutate({ yearMode, preserveMode });
   }
 
-  async function handleApply() {
+  function handleApply() {
     if (!preview || !confirmChecked || applying) return;
-    const rowsToApply = preview.applyPayloads;
-    const orphanIds =
-      orphanMode === "deactivate" ? preview.analysis.orphanIds : [];
-    const total = rowsToApply.length + orphanIds.length;
-    if (total === 0) {
+    const orphanCount = orphanMode === "deactivate" ? preview.orphanCount : 0;
+    if (preview.applyCount + orphanCount === 0) {
       toastWarning("반영할 행이 없습니다.");
       return;
     }
-    setApplying(true);
-    let done = 0;
-    setApplyProgress({ done, total });
-
-    try {
-      for (let i = 0; i < rowsToApply.length; i += GOAL_CUTS_APPLY_CHUNK) {
-        const chunk = rowsToApply.slice(i, i + GOAL_CUTS_APPLY_CHUNK);
-        // onConflict 는 goal_university_cuts_key(평범한 3컬럼 UNIQUE btree)를
-        // 가리킨다, dev 실측으로 신규 201 / 재실행 200, id 보존, is_active
-        // 와 note 보존까지 확인했다.
-        const { error } = await supabase.from(GOAL_CUTS_TABLE).upsert(chunk, {
-          onConflict: "cut_type,university_key,department_key",
-        });
-        if (error) {
-          throw new AdminChunkError(
-            "컷 반영 실패",
-            `${i + 1}~${i + chunk.length}`,
-            error,
+    // 서버가 반영 직전에 다시 계산해 이 건수와 다르면 쓰지 않고 409 로 돌려보낸다.
+    apply.mutate(
+      {
+        yearMode,
+        preserveMode,
+        orphanMode,
+        expectedApplyCount: preview.applyCount,
+        expectedOrphanCount: preview.orphanCount,
+      },
+      {
+        onSuccess: (result) => {
+          setPreview(null);
+          setConfirmChecked(false);
+          onReload?.();
+          toastSuccess(
+            `입결 유도 컷 ${result.applied.toLocaleString()}행을 반영했습니다.`,
+            result.deactivated
+              ? `고아 유도 행 ${result.deactivated.toLocaleString()}건의 노출을 껐습니다.`
+              : undefined,
           );
-        }
-        done += chunk.length;
-        setApplyProgress({ done, total });
-      }
-      for (let i = 0; i < orphanIds.length; i += GOAL_CUTS_APPLY_CHUNK) {
-        const chunk = orphanIds.slice(i, i + GOAL_CUTS_APPLY_CHUNK);
-        // 삭제하지 않는다, 되돌릴 수 있어야 한다.
-        const { error } = await supabase
-          .from(GOAL_CUTS_TABLE)
-          .update({ is_active: false })
-          .in("id", chunk);
-        if (error) {
-          throw new AdminChunkError(
-            "고아 유도 행 노출 끄기 실패",
-            `${i + 1}~${i + chunk.length}`,
-            error,
+        },
+        onError: (err) => {
+          const range = chunkRangeOf(err);
+          const title = range
+            ? withChunkRows(
+                "백필 적용 실패",
+                new AdminChunkError("백필 적용 실패", range, err),
+              )
+            : "백필 적용 실패";
+          reportAdminError(
+            range !== null || mayHavePartialWrite(err)
+              ? `${title}. 이미 반영된 청크는 되돌려지지 않습니다`
+              : title,
+            err,
           );
-        }
-        done += chunk.length;
-        setApplyProgress({ done, total });
-      }
-    } catch (err) {
-      setApplying(false);
-      setApplyProgress(null);
-      reportAdminError(
-        `${withChunkRows("백필 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
-        err,
-      );
-      onReload?.();
-      return;
-    }
-
-    setApplying(false);
-    setApplyProgress(null);
-    setPreview(null);
-    setConfirmChecked(false);
-    onReload?.();
-    toastSuccess(
-      `입결 유도 컷 ${rowsToApply.length.toLocaleString()}행을 반영했습니다.`,
-      orphanIds.length
-        ? `고아 유도 행 ${orphanIds.length.toLocaleString()}건의 노출을 껐습니다.`
-        : undefined,
+          // 미리보기 이후 데이터가 바뀌었으면 그 미리보기는 더 믿을 수 없다. 다시 계산하게 닫는다.
+          if (
+            err instanceof ApiError &&
+            err.code === "BACKFILL_PREVIEW_STALE"
+          ) {
+            resetPreview();
+          }
+          onReload?.();
+        },
+      },
     );
   }
 
-  const stats = preview?.stats;
-  const analysis = preview?.analysis;
   const affectedCount =
-    (preview?.applyPayloads.length ?? 0) +
-    (orphanMode === "deactivate" ? (analysis?.orphanIds.length ?? 0) : 0);
+    (preview?.applyCount ?? 0) +
+    (orphanMode === "deactivate" ? (preview?.orphanCount ?? 0) : 0);
 
   return (
     <div className="bg-white p-4 text-sm shadow-sm">
@@ -615,7 +320,7 @@ function GoalCutsBackfillPanel({ onReload }) {
                 checked={preserveMode === mode.value}
                 disabled={busy}
                 onChange={() => {
-                  setPreserveMode(mode.value);
+                  setPreserveMode(mode.value as PreserveMode);
                   resetPreview();
                 }}
               />
@@ -642,7 +347,7 @@ function GoalCutsBackfillPanel({ onReload }) {
                 checked={orphanMode === mode.value}
                 disabled={busy}
                 onChange={() => {
-                  setOrphanMode(mode.value);
+                  setOrphanMode(mode.value as OrphanMode);
                   resetPreview();
                 }}
               />
@@ -660,11 +365,7 @@ function GoalCutsBackfillPanel({ onReload }) {
           onClick={handleCompute}
           disabled={busy}
         >
-          {sourceProgress
-            ? `입결 읽는 중… ${sourceProgress.done.toLocaleString()} / ${sourceProgress.total.toLocaleString()}행`
-            : computing
-              ? "계산 중…"
-              : "미리보기 계산"}
+          {computing ? "계산 중…" : "미리보기 계산"}
         </Button>
       </div>
 
@@ -730,21 +431,21 @@ function GoalCutsBackfillPanel({ onReload }) {
                 </ul>
                 <p className="mt-1 text-gray-700">
                   {preserveMode === "preserve"
-                    ? `\u2192 보존 대상 ${analysis.preservedKeys.size.toLocaleString()}행을 이번 반영에서 제외합니다.`
+                    ? `\u2192 보존 대상 ${analysis.preservedCount.toLocaleString()}행을 이번 반영에서 제외합니다.`
                     : "\u2192 전부 덮어쓰기 \u2014 보존 술어를 적용하지 않습니다."}
                 </p>
                 <p className="mt-1 text-gray-700">
                   이번 산출에 없는 기존 유도 행(source=admission_results):{" "}
-                  {analysis.orphanIds.length.toLocaleString()}행
+                  {preview.orphanCount.toLocaleString()}행
                   {orphanMode === "deactivate"
                     ? " \u2192 노출을 끕니다"
                     : " \u2192 그대로 둡니다"}
                 </p>
               </div>
 
-              {analysis.nameAxisKeys.size > 0 && (
+              {analysis.nameAxisCount > 0 && (
                 <p className="mt-2 rounded-sm border border-red-300 bg-red-50 px-2 py-1.5 font-bold text-red-600">
-                  🔴 {analysis.nameAxisKeys.size.toLocaleString()}행이 기존 활성
+                  🔴 {analysis.nameAxisCount.toLocaleString()}행이 기존 활성
                   행과 (컷 종류, 대학명, 학과명)은 같은데 key 컬럼이 달라 유일성
                   인덱스 goal_university_cuts_name_key 와 충돌합니다. 그대로
                   보내면 청크 500행이 통째로 실패하므로 이번 반영에서
@@ -831,12 +532,7 @@ function GoalCutsBackfillPanel({ onReload }) {
                   onClick={handleApply}
                   disabled={!confirmChecked || applying}
                 >
-                  {(() => {
-                    if (!applying) return "적용";
-                    if (applyProgress)
-                      return `적용 중… ${applyProgress.done.toLocaleString()} / ${applyProgress.total.toLocaleString()}행`;
-                    return "적용 중…";
-                  })()}
+                  {applying ? "적용 중…" : "적용"}
                 </Button>
                 <Button
                   variant="outline"
@@ -859,23 +555,21 @@ function GoalCutsBackfillPanel({ onReload }) {
 // H-3 엑셀 일괄 왕복
 // ---------------------------------------------------------------------
 
-function GoalCutsBulkXlsxPanel({ onReload }) {
+type Progress = { done: number; total: number };
+
+function GoalCutsBulkXlsxPanel({
+  onReload,
+  totalRowCount,
+}: {
+  onReload: () => void;
+  totalRowCount: number | null;
+}) {
   // 다운로드 버튼은 하나뿐이다(2026-08-07 사용자 지시: "엑셀 다운로드
   // 버튼이 여러 개다, 우리가 개발한 걸로 통일해라"). 범위는 라디오로 고른다.
   const [downloadScope, setDownloadScope] = useState("all"); // all | jungsiTemplate
-  const [totalRowCount, setTotalRowCount] = useState<number | null>(null);
-  const [fetchProgress, setFetchProgress] = useState<{
-    done: number;
-    total: number;
-  } | null>(null);
-  const [idMapProgress, setIdMapProgress] = useState<{
-    done: number;
-    total: number;
-  } | null>(null);
-  const [applyProgress, setApplyProgress] = useState<{
-    done: number;
-    total: number;
-  } | null>(null);
+  const [fetchProgress, setFetchProgress] = useState<Progress | null>(null);
+  const [idMapProgress, setIdMapProgress] = useState<Progress | null>(null);
+  const [applyProgress, setApplyProgress] = useState<Progress | null>(null);
   const [exportTruncatedCells, setExportTruncatedCells] = useState<
     ReturnType<typeof exportGoalUniversityCutRowsToXlsx>["truncatedCells"]
   >([]);
@@ -884,43 +578,24 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
     typeof parseGoalUniversityCutRowsFromXlsx
   > | null>(null);
   const [confirmChecked, setConfirmChecked] = useState(false);
-  const [applying, setApplying] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {},
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    goalCutsCount()
-      .then((count) => {
-        if (!cancelled) setTotalRowCount(count);
-      })
-      .catch(() => {
-        // 버튼 라벨용 참고 수치라 실패해도 화면을 막지 않는다.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const busy = Boolean(fetchProgress || idMapProgress || applying);
-
-  async function handleDownload() {
-    if (busy) return;
-    try {
+  const download = useMutation({
+    mutationFn: async (scope: string) => {
       setFetchProgress({ done: 0, total: totalRowCount ?? 0 });
-      let rows: Record<string, unknown>[];
-      let fileNamePrefix: string;
-      if (downloadScope === "jungsiTemplate") {
-        // 정시 컷 없는 (대학, 학과)를 id 빈 정시 템플릿 행으로 내려준다.
-        // 🔴 대학명, 학과명은 수시 컷 행의 문자열을 **그대로 복사**한다,
-        // 관리자가 손으로 타이핑하면 goalRepo.fetchUniversityCut 의 완전일치
-        // 조회가 깨져 그 학생의 정시 확률이 영원히 미산출로 남는다.
-        const options = await fetchGoalUniversityOptionRows();
-        rows = options
-          .filter((o) => !o.has_jungsi)
-          .map((o) => ({
+      try {
+        let rows: Record<string, unknown>[];
+        let fileNamePrefix: string;
+        if (scope === "jungsiTemplate") {
+          // 정시 컷 없는 (대학, 학과)를 id 빈 정시 템플릿 행으로 내려준다.
+          // 🔴 대학명, 학과명은 수시 컷 행의 문자열을 **그대로 복사**한다,
+          // 관리자가 손으로 타이핑하면 goalRepo.fetchUniversityCut 의 완전일치
+          // 조회가 깨져 그 학생의 정시 확률이 영원히 미산출로 남는다.
+          const options = await fetchJungsiMissing();
+          rows = options.map((o) => ({
             id: "",
             cut_type: "jungsi",
             university_name: o.university_name,
@@ -931,30 +606,100 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
             is_active: true,
             note: "",
           }));
-        fileNamePrefix = "목표관리_정시컷_템플릿";
-      } else {
-        rows = await fetchAllGoalCutRows(
-          "id, cut_type, university_name, department_name, avg_cut, source, source_year, is_active, note",
-          (p) => setFetchProgress(p),
-        );
-        fileNamePrefix = "목표관리_대학컷_전체";
+          fileNamePrefix = "목표관리_정시컷_템플릿";
+        } else {
+          rows = await fetchAllCutRows(totalRowCount ?? 0, setFetchProgress);
+          fileNamePrefix = "목표관리_대학컷_전체";
+        }
+        return { ...exportGoalUniversityCutRowsToXlsx(rows), fileNamePrefix };
+      } finally {
+        setFetchProgress(null);
       }
-      const { workbook, truncatedCells } =
-        exportGoalUniversityCutRowsToXlsx(rows);
+    },
+    onSuccess: ({ workbook, truncatedCells, fileNamePrefix }) => {
       setExportTruncatedCells(truncatedCells);
       const today = new Date();
       const fileName = `${fileNamePrefix}_${today.getFullYear()}${pad2(today.getMonth() + 1)}${pad2(today.getDate())}.xlsx`;
       if (typeof document !== "undefined") {
         triggerXlsxDownload(workbook, fileName);
       }
-    } catch (err) {
-      reportAdminError("엑셀 다운로드 실패", err);
-    } finally {
-      setFetchProgress(null);
-    }
+    },
+    onError: (err) => reportAdminError("엑셀 다운로드 실패", err),
+  });
+
+  const verify = useMutation({
+    mutationFn: async (file: File) => {
+      const buffer = await file.arrayBuffer();
+      setIdMapProgress({ done: 0, total: totalRowCount ?? 0 });
+      try {
+        // idNotFound 와 cutTypeChanged 를 같은 조회 결과로 판정한다.
+        // 캐시하지 않는다: 그 사이 다른 관리자가 지운 id 를 놓치지 않기 위해서다.
+        const existing = await fetchAllCutRows(
+          totalRowCount ?? 0,
+          setIdMapProgress,
+        );
+        const idMap = new Map<number, string>(
+          existing.map((r) => [r.id as number, r.cut_type as string]),
+        );
+        const workbook = XLSX.read(buffer, { type: "array" });
+        return parseGoalUniversityCutRowsFromXlsx(workbook, idMap);
+      } finally {
+        setIdMapProgress(null);
+      }
+    },
+    onSuccess: setParseResult,
+    onError: (err) =>
+      setParseErrors([
+        `파일을 읽는 중 오류가 발생했습니다: ${err?.message || err}`,
+      ]),
+  });
+
+  // id 유무로 이미 갈라진 payload 를 그대로 배치에 나눠 보낸다. 두 배치는
+  // 컬럼 구성이 달라(update 만 id 를 가짐) 같은 요청에 섞지 않는다,
+  // 서버는 섞여 와도 나눠 쓰지만 라벨과 실패 행 범위를 지키려고 화면도 따로 보낸다.
+  const apply = useMutation({
+    mutationFn: async (rows: BulkRow[]) => {
+      const insertRows = rows.filter((row) => !("id" in row));
+      const updateRows = rows.filter((row) => "id" in row);
+      const total = insertRows.length + updateRows.length;
+      let done = 0;
+      setApplyProgress({ done, total });
+      try {
+        for (const [label, group] of [
+          ["신규 등록 실패", insertRows],
+          ["수정 실패", updateRows],
+        ] as const) {
+          for (let i = 0; i < group.length; i += GOAL_CUTS_APPLY_CHUNK) {
+            const chunk = group.slice(i, i + GOAL_CUTS_APPLY_CHUNK);
+            try {
+              await postBulkRows(chunk);
+            } catch (err) {
+              throw new AdminChunkError(
+                label,
+                `${i + 1}~${i + chunk.length}`,
+                err as ApiError,
+              );
+            }
+            done += chunk.length;
+            setApplyProgress({ done, total });
+          }
+        }
+      } finally {
+        setApplyProgress(null);
+      }
+    },
+  });
+
+  const downloading = download.isPending;
+  const applying = apply.isPending;
+  const busy = downloading || verify.isPending || applying;
+
+  function handleDownload() {
+    if (busy) return;
+    download.mutate(downloadScope);
   }
 
-  async function handleFileChange(event) {
+  function handleFileChange(event) {
     const file = event.target.files?.[0];
     event.target.value = ""; // 같은 파일을 다시 선택해도 change 가 발생하게 리셋
     if (!file) return;
@@ -963,22 +708,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
     setParseResult(null);
     setConfirmChecked(false);
     setExpandedGroups({});
-
-    try {
-      const buffer = await file.arrayBuffer();
-      setIdMapProgress({ done: 0, total: totalRowCount ?? 0 });
-      // idNotFound 와 cutTypeChanged 를 같은 조회 결과로 판정한다.
-      const idMap = await fetchGoalCutIdCutTypeMap((p) => setIdMapProgress(p));
-      setIdMapProgress(null);
-
-      const workbook = XLSX.read(buffer, { type: "array" });
-      setParseResult(parseGoalUniversityCutRowsFromXlsx(workbook, idMap));
-    } catch (err) {
-      setIdMapProgress(null);
-      setParseErrors([
-        `파일을 읽는 중 오류가 발생했습니다: ${err?.message || err}`,
-      ]);
-    }
+    verify.mutate(file);
   }
 
   function toggleGroup(key) {
@@ -991,74 +721,33 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
     setExpandedGroups({});
   }
 
-  async function handleApply() {
+  function handleApply() {
     if (!parseResult || !confirmChecked || applying) return;
-    setApplying(true);
-
-    // id 유무로 이미 갈라진 payload 를 그대로 배치에 나눠 보낸다. 두 배치는
-    // 컬럼 구성이 달라(update 만 id 를 가짐) 같은 요청에 섞지 않는다,
-    // PostgREST 가 배열 안 객체들의 키 집합이 다르면 누락 키를 일괄
-    // default/null 로 해석한다.
-    const insertRows = parseResult.rows.filter((row) => !("id" in row));
-    const updateRows = parseResult.rows.filter((row) => "id" in row);
-    const total = insertRows.length + updateRows.length;
-    let done = 0;
-    setApplyProgress({ done, total });
-
-    try {
-      for (let i = 0; i < insertRows.length; i += GOAL_CUTS_APPLY_CHUNK) {
-        const chunk = insertRows.slice(i, i + GOAL_CUTS_APPLY_CHUNK);
-        const { error } = await supabase.from(GOAL_CUTS_TABLE).insert(chunk);
-        if (error) {
-          throw new AdminChunkError(
-            "신규 등록 실패",
-            `${i + 1}~${i + chunk.length}`,
-            error,
-          );
-        }
-        done += chunk.length;
-        setApplyProgress({ done, total });
-      }
-      for (let i = 0; i < updateRows.length; i += GOAL_CUTS_APPLY_CHUNK) {
-        const chunk = updateRows.slice(i, i + GOAL_CUTS_APPLY_CHUNK);
-        const { error } = await supabase
-          .from(GOAL_CUTS_TABLE)
-          .upsert(chunk, { onConflict: "id" });
-        if (error) {
-          throw new AdminChunkError(
-            "수정 실패",
-            `${i + 1}~${i + chunk.length}`,
-            error,
-          );
-        }
-        done += chunk.length;
-        setApplyProgress({ done, total });
-      }
-    } catch (err) {
-      setApplying(false);
-      setApplyProgress(null);
-      reportAdminError(
-        `${withChunkRows("엑셀 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
-        err,
-      );
-      onReload?.();
-      return;
-    }
-
     const { summary } = parseResult;
-    setApplying(false);
-    setApplyProgress(null);
-    setParseResult(null);
-    setConfirmChecked(false);
-    setExpandedGroups({});
-    goalCutsCount()
-      .then((count) => setTotalRowCount(count))
-      .catch(() => {});
-    onReload?.();
-    toastSuccess(
-      "엑셀 적용 완료",
-      `신규 ${summary.willInsert}건, 수정 ${summary.willUpdate}건, 거부 ${summary.willSkip}건.`,
-    );
+    apply.mutate(parseResult.rows, {
+      onSuccess: () => {
+        setParseResult(null);
+        setConfirmChecked(false);
+        setExpandedGroups({});
+        onReload?.();
+        toastSuccess(
+          "엑셀 적용 완료",
+          `신규 ${summary.willInsert}건, 수정 ${summary.willUpdate}건, 거부 ${summary.willSkip}건.`,
+        );
+      },
+      onError: (err) => {
+        // 청크 실패는 AdminChunkError 로 감싸 왔다. 사용자에게 보일 원인은 서버가 준 ApiError 쪽이다.
+        const cause =
+          err instanceof AdminChunkError && err.cause instanceof ApiError
+            ? err.cause
+            : err;
+        reportAdminError(
+          `${withChunkRows("엑셀 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
+          cause,
+        );
+        onReload?.();
+      },
+    });
   }
 
   const affectedCount = parseResult
@@ -1294,17 +983,26 @@ export function GoalCutsListSummary({ onReload, mutationSeq }) {
     setRefreshToken((t) => t + 1);
     onReload?.();
   }
+  // 현황 요약과 엑셀 버튼의 전체 건수가 같은 조회를 쓴다. 갱신 신호가 둘이다, 이 컴포넌트 안의
+  // 백필, 엑셀 적용(refreshToken)과 목록의 등록, 수정, 삭제(mutationSeq, Admin()이 내려 준다).
+  // 둘 중 무엇이 바뀌어도 집계를 다시 읽어야 화면 숫자가 DB와 어긋나지 않는다.
+  // 키가 저장마다 새로 생기므로 이전 숫자를 붙들지 않고 스켈레톤 뒤 새 숫자를 보인다.
+  const summary = useQuery({
+    queryKey: cutsKeys.summary(refreshToken, mutationSeq),
+    queryFn: ({ signal }) => fetchCutsSummary(signal),
+    refetchOnWindowFocus: false,
+  });
   return (
     <div className="mb-6 space-y-4">
-      {/* 갱신 신호가 둘이다, 이 컴포넌트 안의 백필, 엑셀 적용(refreshToken)과
-          목록의 등록, 수정, 삭제(mutationSeq, Admin()이 내려 준다). 둘 중 무엇이
-          바뀌어도 집계를 다시 읽어야 화면 숫자가 DB와 어긋나지 않는다. */}
       <GoalCutsOverviewBlock
-        refreshToken={refreshToken}
-        mutationSeq={mutationSeq}
+        summary={summary.data}
+        isPending={summary.isPending}
       />
       <GoalCutsBackfillPanel onReload={handleReload} />
-      <GoalCutsBulkXlsxPanel onReload={handleReload} />
+      <GoalCutsBulkXlsxPanel
+        onReload={handleReload}
+        totalRowCount={summary.data?.total ?? null}
+      />
     </div>
   );
 }

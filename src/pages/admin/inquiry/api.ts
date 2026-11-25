@@ -1,57 +1,102 @@
-import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
+// 심화탐구 세션 화면의 서버 호출. 응답 모양은 zod 로 검증하고, 조회는 react-query 키로 묶는다.
+
+import { z } from "zod";
+import { ApiError, api } from "@/lib/http/client";
+import type { buildGrantBody } from "./grantForm";
+import type { InquirySessionsParams } from "./query";
 import type { InquirySessionItem } from "./row";
 
-export type InquirySessionsPage = {
-  items: InquirySessionItem[];
-  total: number;
-  page: number;
-  pageSize: number;
+const terminalSchema = z.object({
+  reason: z.string(),
+  at: z.string(),
+  mode: z.string(),
+});
+
+const inquirySessionSchema: z.ZodType<InquirySessionItem> = z.object({
+  id: z.string(),
+  profileId: z.string(),
+  studentName: z.string().nullable(),
+  email: z.string().nullable(),
+  status: z.string(),
+  currentStep: z.number(),
+  subject: z.string(),
+  topicTitle: z.string().nullable(),
+  completedAt: z.string().nullable(),
+  lastActivityAt: z.string().nullable(),
+  ledgerId: z.string().nullable(),
+  ledgerReversedAt: z.string().nullable(),
+  terminal: terminalSchema.nullable(),
+  generation: z.object({
+    modes: z.record(
+      z.string(),
+      z.object({
+        status: z.string(),
+        attempts: z.number(),
+        startedAt: z.string().nullable(),
+        finishedAt: z.string().nullable(),
+        issues: z.array(z.unknown()),
+      }),
+    ),
+    terminal: terminalSchema.nullable(),
+  }),
+  evaluationCount: z.number(),
+  topicRoundCount: z.number(),
+});
+
+const inquirySessionsPageSchema = z.object({
+  items: z.array(inquirySessionSchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+});
+
+const grantSchema = z.object({ grantId: z.string(), quota: z.unknown() });
+const recoverSchema = z.object({ newSessionId: z.string() });
+
+export const inquirySessionKeys = {
+  all: ["admin", "inquirySessions"] as const,
+  list: (params: InquirySessionsParams) =>
+    [...inquirySessionKeys.all, "list", params] as const,
+  detail: (id: string) => [...inquirySessionKeys.all, "detail", id] as const,
 };
 
-type ApiResult<T> = { ok: true; data: T } | { ok: false; message: string };
-
-async function call<T>(
-  url: string,
-  init: { method: "GET" | "POST"; body?: unknown },
-): Promise<ApiResult<T>> {
-  const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-  const response = await fetch(url, {
-    method: init.method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
-  });
-  const result = await response.json().catch(() => null);
-  if (!response.ok || !result?.ok) {
-    // 서버 400/409 메시지를 그대로 표시한다.
-    const message =
-      result?.error?.message ??
-      result?.detail ??
-      result?.message ??
-      `요청에 실패했습니다. (HTTP ${response.status})`;
-    return { ok: false, message: String(message) };
-  }
-  return { ok: true, data: result as T };
+export function fetchInquirySessions(
+  params: InquirySessionsParams,
+  signal?: AbortSignal,
+) {
+  return api
+    .get("admin/inquiry-sessions", {
+      searchParams: {
+        ...(params.status ? { status: params.status } : {}),
+        ...(params.q ? { q: params.q } : {}),
+        page: params.page,
+        pageSize: params.pageSize,
+      },
+      ...(signal ? { signal } : {}),
+    })
+    .json(inquirySessionsPageSchema);
 }
 
-export function fetchInquirySessions(search: string) {
-  return call<InquirySessionsPage>(`/api/admin/inquiry-sessions?${search}`, {
-    method: "GET",
-  });
+export function fetchInquirySession(id: string, signal?: AbortSignal) {
+  return api
+    .get(
+      `admin/inquiry-sessions/${encodeURIComponent(id)}`,
+      signal ? { signal } : {},
+    )
+    .json(inquirySessionSchema);
 }
 
-export function postInquiryGrant(body: unknown) {
-  return call<{ grantId: string; quota: unknown }>("/api/admin/inquiry-grant", {
-    method: "POST",
-    body,
-  });
+export function postInquiryGrant(body: ReturnType<typeof buildGrantBody>) {
+  return api.post("admin/inquiry-grant", { json: body }).json(grantSchema);
 }
 
 export function postInquiryRecover(sessionId: string) {
-  return call<{ newSessionId: string }>("/api/admin/inquiry-recover", {
-    method: "POST",
-    body: { sessionId },
-  });
+  return api
+    .post("admin/inquiry-recover", { json: { sessionId } })
+    .json(recoverSchema);
+}
+
+/** 서버가 준 problem detail 을 그대로 보여주고, 응답을 읽지 못한 실패만 일반 문구로 대신한다. */
+export function inquiryErrorText(error: unknown): string {
+  return error instanceof ApiError ? error.detail : "요청에 실패했습니다.";
 }

@@ -1,49 +1,52 @@
 // GET /api/admin/service-credit-summary?profileId=
 // Authorization: Bearer <supabase access token>   (관리자)
+// 권한: 메뉴 serviceCreditAdjust(GET view).
 //
 // 고객 한 명의 6개 서비스(diagnose, target, growth, suhaeng, inquiry, selfeval) 이용횟수 현황.
 // 이용권이 없는 서비스도 행은 나오며 총/사용/잔여는 0, 만료는 null 이다.
 //
-// 응답 200 { ok, items: ServiceCreditRow[] }
-// 오류(coded): 400 INVALID_QUERY, 401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL
+// 응답 200 { student: { id, name, email }, items: ServiceCreditRow[] }
+// 오류(problem): 400 VALIDATION_FAILED(profileId 없음 또는 uuid 아님), 404 PROFILE_NOT_FOUND, 401/403 인증, 405 METHOD_NOT_ALLOWED, 500
 //
-// 핸들러 본문은 테스트하지 않는다. 조립은 api/_lib/service-credit/summary.ts.
+// 조립은 api/_lib/service-credit/summary.ts.
 
+import { z } from "zod";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
-import { isUuid } from "../../_lib/service-credit/adjust.js";
 import { readServiceCredits } from "../../_lib/service-credit/summary.js";
 
 export default defineHandler({
   methods: ["GET"],
   auth: "admin",
-  errorShape: "coded",
-  methodNotAllowedMessage: "GET만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  authFailureExtra: { ok: false },
+  errorShape: "problem",
+  permission: { key: "serviceCreditAdjust" },
   unhandledMessage: "서비스 이용횟수 조회에 실패했습니다.",
-  unhandledCode: "INTERNAL",
-  unhandledExtra: { ok: false },
   logLabel: "admin/service-credit-summary",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const profileId = req.query.profileId;
-    if (typeof profileId !== "string" || !isUuid(profileId)) {
+  query: z.object({ profileId: z.uuid() }),
+  handler: async (_req, res, ctx) => {
+    const db = ctx.supabaseAdmin;
+    const { profileId } = ctx.query;
+    // 화면이 새로고침해도 학생 이름을 보이도록 같이 돌려준다.
+    const { data: student, error } = await db
+      .from("profiles")
+      .select("id, name, email")
+      .eq("id", profileId)
+      .maybeSingle();
+    if (error) throw new Error(`profiles 조회 실패: ${error.message}`);
+    if (!student) {
       sendError(
         res,
-        "coded",
-        400,
-        "profileId 가 올바르지 않습니다.",
-        "INVALID_QUERY",
-        {
-          ok: false,
-        },
+        "problem",
+        404,
+        "회원을 찾을 수 없습니다.",
+        "PROFILE_NOT_FOUND",
       );
       return;
     }
     res.status(200).json({
-      ok: true,
-      items: await readServiceCredits(ctx.supabaseAdmin, profileId.trim()),
+      student: { id: student.id, name: student.name, email: student.email },
+      items: await readServiceCredits(db, profileId),
     });
   },
 });

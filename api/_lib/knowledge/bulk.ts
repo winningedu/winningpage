@@ -7,12 +7,48 @@
 //   반영한 행은 embedding_status 를 pending 으로 돌려 다음 backfill 이 다시 태우게 한다.
 //   search_text 는 건드리지 않는다. 임베딩 단계가 새로 조립해 덮는다.
 
+import type { Database } from "../../../src/types/database.types.js";
 import { type BulkKnowledgeType, isBulkKnowledgeType } from "./dedupe.js";
+
+type KnowledgeColumn =
+  keyof Database["public"]["Tables"]["winning_assessment_knowledge_items"]["Row"];
+
+// 테이블 컬럼 전부. Record 라 생성 타입에 컬럼이 늘면 여기서 컴파일이 깨진다.
+const KNOWLEDGE_COLUMNS: Record<KnowledgeColumn, true> = {
+  career_field: true,
+  content: true,
+  created_at: true,
+  embedded_at: true,
+  embedding: true,
+  embedding_error: true,
+  embedding_model: true,
+  embedding_status: true,
+  grade: true,
+  id: true,
+  is_active: true,
+  keywords: true,
+  knowledge_type: true,
+  last_reviewed_at: true,
+  memo: true,
+  rag_use: true,
+  search_text: true,
+  source: true,
+  source_link: true,
+  subject: true,
+  title: true,
+  updated_at: true,
+};
+
+function unknownKeys(source: Record<string, unknown>): string[] {
+  return Object.keys(source).filter(
+    (key) => !Object.hasOwn(KNOWLEDGE_COLUMNS, key),
+  );
+}
 
 /** 요청 한 번에 반영하는 신규와 수정 합계 상한. 클라이언트가 이 크기로 나눠 보낸다. */
 export const MAX_BULK_ROWS = 500;
 
-/** 엑셀에서 받아들이는 컬럼. 이 밖의 키는 조용히 버린다. */
+/** 엑셀에서 받아들이는 컬럼. 테이블 컬럼이지만 이 밖인 키(임베딩 등)는 조용히 버리고, 컬럼이 아닌 키는 400 이다. */
 export const BULK_WRITABLE_FIELDS = [
   "is_active",
   "grade",
@@ -106,10 +142,15 @@ export function validateBulkBody(
 
   const insertRows: BulkRow[] = [];
   for (const [index, entry] of inserts.entries()) {
-    const row = pickWritable(
-      (entry ?? {}) as Record<string, unknown>,
-      knowledgeType,
-    );
+    const source = (entry ?? {}) as Record<string, unknown>;
+    const unknown = unknownKeys(source);
+    if (unknown.length > 0) {
+      return {
+        ok: false,
+        reason: `inserts[${index}] 에 알 수 없는 키가 있습니다: ${unknown.join(", ")}`,
+      };
+    }
+    const row = pickWritable(source, knowledgeType);
     const missing = missingRequired(row, "insert");
     if (missing.length > 0) {
       return {
@@ -123,6 +164,13 @@ export function validateBulkBody(
   const updateRows: BulkUpdate[] = [];
   for (const [index, entry] of updates.entries()) {
     const source = (entry ?? {}) as Record<string, unknown>;
+    const unknown = unknownKeys(source);
+    if (unknown.length > 0) {
+      return {
+        ok: false,
+        reason: `updates[${index}] 에 알 수 없는 키가 있습니다: ${unknown.join(", ")}`,
+      };
+    }
     const id = typeof source.id === "string" ? source.id.trim() : "";
     if (!id) {
       return { ok: false, reason: `updates[${index}] 에 id 가 없습니다.` };

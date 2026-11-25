@@ -42,6 +42,8 @@ beforeEach(() => {
   vi.stubEnv("SITE", "schoolmentor");
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@t.local" };
+  // auth:"admin" 라우트가 관리자 판정(role)으로 읽는다.
+  kit.state.rows.profiles = () => ({ role: "admin" });
   // 모든 리소스에 edit 권한이 있고 최고 관리자인 본사 관리자.
   kit.state.rpc.fn_admin_effective_permissions = () => ({
     data: ["tenants", "members", "teacherConsoleProxy"].map((resource_key) => ({
@@ -50,6 +52,8 @@ beforeEach(() => {
     })),
     error: null,
   });
+  // auth:"admin" 로 옮긴 라우트(send-message, move-student)가 resolveAdmin 에서 읽는 role 이다.
+  kit.state.rows.profiles = () => ({ role: "admin" });
   kit.state.rows.admin_members = () => ({
     profile_id: "hq-1",
     status: "active",

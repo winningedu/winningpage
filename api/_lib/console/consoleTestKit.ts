@@ -52,6 +52,10 @@ export interface KitState {
   reads: {
     table: string;
     orderBy?: { column: string; ascending: boolean };
+    /** select(열 목록)에 준 문자열. */
+    select?: string;
+    /** select(열, 옵션)의 두 번째 인자. count, head 확인용. */
+    selectOptions?: { count?: string; head?: boolean };
     limit?: number;
     /** range(from, to) 를 건 경우의 양 끝(포함). */
     range?: { from: number; to: number };
@@ -176,6 +180,8 @@ export function createFakeAdmin(state: KitState) {
       const chain: Record<string, unknown> = {};
       let updating = false;
       let deleting = false;
+      let upserting = false;
+      let inserting = false;
       const read: KitState["reads"][number] = { table };
       state.reads.push(read);
       const result = () => {
@@ -183,16 +189,27 @@ export function createFakeAdmin(state: KitState) {
           ? state.updateErrors[table]?.(filters)
           : undefined;
         if (updateError) return { data: null, error: updateError };
+        if ((upserting || inserting) && state.insertErrors[table]) {
+          return { data: null, error: state.insertErrors[table] };
+        }
         if (deleting && state.deleteErrors[table]) {
           return { data: null, error: state.deleteErrors[table] };
         }
         let data = state.rows[table]?.(filters) ?? null;
+        // select(열, { count }) 를 건 읽기는 범위를 자르기 전 행 수를 count 로 돌려준다.
+        const count =
+          read.selectOptions?.count && Array.isArray(data)
+            ? data.length
+            : undefined;
+        if (read.selectOptions?.head) data = null;
         if (Array.isArray(data) && read.range) {
           data = data.slice(read.range.from, read.range.to + 1);
         }
         // limit 을 건 읽기만 정렬과 자르기를 흉내 낸다(그 밖의 읽기는 픽스처 순서 그대로).
         if (!Array.isArray(data) || read.limit === undefined) {
-          return { data, error: null };
+          return count === undefined
+            ? { data, error: null }
+            : { data, error: null, count };
         }
         const column = read.orderBy?.column;
         const sign = read.orderBy?.ascending === false ? -1 : 1;
@@ -207,7 +224,14 @@ export function createFakeAdmin(state: KitState) {
           : data;
         return { data: sorted.slice(0, read.limit), error: null };
       };
-      chain.select = () => chain;
+      chain.select = (
+        columns?: string,
+        options?: { count?: string; head?: boolean },
+      ) => {
+        if (typeof columns === "string") read.select = columns;
+        if (options) read.selectOptions = options;
+        return chain;
+      };
       chain.eq = (col: string, value: unknown) => {
         filters[col] = value;
         return chain;
@@ -245,6 +269,7 @@ export function createFakeAdmin(state: KitState) {
         return chain;
       };
       chain.maybeSingle = async () => result();
+      chain.single = async () => result();
       // biome-ignore lint/suspicious/noThenProperty: Supabase 쿼리 빌더처럼 await 할 수 있어야 한다.
       chain.then = (resolve: (r: unknown) => unknown) => resolve(result());
       chain.update = (values: Record<string, unknown>) => {
@@ -265,14 +290,32 @@ export function createFakeAdmin(state: KitState) {
       ) => {
         state.events.push(`upsert:${table}`);
         state.upserts.push({ table, row, onConflict: options?.onConflict });
-        return Promise.resolve({ error: state.insertErrors[table] ?? null });
+        // upsert(...).select().single() 로 저장된 행을 읽는 호출부도 흉내 낸다.
+        return Object.assign(
+          Promise.resolve({ error: state.insertErrors[table] ?? null }),
+          {
+            select: () => {
+              upserting = true;
+              return chain;
+            },
+          },
+        );
       };
       chain.insert = (row: Record<string, unknown>) => {
         state.events.push(`insert:${table}`);
         state.inserts.push({ table, row });
-        return Promise.resolve({
-          error: state.insertErrors[table] ?? state.insertError,
-        });
+        // insert(...).select().single() 로 만든 행을 읽는 호출부도 흉내 낸다.
+        return Object.assign(
+          Promise.resolve({
+            error: state.insertErrors[table] ?? state.insertError,
+          }),
+          {
+            select: () => {
+              inserting = true;
+              return chain;
+            },
+          },
+        );
       };
       return chain;
     },
@@ -303,6 +346,11 @@ export async function callHandler(
     },
     json(payload: unknown) {
       captured.body = payload;
+      return res;
+    },
+    // problem 응답과 204 는 res.end 로 나간다.
+    end(payload?: string) {
+      if (payload) captured.body = JSON.parse(payload);
       return res;
     },
   } as unknown as VercelResponse;

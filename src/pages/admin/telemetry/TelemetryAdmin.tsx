@@ -1,33 +1,31 @@
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AdminCardsSkeleton } from "@/pages/admin/shared/skeletons/AdminCardsSkeleton";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
-  ActionButton,
-  Field,
-  Select,
-  TextInput,
-} from "@/pages/admin/shared/formFields";
-import {
-  type ApiResult,
-  type CallsPage,
-  type CitationItem,
+  errorMessage,
   fetchCalls,
   fetchCitations,
   fetchPricing,
   fetchSummary,
-  type PricingResponse,
-  type SummaryResponse,
+  telemetryKeys,
 } from "./api";
 import CallsTab from "./CallsTab";
 import CitationsTab from "./CitationsTab";
-import { KIND_OPTIONS, SERVICE_OPTIONS, STATUS_OPTIONS } from "./format";
+import FilterForm from "./FilterForm";
 import PricingTab from "./PricingTab";
 import {
   type AiTelemetryTab,
-  aiTelemetryQueryReducer,
   buildCallsSearch,
   buildCitationsSearch,
   buildSummarySearch,
-  createInitialQuery,
+  readQuery,
+  withFilters,
+  withPage,
+  withTab,
 } from "./query";
 import SummaryTab from "./SummaryTab";
 
@@ -38,64 +36,40 @@ const TABS: { key: AiTelemetryTab; label: string }[] = [
   { key: "pricing", label: "단가" },
 ];
 
-type Remote<T> = { data: T | null; loading: boolean; error: string };
-
-// 탭이 켜져 있고 fetcher 가 바뀔 때 다시 불러온다.
-function useRemote<T>(
-  enabled: boolean,
-  fetcher: () => Promise<ApiResult<T>>,
-): Remote<T> {
-  const [state, setState] = useState<Remote<T>>({
-    data: null,
-    loading: false,
-    error: "",
-  });
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    setState((prev) => ({ ...prev, loading: true, error: "" }));
-    fetcher().then((result) => {
-      if (cancelled) return;
-      if (!result.ok) {
-        setState({ data: null, loading: false, error: result.message });
-        return;
-      }
-      setState({ data: result.data, loading: false, error: "" });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, fetcher]);
-  return state;
-}
-
 interface Props {
   config: { title: string; [key: string]: unknown };
 }
 
 export default function TelemetryAdmin({ config }: Props) {
-  const [query, dispatch] = useReducer(aiTelemetryQueryReducer, undefined, () =>
-    createInitialQuery(new Date()),
-  );
-  const { tab, draft } = query;
+  const [params, setParams] = useSearchParams();
+  const [now] = useState(() => new Date());
+  const query = readQuery(params, now);
+  const { tab } = query;
 
   const summarySearch = buildSummarySearch(query);
   const callsSearch = buildCallsSearch(query);
   const citationsSearch = buildCitationsSearch(query);
 
-  const summary = useRemote<SummaryResponse>(
-    tab === "summary",
-    useCallback(() => fetchSummary(summarySearch), [summarySearch]),
-  );
-  const calls = useRemote<CallsPage>(
-    tab === "calls",
-    useCallback(() => fetchCalls(callsSearch), [callsSearch]),
-  );
-  const citations = useRemote<CitationItem[]>(
-    tab === "citations",
-    useCallback(() => fetchCitations(citationsSearch), [citationsSearch]),
-  );
-  const pricing = useRemote<PricingResponse>(tab === "pricing", fetchPricing);
+  const summary = useQuery({
+    queryKey: telemetryKeys.summary(summarySearch),
+    queryFn: ({ signal }) => fetchSummary(summarySearch, signal),
+    enabled: tab === "summary",
+  });
+  const calls = useQuery({
+    queryKey: telemetryKeys.calls(callsSearch),
+    queryFn: ({ signal }) => fetchCalls(callsSearch, signal),
+    enabled: tab === "calls",
+  });
+  const citations = useQuery({
+    queryKey: telemetryKeys.citations(citationsSearch),
+    queryFn: ({ signal }) => fetchCitations(citationsSearch, signal),
+    enabled: tab === "citations",
+  });
+  const pricing = useQuery({
+    queryKey: telemetryKeys.pricing(),
+    queryFn: ({ signal }) => fetchPricing(signal),
+    enabled: tab === "pricing",
+  });
 
   const active =
     tab === "summary"
@@ -112,7 +86,7 @@ export default function TelemetryAdmin({ config }: Props) {
         <Tabs
           value={tab}
           onValueChange={(value) =>
-            dispatch({ type: "setTab", tab: value as AiTelemetryTab })
+            setParams(withTab(params, value as AiTelemetryTab))
           }
         >
           <TabsList aria-label="호출 계기판 화면">
@@ -125,136 +99,35 @@ export default function TelemetryAdmin({ config }: Props) {
         </Tabs>
 
         {tab !== "pricing" && (
-          <form
-            className="mt-4 flex flex-wrap items-end gap-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              dispatch({ type: "submit" });
-            }}
-          >
-            <div className="w-[10rem]">
-              <Field label="시작일">
-                <TextInput
-                  value={draft.from}
-                  onChange={(from) =>
-                    dispatch({ type: "setRange", from, to: draft.to })
-                  }
-                  placeholder="YYYY-MM-DD"
-                />
-              </Field>
-            </div>
-            <div className="w-[10rem]">
-              <Field label="종료일">
-                <TextInput
-                  value={draft.to}
-                  onChange={(to) =>
-                    dispatch({ type: "setRange", from: draft.from, to })
-                  }
-                  placeholder="YYYY-MM-DD"
-                />
-              </Field>
-            </div>
-            {tab !== "citations" && (
-              <div className="w-[10rem]">
-                <Field label="서비스">
-                  <Select
-                    value={draft.service}
-                    onChange={(service) =>
-                      dispatch({ type: "setService", service })
-                    }
-                  >
-                    <option value="">전체</option>
-                    {SERVICE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              </div>
-            )}
-            {tab === "calls" && (
-              <>
-                <div className="w-[12rem]">
-                  <Field label="기능">
-                    <TextInput
-                      value={draft.feature}
-                      onChange={(feature) =>
-                        dispatch({ type: "setFeature", feature })
-                      }
-                    />
-                  </Field>
-                </div>
-                <div className="w-[8rem]">
-                  <Field label="상태">
-                    <Select
-                      value={draft.status}
-                      onChange={(status) =>
-                        dispatch({ type: "setStatus", status })
-                      }
-                    >
-                      <option value="">전체</option>
-                      {STATUS_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                </div>
-                <div className="w-[8rem]">
-                  <Field label="종류">
-                    <Select
-                      value={draft.kind}
-                      onChange={(kind) => dispatch({ type: "setKind", kind })}
-                    >
-                      <option value="">전체</option>
-                      {KIND_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                </div>
-                <label className="flex h-10 items-center gap-2 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    className="accent-primary"
-                    checked={draft.retriedOnly}
-                    onChange={(e) =>
-                      dispatch({
-                        type: "setRetriedOnly",
-                        retriedOnly: e.target.checked,
-                      })
-                    }
-                  />
-                  재요청만
-                </label>
-              </>
-            )}
-            <ActionButton type="submit">조회</ActionButton>
-          </form>
+          <FilterForm
+            key={JSON.stringify(query.applied)}
+            tab={tab}
+            applied={query.applied}
+            onSubmit={(filters) => setParams(withFilters(params, filters))}
+          />
         )}
         <h1 className="mt-4 text-2xl font-semibold">{config.title}</h1>
       </div>
 
-      {active.error && (
+      {active.isError && (
         <div
           role="alert"
           className="mb-4 border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"
         >
-          {active.error}
+          {errorMessage(active.error)}
         </div>
       )}
 
-      {active.loading ? (
-        <div
-          role="status"
-          className="bg-white p-12 text-center text-sm text-muted-foreground shadow-sm"
-        >
-          데이터를 불러오는 중입니다.
-        </div>
+      {active.isPending ? (
+        tab === "summary" ? (
+          <AdminCardsSkeleton count={6} label="요약을 불러오는 중" />
+        ) : tab === "calls" ? (
+          <AdminTableSkeleton columns={15} label="호출 목록을 불러오는 중" />
+        ) : tab === "citations" ? (
+          <AdminTableSkeleton columns={7} label="인용 목록을 불러오는 중" />
+        ) : (
+          <AdminDetailSkeleton rows={4} label="단가를 불러오는 중" />
+        )
       ) : (
         <>
           {tab === "summary" && summary.data && (
@@ -265,7 +138,7 @@ export default function TelemetryAdmin({ config }: Props) {
               data={calls.data}
               page={query.page}
               pageSize={query.pageSize}
-              onPage={(page) => dispatch({ type: "setPage", page })}
+              onPage={(page) => setParams(withPage(params, page))}
             />
           )}
           {tab === "citations" && citations.data && (

@@ -2,7 +2,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, test, vi } from "vitest";
-import { resolveWinningAdmin } from "./adminAuth.js";
+import { resolveAdmin, resolveWinningAdmin } from "./adminAuth.js";
 
 const profiles = [
   { id: "admin-1", email: "boss@t.local", role: "admin" },
@@ -48,6 +48,23 @@ function fakeAdmin(user: { id: string; email: string }) {
 
 const req = { method: "GET", headers: { authorization: "Bearer token" } };
 
+describe("resolveAdmin", () => {
+  test("성공하면 토큰 사용자의 이메일을 함께 돌려준다", async () => {
+    const { client } = fakeAdmin({ id: "admin-1", email: "boss@t.local" });
+    const r = await resolveAdmin(client, req);
+    expect(r).toEqual({ ok: true, userId: "admin-1", email: "boss@t.local" });
+  });
+
+  test("이메일이 없는 토큰 사용자는 email 이 null 이다", async () => {
+    const { client } = fakeAdmin({
+      id: "admin-1",
+      email: undefined as unknown as string,
+    });
+    const r = await resolveAdmin(client, req);
+    expect(r).toEqual({ ok: true, userId: "admin-1", email: null });
+  });
+});
+
 describe("resolveWinningAdmin", () => {
   test("이메일이 어드민과 같아도 어드민이 아닌 계정은 403 이다", async () => {
     const { client } = fakeAdmin({ id: "user-2", email: "boss@t.local" });
@@ -69,7 +86,11 @@ describe("resolveWinningAdmin", () => {
 
     const result = await resolveWinningAdmin(client, req);
 
-    expect(result).toEqual({ ok: true, userId: "admin-1" });
+    expect(result).toEqual({
+      ok: true,
+      userId: "admin-1",
+      email: "boss@t.local",
+    });
     expect(eq).toHaveBeenCalledWith("profiles", "id", "admin-1");
     expect(or).not.toHaveBeenCalledWith("profiles", expect.anything());
   });

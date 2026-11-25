@@ -1,17 +1,21 @@
-import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Navigate, useNavigate, useParams } from "react-router";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/lib/supabase";
+import { ApiError } from "@/lib/http/client";
 import {
   ActionButton,
   Field,
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
+import { fetchTenantDetail, patchTenant, type TenantDetailRow } from "./api";
 import { mouLabel } from "./contract";
 import {
   CONTRACT_ORDER_MESSAGE,
-  emptyTenantForm,
   GRACE_ORDER_MESSAGE,
   type TenantFormValues,
   TRIAL_ORDER_MESSAGE,
@@ -22,94 +26,155 @@ import {
 import { ORG_TYPE_OPTIONS, REGION_OPTIONS, TIER_OPTIONS } from "./options";
 import SchoolAdminPanel from "./SchoolAdminPanel";
 import ServiceSettingsPanel from "./ServiceSettingsPanel";
+import {
+  errorDetail,
+  schoolAdminsQueryOptions,
+  type TenantTab,
+  tenantKeys,
+  tenantPaths,
+} from "./tenantQueries";
 
 // ---------------------------------------------------------------------------
-// 본사 기관 상세(5번 본사 관리 화면, 사 #144, #159, 결정 r14, r15). 기관 정보 탭은 tenants 를 RLS 로
-// 바로 고치고(tenants_update 는 tenants edit 권한), 전체 관리자 탭은 서버 경로를 부른다.
-// 서비스 설정 탭은 tenant_service_settings 를 RLS 로 바로 쓴다(ServiceSettingsPanel).
+// 본사 기관 상세(5번 본사 관리 화면, 사 #144, #159, 결정 r14, r15). 주소가 곧 화면이다:
+// /admin/tenants/:id 가 기관 정보 탭, /:id/service-settings, /:id/school-admins 가 나머지 탭이다.
+// 세 탭 모두 서버 경로(admin/tenants/*)로 읽고 쓴다. 기관 정보 저장은 불러온 updatedAt 을 함께 보내
+// 그 사이 다른 관리자가 고쳤으면 서버가 409 로 막는다.
 // ---------------------------------------------------------------------------
 
-type TabKey = "info" | "serviceSettings" | "schoolAdmins";
-
-const TABS: { key: TabKey; label: string }[] = [
+const TABS: { key: TenantTab; label: string }[] = [
   { key: "info", label: "기관 정보" },
-  { key: "serviceSettings", label: "서비스 설정" },
-  { key: "schoolAdmins", label: "전체 관리자" },
+  { key: "service-settings", label: "서비스 설정" },
+  { key: "school-admins", label: "전체 관리자" },
 ];
 
-const TENANT_COLUMNS =
-  "id, code, name, region, org_type, tier, contract_start_date, contract_end_date, term_months, mou_status, grace_ends_on, trial_start_date, trial_end_date, contact_name, contact_phone, contact_mobile, contact_email, address, main_phone, homepage, is_catch_all, updated_at";
+// 기관 정보 탭의 입력칸 수(소속코드 포함). 스켈레톤 행 수가 된다.
+const TENANT_FORM_FIELD_COUNT = 19;
 
 const MOU_OPTIONS = ["pending", "signed", "ended"];
 
-interface TenantDetailProps {
-  tenantId: string;
-  onBack: () => void;
-  /** 저장이 성공한 뒤(목록을 다시 불러오는 데 쓴다). */
-  onSaved?: () => void;
+/** 주소 끝 조각(splat)에서 탭을 읽는다. 모르는 조각이면 null. */
+function tabOf(splat: string | undefined): TenantTab | null {
+  if (!splat) return "info";
+  return TABS.some((tab) => tab.key === splat) ? (splat as TenantTab) : null;
 }
 
-export default function TenantDetail({
-  tenantId,
-  onBack,
-  onSaved,
-}: TenantDetailProps) {
-  const [tab, setTab] = useState<TabKey>("info");
-  const [loaded, setLoaded] = useState(false);
-  const [code, setCode] = useState("");
-  const [form, setForm] = useState<TenantFormValues>(() => emptyTenantForm());
-  const [savedName, setSavedName] = useState("");
-  // 서비스 설정 탭은 저장된 값만 본다(폼에서 고치는 중인 값은 아직 기관에 없다).
-  const [savedTermMonths, setSavedTermMonths] = useState<number | null>(null);
-  const [isCatchAll, setIsCatchAll] = useState(false);
-  const [notFound, setNotFound] = useState(false);
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [loadedUpdatedAt, setLoadedUpdatedAt] = useState("");
-  const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
+/** 서버가 날짜 순서 위반을 코드로 알리면 폼 검증과 같은 문구를 쓴다. */
+const ORDER_MESSAGES: Record<string, string> = {
+  CONTRACT_ORDER: CONTRACT_ORDER_MESSAGE,
+  GRACE_ORDER: GRACE_ORDER_MESSAGE,
+  TRIAL_ORDER: TRIAL_ORDER_MESSAGE,
+};
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const { data, error } = await supabase
-        .from("tenants")
-        .select(TENANT_COLUMNS)
-        .eq("id", tenantId)
-        .maybeSingle();
-      if (!alive) return;
-      if (error) {
-        setLoadFailed(true);
-        return;
-      }
-      if (!data) {
-        setNotFound(true);
-        return;
-      }
-      const row = data as unknown as Record<string, string | number | null> & {
-        code: string;
-        name: string;
-        updated_at: string;
-        term_months: number | null;
-        is_catch_all: boolean;
-      };
-      setSavedTermMonths(row.term_months);
-      setIsCatchAll(row.is_catch_all);
-      setLoadedUpdatedAt(row.updated_at);
-      setCode(row.code);
-      setForm(tenantFormFromRow(row));
-      setSavedName(row.name);
-      setLoaded(true);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [tenantId]);
+function saveErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    const order = ORDER_MESSAGES[error.code];
+    if (order) return order;
+    // 충돌과 권한 부족은 서버가 화면에 보일 문구를 그대로 쓴다.
+    if (error.code === "CONFLICT" || error.code === "FORBIDDEN")
+      return error.detail;
+  }
+  return `저장 실패: ${errorDetail(error)}`;
+}
+
+function BackToList() {
+  const navigate = useNavigate();
+  return (
+    <ActionButton variant="light" onClick={() => navigate(tenantPaths.list)}>
+      목록으로
+    </ActionButton>
+  );
+}
+
+export default function TenantDetail() {
+  const { id: tenantId, "*": splat } = useParams();
+  const tab = tabOf(splat);
+
+  const query = useQuery({
+    queryKey: tenantKeys.detail(tenantId ?? ""),
+    queryFn: ({ signal }) => fetchTenantDetail(tenantId ?? "", signal),
+    enabled: Boolean(tenantId),
+    // 폼 상태가 이 결과로 한 번 만들어지므로 캐시를 남기지 않고 매번 새로 받는다.
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  });
+  // 전체 관리자 목록은 기관 id 만 있으면 받을 수 있어, 상세 응답을 기다리지 않고 함께 시작한다.
+  // 결과는 SchoolAdminPanel 이 같은 쿼리로 읽는다.
+  useQuery({
+    ...schoolAdminsQueryOptions(tenantId ?? ""),
+    enabled: Boolean(tenantId),
+  });
+
+  if (!tenantId || tab === null) {
+    return <Navigate to={tenantPaths.list} replace />;
+  }
+
+  if (!query.data) {
+    const notFound =
+      query.error instanceof ApiError && query.error.status === 404;
+    return (
+      <div>
+        <div className="mb-5 flex justify-end">
+          <BackToList />
+        </div>
+        {query.isError ? (
+          <div
+            role="alert"
+            className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
+          >
+            {notFound
+              ? "기관을 찾을 수 없어요."
+              : "기관 정보를 불러오지 못했어요."}
+          </div>
+        ) : (
+          <AdminDetailSkeleton
+            rows={TENANT_FORM_FIELD_COUNT}
+            label="기관 정보를 불러오는 중입니다."
+          />
+        )}
+      </div>
+    );
+  }
+
+  return <TenantDetailBody tenant={query.data} tab={tab} />;
+}
+
+function TenantDetailBody({
+  tenant,
+  tab,
+}: {
+  tenant: TenantDetailRow;
+  tab: TenantTab;
+}) {
+  const tenantId = tenant.id;
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<TenantFormValues>(() =>
+    tenantFormFromRow(tenant),
+  );
+  // 저장하거나 불러온 시점의 입력. 이것과 다르면 고친 것이다.
+  const [baseline, setBaseline] = useState<TenantFormValues>(form);
+  const [savedName, setSavedName] = useState(tenant.name);
+  // 서비스 설정 탭은 저장된 값만 본다(폼에서 고치는 중인 값은 아직 기관에 없다).
+  const [savedTermMonths, setSavedTermMonths] = useState(tenant.term_months);
+  const [loadedUpdatedAt, setLoadedUpdatedAt] = useState(tenant.updated_at);
+  const [message, setMessage] = useState("");
+
+  const dirty = JSON.stringify(form) !== JSON.stringify(baseline);
+  useUnsavedGuard(dirty, (next) => {
+    const base = tenantPaths.detail(tenantId);
+    return next.pathname === base || next.pathname.startsWith(`${base}/`);
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (body: Parameters<typeof patchTenant>[0]) => patchTenant(body),
+  });
+  const saving = saveMutation.isPending;
 
   function setField(key: keyof TenantFormValues, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function save() {
+  function save() {
     if (saving) return;
     const invalid = validateTenantForm(form);
     if (invalid) {
@@ -117,78 +182,26 @@ export default function TenantDetail({
       return;
     }
     setMessage("");
-    setSaving(true);
-    const { data, error } = await supabase
-      .from("tenants")
-      .update(tenantPayload(form))
-      .eq("id", tenantId)
-      .eq("updated_at", loadedUpdatedAt)
-      .select("id, updated_at");
-    if (!error && (!data || data.length === 0)) {
-      // 0행은 권한이 없거나 그 사이 다른 관리자가 먼저 저장한 경우다. 다시 읽어 구분한다.
-      const { data: current } = await supabase
-        .from("tenants")
-        .select("updated_at")
-        .eq("id", tenantId)
-        .maybeSingle();
-      setSaving(false);
-      const changed =
-        current &&
-        (current as unknown as { updated_at: string }).updated_at !==
-          loadedUpdatedAt;
-      setMessage(
-        changed
-          ? "다른 관리자가 먼저 고쳤어요. 새로 불러온 뒤 다시 저장해 주세요."
-          : "저장하지 못했어요. 기관 수정 권한을 확인해 주세요.",
-      );
-      return;
-    }
-    setSaving(false);
-    if (error) {
-      if (error.code === "23514") {
-        if (error.message.includes("tenants_contract_order")) {
-          setMessage(CONTRACT_ORDER_MESSAGE);
-          return;
-        }
-        if (error.message.includes("tenants_grace_after_end")) {
-          setMessage(GRACE_ORDER_MESSAGE);
-          return;
-        }
-        if (error.message.includes("tenants_trial_order")) {
-          setMessage(TRIAL_ORDER_MESSAGE);
-          return;
-        }
-      }
-      setMessage(`저장 실패: ${error.message}`);
-      return;
-    }
-    const [saved] = (data ?? []) as { updated_at: string }[];
-    if (saved) setLoadedUpdatedAt(saved.updated_at);
-    setSavedName(form.name.trim());
-    setSavedTermMonths(form.term_months ? Number(form.term_months) : null);
-    setMessage("저장했어요.");
-    onSaved?.();
-  }
-
-  if (notFound || loadFailed || !loaded) {
-    return (
-      <div>
-        <div className="mb-5 flex justify-end">
-          <ActionButton variant="light" onClick={onBack}>
-            목록으로
-          </ActionButton>
-        </div>
-        <div
-          role={loadFailed || notFound ? "alert" : "status"}
-          className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
-        >
-          {loadFailed
-            ? "기관 정보를 불러오지 못했어요."
-            : notFound
-              ? "기관을 찾을 수 없어요."
-              : "데이터를 불러오는 중입니다."}
-        </div>
-      </div>
+    const submitted = form;
+    saveMutation.mutate(
+      {
+        id: tenantId,
+        updatedAt: loadedUpdatedAt,
+        values: tenantPayload(submitted),
+      },
+      {
+        onSuccess: (saved) => {
+          setLoadedUpdatedAt(saved.updated_at);
+          setBaseline(submitted);
+          setSavedName(submitted.name.trim());
+          setSavedTermMonths(
+            submitted.term_months ? Number(submitted.term_months) : null,
+          );
+          setMessage("저장했어요.");
+          queryClient.resetQueries({ queryKey: tenantKeys.list() });
+        },
+        onError: (error) => setMessage(saveErrorMessage(error)),
+      },
     );
   }
 
@@ -196,12 +209,15 @@ export default function TenantDetail({
     <div>
       <div className="mb-5 flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-foreground">{savedName}</h1>
-        <ActionButton variant="light" onClick={onBack}>
-          목록으로
-        </ActionButton>
+        <BackToList />
       </div>
 
-      <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)}>
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          navigate(tenantPaths.tab(tenantId, value as TenantTab))
+        }
+      >
         <TabsList variant="line" className="mb-4 h-auto gap-2">
           {TABS.map((item) => (
             <TabsTrigger
@@ -214,14 +230,14 @@ export default function TenantDetail({
           ))}
         </TabsList>
 
-        <TabsContent value="schoolAdmins">
+        <TabsContent value="school-admins">
           <SchoolAdminPanel tenantId={tenantId} tenantName={savedName} />
         </TabsContent>
-        <TabsContent value="serviceSettings">
+        <TabsContent value="service-settings">
           <ServiceSettingsPanel
             tenantId={tenantId}
             termMonths={savedTermMonths}
-            isCatchAll={isCatchAll}
+            isCatchAll={tenant.is_catch_all}
           />
         </TabsContent>
         <TabsContent value="info">
@@ -229,7 +245,7 @@ export default function TenantDetail({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="소속코드">
                 <Input
-                  value={code}
+                  value={tenant.code}
                   readOnly
                   className="h-10 bg-muted font-mono font-medium"
                 />

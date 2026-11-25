@@ -1,54 +1,42 @@
-// 쿠폰 목록 표. 헤더 범위, 고정 관리 칸, 아이콘 버튼 이름을 확인한다.
+// 쿠폰 목록 표. 헤더 범위, 고정 관리 칸, 아이콘 버튼 이름, 부가 조회 열화를 확인한다.
 
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
 
-const couponRow = {
-  id: "c1",
-  slug: "gift-1",
-  title: "선물 쿠폰",
-  kind: "fixed",
-  discount_amount: 1000,
-  min_amount: null,
-  valid_until: null,
-  max_uses_per_user: null,
-  max_redemptions: null,
-  stackable: false,
-  grant_type: "granted",
-  grant_on_signup: false,
-  is_active: true,
-  tenant_id: null,
-  code: null,
-};
+vi.mock(
+  "@/lib/http/client",
+  async () => (await import("./fakeApi")).clientMock,
+);
 
-function chain(table: string) {
-  const result =
-    table === "coupons"
-      ? { data: [couponRow], error: null }
-      : { data: [], error: null };
-  const proxy: unknown = new Proxy(
-    {},
-    {
-      get(_t, prop) {
-        if (prop === "then") {
-          return (resolve: (v: unknown) => void) => resolve(result);
-        }
-        return () => proxy;
-      },
-    },
-  );
-  return proxy;
+import { couponKeys } from "./api";
+import { callsTo, on, resetApi } from "./fakeApi";
+import { couponRow, listBody, renderCoupons } from "./testKit";
+
+const LIST_LABEL = "쿠폰 목록을 불러오는 중입니다.";
+
+// 첫 요청은 바로, 이후 요청은 release 를 부를 때까지 붙잡는다.
+function holdAfterFirstList(next: unknown) {
+  let release: () => void = () => {};
+  let count = 0;
+  on("GET", "admin/coupons", async () => {
+    count += 1;
+    if (count === 1) return listBody();
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return next;
+  });
+  return () => release();
 }
 
-vi.mock("@/lib/supabase", () => ({
-  supabase: { from: (table: string) => chain(table) },
-}));
-
-import CouponAdmin from "./CouponAdmin";
+beforeEach(() => {
+  resetApi();
+  on("GET", "admin/coupons", listBody());
+});
 
 test("목록 헤더는 열 범위를 갖고 관리 칸은 고정되며 행 hover 색이 맞는다", async () => {
-  render(<CouponAdmin />);
+  renderCoupons();
   const edit = await screen.findByRole("button", { name: "수정" });
 
   const headers = screen.getAllByRole("columnheader");
@@ -57,4 +45,119 @@ test("목록 헤더는 열 범위를 갖고 관리 칸은 고정되며 행 hover
   const sticky = edit.closest("td");
   expect(sticky).toHaveClass("sticky", "right-0", "group-hover:bg-muted");
   expect(edit.closest("tr")).toHaveClass("group");
+  expect(callsTo("GET", "admin/coupons")).toHaveLength(1);
+});
+
+test("사용 건수, 발급 이력 버튼 게이트, 열화(null)가 예전과 같다", async () => {
+  on(
+    "GET",
+    "admin/coupons",
+    listBody({
+      items: [
+        { ...(listBody().items[0] as object), id: "c1", grant_type: "auto" },
+      ],
+      redemptionStats: {
+        byCoupon: { c1: { active: 2, total: 3 } },
+        truncated: true,
+      },
+      grantedCouponIds: ["c1"],
+    }),
+  );
+  const first = renderCoupons();
+  expect(await screen.findByText("2 / 3+")).toBeVisible();
+  expect(screen.getByRole("button", { name: "발급 이력" })).toBeVisible();
+  first.unmount();
+
+  on(
+    "GET",
+    "admin/coupons",
+    listBody({
+      items: [
+        { ...(listBody().items[0] as object), id: "c1", grant_type: "auto" },
+      ],
+      redemptionStats: null,
+      grantedCouponIds: null,
+      tenants: null,
+    }),
+  );
+  renderCoupons();
+  expect(await screen.findByText("0 / 0")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "발급 이력" })).toBeNull();
+});
+
+test("처음 받는 동안은 표 스켈레톤이 보이고 응답이 오면 행으로 바뀐다", async () => {
+  let release: () => void = () => {};
+  on("GET", "admin/coupons", async () => {
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return listBody();
+  });
+  renderCoupons();
+
+  expect(await screen.findByRole("status", { name: LIST_LABEL })).toBeVisible();
+  expect(screen.queryByText("gift-1")).toBeNull();
+
+  release();
+  expect(await screen.findByText("gift-1")).toBeVisible();
+  expect(screen.queryByRole("status", { name: LIST_LABEL })).toBeNull();
+});
+
+test("창 포커스 같은 백그라운드 재조회는 행을 그대로 두고 스켈레톤을 띄우지 않는다", async () => {
+  const release = holdAfterFirstList(listBody());
+  const { client } = renderCoupons();
+  await screen.findByText("gift-1");
+
+  const refetching = client.refetchQueries({ queryKey: couponKeys.list() });
+  await waitFor(() => expect(callsTo("GET", "admin/coupons")).toHaveLength(2));
+
+  expect(screen.getByText("gift-1")).toBeVisible();
+  expect(screen.queryByRole("status", { name: LIST_LABEL })).toBeNull();
+  release();
+  await refetching;
+});
+
+test("초기화를 누르면 스켈레톤을 거쳐 새로 받은 행이 보인다", async () => {
+  const release = holdAfterFirstList(
+    listBody({ items: [{ ...couponRow, slug: "fresh-1" }] }),
+  );
+  renderCoupons();
+  await screen.findByText("gift-1");
+
+  fireEvent.click(screen.getByRole("button", { name: "초기화" }));
+
+  expect(await screen.findByRole("status", { name: LIST_LABEL })).toBeVisible();
+  expect(screen.queryByText("gift-1")).toBeNull();
+  release();
+  expect(await screen.findByText("fresh-1")).toBeVisible();
+});
+
+test("쿠폰을 저장하면 옛 목록을 비우고 새로 받은 뒤 목록으로 돌아온다", async () => {
+  const release = holdAfterFirstList(
+    listBody({ items: [{ ...couponRow, slug: "new-slug" }] }),
+  );
+  on("POST", "admin/coupons", couponRow);
+  const { client, router } = renderCoupons("/admin/coupons/new");
+  await screen.findByText("쿠폰 키");
+  fireEvent.change(screen.getByRole("textbox", { name: "쿠폰 키" }), {
+    target: { value: "new-slug" },
+  });
+  fireEvent.change(screen.getByRole("textbox", { name: "쿠폰 이름" }), {
+    target: { value: "새 쿠폰" },
+  });
+  fireEvent.change(screen.getByRole("spinbutton", { name: "할인 금액" }), {
+    target: { value: "2000" },
+  });
+  fireEvent.click(screen.getByRole("radio", { name: "사용 기한 무제한" }));
+  fireEvent.click(screen.getByRole("radio", { name: "총 발행 수량 무제한" }));
+  fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+  await waitFor(() => expect(callsTo("GET", "admin/coupons")).toHaveLength(2));
+  expect(client.getQueryData(couponKeys.list())).toBeUndefined();
+
+  release();
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe("/admin/coupons"),
+  );
+  expect(await screen.findByText("new-slug")).toBeVisible();
 });

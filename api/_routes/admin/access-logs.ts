@@ -1,14 +1,16 @@
+// POST /api/admin/access-logs  { action, resourceKey, reason, rowCount?, targetId? } -> 201 { id, createdAt }
 // GET /api/admin/access-logs[?tenantCode=&from=&to=&kind=&page=]  (from 포함, to 미포함인 ISO Z 시각)
 //
 // 본사 개인정보 접근 로그 화면의 목록(사 #170, 교 #66, 결정 102.5). 소속코드, 교사 이름과 로그인 아이디,
 // 가린 교사 전화번호, 구분, 가린 학생 이름, 내용을 한 줄씩 돌려준다. teachers 는 authenticated 에 막혀 있어
 // 뷰로는 붙일 수 없으므로 service_role 로 읽는다.
-// 권한: 로그인 + fn_is_super_admin. admin_access_logs 의 RLS 와 같은 술어다.
+// 권한: 메뉴 권한 adminAccessLogs view(defineHandler permission) + fn_is_super_admin. 뒤쪽은 admin_access_logs 의 RLS 와 같은 데이터 술어다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { z } from "zod";
 import {
   ACCESS_LOG_KINDS,
-  type AccessLogKind,
   actionsOfKind,
   contentSummary,
   kindLabel,
@@ -54,46 +56,34 @@ interface ProfileRow {
   member_type: string | null;
 }
 
-interface Filter {
-  tenantCode: string | null;
-  from: string | null;
-  before: string | null;
-  kind: AccessLogKind | null;
-  page: number;
-}
+// 빈 문자열은 없는 값으로 본다(화면이 비운 칸을 그대로 보낸다).
+const blankAsAbsent = (value: unknown) => (value === "" ? undefined : value);
+const optional = <T extends z.ZodType>(schema: T) =>
+  z.preprocess(blankAsAbsent, schema.optional());
 
-function one(value: unknown): string | null {
-  return typeof value === "string" && value !== "" ? value : null;
-}
-
-// 시각은 ISO 8601 Z(예: 2026-10-31T15:00:00.000Z)다. 달력에 없는 날이거나 형식이 다르면 null.
+// 시각은 ISO 8601 Z(예: 2026-10-31T15:00:00.000Z)다. 달력에 없는 날이거나 형식이 다르면 거른다.
 const ISO_Z = /^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 
-function isoInstant(value: string): string | null {
+function isRealInstant(value: string): boolean {
   const match = ISO_Z.exec(value);
-  if (!match) return null;
+  if (!match) return false;
   const moment = new Date(value);
-  if (Number.isNaN(moment.getTime())) return null;
-  if (moment.toISOString().slice(0, 10) !== match[1]) return null; // tz-literal-ok: ISO Z 입력의 UTC 날짜 부분이 실존하는지만 본다
-  return value;
+  if (Number.isNaN(moment.getTime())) return false;
+  return moment.toISOString().slice(0, 10) === match[1]; // tz-literal-ok: ISO Z 입력의 UTC 날짜 부분이 실존하는지만 본다
 }
 
-/** 쿼리를 읽는다. 형식이 틀린 값이 하나라도 있으면 null. */
-function parseFilter(query: Record<string, unknown>): Filter | null {
-  const fromText = one(query.from);
-  const toText = one(query.to);
-  const kindText = one(query.kind);
-  const pageText = one(query.page);
-  const from = fromText ? isoInstant(fromText) : null;
-  const before = toText ? isoInstant(toText) : null;
-  const kind = ACCESS_LOG_KINDS.find((k) => k === kindText) ?? null;
-  const page = pageText === null ? 1 : Number(pageText);
-  if (fromText && !from) return null;
-  if (toText && !before) return null;
-  if (kindText && !kind) return null;
-  if (!Number.isInteger(page) || page < 1) return null;
-  return { tenantCode: one(query.tenantCode), from, before, kind, page };
-}
+const instant = z.string().refine(isRealInstant);
+
+const querySchema = z.object({
+  tenantCode: optional(z.string()),
+  from: optional(instant),
+  to: optional(instant),
+  kind: optional(z.enum(ACCESS_LOG_KINDS)),
+  page: z.preprocess(
+    blankAsAbsent,
+    z.string().transform(Number).pipe(z.number().int().min(1)).default(1),
+  ),
+});
 
 function unique(values: (string | null)[]): string[] {
   return [...new Set(values.filter((v): v is string => v !== null))];
@@ -111,16 +101,17 @@ async function readById<T extends { id: string }>(
   return new Map(((data ?? []) as unknown as T[]).map((row) => [row.id, row]));
 }
 
-export default defineHandler({
+const getHandler = defineHandler({
   methods: ["GET"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+  auth: "admin",
+  errorShape: "problem",
+  permission: { key: "adminAccessLogs" },
   unhandledMessage: "접근 로그를 불러오지 못했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "[admin/access-logs]",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
+  query: querySchema,
+  handler: async (_req, res, ctx) => {
+    // 메뉴 권한이 아니라 데이터 술어다(admin_access_logs 의 RLS 와 같다).
     const { data: isSuper, error } = await ctx.supabaseAdmin.rpc(
       "fn_is_super_admin",
       { p_profile_id: ctx.userId },
@@ -129,7 +120,7 @@ export default defineHandler({
     if (isSuper !== true) {
       sendError(
         res,
-        "coded",
+        "problem",
         403,
         "최고 관리자만 볼 수 있습니다.",
         "FORBIDDEN",
@@ -137,11 +128,7 @@ export default defineHandler({
       return;
     }
 
-    const filter = parseFilter(req.query);
-    if (!filter) {
-      sendError(res, "coded", 400, "조회 조건을 확인해 주세요.", "BAD_REQUEST");
-      return;
-    }
+    const filter = ctx.query;
 
     let tenantId: string | null = null;
     if (filter.tenantCode) {
@@ -152,9 +139,7 @@ export default defineHandler({
         .maybeSingle();
       if (tenantError) throw new Error("tenant read failed");
       if (!tenant) {
-        res
-          .status(200)
-          .json({ ok: true, logs: [], page: filter.page, hasNext: false });
+        res.status(200).json({ items: [], page: filter.page, hasNext: false });
         return;
       }
       tenantId = (tenant as { id: string }).id;
@@ -167,7 +152,7 @@ export default defineHandler({
       );
     if (tenantId) query = query.eq("tenant_id", tenantId);
     if (filter.from) query = query.gte("created_at", filter.from);
-    if (filter.before) query = query.lt("created_at", filter.before);
+    if (filter.to) query = query.lt("created_at", filter.to);
     if (filter.kind) query = query.in("action", actionsOfKind(filter.kind));
     const offset = (filter.page - 1) * PAGE_SIZE;
     // 한 줄 더 읽어 다음 쪽이 있는지 안다.
@@ -197,8 +182,7 @@ export default defineHandler({
     ]);
 
     res.status(200).json({
-      ok: true,
-      logs: rows.map((row) => {
+      items: rows.map((row) => {
         const teacher = row.teacher_id ? teachers.get(row.teacher_id) : null;
         const actor = row.profile_id ? profiles.get(row.profile_id) : null;
         const target = row.target_id ? profiles.get(row.target_id) : null;
@@ -234,3 +218,62 @@ export default defineHandler({
     });
   },
 });
+
+const postBodySchema = z.object({
+  action: z.enum(["download", "unmask"]),
+  resourceKey: z.string().min(1),
+  reason: z.string().trim().min(1),
+  rowCount: z.number().int().min(0).optional(),
+  targetId: z.string().optional(),
+});
+
+// 개인정보 반출 게이트의 접근 기록 적재. 감사 로그라 멱등 키 없이 제출마다 한 줄이다(추가만 되고,
+// 클라이언트는 재시도하지 않으며 게이트가 이중 제출을 막는다).
+const postHandler = defineHandler({
+  methods: ["POST"],
+  auth: "admin",
+  errorShape: "problem",
+  // 기록은 그 메뉴를 읽은 일(내려받기, 마스킹 해제)이므로 그 메뉴의 view 면 된다. edit 를 요구하면 조회 권한자는 내려받지 못한다.
+  permission: {
+    key: (req) =>
+      typeof req.body?.resourceKey === "string" ? req.body.resourceKey : "",
+    level: "view",
+  },
+  // 이 라우트가 곧 접근 로그 적재라 자동 감사 행을 따로 남기지 않는다.
+  audit: false,
+  unhandledMessage: "접근 기록을 남기지 못했습니다.",
+  logLabel: "[admin/access-logs]",
+  body: postBodySchema,
+  handler: async (_req, res, ctx) => {
+    const profileId = ctx.userId as string;
+    const { data: authUser, error: authError } =
+      await ctx.supabaseAdmin.auth.admin.getUserById(profileId);
+    const email = authUser?.user?.email;
+    if (authError || !email) throw new Error("auth user lookup failed");
+
+    const { data, error } = await ctx.supabaseAdmin
+      .from("admin_access_logs")
+      .insert({
+        profile_id: profileId,
+        actor_email: email,
+        action: ctx.body.action,
+        resource_key: ctx.body.resourceKey,
+        reason: ctx.body.reason,
+        row_count: ctx.body.rowCount ?? null,
+        target_id: ctx.body.targetId ?? null,
+      })
+      .select("id, created_at")
+      .single();
+    if (error || !data) throw new Error("access log insert failed");
+
+    res.status(201).json({ id: data.id, createdAt: data.created_at });
+  },
+});
+
+export default function handler(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<void> {
+  // POST 만 쓰기 핸들러로 보내고 나머지는 GET 핸들러가 405 로 거른다.
+  return (req.method === "POST" ? postHandler : getHandler)(req, res);
+}

@@ -1,181 +1,205 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+// 탐구 세션 목록과 상세 라우트. 목록 조건은 주소 검색 파라미터에, 상세는 /admin/inquirySessions/:id 에 있다.
 
-vi.mock("./api", () => ({
-  fetchInquirySessions: vi.fn(),
-  postInquiryGrant: vi.fn(),
-  postInquiryRecover: vi.fn(),
-}));
-vi.mock("@/lib/supabase", () => ({
-  supabase: {
-    from: () => ({
-      select: () => ({
-        or: () => ({
-          limit: () =>
-            Promise.resolve({
-              data: [{ id: "p-1", name: "김학생", email: "kim@example.com" }],
-              error: null,
-            }),
-        }),
-      }),
-    }),
-  },
+import "@testing-library/jest-dom/vitest";
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+
+vi.mock("@/lib/http/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/http/client")>()),
+  api: (await import("./fakeApi")).fakeApi,
 }));
 
-import * as api from "./api";
-import InquirySessionsAdmin from "./InquirySessionsAdmin";
-import type { InquirySessionItem } from "./row";
-
-const ITEM: InquirySessionItem = {
-  id: "s-1",
-  profileId: "p-1",
-  studentName: "김학생",
-  email: "kim@example.com",
-  status: "completed",
-  currentStep: 6,
-  subject: "수학",
-  topicTitle: "확률",
-  completedAt: null,
-  lastActivityAt: null,
-  ledgerId: null,
-  ledgerReversedAt: null,
-  terminal: null,
-  generation: { modes: {}, terminal: null },
-  evaluationCount: 0,
-  topicRoundCount: 0,
-};
+import { ApiError } from "@/lib/http/client";
+import { callsTo, on, resetApi } from "./fakeApi";
+import {
+  detailPath,
+  LIST,
+  listBody,
+  renderInquiry,
+  sessionItem,
+} from "./testKit";
 
 beforeEach(() => {
-  vi.resetAllMocks();
-  vi.mocked(api.fetchInquirySessions).mockResolvedValue({
-    ok: true,
-    data: { items: [ITEM], total: 1, page: 1, pageSize: 20 },
+  resetApi();
+  on("GET", LIST, listBody());
+  on("GET", detailPath("s-1"), sessionItem());
+});
+
+afterEach(cleanup);
+
+describe("InquirySessionsAdmin 목록", () => {
+  test("주소의 상태, 검색어, 페이지로 조회하고 신호를 넘긴다", async () => {
+    renderInquiry("/admin/inquirySessions?status=completed&q=%EA%B9%80&page=2");
+
+    await screen.findByText("kim@example.com");
+
+    const [call] = callsTo("GET", LIST);
+    expect(call?.options.searchParams).toEqual({
+      status: "completed",
+      q: "김",
+      page: 2,
+      pageSize: 20,
+    });
+    expect(call?.options.signal).toBeInstanceOf(AbortSignal);
+    expect(screen.getByLabelText("상태")).toHaveValue("completed");
+    expect(screen.getByLabelText("검색어")).toHaveValue("김");
+  });
+
+  test("열 머리글은 scope col 을 가진다", async () => {
+    renderInquiry();
+    const header = await screen.findByRole("columnheader", { name: "학생" });
+    expect(header).toHaveAttribute("scope", "col");
+  });
+
+  test("조회 중에는 role=status 로 알린다", () => {
+    on("GET", LIST, () => new Promise(() => {}));
+    renderInquiry();
+    expect(
+      screen.getByRole("status", { name: "세션 목록을 불러오는 중" }),
+    ).toBeInTheDocument();
+  });
+
+  test("조회가 실패하면 서버 detail 을 role=alert 로 알린다", async () => {
+    on("GET", LIST, () => {
+      throw new ApiError({
+        status: 400,
+        code: "INVALID_QUERY",
+        detail: "page 가 올바르지 않습니다.",
+      });
+    });
+    renderInquiry();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "page 가 올바르지 않습니다.",
+    );
+    expect(screen.getByText("조회된 세션이 없습니다.")).toBeInTheDocument();
+  });
+
+  test("상태를 고르면 주소가 바뀌고 1페이지로 다시 조회한다", async () => {
+    const { router } = renderInquiry("/admin/inquirySessions?page=3");
+    await screen.findByText("kim@example.com");
+
+    fireEvent.change(screen.getByLabelText("상태"), {
+      target: { value: "archived" },
+    });
+
+    await waitFor(() =>
+      expect(router.state.location.search).toBe("?status=archived"),
+    );
+    await waitFor(() =>
+      expect(callsTo("GET", LIST).at(-1)?.options.searchParams).toEqual({
+        status: "archived",
+        page: 1,
+        pageSize: 20,
+      }),
+    );
+  });
+
+  test("검색어는 조회를 눌러야 주소에 반영된다", async () => {
+    const { router } = renderInquiry("/admin/inquirySessions?page=3");
+    await screen.findByText("kim@example.com");
+
+    fireEvent.change(screen.getByLabelText("검색어"), {
+      target: { value: " 박 " },
+    });
+    expect(router.state.location.search).toBe("?page=3");
+
+    fireEvent.click(screen.getByRole("button", { name: "조회" }));
+
+    await waitFor(() =>
+      expect(new URLSearchParams(router.state.location.search).get("q")).toBe(
+        "박",
+      ),
+    );
+  });
+
+  test("알 수 없는 하위 주소는 목록으로 돌려보낸다", async () => {
+    const { router } = renderInquiry("/admin/inquirySessions/a/b");
+    await screen.findByText("kim@example.com");
+    expect(router.state.location.pathname).toBe("/admin/inquirySessions");
   });
 });
 
-describe("InquirySessionsAdmin 목록", () => {
-  test("첫 칸의 버튼을 눌러 세션 상세를 연다", async () => {
-    render(<InquirySessionsAdmin config={{ title: "탐구 세션" }} />);
+describe("InquirySessionsAdmin 상세 라우트", () => {
+  test("이름 버튼을 누르면 검색 조건을 단 채 상세 주소로 가고 상세를 읽는다", async () => {
+    const { router } = renderInquiry("/admin/inquirySessions?status=completed");
 
     fireEvent.click(await screen.findByRole("button", { name: "김학생" }));
 
     expect(
       await screen.findByRole("dialog", { name: /김학생 \(완료\)/ }),
     ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/admin/inquirySessions/s-1");
+    expect(router.state.location.search).toBe("?status=completed");
+    expect(callsTo("GET", detailPath("s-1"))).toHaveLength(1);
   });
 
-  test("열 머리글은 scope col 을 가진다", async () => {
-    render(<InquirySessionsAdmin config={{ title: "탐구 세션" }} />);
-    const header = await screen.findByRole("columnheader", { name: "학생" });
-    expect(header).toHaveAttribute("scope", "col");
+  test("상세 주소로 바로 들어와도(새로고침) 상세가 열리고 목록도 그려진다", async () => {
+    renderInquiry("/admin/inquirySessions/s-1?status=completed");
+
+    expect(
+      await screen.findByRole("dialog", { name: /김학생 \(완료\)/ }),
+    ).toBeInTheDocument();
+    // 목록 칸과 상세 설명에 한 번씩 나온다.
+    expect(await screen.findAllByText("kim@example.com")).toHaveLength(2);
+    expect(callsTo("GET", LIST)[0]?.options.searchParams).toMatchObject({
+      status: "completed",
+    });
   });
-});
 
-describe("InquirySessionsAdmin 이용권 부여 다이얼로그", () => {
-  async function openGrant() {
-    render(<InquirySessionsAdmin config={{ title: "탐구 세션" }} />);
-    await screen.findByText("kim@example.com");
-    fireEvent.click(screen.getByRole("button", { name: "이용권 부여" }));
-    return screen.findByRole("dialog", { name: "이용권 부여" });
-  }
+  test("상세를 읽는 동안은 불러오는 중으로 알린다", async () => {
+    on("GET", detailPath("s-1"), () => new Promise(() => {}));
+    renderInquiry("/admin/inquirySessions/s-1");
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("status", { name: "세션 상세를 불러오는 중" }),
+    ).toBeInTheDocument();
+  });
 
-  async function fillAndSubmit() {
-    fireEvent.click(screen.getByRole("button", { name: "검색" }));
-    fireEvent.change(screen.getByLabelText("학생 검색"), {
-      target: { value: "김" },
+  test("없는 세션은 서버 404 메시지를 보여준다", async () => {
+    on("GET", detailPath("zzz"), () => {
+      throw new ApiError({
+        status: 404,
+        code: "NOT_FOUND",
+        detail: "세션을 찾을 수 없습니다.",
+      });
     });
-    fireEvent.click(screen.getByRole("button", { name: "검색" }));
-    fireEvent.click(await screen.findByText("김학생 / kim@example.com"));
-    fireEvent.change(screen.getByLabelText("세션 수"), {
-      target: { value: "3" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "부여" }));
-  }
+    renderInquiry("/admin/inquirySessions/zzz");
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(await screen.findByText("세션을 찾을 수 없습니다.")).toBeVisible();
+  });
 
-  test("부여 요청이 진행 중일 때 Esc 로 닫아도 다이얼로그가 유지된다", async () => {
-    vi.mocked(api.postInquiryGrant).mockReturnValue(new Promise(() => {}));
-    await openGrant();
-    await fillAndSubmit();
-    await screen.findByRole("button", { name: "처리 중..." });
+  test("Esc 로 닫으면 같은 검색 조건의 목록으로 돌아간다", async () => {
+    const { router } = renderInquiry(
+      "/admin/inquirySessions/s-1?status=completed&page=2",
+    );
+    await screen.findByRole("dialog", { name: /김학생/ });
 
     fireEvent.keyDown(document.activeElement ?? document.body, {
       key: "Escape",
     });
 
-    expect(
-      screen.getByRole("dialog", { name: "이용권 부여" }),
-    ).toBeInTheDocument();
-  });
-
-  test("진행 중에는 닫기 버튼이 비활성이다", async () => {
-    vi.mocked(api.postInquiryGrant).mockReturnValue(new Promise(() => {}));
-    await openGrant();
-    await fillAndSubmit();
-    await screen.findByRole("button", { name: "처리 중..." });
-
-    expect(screen.getByRole("button", { name: "닫기" })).toBeDisabled();
-  });
-
-  test("진행 중이 아니면 Esc 로 닫힌다", async () => {
-    await openGrant();
-    fireEvent.keyDown(document.activeElement ?? document.body, {
-      key: "Escape",
-    });
     await waitFor(() =>
-      expect(
-        screen.queryByRole("dialog", { name: "이용권 부여" }),
-      ).not.toBeInTheDocument(),
+      expect(router.state.location.pathname).toBe("/admin/inquirySessions"),
     );
+    expect(router.state.location.search).toBe("?status=completed&page=2");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  test("바깥 클릭으로는 닫히지 않는다", async () => {
-    await openGrant();
-    const backdrop = document.querySelector('[data-slot="dialog-overlay"]');
-    expect(backdrop).not.toBeNull();
-    fireEvent.pointerDown(backdrop as Element);
-    fireEvent.mouseDown(backdrop as Element);
-    fireEvent.click(backdrop as Element);
-    expect(
-      screen.getByRole("dialog", { name: "이용권 부여" }),
-    ).toBeInTheDocument();
-  });
+  test("브라우저 뒤로가기는 목록으로 돌아간다", async () => {
+    const { router } = renderInquiry("/admin/inquirySessions?status=completed");
+    fireEvent.click(await screen.findByRole("button", { name: "김학생" }));
+    await screen.findByRole("dialog", { name: /김학생/ });
 
-  test("다시 열면 이전 입력이 비어 있다", async () => {
-    await openGrant();
-    fireEvent.change(screen.getByLabelText("학생 검색"), {
-      target: { value: "김" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "닫기" }));
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("dialog", { name: "이용권 부여" }),
-      ).not.toBeInTheDocument(),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "이용권 부여" }));
-    expect(await screen.findByLabelText("학생 검색")).toHaveValue("");
-  });
+    await router.navigate(-1);
 
-  test("무제한을 체크하면 세션 수 입력이 사라지고 quota 는 null 로 보낸다", async () => {
-    vi.mocked(api.postInquiryGrant).mockResolvedValue({
-      ok: true,
-      data: { grantId: "g", quota: {} },
-    });
-    await openGrant();
-    fireEvent.click(screen.getByRole("button", { name: "검색" }));
-    fireEvent.change(screen.getByLabelText("학생 검색"), {
-      target: { value: "김" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "검색" }));
-    fireEvent.click(await screen.findByText("김학생 / kim@example.com"));
-    fireEvent.click(screen.getByLabelText("무제한"));
-    expect(screen.queryByLabelText("세션 수")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("만료일(비우면 무기한)"), {
-      target: { value: "2027-01-01" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "부여" }));
-    await waitFor(() => expect(api.postInquiryGrant).toHaveBeenCalled());
-    expect(api.postInquiryGrant).toHaveBeenCalledWith(
-      expect.objectContaining({ sessionQuota: null }),
-    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(router.state.location.pathname).toBe("/admin/inquirySessions");
+    expect(router.state.location.search).toBe("?status=completed");
   });
 });

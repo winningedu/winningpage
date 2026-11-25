@@ -39,6 +39,15 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+vi.mock("./admin/engine/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./admin/engine/api")>()),
+  fetchSectionList: vi.fn(() =>
+    state.hang
+      ? new Promise<never>(() => {})
+      : Promise.resolve({ items: [], total: 0 }),
+  ),
+}));
+
 vi.mock("./admin/shared/adminSession", () => ({
   getFreshSupabaseAccessTokenOrSignOut: async () => "token",
 }));
@@ -96,7 +105,10 @@ describe("Admin 섹션 셸", () => {
     state.hang = true;
     renderSection("banners");
 
-    const status = await screen.findByRole("status");
-    expect(status).toHaveTextContent("데이터를 불러오는 중입니다.");
+    expect(
+      await screen.findByRole("status", {
+        name: "배너 관리 목록을 불러오는 중입니다.",
+      }),
+    ).toBeInTheDocument();
   });
 });

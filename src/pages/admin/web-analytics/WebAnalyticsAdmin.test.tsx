@@ -10,15 +10,21 @@ import {
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("./api", () => ({ fetchWebAnalytics: vi.fn() }));
+const http = vi.hoisted(() => ({ get: vi.fn() }));
+
+vi.mock("@/lib/http/client", async (importActual) => ({
+  ...(await importActual<typeof import("@/lib/http/client")>()),
+  api: { get: http.get },
+}));
 
 const zone = vi.hoisted(() => ({ value: "Asia/Seoul" }));
 vi.mock("@/lib/time/zone", () => ({ browserTimeZone: () => zone.value }));
 
-import * as api from "./api";
+import { ApiError } from "@/lib/http/client";
+import type { WebAnalyticsReport } from "./api";
 import WebAnalyticsAdmin from "./WebAnalyticsAdmin";
 
-const REPORT: api.WebAnalyticsReport = {
+const REPORT: WebAnalyticsReport = {
   range: { from: "2026-11-01", to: "2026-11-07" },
   totals: { pageviews: 1200, visitors: 340 },
   topPages: [
@@ -44,6 +50,30 @@ const REPORT: api.WebAnalyticsReport = {
     { name: "consult_apply", count: 0, visitors: 0, breakdowns: [] },
   ],
 };
+
+// api.get(...).json(schema) 체인을 흉내 낸다. 본문은 실제 스키마로 검증한다.
+function respondWith(report: WebAnalyticsReport) {
+  return {
+    json: async (schema: { parse: (value: unknown) => unknown }) =>
+      schema.parse(report),
+  };
+}
+
+function failWith(error: unknown) {
+  return {
+    json: async () => {
+      throw error;
+    },
+  };
+}
+
+// 마지막 api.get 호출이 보낸 기간.
+function lastRange() {
+  const init = http.get.mock.lastCall?.[1] as {
+    searchParams: Record<string, string>;
+  };
+  return init.searchParams;
+}
 
 function LocationProbe() {
   const location = useLocation();
@@ -80,10 +110,7 @@ function renderPage(search = "") {
 beforeEach(() => {
   zone.value = "Asia/Seoul";
   vi.resetAllMocks();
-  vi.mocked(api.fetchWebAnalytics).mockResolvedValue({
-    ok: true,
-    data: REPORT,
-  });
+  http.get.mockReturnValue(respondWith(REPORT));
 });
 
 afterEach(() => {
@@ -105,10 +132,8 @@ describe("WebAnalyticsAdmin", () => {
     const pages = screen.getByRole("table", { name: "많이 본 페이지" });
     expect(within(pages).getByText("/services/growth")).toBeInTheDocument();
     expect(within(pages).getByText("500")).toBeInTheDocument();
-    expect(api.fetchWebAnalytics).toHaveBeenCalledWith({
-      from: "2026-11-01",
-      to: "2026-11-07",
-    });
+    expect(http.get.mock.lastCall?.[0]).toBe("admin/web-analytics");
+    expect(lastRange()).toEqual({ from: "2026-11-01", to: "2026-11-07" });
   });
 
   test("이벤트 표에 한글 이름, 횟수, 방문자, 속성별 나눔을 보여 준다", async () => {
@@ -139,7 +164,7 @@ describe("WebAnalyticsAdmin", () => {
     renderPage();
 
     await waitFor(() =>
-      expect(api.fetchWebAnalytics).toHaveBeenCalledWith({
+      expect(lastRange()).toEqual({
         from: "2026-11-17",
         to: "2026-11-23",
       }),
@@ -156,7 +181,7 @@ describe("WebAnalyticsAdmin", () => {
     renderPage();
 
     await waitFor(() =>
-      expect(api.fetchWebAnalytics).toHaveBeenCalledWith({
+      expect(lastRange()).toEqual({
         from: "2026-11-16",
         to: "2026-11-22",
       }),
@@ -176,7 +201,7 @@ describe("WebAnalyticsAdmin", () => {
     fireEvent.click(screen.getByRole("button", { name: "조회" }));
 
     await waitFor(() =>
-      expect(api.fetchWebAnalytics).toHaveBeenCalledWith({
+      expect(lastRange()).toEqual({
         from: "2026-10-01",
         to: "2026-10-31",
       }),
@@ -201,10 +226,15 @@ describe("WebAnalyticsAdmin", () => {
   });
 
   test("API 오류 문구를 alert 로 보여 주고 숫자는 그리지 않는다", async () => {
-    vi.mocked(api.fetchWebAnalytics).mockResolvedValue({
-      ok: false,
-      message: "방문 분석 설정이 없어요",
-    });
+    http.get.mockReturnValue(
+      failWith(
+        new ApiError({
+          status: 503,
+          code: "NOT_CONFIGURED",
+          detail: "방문 분석 설정이 없어요",
+        }),
+      ),
+    );
 
     renderPage("?from=2026-11-01&to=2026-11-07");
 
@@ -213,5 +243,15 @@ describe("WebAnalyticsAdmin", () => {
     );
     expect(screen.queryByText("페이지 조회 수")).not.toBeInTheDocument();
     expect(screen.getByText(/2026-11-01 ~ 2026-11-07/)).toBeInTheDocument();
+  });
+
+  test("ApiError 가 아닌 실패는 기본 문구를 보여 준다", async () => {
+    http.get.mockReturnValue(failWith(new Error("boom")));
+
+    renderPage("?from=2026-11-01&to=2026-11-07");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "방문 분석을 불러오지 못했어요.",
+    );
   });
 });

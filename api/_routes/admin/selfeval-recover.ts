@@ -8,12 +8,16 @@
 // 차감: 종결 때 원본의 차감은 이미 되돌려졌다. 새 세션은 ledger_id 가 없어 다음 모델 호출
 // 단계 성공 시점에 다시 차감된다. 복구 자체는 차감하지 않는다.
 //
-// 응답 200 { ok, newSessionId }
-// 오류(coded): 400 INVALID_BODY, 404 SESSION_NOT_FOUND, 409 NOT_RECOVERABLE,
-//   409 ALREADY_RECOVERED, 409 SESSION_OPEN, 401/403 인증, 405, 500 INTERNAL
+// 권한: 메뉴 selfevalSessions(POST edit).
 //
-// 핸들러 본문은 테스트하지 않는다. 판정과 복제는 api/_lib/selfeval/ops/recover.ts.
+// 응답 200 { newSessionId }
+// 오류(problem): 400 VALIDATION_FAILED, 400 INVALID_BODY, 404 SESSION_NOT_FOUND, 409 NOT_RECOVERABLE,
+//   409 ALREADY_RECOVERED, 409 SESSION_OPEN, 401/403 인증, 405, 500
+//
+// 원본 표시 update 가 0행이면(그 사이 원본이 바뀜) 새 세션을 지우고 409 NOT_RECOVERABLE 로 끝낸다.
+// 판정과 복제는 판정과 복제는 api/_lib/selfeval/ops/recover.ts.
 
+import { z } from "zod";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import {
@@ -30,24 +34,26 @@ const PG_UNIQUE_VIOLATION = "23505";
 const SOURCE_COLUMNS =
   "id, profile_id, status, current_step, academic_year, grade_label, semester, area, subject, activity_name, school_prompt, teacher_note, target_chars, target_chars_mode, career, growth_report_id, growth_applied, growth_snapshot, plan_item_id, step_state";
 
+const bodySchema = z.object({ sessionId: z.string() });
+
+const NOT_RECOVERABLE_MESSAGE =
+  "복구할 수 없는 세션입니다. 종결된 세션만 복구할 수 있습니다.";
+
 export default defineHandler({
   methods: ["POST"],
   auth: "admin",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  authFailureExtra: { ok: false },
+  errorShape: "problem",
+  permission: { key: "selfevalSessions" },
+  // 종결된 원본 세션을 고치는 복구라 수정으로 남긴다.
+  audit: { action: "update" },
   unhandledMessage: "자기평가서 세션 복구에 실패했습니다.",
-  unhandledCode: "INTERNAL",
-  unhandledExtra: { ok: false },
   logLabel: "admin/selfeval-recover",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const parsed = validateRecoverBody(req.body);
+  body: bodySchema,
+  handler: async (_req, res, ctx) => {
+    const parsed = validateRecoverBody(ctx.body);
     if (!parsed.ok) {
-      sendError(res, "coded", 400, parsed.reason, "INVALID_BODY", {
-        ok: false,
-      });
+      sendError(res, "problem", 400, parsed.reason, "INVALID_BODY");
       return;
     }
     const db = ctx.supabaseAdmin;
@@ -62,11 +68,10 @@ export default defineHandler({
     if (!source) {
       sendError(
         res,
-        "coded",
+        "problem",
         404,
         "세션을 찾을 수 없습니다.",
         "SESSION_NOT_FOUND",
-        { ok: false },
       );
       return;
     }
@@ -77,8 +82,8 @@ export default defineHandler({
       const message =
         verdict.code === "ALREADY_RECOVERED"
           ? "이미 복구한 세션입니다."
-          : "복구할 수 없는 세션입니다. 종결된 세션만 복구할 수 있습니다.";
-      sendError(res, "coded", 409, message, verdict.code, { ok: false });
+          : NOT_RECOVERABLE_MESSAGE;
+      sendError(res, "problem", 409, message, verdict.code);
       return;
     }
 
@@ -91,7 +96,7 @@ export default defineHandler({
       .limit(1);
     if (openError) throw new Error(`미완 세션 조회 실패: ${openError.message}`);
     if ((open ?? []).length > 0) {
-      sendError(res, "coded", 409, openMessage, "SESSION_OPEN", { ok: false });
+      sendError(res, "problem", 409, openMessage, "SESSION_OPEN");
       return;
     }
 
@@ -113,9 +118,7 @@ export default defineHandler({
     if (insertError) {
       // 위 확인과 insert 사이에 학생이 세션을 만든 경우(학생당 미완 1개 부분 유니크).
       if (insertError.code === PG_UNIQUE_VIOLATION) {
-        sendError(res, "coded", 409, openMessage, "SESSION_OPEN", {
-          ok: false,
-        });
+        sendError(res, "problem", 409, openMessage, "SESSION_OPEN");
         return;
       }
       throw new Error(`복구 세션 생성 실패: ${insertError.message}`);
@@ -141,15 +144,28 @@ export default defineHandler({
       row.step_state && typeof row.step_state === "object"
         ? row.step_state
         : {};
-    const { error: markError } = await db
+    const { data: marked, error: markError } = await db
       .from("selfeval_sessions")
       .update({ step_state: { ...state, recoveredTo: created.id } })
       .eq("id", row.id)
-      .eq("status", "archived");
+      .eq("status", "archived")
+      .select("id");
     if (markError)
       throw new Error(`원본 recoveredTo 기록 실패: ${markError.message}`);
+    if ((marked ?? []).length === 0) {
+      // 원본이 그 사이 바뀌어 표시가 안 됐다. 새 세션을 남기면 학생의 미완 세션 자리를 막는다.
+      await db.from("selfeval_sessions").delete().eq("id", created.id);
+      sendError(
+        res,
+        "problem",
+        409,
+        NOT_RECOVERABLE_MESSAGE,
+        "NOT_RECOVERABLE",
+      );
+      return;
+    }
 
-    res.status(200).json({ ok: true, newSessionId: created.id });
+    res.status(200).json({ newSessionId: created.id });
   },
 });
 

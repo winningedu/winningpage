@@ -1,7 +1,7 @@
 // 미리보기 다이얼로그는 반영 중에 닫히지 않고, 바깥을 눌러서는 닫히지 않는다.
 
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("xlsx", () => ({ read: vi.fn(() => ({})) }));
@@ -30,6 +30,7 @@ vi.mock("./run", () => ({
   }),
 }));
 
+import { renderWithQuery } from "../testKit";
 import BulkPanel from "./BulkPanel";
 
 const config = {
@@ -42,7 +43,7 @@ const config = {
 const TITLE = "위닝 수행 주제 DB 엑셀 올리기 미리보기";
 
 async function openPreview() {
-  render(<BulkPanel config={config} rows={[]} onReload={() => {}} />);
+  renderWithQuery(<BulkPanel config={config} rows={[]} onReload={() => {}} />);
   const file = new File(["x"], "a.xlsx");
   Object.defineProperty(file, "arrayBuffer", {
     value: async () => new ArrayBuffer(0),

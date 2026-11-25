@@ -25,7 +25,7 @@ const GATED_SCREENS = [
     actions: ["download", "unmask"],
   },
   {
-    rel: "src/pages/admin/mentor/MentorApplicationsAdmin.tsx",
+    rel: "src/pages/admin/mentor/MentorApplicationList.tsx",
     resourceKey: "mentorApplications",
     actions: ["download"],
   },

@@ -1,35 +1,40 @@
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/lib/supabase";
-import {
-  type StudentRow,
-  searchStudents,
-} from "@/pages/admin/service-credit/api";
+import { ApiError } from "@/lib/http/client";
 import {
   ActionButton,
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
-import { fetchStudentUsage, type StudentUsage } from "./api";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { studentSearchQueryOptions } from "@/pages/admin/shared/studentSearch";
 import { SERVICE_PROGRAMS } from "./serviceSettings";
 import {
   denyReasonLabel,
   dirtyKey,
-  groupByColumns,
   type OverrideEdit,
   overridePayloads,
   resetPayloads,
   validateOverrideEdits,
 } from "./studentUsage";
+import {
+  type StudentUsage,
+  type UsageRow,
+  useSaveStudentUsage,
+  useStudentUsage,
+} from "./studentUsageQueries";
 
 // ---------------------------------------------------------------------------
 // 스쿨멘토 서비스이용횟수조정(사 #166, 결정 r5, r6, 102.11). 위닝 이용권 화면 대신 기관 이용 한도를 본다.
-// 사용 상태는 서버 경로(student-usage), 조정은 브라우저 세션(RLS)으로 upsert 한다. 변경 이력 트리거가
-// auth.uid() 로 변경자를 남기고 DELETE 권한이 없으므로 되돌리기는 두 한도를 null 로 쓴다.
-// 고른 학생 모두에게 고친 서비스만 한 배열로 보낸다.
+// 사용 상태와 조정 모두 서버 경로(student-usage)로 읽고 쓴다. 변경자는 서버가 채우고,
+// DELETE 권한이 없으므로 되돌리기는 두 한도를 null 로 쓴다.
+// 고른 학생 모두에게 고친 서비스만 한 배열로 보낸다. 보던 학생은 주소(?student=)에 둔다.
 // ---------------------------------------------------------------------------
 
 const SAVE_ERROR = "저장하지 못했어요. 권한을 확인해 주세요.";
+const SEARCH_ERROR = "학생 조회에 실패했습니다.";
 const INPUT_CLASS = "h-9 w-24";
 
 const textOf = (value: number | null | undefined) =>
@@ -47,44 +52,54 @@ function editsFrom(usage: StudentUsage): Record<string, OverrideEdit> {
   );
 }
 
+// 변경자(updated_by)는 서버가 채우므로 보내지 않는다.
+const withoutActor = (rows: ReturnType<typeof resetPayloads>): UsageRow[] =>
+  rows.map(({ updated_by: _actor, ...row }) => row);
+
 export default function StudentUsageAdmin() {
   const [term, setTerm] = useState("");
-  const [students, setStudents] = useState<StudentRow[]>([]);
+  const [submittedTerm, setSubmittedTerm] = useState("");
+  const studentSearch = useQuery(
+    studentSearchQueryOptions("serviceCreditAdjust", submittedTerm),
+  );
+  const students = studentSearch.data?.items ?? [];
   const [selected, setSelected] = useState<string[]>([]);
-  const [viewedId, setViewedId] = useState<string | null>(null);
-  const [usage, setUsage] = useState<StudentUsage | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewedId = searchParams.get("student");
+  const usageQuery = useStudentUsage(viewedId);
+  const usage = usageQuery.data ?? null;
+  const saveUsage = useSaveStudentUsage();
   const [edits, setEdits] = useState<Record<string, OverrideEdit>>({});
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
+  const busy = saveUsage.isPending;
 
-  async function search() {
-    const result = await searchStudents(term);
-    if (!result.ok) {
-      setMessage(result.message);
-      return;
-    }
+  // 현황이 새로 오면(처음, 다른 학생, 저장 뒤 다시 읽기) 입력 칸을 서버 값으로 맞춘다.
+  useEffect(() => {
+    if (!usage) return;
+    setEdits(editsFrom(usage));
+    setDirty(new Set());
+  }, [usage]);
+
+  // 보는 학생은 저장 대상에 들어간다. 주소로 바로 열어도 같다.
+  useEffect(() => {
+    if (!viewedId) return;
+    setSelected((prev) =>
+      prev.includes(viewedId) ? prev : [...prev, viewedId],
+    );
+  }, [viewedId]);
+
+  // 검색 결과는 useQuery 가 들고 있고, 검색을 누를 때마다 선택과 보던 학생을 비운다.
+  function search() {
     setMessage("");
-    setStudents(result.data);
+    setSubmittedTerm(term);
     setSelected([]);
-    setViewedId(null);
-    setUsage(null);
+    setSearchParams({});
   }
 
-  async function view(profileId: string) {
+  function view(profileId: string) {
     setMessage("");
-    const result = await fetchStudentUsage(profileId);
-    if (!result.ok) {
-      setMessage(result.message);
-      return;
-    }
-    setViewedId(profileId);
-    setSelected((prev) =>
-      prev.includes(profileId) ? prev : [...prev, profileId],
-    );
-    setUsage(result.data);
-    setEdits(editsFrom(result.data));
-    setDirty(new Set());
+    setSearchParams({ student: profileId });
   }
 
   function toggleSelected(profileId: string, checked: boolean) {
@@ -107,44 +122,15 @@ export default function StudentUsageAdmin() {
     setDirty((prev) => new Set(prev).add(dirtyKey(programKey, field)));
   }
 
-  async function write(
-    build: (userId: string) => ReturnType<typeof resetPayloads>,
-  ) {
+  async function write(rows: UsageRow[]) {
     if (busy) return;
-    setBusy(true);
     setMessage("");
-    const { data } = await supabase.auth.getSession();
-    const userId = data.session?.user.id;
-    if (!userId) {
-      setBusy(false);
-      setMessage(SAVE_ERROR);
-      return;
+    try {
+      await saveUsage.mutateAsync(rows);
+      setMessage("저장했어요.");
+    } catch (error) {
+      setMessage(error instanceof ApiError ? error.detail : SAVE_ERROR);
     }
-    let failed = false;
-    for (const rows of groupByColumns(build(userId))) {
-      const { error } = await supabase
-        .from("student_usage_overrides")
-        .upsert(rows, { onConflict: "profile_id,program_key" });
-      if (error) {
-        failed = true;
-        break;
-      }
-    }
-    setBusy(false);
-    if (failed) {
-      setMessage(SAVE_ERROR);
-      return;
-    }
-    setMessage("저장했어요.");
-    if (viewedId) await refresh(viewedId);
-  }
-
-  async function refresh(profileId: string) {
-    const result = await fetchStudentUsage(profileId);
-    if (!result.ok) return;
-    setUsage(result.data);
-    setEdits(editsFrom(result.data));
-    setDirty(new Set());
   }
 
   function save() {
@@ -153,7 +139,7 @@ export default function StudentUsageAdmin() {
       setMessage(invalid);
       return;
     }
-    void write((userId) => overridePayloads(selected, edits, dirty, userId));
+    void write(withoutActor(overridePayloads(selected, edits, dirty, "")));
   }
 
   return (
@@ -197,6 +183,13 @@ export default function StudentUsageAdmin() {
             </li>
           ))}
         </ul>
+      )}
+
+      {viewedId && usageQuery.isPending && (
+        <AdminDetailSkeleton
+          rows={SERVICE_PROGRAMS.length}
+          label="사용 현황을 불러오는 중입니다."
+        />
       )}
 
       {usage && (
@@ -267,7 +260,7 @@ export default function StudentUsageAdmin() {
             <ActionButton
               variant="light"
               disabled={busy || selected.length === 0}
-              onClick={() => write((userId) => resetPayloads(selected, userId))}
+              onClick={() => write(withoutActor(resetPayloads(selected, "")))}
             >
               기관 설정으로 되돌리기
             </ActionButton>
@@ -275,8 +268,17 @@ export default function StudentUsageAdmin() {
         </div>
       )}
 
-      {message && (
-        <p className="text-sm font-medium text-gray-700">{message}</p>
+      {(message || usageQuery.error || studentSearch.error) && (
+        <p className="text-sm font-medium text-gray-700">
+          {message ||
+            (usageQuery.error
+              ? usageQuery.error instanceof ApiError
+                ? usageQuery.error.detail
+                : "사용 현황을 불러오지 못했어요."
+              : studentSearch.error instanceof ApiError
+                ? studentSearch.error.detail
+                : SEARCH_ERROR)}
+        </p>
       )}
     </div>
   );

@@ -1,157 +1,170 @@
-import { apiFetch } from "@/lib/apiFetch";
-import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
+// AI 계기판의 서버 호출. 응답 모양은 zod 로 검증하고, 실패는 ApiError 로 받는다.
+
+import { z } from "zod";
+import { ApiError, api } from "@/lib/http/client";
 import type { PricingTableValue } from "./pricingForm";
 
-export type SummaryItem = {
-  day: string;
-  service: string;
-  calls: number;
-  okCalls: number;
-  errorCalls: number;
-  retriedCalls: number;
-  failureRate: number;
-  retryRate: number;
-  cachedRatio: number | null;
-  promptTokens: number;
-  outputTokens: number;
-  cachedTokens: number;
-  thoughtsTokens: number;
-  p50Ms: number | null;
-  p95Ms: number | null;
-  costUsd: number | null;
-  models: string[];
-};
+const nullableNumber = z.number().nullable();
 
-export type SummaryTotals = Omit<SummaryItem, "day" | "service">;
+const summaryItemSchema = z.object({
+  day: z.string(),
+  service: z.string(),
+  calls: z.number(),
+  okCalls: z.number(),
+  errorCalls: z.number(),
+  retriedCalls: z.number(),
+  failureRate: z.number(),
+  retryRate: z.number(),
+  cachedRatio: nullableNumber,
+  promptTokens: z.number(),
+  outputTokens: z.number(),
+  cachedTokens: z.number(),
+  thoughtsTokens: z.number(),
+  p50Ms: nullableNumber,
+  p95Ms: nullableNumber,
+  costUsd: nullableNumber,
+  models: z.array(z.string()),
+});
+export type SummaryItem = z.infer<typeof summaryItemSchema>;
 
-export type SummaryResponse = {
-  from: string;
-  to: string;
-  items: SummaryItem[];
-  totals: SummaryTotals;
-  pricingConfigured: boolean;
-};
+const summaryTotalsSchema = summaryItemSchema.omit({
+  day: true,
+  service: true,
+});
+export type SummaryTotals = z.infer<typeof summaryTotalsSchema>;
 
-export type CallItem = {
-  id: string;
-  createdAt: string;
-  startedAt: string | null;
-  traceId: string | null;
-  kind: string;
-  service: string;
-  feature: string;
-  step: string | null;
-  /** 한 단계 안 병렬 호출 구분 키(예 batch:0, section:2-1). 없으면 null. */
-  callKey: string | null;
-  targetKind: string | null;
-  targetId: string | null;
-  profileId: string | null;
-  model: string;
-  promptVersion: string | null;
-  attempt: number;
-  retryReason: string | null;
-  transportAttempt: number | null;
-  status: string;
-  errorCode: string | null;
-  errorMessage: string | null;
-  finishReason: string | null;
-  tokens: {
-    prompt: number | null;
-    output: number | null;
-    cached: number | null;
-    thoughts: number | null;
-    total: number | null;
-  };
-  inputChars: number | null;
-  outputChars: number | null;
-  latencyMs: number | null;
-  validation: string | null;
-  issueCodes: string[];
-};
+const summarySchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  items: z.array(summaryItemSchema),
+  totals: summaryTotalsSchema,
+  pricingConfigured: z.boolean(),
+});
+export type SummaryResponse = z.infer<typeof summarySchema>;
 
-export type CallsPage = {
-  items: CallItem[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
+const nullableString = z.string().nullable();
 
-export type CitationItem = {
-  resourceId: string;
-  title: string;
-  knowledgeType: string;
-  isActive: boolean;
-  hitCount: number;
-  citedCount: number;
-  lastHitAt: string | null;
-  lastCitedAt: string | null;
-};
+const callItemSchema = z.object({
+  id: z.string(),
+  createdAt: z.string(),
+  startedAt: nullableString,
+  traceId: nullableString,
+  kind: z.string(),
+  service: z.string(),
+  feature: z.string(),
+  step: nullableString,
+  // 한 단계 안 병렬 호출 구분 키(예 batch:0, section:2-1). 없으면 null.
+  callKey: nullableString,
+  targetKind: nullableString,
+  targetId: nullableString,
+  profileId: nullableString,
+  model: z.string(),
+  promptVersion: nullableString,
+  attempt: z.number(),
+  retryReason: nullableString,
+  transportAttempt: nullableNumber,
+  status: z.string(),
+  errorCode: nullableString,
+  errorMessage: nullableString,
+  finishReason: nullableString,
+  tokens: z.object({
+    prompt: nullableNumber,
+    output: nullableNumber,
+    cached: nullableNumber,
+    thoughts: nullableNumber,
+    total: nullableNumber,
+  }),
+  inputChars: nullableNumber,
+  outputChars: nullableNumber,
+  latencyMs: nullableNumber,
+  validation: nullableString,
+  issueCodes: z.array(z.string()),
+});
+export type CallItem = z.infer<typeof callItemSchema>;
 
+const callsPageSchema = z.object({
+  items: z.array(callItemSchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+});
+export type CallsPage = z.infer<typeof callsPageSchema>;
+
+const citationItemSchema = z.object({
+  resourceId: z.string(),
+  title: z.string(),
+  knowledgeType: z.string(),
+  isActive: z.boolean(),
+  hitCount: z.number(),
+  citedCount: z.number(),
+  lastHitAt: nullableString,
+  lastCitedAt: nullableString,
+});
+export type CitationItem = z.infer<typeof citationItemSchema>;
+
+const citationsSchema = z.object({ items: z.array(citationItemSchema) });
+
+const modelPricingSchema = z.object({
+  input_usd_per_1m: z.number(),
+  output_usd_per_1m: z.number(),
+  cached_input_usd_per_1m: z.number(),
+});
+
+const pricingSchema = z.object({
+  pricing: z.record(z.string(), modelPricingSchema),
+  updatedAt: nullableString,
+});
 export type PricingResponse = {
   pricing: PricingTableValue;
   updatedAt: string | null;
 };
 
-export type ApiResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; message: string };
+export const telemetryKeys = {
+  all: ["admin", "aiTelemetry"] as const,
+  summary: (search: string) =>
+    [...telemetryKeys.all, "summary", search] as const,
+  calls: (search: string) => [...telemetryKeys.all, "calls", search] as const,
+  citations: (search: string) =>
+    [...telemetryKeys.all, "citations", search] as const,
+  pricing: () => [...telemetryKeys.all, "pricing"] as const,
+};
 
-async function call<T>(
-  url: string,
-  init: { method: "GET" | "PUT"; body?: unknown },
-): Promise<ApiResult<T>> {
-  const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-  const response = await apiFetch(url, {
-    method: init.method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
-  });
-  const result = await response.json().catch(() => null);
-  if (!response.ok || !result?.ok) {
-    const message =
-      result?.error?.message ??
-      result?.detail ??
-      result?.message ??
-      `요청에 실패했습니다. (HTTP ${response.status})`;
-    return { ok: false, message: String(message) };
-  }
-  return { ok: true, data: result as T };
+const PATH = "admin/ai-telemetry";
+
+export function fetchSummary(search: string, signal?: AbortSignal) {
+  return api.get(PATH, { searchParams: search, signal }).json(summarySchema);
 }
 
-export function fetchSummary(search: string) {
-  return call<SummaryResponse>(`/api/admin/ai-telemetry?${search}`, {
-    method: "GET",
-  });
+export function fetchCalls(search: string, signal?: AbortSignal) {
+  return api.get(PATH, { searchParams: search, signal }).json(callsPageSchema);
 }
 
-export function fetchCalls(search: string) {
-  return call<CallsPage>(`/api/admin/ai-telemetry?${search}`, {
-    method: "GET",
-  });
+export async function fetchCitations(search: string, signal?: AbortSignal) {
+  const body = await api
+    .get(PATH, { searchParams: search, signal })
+    .json(citationsSchema);
+  return body.items;
 }
 
-export async function fetchCitations(
-  search: string,
-): Promise<ApiResult<CitationItem[]>> {
-  const result = await call<{ items: CitationItem[] }>(
-    `/api/admin/ai-telemetry?${search}`,
-    { method: "GET" },
-  );
-  return result.ok ? { ok: true, data: result.data.items } : result;
-}
-
-export function fetchPricing() {
-  return call<PricingResponse>("/api/admin/ai-telemetry?view=pricing", {
-    method: "GET",
-  });
+export function fetchPricing(signal?: AbortSignal) {
+  return api
+    .get(PATH, { searchParams: "view=pricing", signal })
+    .json(pricingSchema);
 }
 
 export function putPricing(pricing: PricingTableValue) {
-  return call<{ pricing: PricingTableValue }>(
-    "/api/admin/ai-telemetry-pricing",
-    { method: "PUT", body: { pricing } },
-  );
+  return api
+    .put("admin/ai-telemetry-pricing", { json: { pricing } })
+    .json(z.object({ pricing: z.record(z.string(), modelPricingSchema) }));
+}
+
+/** 화면에 보일 실패 문구. 값 검증 실패는 서버가 알려 준 첫 사유가 있으면 그것을 쓴다. */
+export function errorMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) return "요청에 실패했습니다.";
+  const first = (
+    error.problem?.errors as { message?: unknown }[] | undefined
+  )?.[0]?.message;
+  if (error.code === "VALIDATION_FAILED" && typeof first === "string")
+    return first;
+  return error.detail;
 }

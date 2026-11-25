@@ -4,20 +4,8 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea as UiTextarea } from "@/components/ui/textarea";
 
-// sql/52_mentor_applications.sql의 status 컬럼 주석에 적힌 값 그대로(CHECK 제약은 없지만
-// 이 6개가 실제 사용 값이다). CONFIGS.mentorApplications 목록 컬럼과 MentorApplicationsAdmin의
-// 상세 상태변경 Select가 이 배열 하나를 공유한다 — 값이 어긋나면 목록에 라벨이 안 붙는다.
-export const MENTOR_APPLICATION_STATUS_OPTIONS: {
-  value: string;
-  label: string;
-}[] = [
-  { value: "submitted", label: "제출됨" },
-  { value: "screening", label: "서류심사" },
-  { value: "interview", label: "면접" },
-  { value: "training", label: "교육" },
-  { value: "active", label: "활동중" },
-  { value: "rejected", label: "불합격" },
-];
+// 상태 값 정본은 src/lib/mentor-application/status.ts 다. 서버(PATCH 검증)와 같은 목록을 쓴다.
+export { MENTOR_APPLICATION_STATUS_OPTIONS } from "@/lib/mentor-application/status";
 
 // source: 백필(admission_results 유도)로 만들어진 행인지, 사람이 손으로 넣은
 // 행인지를 구분한다. 백필 재실행이 'manual' 행을 덮어쓰지 않는 근거 컬럼이다.

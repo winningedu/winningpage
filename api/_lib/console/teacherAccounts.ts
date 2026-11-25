@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
 import { MAX_PASSWORD_LENGTH, SYNTHETIC_DOMAIN } from "../auth/login.js";
-import { sendError } from "../httpResponse.js";
+import { type ErrorShape, sendError } from "../httpResponse.js";
 import { type ConsoleAuditCtx, writeConsoleAuditLog } from "./audit.js";
 import { loadTenant } from "./directory.js";
 
@@ -341,6 +341,11 @@ const DB_ERRORS: Record<
     code: "SELF_CHANGE",
     message: "본인 계정의 상태는 바꿀 수 없습니다.",
   },
+  WC108: {
+    status: 409,
+    code: "SELF_CHANGE",
+    message: "본인 계정은 삭제할 수 없습니다.",
+  },
   WC092: {
     status: 409,
     code: "LAST_CLASS_REQUIRED",
@@ -387,15 +392,16 @@ const DB_ERRORS: Record<
   },
 };
 
-/** DB 함수가 규칙 위반으로 낸 에러면 코드별 응답을 보내고 true. 그 밖의 에러는 false(호출부가 다시 던진다). */
+/** DB 함수가 규칙 위반으로 낸 에러면 코드별 응답을 보내고 true. 그 밖의 에러는 false(호출부가 다시 던진다). shape 는 기존 호출부가 coded 라 기본값이다. */
 export function sendTeacherDbError(
   res: VercelResponse,
   error: unknown,
+  shape: ErrorShape = "coded",
 ): boolean {
   if (!(error instanceof RpcError) || !error.code) return false;
   const mapped = DB_ERRORS[error.code];
   if (!mapped) return false;
-  sendError(res, "coded", mapped.status, mapped.message, mapped.code);
+  sendError(res, shape, mapped.status, mapped.message, mapped.code);
   return true;
 }
 

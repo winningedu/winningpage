@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Field, Select } from "@/pages/admin/shared/formFields";
-import { fetchRuns, type RunsResponse } from "./api";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
+import { errorText, evalKeys, fetchRuns } from "./api";
 import ErrorBox from "./ErrorBox";
 import type { KnowledgeType } from "./form";
 import HistoryTab from "./HistoryTab";
@@ -21,6 +24,12 @@ const KNOWLEDGE_TYPES: { value: KnowledgeType; label: string }[] = [
   { value: "verified_resource", label: "수행 자료" },
 ];
 
+const isTab = (value: string | null): value is Tab =>
+  TABS.some((t) => t.key === value);
+
+const isKnowledgeType = (value: string | null): value is KnowledgeType =>
+  KNOWLEDGE_TYPES.some((t) => t.value === value);
+
 const GUIDE =
   "문제집은 30문항부터 시작하고, 운영 검색 설정 변경은 이 결과를 근거로 별도로 결정합니다.";
 
@@ -29,26 +38,35 @@ interface Props {
 }
 
 export default function EvalsAdmin({ config }: Props) {
-  const [tab, setTab] = useState<Tab>("golden");
-  const [knowledgeType, setKnowledgeType] =
-    useState<KnowledgeType>("topic_pattern");
-  const [runs, setRuns] = useState<RunsResponse | null>(null);
-  const [runsError, setRunsError] = useState("");
+  // 새로고침해도 같은 탭과 유형이 남도록 주소에 둔다. 없거나 올바르지 않으면 처음 값이다.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const typeParam = searchParams.get("type");
+  const tab: Tab = isTab(tabParam) ? tabParam : "golden";
+  const knowledgeType: KnowledgeType = isKnowledgeType(typeParam)
+    ? typeParam
+    : "topic_pattern";
 
-  const reloadRuns = useCallback(() => {
-    fetchRuns(knowledgeType).then((result) => {
-      if (!result.ok) {
-        setRunsError(result.message);
-        return;
-      }
-      setRunsError("");
-      setRuns(result.data);
-    });
-  }, [knowledgeType]);
+  function setParam(key: "tab" | "type", value: string) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set(key, value);
+        return next;
+      },
+      { replace: true },
+    );
+  }
 
-  useEffect(() => {
-    reloadRuns();
-  }, [reloadRuns]);
+  const queryClient = useQueryClient();
+  const runsQuery = useQuery({
+    queryKey: evalKeys.runs(knowledgeType),
+    queryFn: ({ signal }) => fetchRuns(knowledgeType, signal),
+  });
+  const runs = runsQuery.data ?? null;
+  const runsError = runsQuery.error ? errorText(runsQuery.error) : "";
+  const reloadRuns = () =>
+    queryClient.invalidateQueries({ queryKey: evalKeys.runs(knowledgeType) });
 
   const productionParams = runs?.productionParams[knowledgeType] ?? null;
 
@@ -56,7 +74,10 @@ export default function EvalsAdmin({ config }: Props) {
     <div>
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
         <div className="flex flex-wrap items-end gap-3">
-          <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+          <Tabs
+            value={tab}
+            onValueChange={(value) => setParam("tab", String(value))}
+          >
             <TabsList aria-label="평가 화면">
               {TABS.map((t) => (
                 <TabsTrigger key={t.key} value={t.key} className="px-4">
@@ -69,7 +90,7 @@ export default function EvalsAdmin({ config }: Props) {
             <Field label="지식 유형">
               <Select
                 value={knowledgeType}
-                onChange={(value) => setKnowledgeType(value as KnowledgeType)}
+                onChange={(value) => setParam("type", value)}
               >
                 {KNOWLEDGE_TYPES.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -90,6 +111,9 @@ export default function EvalsAdmin({ config }: Props) {
       {tab === "run" && (
         <>
           <ErrorBox message={runsError} />
+          {runsQuery.isPending && (
+            <AdminDetailSkeleton rows={7} label="평가 설정을 불러오는 중" />
+          )}
           {productionParams && (
             <RunTab
               key={knowledgeType}
@@ -103,6 +127,9 @@ export default function EvalsAdmin({ config }: Props) {
       {tab === "history" && (
         <>
           <ErrorBox message={runsError} />
+          {runsQuery.isPending && (
+            <AdminTableSkeleton columns={11} label="실행 이력을 불러오는 중" />
+          )}
           {runs && <HistoryTab key={knowledgeType} runs={runs.items} />}
         </>
       )}

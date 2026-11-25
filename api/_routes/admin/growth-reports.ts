@@ -5,27 +5,25 @@
 // 검색은 profiles 를 먼저 찾아 profile_id 로 거른다(2단계 조회). 응답의 이름과 이메일은
 // 페이지에 담긴 회차의 프로필만 한 번 더 조회해 붙인다.
 //
-// 응답 200 { ok, items, total, page, pageSize }
+// 응답 200 { items, total, page, pageSize }
 //   items[]: id, profileId, studentName, email, status, currentStep, track, issuedAt,
 //            lastActivityAt, ledgerId, ledgerReversedAt, terminal, progress
-// 오류(coded): 400 INVALID_QUERY, 401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL
+// 오류(problem): 400 INVALID_QUERY, 401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL_ERROR
+// 권한: 메뉴 growthReports view.
 //
-// 핸들러 본문은 DB 에 묶여 있어 단위 테스트하지 않는다. 판단과 변환은 api/_lib/growth/ops/list.ts.
+// 판단과 변환은 api/_lib/growth/ops/list.ts, 프로필 이름 붙이기는 reportItems.ts.
 
-import type {
-  ProfileSummary,
-  ReportListRow,
-} from "../../_lib/growth/ops/list.js";
+import { z } from "zod";
+import type { ReportListRow } from "../../_lib/growth/ops/list.js";
+import { escapeIlike, parseListQuery } from "../../_lib/growth/ops/list.js";
 import {
-  escapeIlike,
-  parseListQuery,
-  toReportListItem,
-} from "../../_lib/growth/ops/list.js";
+  REPORT_COLUMNS,
+  toReportItems,
+} from "../../_lib/growth/ops/reportItems.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
-const REPORT_COLUMNS =
-  "id, profile_id, status, current_step, track, issued_at, last_activity_at, ledger_id, ledger_reversed_at, step_state";
+const queryValue = z.union([z.string(), z.array(z.string())]).optional();
 
 // 검색어에 맞는 프로필 id 상한. 넘으면 검색어를 좁혀 달라는 뜻이라 초과분은 버린다.
 const MAX_SEARCH_PROFILES = 500;
@@ -33,21 +31,23 @@ const MAX_SEARCH_PROFILES = 500;
 export default defineHandler({
   methods: ["GET"],
   auth: "admin",
-  errorShape: "coded",
+  errorShape: "problem",
+  permission: { key: "growthReports" },
   methodNotAllowedMessage: "GET만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  authFailureExtra: { ok: false },
   unhandledMessage: "성장설계 회차 조회에 실패했습니다.",
-  unhandledCode: "INTERNAL",
-  unhandledExtra: { ok: false },
   logLabel: "admin/growth-reports",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const parsed = parseListQuery(req.query);
+  // 모양만 거르고 값 규칙과 한국어 사유는 parseListQuery 가 맡는다.
+  query: z.object({
+    status: queryValue,
+    q: queryValue,
+    page: queryValue,
+    pageSize: queryValue,
+  }),
+  handler: async (_req, res, ctx) => {
+    const parsed = parseListQuery(ctx.query);
     if (!parsed.ok) {
-      sendError(res, "coded", 400, parsed.reason, "INVALID_QUERY", {
-        ok: false,
-      });
+      sendError(res, "problem", 400, parsed.reason, "INVALID_QUERY");
       return;
     }
     const { status, q, page, pageSize } = parsed.query;
@@ -64,7 +64,7 @@ export default defineHandler({
       if (error) throw new Error(`profiles 검색 실패: ${error.message}`);
       profileIds = (data ?? []).map((r: { id: string }) => r.id);
       if (profileIds.length === 0) {
-        res.status(200).json({ ok: true, items: [], total: 0, page, pageSize });
+        res.status(200).json({ items: [], total: 0, page, pageSize });
         return;
       }
     }
@@ -83,25 +83,8 @@ export default defineHandler({
     if (error) throw new Error(`growth_reports 조회 실패: ${error.message}`);
 
     const rows = (data ?? []) as ReportListRow[];
-    const ids = [...new Set(rows.map((r) => r.profile_id))];
-    const profiles = new Map<string, ProfileSummary>();
-    if (ids.length > 0) {
-      const { data: pData, error: pError } = await db
-        .from("profiles")
-        .select("id, name, email")
-        .in("id", ids);
-      if (pError) throw new Error(`profiles 조회 실패: ${pError.message}`);
-      for (const p of (pData ?? []) as {
-        id: string;
-        name: string | null;
-        email: string | null;
-      }[])
-        profiles.set(p.id, { name: p.name, email: p.email });
-    }
-
     res.status(200).json({
-      ok: true,
-      items: rows.map((r) => toReportListItem(r, profiles.get(r.profile_id))),
+      items: await toReportItems(db, rows),
       total: count ?? 0,
       page,
       pageSize,

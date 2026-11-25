@@ -1,53 +1,36 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   settings: [] as Record<string, unknown>[],
-  defaults: null as Record<string, unknown> | null,
-  defaultsError: null as { message: string } | null,
-  upserts: [] as {
-    values: Record<string, unknown>;
-    options: Record<string, unknown> | undefined;
-  }[],
-  upsertError: null as { message: string } | null,
+  defaults: {} as Record<string, unknown>,
+  loadError: null as Error | null,
+  puts: [] as Record<string, unknown>[],
+  /** 값이 있으면 조회 응답이 이 약속이 풀릴 때까지 기다린다. */
+  hold: null as Promise<void> | null,
+  putError: null as Error | null,
+  /** 조회 호출 기록(signal 을 넘기는지 본다). */
+  fetches: [] as { tenantId: string; signal: AbortSignal | undefined }[],
 }));
 
-vi.mock("@/lib/supabase", () => ({
-  supabase: {
-    auth: {
-      getSession: async () => ({
-        data: { session: { user: { id: "user-1" } } },
-      }),
+vi.mock("./api", () => ({
+  fetchServiceSettings: vi.fn(
+    async (tenantId: string, signal?: AbortSignal) => {
+      db.fetches.push({ tenantId, signal });
+      await db.hold;
+      if (db.loadError) throw db.loadError;
+      return { items: db.settings, defaults: db.defaults };
     },
-    from: vi.fn((table: string) => {
-      if (table === "app_settings") {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: db.defaults ? { value: db.defaults } : null,
-                error: db.defaultsError,
-              }),
-            }),
-          }),
-        };
-      }
-      return {
-        select: () => ({
-          eq: async () => ({ data: db.settings, error: null }),
-        }),
-        upsert: async (
-          values: Record<string, unknown>,
-          options?: Record<string, unknown>,
-        ) => {
-          db.upserts.push({ values, options });
-          return { error: db.upsertError };
-        },
-      };
-    }),
-  },
+  ),
+  putServiceSetting: vi.fn(async (body: Record<string, unknown>) => {
+    if (db.putError) throw db.putError;
+    db.puts.push(body);
+    return body;
+  }),
 }));
 
+import { ApiError } from "@/lib/http/client";
 import ServiceSettingsPanel from "./ServiceSettingsPanel";
 
 const DEFAULTS = {
@@ -61,24 +44,48 @@ const DEFAULTS = {
 beforeEach(() => {
   db.settings = [];
   db.defaults = DEFAULTS;
-  db.defaultsError = null;
-  db.upserts = [];
-  db.upsertError = null;
+  db.loadError = null;
+  db.puts = [];
+  db.hold = null;
+  db.putError = null;
+  db.fetches = [];
 });
 
 function renderPanel(
   props: Partial<{ termMonths: number | null; isCatchAll: boolean }> = {},
 ) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   render(
-    <ServiceSettingsPanel
-      tenantId="tenant-7"
-      termMonths={props.termMonths === undefined ? 6 : props.termMonths}
-      isCatchAll={props.isCatchAll ?? false}
-    />,
+    <QueryClientProvider client={client}>
+      <ServiceSettingsPanel
+        tenantId="tenant-7"
+        termMonths={props.termMonths === undefined ? 6 : props.termMonths}
+        isCatchAll={props.isCatchAll ?? false}
+      />
+    </QueryClientProvider>,
   );
 }
 
 describe("ServiceSettingsPanel", () => {
+  test("응답을 기다리는 동안 설정 스켈레톤을 보이고 오면 서비스 행으로 바뀐다", async () => {
+    let release: () => void = () => {};
+    db.hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    renderPanel();
+
+    expect(
+      screen.getByRole("status", { name: "서비스 설정을 불러오는 중입니다." }),
+    ).toBeTruthy();
+    expect(screen.queryAllByTestId("service-row")).toHaveLength(0);
+
+    release();
+    expect(await screen.findAllByTestId("service-row")).toHaveLength(6);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   test("설정이 없는 6개 서비스는 모두 제공 안 함으로 사 #5 순서에 보인다", async () => {
     renderPanel();
 
@@ -159,13 +166,17 @@ describe("ServiceSettingsPanel", () => {
     await screen.findByLabelText("학습진단 학기 한도");
     fireEvent.click(screen.getByRole("button", { name: "학습진단 저장" }));
 
-    await waitFor(() => expect(db.upserts).toHaveLength(1));
-    expect(db.upserts[0]?.values.term_limit).toBeNull();
-    expect(db.upserts[0]?.values.monthly_limit).toBe(2);
+    await waitFor(() => expect(db.puts).toHaveLength(1));
+    expect(db.puts[0]?.term_limit).toBeNull();
+    expect(db.puts[0]?.monthly_limit).toBe(2);
   });
 
   test("기본값을 읽지 못하면 불러오기 실패를 보이고 켤 수 없다", async () => {
-    db.defaultsError = { message: "boom" };
+    db.loadError = new ApiError({
+      status: 500,
+      code: "INTERNAL",
+      detail: "서버 오류",
+    });
     renderPanel();
 
     expect(
@@ -185,9 +196,9 @@ describe("ServiceSettingsPanel", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "학습진단 저장" }));
 
-    await waitFor(() => expect(db.upserts).toHaveLength(1));
-    expect(db.upserts[0]?.values.starts_on).toBe("2026-03-01");
-    expect(db.upserts[0]?.values.ends_on).toBe("2026-08-31");
+    await waitFor(() => expect(db.puts).toHaveLength(1));
+    expect(db.puts[0]?.starts_on).toBe("2026-03-01");
+    expect(db.puts[0]?.ends_on).toBe("2026-08-31");
     expect(screen.getByPlaceholderText("월 한도")).toBe(
       screen.getByLabelText("학습진단 월 한도"),
     );
@@ -196,7 +207,7 @@ describe("ServiceSettingsPanel", () => {
     );
   });
 
-  test("저장은 그 행 하나를 updated_by 와 함께 upsert 한다", async () => {
+  test("저장은 그 행 하나를 PUT 하고 updated_by 는 보내지 않는다(서버가 채운다)", async () => {
     renderPanel();
     fireEvent.click(await screen.findByLabelText("학습진단 제공"));
     fireEvent.change(screen.getByLabelText("학습진단 월 한도"), {
@@ -204,8 +215,8 @@ describe("ServiceSettingsPanel", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "학습진단 저장" }));
 
-    await waitFor(() => expect(db.upserts).toHaveLength(1));
-    expect(db.upserts[0]?.values).toEqual({
+    await waitFor(() => expect(db.puts).toHaveLength(1));
+    expect(db.puts[0]).toEqual({
       tenant_id: "tenant-7",
       program_key: "diagnose",
       enabled: true,
@@ -213,11 +224,7 @@ describe("ServiceSettingsPanel", () => {
       ends_on: null,
       monthly_limit: 2,
       term_limit: null,
-      updated_by: "user-1",
       updated_at: expect.any(String),
-    });
-    expect(db.upserts[0]?.options).toEqual({
-      onConflict: "tenant_id,program_key",
     });
     expect(await screen.findByText("저장했어요.")).toBeTruthy();
   });
@@ -233,11 +240,15 @@ describe("ServiceSettingsPanel", () => {
     expect(
       await screen.findByText("한도는 1 이상 32767 이하의 정수로 넣어 주세요."),
     ).toBeTruthy();
-    expect(db.upserts).toHaveLength(0);
+    expect(db.puts).toHaveLength(0);
   });
 
   test("저장 실패는 메시지를 보인다", async () => {
-    db.upsertError = { message: "permission denied" };
+    db.putError = new ApiError({
+      status: 403,
+      code: "FORBIDDEN",
+      detail: "권한이 없어요.",
+    });
     renderPanel();
     fireEvent.click(await screen.findByLabelText("학습진단 제공"));
     fireEvent.click(screen.getByRole("button", { name: "학습진단 저장" }));
@@ -249,6 +260,39 @@ describe("ServiceSettingsPanel", () => {
     ).toBeTruthy();
   });
 
+  test("조회에 기관 id 와 signal 을 넘기고 기타 기관은 조회하지 않는다", async () => {
+    renderPanel();
+    await screen.findAllByRole("checkbox");
+    expect(db.fetches).toHaveLength(1);
+    expect(db.fetches[0]?.tenantId).toBe("tenant-7");
+    expect(db.fetches[0]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  test("저장 중에는 저장 버튼이 모두 잠긴다", async () => {
+    const api = await import("./api");
+    let finish: () => void = () => {};
+    vi.mocked(api.putServiceSetting).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve({});
+        }),
+    );
+    renderPanel();
+    fireEvent.click(await screen.findByLabelText("학습진단 제공"));
+    fireEvent.click(screen.getByRole("button", { name: "학습진단 저장" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "학습진단 저장" }),
+      ).toBeDisabled(),
+    );
+    expect(
+      screen.getByRole("button", { name: "목표관리 저장" }),
+    ).toBeDisabled();
+    finish();
+    expect(await screen.findByText("저장했어요.")).toBeTruthy();
+  });
+
   test("기타 기관은 설정을 막고 안내한다(결정 94)", async () => {
     renderPanel({ isCatchAll: true });
 
@@ -256,5 +300,6 @@ describe("ServiceSettingsPanel", () => {
       await screen.findByText("기타 기관은 서비스를 제공하지 않아요."),
     ).toBeTruthy();
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(db.fetches).toHaveLength(0);
   });
 });

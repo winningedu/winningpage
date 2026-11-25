@@ -34,36 +34,10 @@
 import * as XLSX from "xlsx";
 
 import { clean } from "@/lib/admissionParsing.js";
+import { type CutType, GOAL_CUT_RANGE } from "@/lib/goal/cutRange";
 
-type CutType = "normal" | "special" | "jungsi";
-
-// sql/55_goal_management.sql 의 goal_university_cuts_avg_cut_check 를
-// 클라이언트에 미러한 것이다. Admin.jsx 의 config.validate 와 이 lib 의
-// 엑셀 파서가 같은 상수를 봐야 두 입력 경로의 판정이 갈라지지 않는다 —
-// 그래서 Admin.jsx 에 따로 선언하지 않고 여기서 export 해 쓴다.
-export const GOAL_CUT_RANGE: Record<
-  CutType,
-  { min: number; max: number; unit: string; label: string }
-> = {
-  normal: {
-    min: 1,
-    max: 9,
-    unit: "등급",
-    label: "내신 등급 1~9 (작을수록 우세)",
-  },
-  special: {
-    min: 1,
-    max: 9,
-    unit: "등급",
-    label: "내신 등급 1~9 (작을수록 우세)",
-  },
-  jungsi: {
-    min: 0,
-    max: 100,
-    unit: "백분위",
-    label: "정시 백분위 0~100 (클수록 우세)",
-  },
-};
+// 기존 import 경로(configs/goal.ts 등)를 그대로 쓰도록 다시 내보낸다.
+export { GOAL_CUT_RANGE };
 
 // DB 컬럼 ↔ 엑셀 헤더. university_key / department_key 는 컬럼으로 두지
 // 않는다 — 어드민은 항상 표시명과 동일하게 강제하고(명세 §3-D5) 파서가

@@ -17,7 +17,6 @@ import * as api from "./api";
 import TrendSection from "./TrendSection";
 
 const DATA: HqTrendsResponse = {
-  ok: true,
   from: "2026-11-01",
   to: "2026-11-23",
   grain: "week",

@@ -1,13 +1,25 @@
+import {
+  hashKey,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ChevronDown, Download, Plus, RefreshCw } from "lucide-react";
 import {
   type CSSProperties,
   Fragment,
   useEffect,
-  useEffectEvent,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router";
+import {
+  Link,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router";
 import AdmissionMetaEditModal from "@/components/admission/editor/AdmissionMetaEditModal";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,12 +41,13 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import { Toaster, toast } from "@/components/ui/toast";
+import { useAuth } from "@/context/AuthProvider";
 import {
+  adminPermissionsQueryOptions,
   canAccessSection,
-  fetchAdminPermissions,
-  fetchIsSuperAdmin,
 } from "@/lib/adminPermissions";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
+import { ApiError } from "@/lib/http/client";
 import { supabase } from "@/lib/supabase";
 import { ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
@@ -44,6 +57,10 @@ import { browserTimeZone } from "@/lib/time/zone";
 // Admin.jsx 가 5,700줄이라 컴포넌트 본체는 별도 파일에 둔다(이 파일이 그 파일을
 // import 하므로 역방향 import 는 만들지 않는다 — 순환 참조 방지).
 import CouponAdmin from "@/pages/admin/coupons/CouponAdmin";
+import {
+  listNavigationStartedAt,
+  registerMountedList,
+} from "@/pages/admin/engine/listNavigation";
 import GoalStudentsAdmin from "@/pages/admin/goal/GoalStudentsAdmin";
 import LearningDiagnosisAdmin from "@/pages/admin/learning-diagnosis/LearningDiagnosisAdmin";
 import MembersAdmin from "@/pages/admin/members/MembersAdmin";
@@ -51,6 +68,9 @@ import MentorApplicationsAdmin from "@/pages/admin/mentor/MentorApplicationsAdmi
 import PremiumBookAdmin from "@/pages/admin/premium-book/PremiumBookAdmin";
 import RevenueAdmin from "@/pages/admin/revenue/RevenueAdmin";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
+import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
+import { useListSkeleton } from "@/pages/admin/shared/useListSkeleton";
 import AdminMembersAdmin from "@/pages/admin/staff/AdminMembersAdmin";
 import AdminRolesAdmin from "@/pages/admin/staff/AdminRolesAdmin";
 import MemberPurgeAdmin from "@/pages/admin/tenants/MemberPurgeAdmin";
@@ -60,6 +80,7 @@ import AccessLogsAdmin from "./admin/access-logs/AccessLogsAdmin";
 import {
   ADMIN_DEFAULT_SECTION_KEY,
   ADMIN_SECTION_KEYS,
+  ADMIN_SERVER_PAGINATE_SECTION_KEYS,
   type AdminSectionKey,
 } from "./admin/adminSectionKeys";
 import {
@@ -75,6 +96,26 @@ import { mainConfigs } from "./admin/configs/main";
 import { memberConfigs } from "./admin/configs/member";
 import { revenueConfigs } from "./admin/configs/revenue";
 import { winningConfigs } from "./admin/configs/winning";
+import {
+  completeRefund as completeRefundRequest,
+  createSectionRow,
+  deleteSectionRow,
+  fetchExportChunk,
+  fetchSectionRow,
+  markSectionReviewed,
+  requestEmbedding,
+  sectionKeys,
+  updateSectionMeta,
+  updateSectionRow,
+} from "./admin/engine/api";
+import { sectionListQueryOptions } from "./admin/engine/sectionList";
+import {
+  type ListUrlState,
+  parseListSearch,
+  parseSectionView,
+  sectionPath,
+  withListState,
+} from "./admin/engine/sectionUrl";
 import { GoalCutsListSummary } from "./admin/goal/GoalCutsPanels";
 import GrowthReportsAdmin from "./admin/growth/GrowthReportsAdmin";
 import HqDashboardAdmin from "./admin/hq-dashboard/HqDashboardAdmin";
@@ -82,7 +123,6 @@ import InquirySessionsAdmin from "./admin/inquiry/InquirySessionsAdmin";
 import BulkPanel from "./admin/knowledge/bulk/BulkPanel";
 import EvalsAdmin from "./admin/knowledge/evals/EvalsAdmin";
 import {
-  DEFAULT_REVIEW_STALE_MONTHS,
   isStaleReview,
   REVIEW_STALE_MONTH_OPTIONS,
   type ReviewStaleMonths,
@@ -98,12 +138,11 @@ import {
   AdminTable,
   collectBannerPaths,
   PAGE_SIZE,
-  removeBannerPaths,
-  uploadImage,
+  removeSectionFiles,
+  uploadSectionFiles,
 } from "./admin/shared/AdminEngine";
 import { AdminTopbar } from "./admin/shared/AdminTopbar";
 import { buildFieldLabels, reportAdminError } from "./admin/shared/adminErrors";
-import { getFreshSupabaseAccessTokenOrSignOut } from "./admin/shared/adminSession";
 import {
   toastProgress,
   toastSuccess,
@@ -117,12 +156,19 @@ import {
   downloadCsvText,
   searchable,
 } from "./admin/shared/csvExport";
+import { useUnsavedGuard } from "./admin/shared/useUnsavedGuard";
 import TelemetryAdmin from "./admin/telemetry/TelemetryAdmin";
 import WebAnalyticsAdmin from "./admin/web-analytics/WebAnalyticsAdmin";
 
 // CSV 청크 내보내기 1회 요청 크기. PostgREST 기본 응답 상한이 1,000행이라 이보다
 // 크게 잡아도 잘려 나온다 — 43k행이면 44회 왕복이다.
-const EXPORT_CHUNK = 1000;
+const HIDDEN_PAGE_SLUGS = [
+  "admission-susi",
+  "admission-jungsi",
+  "admission-essay",
+  "winning-faq",
+];
+
 const SEARCH_DEBOUNCE_MS = 300;
 
 // 어드민 대분류 — 노션 「관리자 페이지 > 메뉴 및 기능 정리」 기획표(2026-08-22
@@ -404,63 +450,38 @@ const WINNING_RAG_KNOWLEDGE_TYPES = new Set([
   "verified_resource",
 ]);
 
-// 임베딩 진입점은 자기 저장소의 상대 경로 하나뿐이다. 예전에는
-// VITE_RAG_API_BASE_URL이 있으면 브라우저가 외부 도메인의 /api/admin-embeddings를
-// 직접 쳤는데, 그 경로는 CORS·이중 인증(x-admin-secret)을 끌고 다니는 데다
-// 외부 앱 자체가 폐기 대상이라 없앴다.
-const WINNING_EMBED_ENDPOINT = "/api/performance/admin-embed";
-
 function shouldRequestWinningEmbedding(config, row) {
   if (config?.table !== "winning_assessment_knowledge_items") return false;
   return WINNING_RAG_KNOWLEDGE_TYPES.has(String(row?.knowledge_type || ""));
 }
 
+// 임베딩 진입점은 자기 저장소의 /api 하나뿐이다(api 클라이언트가 세션 토큰을 싣는다).
 export async function requestWinningEmbedding(row) {
   if (!row?.id) return null;
 
   try {
-    const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-
-    const response = await fetch(WINNING_EMBED_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        action: "embed-one",
-        id: row.id,
-      }),
-    });
-
-    const result = await response.json().catch(async () => {
-      const text = await response.text().catch(() => "");
-      return { detail: text || `HTTP ${response.status}` };
-    });
-
-    // admin-embed는 실패 사유를 항상 `detail`로 돌려준다(200 응답에는 detail이 없다).
-    if (!response.ok) {
-      const detail = result?.detail;
-
-      if (response.status === 401) {
-        // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
-        clearAllDrafts();
-        await supabase.auth.signOut().catch(() => {});
-        throw new Error(
-          `${detail || "관리자 인증 실패"}: 로그아웃 후 다시 로그인하세요.`,
-        );
-      }
-
-      throw new Error(detail || `HTTP ${response.status}`);
-    }
+    const result = await requestEmbedding(row.id);
 
     console.log("위닝 수행 DB 자동 임베딩 요청 완료:", result);
     return result;
   } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
+      clearAllDrafts();
+      await supabase.auth.signOut().catch(() => {});
+      console.error(
+        "위닝 수행 DB 자동 임베딩 요청 실패:",
+        new Error(
+          `${error.detail || "관리자 인증 실패"}: 로그아웃 후 다시 로그인하세요.`,
+        ),
+      );
+      return null;
+    }
     console.error("위닝 수행 DB 자동 임베딩 요청 실패:", error);
     return null;
   }
 }
+
 // 어드민 사이드바는 어두운 배경을 유지한다. ui 사이드바 토큰을 이 래퍼에서만 덮어쓰고
 // 전역(:root)은 건드리지 않는다. 앱 셸 사이드바(AppShellSidebar)는 전역 값을 그대로 쓴다.
 const ADMIN_SIDEBAR_THEME = {
@@ -504,31 +525,22 @@ function AdminSidebar({ activeKey }: { activeKey: string }) {
   //
   // 빈 목록으로 시작한다 — 전부 그렸다가 지우면 권한 없는 메뉴가 한 번 번쩍인다.
   // 라우트 가드가 이미 같은 조회를 마친 뒤라(캐시 TTL 15초) 실제로는 즉시 채워진다.
-  const [menuGroups, setMenuGroups] = useState<typeof MENU_GROUPS>([]);
-
-  const loadMenuGroups = useEffectEvent(async () => {
-    const { data } = await supabase.auth.getSession();
-    const userId = data.session?.user?.id;
-    if (!userId) return;
-
-    const [permissions, isSuperAdmin] = await Promise.all([
-      fetchAdminPermissions(userId),
-      fetchIsSuperAdmin(userId),
-    ]);
-
-    setMenuGroups(
-      MENU_GROUPS.map((group) => ({
-        ...group,
-        items: group.items.filter((item) =>
-          canAccessSection(permissions, isSuperAdmin, item.key),
-        ),
-      })).filter((group) => group.items.length > 0),
-    );
+  const { userId } = useAuth();
+  const { data: access } = useQuery({
+    ...adminPermissionsQueryOptions(userId ?? ""),
+    enabled: !!userId,
   });
 
-  useEffect(() => {
-    loadMenuGroups();
-  }, []);
+  // 못 읽거나 읽는 중이면 그리지 않는다(fail-closed).
+  const menuGroups = useMemo(() => {
+    if (!access) return [];
+    return MENU_GROUPS.map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        canAccessSection(access.permissions, access.isSuper, item.key),
+      ),
+    })).filter((group) => group.items.length > 0);
+  }, [access]);
 
   const allOpen = menuGroups.every((group) => open.has(group.title));
 
@@ -727,41 +739,53 @@ function MoneySummary({ activeKey, rows }) {
 // 통째로 새로 마운트되므로, 예전 changeTab이 손으로 초기화하던
 // mode/editingRow/pendingSection/keyword/searchTerm/page/pendingCreateDefaults는
 // 전부 마운트 시점의 useState 초기값으로 자연히 리셋된다.
+// 등록, 수정 화면에서만 그린다. useBlocker 는 데이터 라우터가 필요해 목록 화면에는 걸지 않는다.
+function UnsavedGuard({ dirty }: { dirty: boolean }) {
+  useUnsavedGuard(dirty);
+  return null;
+}
+
 export function AdminSectionRoute({ section }: { section: string }) {
   const activeKey = section;
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // 화면 모양(목록, 등록, 수정)은 주소가 정한다. 라우트 표는 adminRoutes.tsx.
+  const view = parseSectionView(location.pathname, activeKey);
+  const routeState = location.state as {
+    listSearch?: unknown;
+    prefillCreateDefaults?: Partial<AdminRow>;
+  } | null;
+  // 등록, 수정 화면에서 돌아갈 목록 주소. 목록이 들고 온 검색값(쪽, 검색어, 필터)을 그대로 돌려준다.
+  const listSearch =
+    typeof routeState?.listSearch === "string" &&
+    routeState.listSearch.startsWith("?")
+      ? routeState.listSearch
+      : "";
+  const listPath = `${sectionPath(activeKey)}${listSearch}`;
   // 다른 섹션에서 navigateWithPrefill로 건너온 1회성 등록 프리필(§4-3-C-4 원클릭
-  // 컷 만들기). react-router의 location.state로 나른다 — 예전에는 같은 컴포넌트
-  // 인스턴스 안에서 setActiveKey 다음에 setPendingCreateDefaults를 같은 배치로
-  // 불러 순서만 보장하면 됐지만, 지금은 탭 전환이 실제 라우트 전환(다른 컴포넌트
-  // 인스턴스로 마운트)이라 이동 전 인스턴스의 state를 그대로 넘길 수 없다.
-  const initialPrefill = location.state?.prefillCreateDefaults ?? null;
-  const [mode, setMode] = useState(initialPrefill ? "create" : "list");
-  const [editingRow, setEditingRow] = useState<AdminRow | null>(null);
-  // 목록 셀 [수정]으로 진입할 때 폼이 마운트되자마자 열 섹션 키. null이면
-  // 기존 ✏️ 경로(폼 화면부터). AdminForm의 initialSection/origin으로만 쓰인다.
-  const [pendingSection, setPendingSection] = useState<string | null>(null);
-  // 다른 탭에서 넘겨 온 신규 등록 프리필. pendingSection과 같은 성격이지만
-  // 결정적으로 다른 점이 하나 있다 — changeTab이 이 값을 지우지 않는다.
-  // 공급자(학생 상세의 "이 조합의 컷 만들기")가 navigateWithPrefill로 탭을 옮긴 뒤
-  // 폼을 여는 구조라, 여기서 리셋하면 프리필이 통째로 사라진다.
-  // 대신 소비 직후(취소·저장) 와 수동 [등록] 클릭 시 비운다 — 1회성 값이다.
-  // 기본값 null이라 이 state를 쓰지 않는 기존 44개 탭은 동작이 바뀌지 않는다.
-  const [pendingCreateDefaults, setPendingCreateDefaults] =
-    useState<Partial<AdminRow> | null>(initialPrefill);
+  // 컷 만들기). location.state에 실려 오므로 마운트 시점 값만 읽는다.
+  const [prefill] = useState<Partial<AdminRow> | null>(() =>
+    view.kind === "new" ? (routeState?.prefillCreateDefaults ?? null) : null,
+  );
   // location.state는 History API의 history.state에 실려 새로고침 후에도 남는다 —
-  // 마운트 시 1회 소비한 뒤 지워서, 이 섹션에서 새로고침해도 프리필이 재적용되지
-  // 않게 한다(등록 폼이 반복해서 다시 뜨는 걸 막는다). 마운트 시점 값만 봐야 하는
-  // 1회성 효과라 initialPrefill/navigate/location을 deps에 넣지 않는다 — 넣으면
-  // 정리 직후(state: null) 자기 자신이 다시 걸려 무한 반복하거나, 이후 같은
-  // 섹션 안에서의 navigate 호출에도 재실행된다.
+  // 마운트 시 1회 소비한 뒤 지워서, 이 주소에서 새로고침해도 프리필이 재적용되지
+  // 않게 한다. 마운트 시점 값만 봐야 하는 1회성 효과라 deps를 비운다.
   // biome-ignore lint/correctness/useExhaustiveDependencies: 위 설명 참고 — 마운트 1회성 효과.
   useEffect(() => {
-    if (!initialPrefill) return;
-    navigate(location.pathname, { replace: true, state: null });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!prefill) return;
+    navigate(location.pathname, {
+      replace: true,
+      state: { listSearch },
+    });
   }, []);
+  // 목록 셀 [수정]으로 진입할 때 편집 다이얼로그가 열릴 섹션 키. null이면 닫힘.
+  // AdminForm의 initialSection/origin으로만 쓰인다. 다이얼로그가 편집하는 행은 editingRow다.
+  const [pendingSection, setPendingSection] = useState<string | null>(null);
+  const [editingRow, setEditingRow] = useState<AdminRow | null>(null);
+  // 등록, 수정 화면의 저장 안 된 변경 여부(이탈 확인용)와, 저장을 마치고 목록으로 돌아가는 중인지.
+  const [formDirty, setFormDirty] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   // 목록 CRUD(등록·수정·삭제) 성공 횟수. ListSummary가 "자기 집계를 다시 읽어야
   // 하는 시점"을 아는 유일한 신호다 — loadRows()는 목록 rows만 새로 받고
   // ListSummary가 스스로 던지는 집계 쿼리(예: GoalCutsOverviewBlock의 head
@@ -769,19 +793,28 @@ export function AdminSectionRoute({ section }: { section: string }) {
   // 보여 준다. page/keyword 변경으로는 올라가지 않으므로 페이지 이동마다
   // 집계를 다시 던지는 낭비도 없다.
   const [mutationSeq, setMutationSeq] = useState(0);
-  // 관리 열 ⚙️(메타 전용 모달)이 열려 있는 행. null이면 닫힘 — mode는
-  // 'list'로 그대로 두고 오버레이만 뜬다(목록 셀 [수정]과 같은 1뎁스 UX).
+  // 관리 열 ⚙️(메타 전용 모달)이 열려 있는 행. null이면 닫힘. 목록 위에 오버레이만 뜬다
+  // (목록 셀 [수정]과 같은 1뎁스 UX).
   const [metaEditRow, setMetaEditRow] = useState<AdminRow | null>(null);
-  const [rows, setRows] = useState<AdminRow[]>([]);
-  const [keyword, setKeyword] = useState("");
-  // 서버 페이지네이션 탭에서 실제로 서버로 나가는 검색어. keyword는 타이핑마다
-  // 바뀌므로 그대로 쓰면 글자당 한 번씩 조회가 나간다 — 디바운스한 값만 넘긴다.
-  const [searchTerm, setSearchTerm] = useState("");
-  const [page, setPage] = useState(1);
-  // 서버 페이지네이션 탭의 전체 건수(select count). 전량 로드 탭은 rows.length가
-  // 곧 전체라 이 값을 쓰지 않는다.
-  const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  // 목록 상태(쪽, 검색어, 목록 필터, 미검토 필터)는 주소에 둔다. 새로고침과 뒤로가기가 목록을 그대로 되살린다.
+  const listState = parseListSearch(searchParams);
+  const page = listState.page;
+  // 서버 페이지네이션 탭에서 실제로 서버로 나가는 검색어(주소의 q). keyword는 타이핑마다
+  // 바뀌므로 그대로 쓰면 글자당 한 번씩 조회가 나간다. 디바운스한 값만 주소에 쓴다.
+  const searchTerm = listState.q;
+  const [keyword, setKeyword] = useState(listState.q);
+  // 목록 상단 드롭다운 필터의 선택값(QA 227). 지금 선택지에 없는 값은 아래에서 무시한다.
+  const listFilterValue = listState.filter;
+  // 지식 DB "미검토만 보기" 필터(config.knowledgeReview). 기준 개월 수는 화면에서 고른다.
+  const reviewStaleOnly = listState.stale;
+  const reviewStaleMonths = listState.months;
+  // 목록 상태를 주소에 쓴다. 쪽 이동과 필터는 히스토리를 쌓고, 타이핑으로 바뀌는 검색어는 쌓지 않는다.
+  function patchList(patch: Partial<ListUrlState>, replace = false) {
+    setSearchParams((prev) => withListState(prev, patch), { replace });
+  }
+  function setPage(next: number | ((prev: number) => number)) {
+    patchList({ page: typeof next === "function" ? next(page) : next });
+  }
   // CSV 청크 내보내기 진행 상태. null이면 진행 중 아님.
   const [exporting, setExporting] = useState<{
     done: number;
@@ -791,17 +824,99 @@ export function AdminSectionRoute({ section }: { section: string }) {
   // 개인정보 반출 게이트 — 모달 상태를 이 훅이 들고, gate 를 아래 트리에 그린다.
   const { requestAccess, gate } = useSensitiveActionGate();
 
-  // 목록 상단 드롭다운 필터의 선택값(QA 227). 메뉴를 옮기면 아래 effect 가 비운다 —
-  // 종목 목록이 섹션마다 달라 이전 선택이 남으면 결과가 통째로 0건이 된다.
-  const [listFilterValue, setListFilterValue] = useState("");
-
-  // 지식 DB "미검토만 보기" 필터(config.knowledgeReview). 기준 개월 수는 화면에서 고른다.
-  const [reviewStaleOnly, setReviewStaleOnly] = useState(false);
-  const [reviewStaleMonths, setReviewStaleMonths] = useState<ReviewStaleMonths>(
-    DEFAULT_REVIEW_STALE_MONTHS,
-  );
-
   const config = CONFIGS[activeKey];
+  const queryClient = useQueryClient();
+
+  // 목록은 서버(/api/admin/sections)에서 받는다. 서버 페이지네이션 탭은 page 와 q 가 키에 들어가
+  // 바뀔 때마다 다시 받고, 그 외 탭은 섹션 키 하나로 전량을 받는다.
+  // 키와 요청은 라우트 미들웨어의 선받기와 같은 sectionListQueryOptions 로 만든다(둘이 어긋나면 선받기가 헛돈다).
+  const paginate = (
+    ADMIN_SERVER_PAGINATE_SECTION_KEYS as readonly string[]
+  ).includes(activeKey);
+  const listEnabled = !config.custom && !config.comingSoon;
+  const isList = view.kind === "list";
+  const listOptions = sectionListQueryOptions(activeKey, {
+    page,
+    q: searchTerm,
+  });
+  // 이번 이동이 시작된 뒤에 받은 응답(미들웨어 선받기 포함)만 새것이다. 그보다 오래된 캐시만 다시 받아
+  // 선받기와 마운트 요청이 겹치지 않는다. 미들웨어를 거치지 않았으면 기본 동작이다.
+  const navigationStartedAt = listNavigationStartedAt(listOptions.queryKey);
+  const listQuery = useQuery({
+    ...listOptions,
+    enabled: listEnabled && isList,
+    refetchOnWindowFocus: false,
+    ...(navigationStartedAt !== undefined && {
+      staleTime: (query) =>
+        query.state.dataUpdatedAt < navigationStartedAt ? 0 : Infinity,
+    }),
+  });
+  const listHash = hashKey(listOptions.queryKey);
+  const showingList = listEnabled && isList;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 키 해시가 바뀔 때만 다시 등록한다.
+  useEffect(() => {
+    if (showingList) return registerMountedList(listOptions.queryKey);
+  }, [showingList, listHash]);
+  // 수정 주소(/:id)는 새로고침해도 행을 id 로 다시 받는다. 목록 행으로 채우지 않는 이유는
+  // 목록이 조인 뷰의 행일 수 있어 저장용 행과 모양이 다를 수 있기 때문이다.
+  const editId = view.kind === "edit" ? view.id : null;
+  const rowQuery = useQuery({
+    queryKey: sectionKeys.row(activeKey, editId ?? ""),
+    queryFn: ({ signal }) =>
+      fetchSectionRow(activeKey, editId as string, signal),
+    enabled: listEnabled && editId !== null,
+    // 편집 중에 다시 받아 폼 아래의 행이 바뀌지 않게 한다.
+    refetchOnWindowFocus: false,
+    gcTime: 0,
+  });
+  const editTarget = rowQuery.data ?? null;
+  const listData = listQuery.isError ? undefined : listQuery.data;
+  const rows = useMemo<AdminRow[]>(() => {
+    const items = listData?.items ?? [];
+    return activeKey === "pageContents"
+      ? items.filter((row) => !HIDDEN_PAGE_SLUGS.includes(row.slug))
+      : items;
+  }, [listData, activeKey]);
+  // 서버 페이지네이션 탭의 전체 건수. 전량 로드 탭은 rows.length가 곧 전체다.
+  const totalCount = paginate ? (listData?.total ?? 0) : rows.length;
+  // 처음과 쪽, 검색어 키가 바뀔 때만 스켈레톤이다. 배경 재조회는 행을 그대로 둔다.
+  const listSkeleton = useListSkeleton(
+    listQuery,
+    listOptions.queryKey,
+    navigationStartedAt,
+  );
+  const loading = listEnabled && isList && listSkeleton;
+  // 사용자가 직접 한 등록, 수정, 삭제와 [초기화] 뒤에는 목록 쿼리를 비우고 다시 받아
+  // 옛 행 대신 스켈레톤 뒤에 새 행을 보인다. 수정 화면의 행 쿼리(row)는 건드리지 않는다.
+  function loadRows() {
+    return queryClient.resetQueries({
+      queryKey: sectionKeys.section(activeKey),
+      predicate: (query) => query.queryKey[3] !== "row",
+    });
+  }
+
+  // 쓰기 요청. 목록 갱신(invalidate)과 토스트는 호출부가 순서대로 처리한다.
+  const reviewMutation = useMutation({
+    mutationFn: (id: string) => markSectionReviewed(activeKey, id),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string | number) => deleteSectionRow(activeKey, id),
+  });
+  // 저장 뒤 임베딩 요청. 저장과 토스트는 이 응답을 기다리지 않는다(실패는 함수 안에서 로그만 남긴다).
+  const embedMutation = useMutation({ mutationFn: requestWinningEmbedding });
+  const refundMutation = useMutation({
+    mutationFn: (id: string | number) => completeRefundRequest(id),
+  });
+  const metaMutation = useMutation({
+    mutationFn: ({
+      id,
+      values,
+    }: {
+      id: string | number;
+      values: Record<string, unknown>;
+    }) => updateSectionMeta(activeKey, id, values),
+  });
+
   const ListSummaryComponent = config.listSummaryKey
     ? LIST_SUMMARY_REGISTRY[config.listSummaryKey]
     : null;
@@ -862,113 +977,6 @@ export function AdminSectionRoute({ section }: { section: string }) {
     reviewStaleMonths,
   ]);
 
-  // 목록 조회 쿼리(필터 + 검색 + 정렬)를 한 곳에서 만든다 — loadRows와 CSV 청크
-  // 내보내기가 같은 조건을 봐야 "화면에서 본 것"과 "받은 파일"이 어긋나지 않는다.
-  // 범위(.range)와 count는 호출부가 붙인다.
-  // exactOptionalPropertyTypes: 호출부(loadRows)가 `count: paginate ? "exact" : undefined`로
-  // undefined를 명시적으로 넘기므로 undefined도 프로퍼티 타입에 포함한다.
-  function buildListQuery({ count }: { count?: "exact" | undefined } = {}) {
-    // 목록만 조인 뷰에서 읽는 섹션이 있다(config.listTable, QA 272). 쓰기 경로는
-    // 아래 saveRow/deleteRow 가 그대로 config.table 을 쓴다 — 조인 뷰는 쓰기가 안 된다.
-    let query = supabase
-      .from(config.listTable || config.table)
-      .select("*", count ? { count } : undefined);
-
-    if (config.fixedCategories) {
-      query = query.in("category", config.fixedCategories);
-    }
-
-    if (config.fixedValues) {
-      for (const [key, value] of Object.entries(config.fixedValues)) {
-        query = query.eq(key, value);
-      }
-    }
-
-    // 서버 검색은 서버 페이지네이션 탭에만 있다. 그 외 탭은 전량을 들고 있으므로
-    // 예전처럼 filteredRows가 클라이언트에서 거른다.
-    if (config.serverPaginate && searchTerm && config.searchColumns?.length) {
-      // PostgREST or()는 콤마로 조건을, 괄호로 그룹을 끊는다. 검색어에 그 문자가
-      // 들어오면 구문 자체가 깨지고, %·_ 는 ilike 와일드카드로 새는 값이다.
-      const safe = searchTerm.replace(/[,()%_\\*]/g, " ").trim();
-      if (safe) {
-        query = query.or(
-          config.searchColumns
-            .map((column) => `${column}.ilike.%${safe}%`)
-            .join(","),
-        );
-      }
-    }
-
-    const orderColumn = config.order || "created_at";
-
-    if (Array.isArray(config.orderBy)) {
-      // 테이블별 정렬 오버라이드 — 선언한 설정에만 적용되고 다른 탭은 아래 기본 분기를 그대로 탄다
-      for (const [column, ascending] of config.orderBy) {
-        query = query.order(column, { ascending });
-      }
-    } else if (config.fixedCategories) {
-      query = query
-        .order("is_pinned", { ascending: false })
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: false });
-    } else {
-      query = query.order(orderColumn, {
-        ascending: orderColumn === "sort_order",
-      });
-    }
-
-    return query;
-  }
-
-  async function loadRows() {
-    setLoading(true);
-
-    if (config.custom || config.comingSoon) {
-      setRows([]);
-      setTotalCount(0);
-      setLoading(false);
-      return;
-    }
-
-    // 서버 페이지네이션 탭(입결 43,170행)은 현재 페이지 PAGE_SIZE행만 받는다.
-    // 예전에는 모든 탭이 select('*')로 전량을 끌어와 PostgREST 기본 1,000행
-    // 상한에 걸렸고(그래서 43k행 중 1,000행만 보였다), PAGE_SIZE는 그렇게 받아온
-    // 배열을 화면에서 자르는 클라이언트 슬라이스일 뿐이었다.
-    const paginate = Boolean(config.serverPaginate);
-    let query = buildListQuery({ count: paginate ? "exact" : undefined });
-
-    if (paginate) {
-      const from = (page - 1) * PAGE_SIZE;
-      query = query.range(from, from + PAGE_SIZE - 1);
-    }
-
-    const { data, error, count } = await query;
-
-    setLoading(false);
-
-    if (error) {
-      reportAdminError(`${config.title} 조회 실패`, error);
-      setRows([]);
-      setTotalCount(0);
-      return;
-    }
-
-    const hiddenPageSlugs = [
-      "admission-susi",
-      "admission-jungsi",
-      "admission-essay",
-      "winning-faq",
-    ];
-
-    const nextRows =
-      activeKey === "pageContents"
-        ? (data || []).filter((row) => !hiddenPageSlugs.includes(row.slug))
-        : data || [];
-
-    setRows(nextRows);
-    setTotalCount(paginate ? (count ?? 0) : nextRows.length);
-  }
-
   // "이 조합의 컷 만들기"(§4-3-C-4) 전용 — 다른 섹션으로 이동하면서 그 섹션의
   // 등록 폼을 프리필값과 함께 바로 연다. 일반 changeTab과 분리한 이유: 프리필값은
   // location.state로 실어야 목적지 인스턴스(마운트 시점)가 읽을 수 있다 — 지금
@@ -977,66 +985,85 @@ export function AdminSectionRoute({ section }: { section: string }) {
     key: string,
     prefillCreateDefaults: Record<string, unknown>,
   ) {
-    navigate(`/admin/${key}`, { state: { prefillCreateDefaults } });
+    navigate(sectionPath(key, "new"), { state: { prefillCreateDefaults } });
   }
 
-  // 검색어 디바운스. 확정되는 순간 1페이지로 되돌린다 — 5페이지를 보다 검색하면
-  // 결과가 5페이지에 못 미쳐 빈 목록이 뜬다. 두 setState를 같은 타이머 안에서
-  // 부르므로 렌더는 1회, 따라서 조회도 1회다.
+  // 검색어 디바운스. 확정되는 순간 주소의 q 에 쓰고 1페이지로 되돌린다. 5페이지를 보다 검색하면
+  // 결과가 5페이지에 못 미쳐 빈 목록이 뜬다. 한 번의 주소 갱신이라 조회도 1회다.
+  // 타이핑마다 히스토리를 쌓지 않으려고 replace 로 쓴다.
+  const writtenQ = useRef(listState.q);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: patchList 는 렌더마다 새로 만들어지지만 타이머가 부르는 시점의 것이면 충분하다.
   useEffect(() => {
+    const term = keyword.trim();
+    if (!isList || term === searchTerm) return undefined;
     const timer = setTimeout(() => {
-      setSearchTerm(keyword.trim());
-      setPage(1);
+      writtenQ.current = term;
+      patchList({ q: term, page: 1 }, true);
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [keyword]);
-
-  // 조회 트리거. 서버 페이지네이션 탭만 page/searchTerm 변화에 반응한다 —
-  // 그 외 탭은 아래 두 값이 상수라 예전처럼 탭 전환 시 1회만 조회한다.
-  const serverPage = config.serverPaginate ? page : 0;
-  const serverTerm = config.serverPaginate ? searchTerm : "";
-
-  // 실제 조회 트리거는 activeKey/serverPage/serverTerm 세 값이고, loadRows는 그 시점의
-  // 클로저를 그대로 쓴다(useEffectEvent로 감싸 매 렌더 새로 생성되는 loadRows를 deps에서 뺀다).
-  // 트리거 값을 인자로 넘겨 exhaustive-deps가 이 effect의 실사용 의존성으로 인식하게 한다.
-  const onRowsTriggerChange = useEffectEvent(
-    (
-      _activeKey: typeof activeKey,
-      _serverPage: number,
-      _serverTerm: string,
-    ) => {
-      loadRows();
-    },
-  );
-
+  }, [keyword, searchTerm, isList]);
+  // 뒤로가기 등 우리가 쓰지 않은 주소 변경으로 q 가 바뀌면 입력창을 맞춘다.
   useEffect(() => {
-    onRowsTriggerChange(activeKey, serverPage, serverTerm);
-  }, [activeKey, serverPage, serverTerm]);
+    if (searchTerm === writtenQ.current) return;
+    writtenQ.current = searchTerm;
+    setKeyword(searchTerm);
+  }, [searchTerm]);
+
+  // 수정 주소의 행을 못 받으면(없는 id 404 포함) 안내하고 목록으로 되돌린다.
+  const rowError = rowQuery.error;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 오류가 생긴 순간 한 번만 안내하고 돌아간다.
+  useEffect(() => {
+    if (!rowError) return;
+    if (rowError instanceof ApiError && rowError.status === 404) {
+      toastWarning(
+        "찾을 수 없는 항목입니다.",
+        "이미 삭제됐거나 없는 주소예요.",
+      );
+    } else {
+      reportAdminError(`${config.title} 조회 실패`, rowError);
+    }
+    navigate(listPath, { replace: true });
+  }, [rowError]);
+
+  // 저장을 마친 등록, 수정 화면은 이탈 확인을 거치지 않고 목록으로 돌아간다. dirty 가 꺼진 렌더 뒤에 옮겨야
+  // 가드가 막지 않는다(자식인 가드 effect 가 부모 effect 보다 먼저 돈다).
+  useEffect(() => {
+    if (!leaving) return;
+    navigate(listPath, { replace: true });
+    setLeaving(false);
+    setFormDirty(false);
+  }, [leaving, listPath, navigate]);
+
+  // 조회 실패는 목록을 비우고 안내만 한 번 띄운다.
+  const listError = listQuery.error;
+  useEffect(() => {
+    if (listError) reportAdminError(`${config.title} 조회 실패`, listError);
+  }, [listError, config.title]);
 
   // 삭제 등으로 총 건수가 줄어 현재 페이지가 범위를 벗어나면 마지막 페이지로 당긴다.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: patchList 는 렌더마다 새로 만들어지지만 부르는 시점의 것이면 충분하다
   useEffect(() => {
     if (!config.serverPaginate || totalCount === 0) return;
     const lastPage = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-    if (page > lastPage) setPage(lastPage);
+    if (page > lastPage) patchList({ page: lastPage }, true);
   }, [config.serverPaginate, totalCount, page]);
 
   // uploadImage는 컴포넌트 상태에 의존하지 않는 순수 함수라 모듈 스코프로 뺐다 — PremiumBookAdmin의
   // 제네릭 개별 페이지 편집(AdminForm onUpload)에서도 그대로 재사용한다. 정의는 파일 하단, Admin() 선언
   // 직전 참고.
 
+  // 등록, 수정 화면으로 갈 때 목록의 검색값을 실어 보내 돌아올 때 그대로 되살린다.
+  // 목록의 [등록] 버튼은 프리필 없이 백지에서 시작한다.
   function createRow() {
-    setEditingRow(null);
-    setPendingSection(null);
-    // 목록의 [등록] 버튼으로 들어온 신규 등록은 항상 백지에서 시작한다 —
-    // 남아 있던 프리필이 묻어 들어가면 안 된다.
-    setPendingCreateDefaults(null);
-    setMode("create");
+    navigate(sectionPath(activeKey, "new"), {
+      state: { listSearch: location.search },
+    });
   }
 
   function editRow(row) {
-    setEditingRow(row);
-    setPendingSection(null);
-    setMode("edit");
+    navigate(sectionPath(activeKey, { id: row.id }), {
+      state: { listSearch: location.search },
+    });
   }
 
   // 목록 셀 [수정] → **목록을 그대로 둔 채** 그 섹션의 편집 다이얼로그만 연다.
@@ -1128,89 +1155,34 @@ export function AdminSectionRoute({ section }: { section: string }) {
       }
     }
 
-    // QA 행337 — sort_order를 특정 값으로 지정해 저장하면 그 값(과 그 뒤로 이어지는
-    // 연속 구간)을 이미 쓰고 있는 다른 행들을 +1씩 밀어 "정확히 그 자리에 꽂힌다"는
-    // 기대를 만족시킨다. getNextSortOrder(formFields.tsx)는 신규 등록 시 max+1만
-    // 계산해 이 재배열을 대신하지 않는다. sort_order 필드가 없는 섹션(대다수
-    // custom:true 포함)은 손대지 않는다 — 클라이언트 처리만, DB 함수/마이그레이션 없음.
-    const hasSortOrderField = config.fields?.some(
-      (field) => field.key === "sort_order",
-    );
-    if (hasSortOrderField && Number.isFinite(Number(payload.sort_order))) {
-      const targetSortOrder = Number(payload.sort_order);
-      let conflictQuery = supabase
-        .from(config.table)
-        .select("id, sort_order")
-        .gte("sort_order", targetSortOrder)
-        .order("sort_order", { ascending: true });
-      if (mode !== "create" && editingRow) {
-        conflictQuery = conflictQuery.neq("id", editingRow.id);
-      }
-      const { data: conflictRows, error: conflictError } = await conflictQuery;
-      if (conflictError) {
-        reportAdminError("순서 재배열 조회 실패", conflictError);
-        return;
-      }
+    // id 는 경로로 보낸다. 값에 실으면 서버가 거부한다.
+    delete payload.id;
 
-      // 지정값부터 빈틈없이 이어지는 구간만 민다(1,2,3,5 중 2를 지정하면 2·3만
-      // 밀고 5는 그대로 둔다 — 이미 3과 5 사이가 비어 있어 충돌하지 않는다).
-      const shiftTargets: { id: string; sort_order: number }[] = [];
-      let expected = targetSortOrder;
-      for (const conflictRow of conflictRows || []) {
-        if (Number(conflictRow.sort_order) !== expected) break;
-        shiftTargets.push(conflictRow);
-        expected += 1;
-      }
-
-      // 충돌 최소화를 위해 큰 값부터 역순으로 민다.
-      for (const shiftRow of shiftTargets.slice().reverse()) {
-        const { error: shiftError } = await supabase
-          .from(config.table)
-          .update({ sort_order: Number(shiftRow.sort_order) + 1 })
-          .eq("id", shiftRow.id);
-        if (shiftError) {
-          reportAdminError("순서 재배열 실패", shiftError);
-          return;
-        }
-      }
-    }
-
-    let savedRow = null;
-
-    if (mode === "create") {
-      const { data, error } = await supabase
-        .from(config.table)
-        .insert(payload)
-        .select("*")
-        .single();
-
-      if (error) {
-        reportAdminError("등록 실패", error, buildFieldLabels(config));
-        return;
-      }
-
-      savedRow = data;
-    } else {
-      const { data, error } = await supabase
-        .from(config.table)
-        .update(payload)
-        // mode !== 'create'인 이 분기는 editRow/openMetaEditFromRow(setMode('edit'))와
-        // openRowSection(mode 'list' 유지, 섹션 모달 오버레이)이 전부 setEditingRow(row)를
-        // 먼저 호출하는 계약 위에서만 도달한다 — editingRow는 항상 채워져 있다.
-        .eq("id", editingRow!.id)
-        .select("*")
-        .single();
-
-      if (error) {
-        reportAdminError("수정 실패", error, buildFieldLabels(config));
-        return;
-      }
-
-      savedRow = data;
+    // 등록, 수정은 서버가 처리한다. sort_order 를 지정한 저장이 이미 쓰는 행들을 +1씩 미는
+    // 재배열(QA 행337)도 서버 몫이라 여기서는 값만 보낸다.
+    // 등록인지 수정인지는 주소가 정한다. 수정 대상은 /:id 로 받은 행, 또는 목록 셀 [수정]
+    // 다이얼로그가 들고 있는 행이다(둘 다 비어 있으면 이 분기에 올 수 없다).
+    const creating = view.kind === "new";
+    let savedRow: AdminRow;
+    try {
+      savedRow = creating
+        ? await createSectionRow(activeKey, payload)
+        : await updateSectionRow(
+            activeKey,
+            (view.kind === "edit" ? editTarget : editingRow)!.id,
+            payload,
+          );
+    } catch (error) {
+      reportAdminError(
+        creating ? "등록 실패" : "수정 실패",
+        error as Error,
+        buildFieldLabels(config),
+      );
+      return;
     }
 
     if (shouldRequestWinningEmbedding(config, savedRow)) {
-      requestWinningEmbedding(savedRow);
+      embedMutation.mutate(savedRow);
     }
 
     toastSuccess(
@@ -1219,10 +1191,13 @@ export function AdminSectionRoute({ section }: { section: string }) {
         ? "임베딩은 자동 생성 중입니다."
         : undefined,
     );
-    setMode("list");
-    setEditingRow(null);
-    setPendingSection(null);
-    setPendingCreateDefaults(null);
+    // 목록 위 다이얼로그는 닫기만 하고, 등록, 수정 화면은 목록으로 돌아간다.
+    if (isList) {
+      setEditingRow(null);
+      setPendingSection(null);
+    } else {
+      setLeaving(true);
+    }
     setMutationSeq((seq) => seq + 1);
     await loadRows();
   }
@@ -1231,13 +1206,12 @@ export function AdminSectionRoute({ section }: { section: string }) {
   // 않는다. 쓰기 권한은 기존 is_admin 정책(winning_assessment_knowledge_admin_all)이다.
   async function markReviewed(row: { id?: unknown }) {
     if (typeof row.id !== "string") return;
-    const { error } = await supabase
-      .from(config.table)
-      .update({ last_reviewed_at: new Date().toISOString() })
-      .eq("id", row.id);
-
-    if (error) {
-      reportAdminError("검토 완료 표시 실패", error);
+    // AdminTable 에 disabled 속성이 없어 진행 중 중복 클릭은 여기서 막는다.
+    if (reviewMutation.isPending) return;
+    try {
+      await reviewMutation.mutateAsync(row.id);
+    } catch (error) {
+      reportAdminError("검토 완료 표시 실패", error as Error);
       return;
     }
 
@@ -1256,13 +1230,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
       return;
     }
 
-    const { error } = await supabase
-      .from(config.table)
-      .delete()
-      .eq("id", row.id);
-
-    if (error) {
-      reportAdminError("삭제 실패", error, buildFieldLabels(config));
+    if (deleteMutation.isPending) return;
+    try {
+      await deleteMutation.mutateAsync(row.id);
+    } catch (error) {
+      reportAdminError("삭제 실패", error as Error, buildFieldLabels(config));
       return;
     }
 
@@ -1273,7 +1245,8 @@ export function AdminSectionRoute({ section }: { section: string }) {
       row,
       config.fields || config.columns,
     );
-    if (referencedPaths.size > 0) removeBannerPaths(referencedPaths);
+    if (referencedPaths.size > 0)
+      removeSectionFiles(activeKey, referencedPaths);
 
     setMutationSeq((seq) => seq + 1);
     await loadRows();
@@ -1297,27 +1270,18 @@ export function AdminSectionRoute({ section }: { section: string }) {
       return;
     }
 
-    const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-
-    const response = await fetch("/api/complete-refund", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ refundRequestId: row.id }),
-    });
-
-    const result = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
+    // 같은 버튼을 연달아 눌러도 토스 취소 요청이 겹치지 않게 한다.
+    if (refundMutation.isPending) return;
+    try {
+      await refundMutation.mutateAsync(row.id);
+    } catch (error) {
       // 토스 에러 메시지를 그대로 보여준다(팀 리드 지시) — reportAdminError의
       // WC 코드 매핑을 거치면 "요청을 처리하지 못했습니다"류 일반 문구로
       // 뭉개져 카드사·계좌 거부 사유(예: 이미 취소된 결제, 잔액 부족)가
       // 안 보인다. 여기는 admin 전용 화면이라 원문 노출 위험이 낮다.
-      console.error("환불 완료 처리 실패:", result);
+      console.error("환불 완료 처리 실패:", error);
       alert(
-        `환불 완료 처리 실패: ${result?.error || `HTTP ${response.status}`}`,
+        `환불 완료 처리 실패: ${error instanceof ApiError ? error.detail : (error as Error).message}`,
       );
       return;
     }
@@ -1348,15 +1312,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
     delete payload.created_at;
     delete payload.updated_at;
 
-    const { error } = await supabase
-      .from(config.table)
-      .update(payload)
-      .eq("id", row.id)
-      .select("*")
-      .single();
-
-    if (error) {
-      reportAdminError("수정 실패", error, buildFieldLabels(config));
+    if (metaMutation.isPending) return false;
+    try {
+      await metaMutation.mutateAsync({ id: row.id, values: payload });
+    } catch (error) {
+      reportAdminError("수정 실패", error as Error, buildFieldLabels(config));
       return false;
     }
 
@@ -1403,7 +1363,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
     }
 
     // 서버 페이지네이션 탭은 rows가 현재 페이지 10행뿐이라 그대로 쓰면 10행짜리
-    // 파일이 나온다. 목록과 같은 조건(buildListQuery)으로 서버에서 EXPORT_CHUNK행씩
+    // 파일이 나온다. 목록과 같은 조건으로 서버에서 청크 단위로
     // 끊어 받아, 청크마다 CSV 줄로 접어 모은다 — 43k행 행 객체를 한꺼번에 메모리에
     // 쌓지 않고, await 사이마다 진행률이 화면에 갱신된다.
     if (exporting) return;
@@ -1427,25 +1387,25 @@ export function AdminSectionRoute({ section }: { section: string }) {
     const parts: string[] = [];
     let done = 0;
 
-    for (let from = 0; from < totalCount; from += EXPORT_CHUNK) {
-      const { data, error } = await buildListQuery().range(
-        from,
-        from + EXPORT_CHUNK - 1,
-      );
-
-      if (error) {
+    // 서버가 EXPORT_CHUNK행씩 끊어 주고 next 가 null 이면 끝이다. 목록과 같은 검색어를 보낸다.
+    for (let from: number | null = 0; from !== null; ) {
+      let chunk: Awaited<ReturnType<typeof fetchExportChunk>>;
+      try {
+        chunk = await fetchExportChunk(activeKey, from, searchTerm);
+      } catch (error) {
         closeNote();
         setExporting(null);
-        reportAdminError("CSV 내보내기 실패", error);
+        reportAdminError("CSV 내보내기 실패", error as Error);
         return;
       }
 
       // 빈 청크는 그 사이에 행이 지워졌다는 뜻 — 더 받아봐야 소용없다.
-      if (!data || data.length === 0) break;
+      if (chunk.items.length === 0) break;
 
-      parts.push(csvBody(data, config.columns));
-      done += data.length;
+      parts.push(csvBody(chunk.items, config.columns));
+      done += chunk.items.length;
       setExporting({ done, total: totalCount });
+      from = chunk.next;
     }
 
     closeNote();
@@ -1491,7 +1451,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
             />
           );
         })()
-      ) : mode === "list" ? (
+      ) : view.kind === "list" ? (
         config.comingSoon ? (
           <div className="bg-white p-10 shadow-sm">
             <h1 className="text-2xl font-semibold text-foreground">
@@ -1548,8 +1508,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                       value={activeListFilter}
                       aria-label={config.listFilter.allLabel}
                       onChange={(e) => {
-                        setListFilterValue(e.target.value);
-                        setPage(1);
+                        patchList({ filter: e.target.value, page: 1 });
                       }}
                       className="[&>select]:h-9 [&>select]:font-medium"
                     >
@@ -1570,8 +1529,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                           className="accent-primary"
                           checked={reviewStaleOnly}
                           onChange={(e) => {
-                            setReviewStaleOnly(e.target.checked);
-                            setPage(1);
+                            patchList({ stale: e.target.checked, page: 1 });
                           }}
                         />
                         미검토만 보기
@@ -1579,10 +1537,10 @@ export function AdminSectionRoute({ section }: { section: string }) {
                       <NativeSelect
                         value={reviewStaleMonths}
                         onChange={(e) => {
-                          setReviewStaleMonths(
-                            Number(e.target.value) as ReviewStaleMonths,
-                          );
-                          setPage(1);
+                          patchList({
+                            months: Number(e.target.value) as ReviewStaleMonths,
+                            page: 1,
+                          });
                         }}
                         aria-label="미검토 기준 개월 수"
                         className="[&>select]:h-9 [&>select]:font-medium"
@@ -1685,12 +1643,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
             {config.knowledgeSearchPreview && <SearchPreview config={config} />}
 
             {loading ? (
-              <div
-                role="status"
-                className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm"
-              >
-                데이터를 불러오는 중입니다.
-              </div>
+              <AdminTableSkeleton
+                // 번호 + 설정 열 + 관리, AdminTable 머리글과 같다.
+                columns={config.columns.length + 2}
+                label={`${config.title} 목록을 불러오는 중입니다.`}
+              />
             ) : (
               <AdminTable
                 config={config}
@@ -1724,7 +1681,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
             {pendingSection && editingRow && (
               <AdminForm
                 config={config}
-                mode={mode}
+                mode="list"
                 row={editingRow}
                 origin="list"
                 initialSection={pendingSection}
@@ -1733,31 +1690,42 @@ export function AdminSectionRoute({ section }: { section: string }) {
                   setPendingSection(null);
                 }}
                 onSave={saveRow}
-                onUpload={uploadImage}
+                onUpload={(files, field) =>
+                  uploadSectionFiles(activeKey, files, field)
+                }
+                onRemoveFiles={(paths) => removeSectionFiles(activeKey, paths)}
               />
             )}
           </>
         )
-      ) : (
-        <AdminForm
-          config={config}
-          mode={mode}
-          row={editingRow}
-          // 폼 화면 진입(editRow/createRow)은 항상 pendingSection이 null이다 —
-          // 목록 [수정] 직행(openRowSection)은 이제 mode를 'list'로 둔 채 위
-          // 목록 분기의 오버레이 AdminForm으로 렌더된다.
-          origin="form"
-          initialSection={null}
-          createDefaults={pendingCreateDefaults}
-          onCancel={() => {
-            setMode("list");
-            setEditingRow(null);
-            setPendingSection(null);
-            setPendingCreateDefaults(null);
-          }}
-          onSave={saveRow}
-          onUpload={uploadImage}
+      ) : view.kind === "edit" && !editTarget ? (
+        <AdminDetailSkeleton
+          rows={(config.fields || config.columns).length}
+          label={`${config.title} 상세를 불러오는 중입니다.`}
         />
+      ) : (
+        <>
+          <UnsavedGuard dirty={formDirty && !leaving} />
+          <AdminForm
+            key={view.kind === "edit" ? view.id : "new"}
+            config={config}
+            mode={view.kind === "new" ? "create" : "edit"}
+            row={editTarget}
+            // 등록, 수정 화면은 pendingSection이 없다. 목록 [수정] 직행(openRowSection)은
+            // 목록 분기의 오버레이 AdminForm으로 렌더된다.
+            origin="form"
+            initialSection={null}
+            createDefaults={prefill}
+            // 이탈 확인은 UnsavedGuard(useBlocker, beforeunload)가 맡는다.
+            onDirtyChange={setFormDirty}
+            onCancel={() => navigate(listPath, { replace: true })}
+            onSave={saveRow}
+            onUpload={(files, field) =>
+              uploadSectionFiles(activeKey, files, field)
+            }
+            onRemoveFiles={(paths) => removeSectionFiles(activeKey, paths)}
+          />
+        </>
       )}
     </>
   );
@@ -1774,8 +1742,10 @@ export function AdminLayout() {
   // 사이드바 하이라이트용 activeKey — 라우팅 매칭(어느 config를 쓸지 결정하는 것)에는
   // 관여하지 않는다. 그건 App.jsx의 개별 <Route path={key}> 매칭이 이미 끝낸 일이고,
   // 여기서는 그 결과인 URL을 보고 "지금 어느 메뉴가 눌려 있어 보여야 하는가"만 고른다.
+  // 하위 경로(tenants/123, coupons/c1/edit)에서도 첫 구간이 메뉴 키다.
   const activeKey =
-    location.pathname.replace(/^\/admin\/?/, "") || ADMIN_DEFAULT_SECTION_KEY;
+    location.pathname.replace(/^\/admin\/?/, "").split("/")[0] ||
+    ADMIN_DEFAULT_SECTION_KEY;
 
   async function logout() {
     // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.

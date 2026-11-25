@@ -60,8 +60,16 @@ describe("GET /api/admin/hq-dashboard/trends 권한", () => {
     const r = await get();
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(r.body).toMatchObject({ code: "FORBIDDEN" });
     expect(kit.state.events).not.toContain("rpc:fn_hq_trend_buckets");
+  });
+
+  test("편집 권한이어도 읽을 수 있다", async () => {
+    setPermissions([{ resource_key: "hqDashboard", level: "edit" }]);
+
+    const r = await get();
+
+    expect(r.status).toBe(200);
   });
 
   test("로그인하지 않으면 401 이다", async () => {
@@ -70,6 +78,14 @@ describe("GET /api/admin/hq-dashboard/trends 권한", () => {
     const r = await get();
 
     expect(r.status).toBe(401);
+    expect(r.body).toMatchObject({ code: "UNAUTHENTICATED" });
+  });
+
+  test("GET 이 아니면 405 problem", async () => {
+    const r = await callHandler(handler, {}, "POST");
+
+    expect(r.status).toBe(405);
+    expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
   });
 });
 
@@ -79,6 +95,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-11-23T03:00:00Z"));
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
+  kit.state.rows.profiles = () => ({ role: "admin" });
   calls = [];
   setPermissions([{ resource_key: "hqDashboard", level: "view" }]);
   kit.state.rpc.fn_hq_trend_buckets = (args) => {
@@ -118,7 +135,7 @@ describe("GET /api/admin/hq-dashboard/trends 입력 검사", () => {
     const r = await get(query);
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "INVALID_QUERY" } });
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
     expect(kit.state.events).not.toContain("rpc:fn_hq_trend_buckets");
   });
 });
@@ -139,13 +156,28 @@ describe("GET /api/admin/hq-dashboard/trends", () => {
         p_tz: "Asia/Seoul",
       },
     ]);
+    expect(r.body).not.toHaveProperty("ok");
     expect(r.body).toMatchObject({
-      ok: true,
       from: "2026-11-01",
       to: "2026-11-23",
       grain: "day",
       mauMode: "calendar",
       includeInternal: false,
+    });
+  });
+
+  test("includeInternal 은 1 일 때만 포함이고 다른 값은 제외다", async () => {
+    await get({ includeInternal: "yes" });
+
+    expect(calls[0]).toMatchObject({ p_include_internal: false });
+  });
+
+  test("기간 오류는 화면에 보일 문구와 함께 400 VALIDATION_FAILED 이다", async () => {
+    const r = await get({ from: "2026-11-10", to: "2026-11-09" });
+
+    expect(r.body).toMatchObject({
+      code: "VALIDATION_FAILED",
+      detail: "시작일이 종료일보다 늦습니다.",
     });
   });
 
@@ -206,7 +238,7 @@ describe("GET /api/admin/hq-dashboard/trends", () => {
     const r = await callHandler(handler, undefined, "GET");
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "TIME_ZONE_REQUIRED" } });
+    expect(r.body).toMatchObject({ code: "TIME_ZONE_REQUIRED" });
     expect(kit.state.events).not.toContain("rpc:fn_hq_trend_buckets");
   });
 

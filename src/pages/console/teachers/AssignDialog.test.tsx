@@ -37,6 +37,7 @@ const teacher = (over: Partial<AccountItem> = {}): AccountItem => ({
   loginId: "SM26HB83K7MPQ2",
   status: "active",
   passwordSet: true,
+  createdAt: "2026-02-25T00:30:00.000Z",
   classes: [klass("c3", "3", true, 28), klass("c5", "5", false, 30)],
   ...over,
 });

@@ -1,5 +1,5 @@
 import { Download } from "lucide-react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -9,8 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ApiError } from "@/lib/http/client";
 import { downloadCsv, formatValue } from "@/pages/admin/shared/csvExport";
-import { fetchPurgeLogs, type PurgeLogEntry } from "./api";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
+import { type PurgeLogEntry, usePurgeLogs } from "./purgeQueries";
 
 // ---------------------------------------------------------------------------
 // 삭제 로그(사 #163, #177). 서버가 이름과 연락처 없이 내려 주는 목록을 그대로 보인다. 회원번호는 길어서 펼쳐서 본다.
@@ -42,24 +44,14 @@ function toCsvRow(log: PurgeLogEntry) {
 }
 
 export default function PurgeLogsAdmin() {
-  const [logs, setLogs] = useState<PurgeLogEntry[]>([]);
-  const [error, setError] = useState("");
+  const query = usePurgeLogs();
+  const logs = query.data?.items ?? [];
+  const error = query.error
+    ? query.error instanceof ApiError
+      ? query.error.detail
+      : "삭제 로그를 불러오지 못했어요."
+    : "";
   const [opened, setOpened] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    let active = true;
-    fetchPurgeLogs().then((result) => {
-      if (!active) return;
-      if (!result.ok) {
-        setError(result.message);
-        return;
-      }
-      setLogs(result.data.logs);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   function toggle(id: string) {
     setOpened((prev) => {
@@ -96,87 +88,94 @@ export default function PurgeLogsAdmin() {
           {error}
         </div>
       )}
-      <div className="bg-white p-6 shadow-sm">
-        <Table className="min-w-[55rem] border-collapse">
-          <TableHeader>
-            <TableRow className="border-y border-gray-300 hover:bg-transparent">
-              {CSV_COLUMNS.map((column) => (
-                <TableHead
-                  key={column.key}
-                  scope="col"
-                  className="whitespace-normal px-3 py-3 text-left font-semibold"
-                >
-                  {column.label}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {logs.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={8}
-                  className="py-8 text-center text-muted-foreground"
-                >
-                  삭제 로그가 없습니다.
-                </TableCell>
+      {query.isPending ? (
+        <AdminTableSkeleton
+          columns={CSV_COLUMNS.length}
+          label="삭제 로그를 불러오는 중입니다."
+        />
+      ) : (
+        <div className="bg-white p-6 shadow-sm">
+          <Table className="min-w-[55rem] border-collapse">
+            <TableHeader>
+              <TableRow className="border-y border-gray-300 hover:bg-transparent">
+                {CSV_COLUMNS.map((column) => (
+                  <TableHead
+                    key={column.key}
+                    scope="col"
+                    className="whitespace-normal px-3 py-3 text-left font-semibold"
+                  >
+                    {column.label}
+                  </TableHead>
+                ))}
               </TableRow>
-            ) : (
-              logs.map((log) => (
-                <Fragment key={log.id}>
-                  <TableRow className="border-b border-gray-100">
-                    <TableCell className="px-3 py-3">
-                      {formatValue(log.executedAt, "datetime")}
-                    </TableCell>
-                    <TableCell className="whitespace-normal px-3 py-3">
-                      {log.executedBy ?? "-"}
-                    </TableCell>
-                    <TableCell className="whitespace-normal px-3 py-3 font-medium">
-                      {log.tenant?.name ?? "-"}
-                    </TableCell>
-                    <TableCell className="px-3 py-3">
-                      {log.contractEndDate ?? "-"}
-                    </TableCell>
-                    <TableCell className="px-3 py-3">
-                      {log.deletedCount}
-                    </TableCell>
-                    <TableCell className="px-3 py-3">
-                      {log.excludedCount}
-                    </TableCell>
-                    <TableCell className="px-3 py-3">
-                      {log.skippedCount}
-                    </TableCell>
-                    <TableCell className="px-3 py-3">
-                      <button
-                        type="button"
-                        aria-expanded={opened.has(log.id)}
-                        onClick={() => toggle(log.id)}
-                        className="text-xs font-semibold text-primary underline"
-                      >
-                        회원번호 보기
-                      </button>
-                    </TableCell>
-                  </TableRow>
-                  {opened.has(log.id) && (
-                    <TableRow className="border-b border-gray-100 bg-muted/50">
-                      <TableCell
-                        colSpan={8}
-                        className="whitespace-normal px-3 py-3"
-                      >
-                        <ul className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs">
-                          {log.memberIds.map((id) => (
-                            <li key={id}>{id}</li>
-                          ))}
-                        </ul>
+            </TableHeader>
+            <TableBody>
+              {logs.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    className="py-8 text-center text-muted-foreground"
+                  >
+                    삭제 로그가 없습니다.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                logs.map((log) => (
+                  <Fragment key={log.id}>
+                    <TableRow className="border-b border-gray-100">
+                      <TableCell className="px-3 py-3">
+                        {formatValue(log.executedAt, "datetime")}
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3">
+                        {log.executedBy ?? "-"}
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3 font-medium">
+                        {log.tenant?.name ?? "-"}
+                      </TableCell>
+                      <TableCell className="px-3 py-3">
+                        {log.contractEndDate ?? "-"}
+                      </TableCell>
+                      <TableCell className="px-3 py-3">
+                        {log.deletedCount}
+                      </TableCell>
+                      <TableCell className="px-3 py-3">
+                        {log.excludedCount}
+                      </TableCell>
+                      <TableCell className="px-3 py-3">
+                        {log.skippedCount}
+                      </TableCell>
+                      <TableCell className="px-3 py-3">
+                        <button
+                          type="button"
+                          aria-expanded={opened.has(log.id)}
+                          onClick={() => toggle(log.id)}
+                          className="text-xs font-semibold text-primary underline"
+                        >
+                          회원번호 보기
+                        </button>
                       </TableCell>
                     </TableRow>
-                  )}
-                </Fragment>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                    {opened.has(log.id) && (
+                      <TableRow className="border-b border-gray-100 bg-muted/50">
+                        <TableCell
+                          colSpan={8}
+                          className="whitespace-normal px-3 py-3"
+                        >
+                          <ul className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs">
+                            {log.memberIds.map((id) => (
+                              <li key={id}>{id}</li>
+                            ))}
+                          </ul>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

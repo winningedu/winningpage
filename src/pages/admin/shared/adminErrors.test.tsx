@@ -10,6 +10,7 @@
 import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { Toaster, toast } from "@/components/ui/toast";
+import { ApiError } from "@/lib/http/client";
 import { buildFieldLabels, reportAdminError } from "./adminErrors";
 
 afterEach(() => {
@@ -239,4 +240,70 @@ test("토스트에 error.message 원문과 details 는 실리지 않고 console.
   expect(shown).not.toContain("홍길동");
   expect(shown).not.toContain("010-1234-5678");
   expect(errorSpy).toHaveBeenCalledWith("등록 실패", error);
+});
+
+// 서버(/api/admin/sections)가 DB 오류를 problem 으로 바꿔 보낸다. 확장 멤버 columns 로
+// SQLSTATE 경로와 같은 라벨 문구를 만든다.
+function apiError(
+  status: number,
+  code: string,
+  detail: string,
+  columns?: string[],
+) {
+  return new ApiError({
+    status,
+    code,
+    detail,
+    problem: {
+      type: "about:blank",
+      title: "error",
+      status,
+      detail,
+      code,
+      ...(columns ? { columns } : {}),
+    },
+  });
+}
+
+test("DB_UNIQUE_VIOLATION 은 컬럼 라벨이 든 23505 문구를 만든다", () => {
+  const labels = { title: "제목", sort_order: "순서" };
+  const generic = "이미 등록된 값입니다(중복).";
+  const one = captureAlert(
+    apiError(409, "DB_UNIQUE_VIOLATION", generic, ["title"]),
+    labels,
+  );
+  const many = captureAlert(
+    apiError(409, "DB_UNIQUE_VIOLATION", generic, ["title", "sort_order"]),
+    labels,
+  );
+
+  expect(one).toBe(
+    "등록 실패: 「제목」 값이 이미 등록돼 있습니다. 다른 값으로 바꿔 주세요.",
+  );
+  expect(many).toBe(
+    "등록 실패: 「제목」\u00b7「순서」 조합이 이미 등록된 항목과 같습니다. 이 중 하나를 바꿔 주세요.",
+  );
+});
+
+test("DB_NOT_NULL_VIOLATION 은 컬럼 라벨이 든 23502 문구를 만든다", () => {
+  const message = captureAlert(
+    apiError(400, "DB_NOT_NULL_VIOLATION", "필수 값이 비어 있습니다.", [
+      "school_name",
+    ]),
+    { school_name: "학교명" },
+  );
+
+  expect(message).toBe(
+    "등록 실패: 필수 값이 비어 있습니다 \u2014 「학교명」 항목을 입력해 주세요.",
+  );
+});
+
+test("그 밖의 ApiError 는 서버가 쓴 detail 을 그대로 보인다", () => {
+  const check = "입력값이 저장 조건을 벗어났습니다. 값을 다시 확인해 주세요.";
+  expect(captureAlert(apiError(400, "DB_CHECK_VIOLATION", check, ["c"]))).toBe(
+    `등록 실패: ${check}`,
+  );
+  expect(
+    captureAlert(apiError(403, "FORBIDDEN", "이 메뉴를 쓸 권한이 없습니다.")),
+  ).toBe("등록 실패: 이 메뉴를 쓸 권한이 없습니다.");
 });

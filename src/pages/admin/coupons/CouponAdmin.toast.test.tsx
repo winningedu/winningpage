@@ -1,38 +1,20 @@
 // 쿠폰 관리의 안내. 알림창 대신 토스트로 보이고, 실패 안내는 닫을 때까지 남는다.
 
 import "@testing-library/jest-dom/vitest";
-import { render, waitFor } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-function chain(result: unknown) {
-  const proxy: unknown = new Proxy(
-    {},
-    {
-      get(_t, prop) {
-        if (prop === "then") {
-          return (resolve: (v: unknown) => void) => resolve(result);
-        }
-        return () => proxy;
-      },
-    },
-  );
-  return proxy;
-}
+vi.mock(
+  "@/lib/http/client",
+  async () => (await import("./fakeApi")).clientMock,
+);
 
-vi.mock("@/lib/supabase", () => ({
-  supabase: {
-    from: () =>
-      chain({
-        data: null,
-        error: { message: "permission denied for 홍길동", code: "42501" },
-      }),
-  },
-}));
-
-import { Toaster, toast } from "@/components/ui/toast";
-import CouponAdmin from "./CouponAdmin";
+import { toast } from "@/components/ui/toast";
+import { FakeApiError, on, resetApi } from "./fakeApi";
+import { renderCoupons } from "./testKit";
 
 beforeEach(() => {
+  resetApi();
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -42,14 +24,12 @@ afterEach(() => {
 });
 
 test("목록 조회에 실패하면 원문 없이 닫을 때까지 남는 오류 토스트가 보인다", async () => {
+  on("GET", "admin/coupons", () => {
+    throw new FakeApiError(500, "INTERNAL_ERROR");
+  });
   const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
   const addSpy = vi.spyOn(toast, "add");
-  render(
-    <>
-      <CouponAdmin />
-      <Toaster />
-    </>,
-  );
+  renderCoupons();
 
   await waitFor(() =>
     expect(
@@ -62,6 +42,6 @@ test("목록 조회에 실패하면 원문 없이 닫을 때까지 남는 오류
   expect(addSpy).toHaveBeenCalledWith(
     expect.objectContaining({ type: "error", priority: "high", timeout: 0 }),
   );
-  expect(document.body.textContent).not.toContain("홍길동");
+  expect(document.body.textContent).not.toContain("INTERNAL_ERROR");
   expect(alertSpy).not.toHaveBeenCalled();
 });

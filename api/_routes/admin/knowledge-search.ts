@@ -14,20 +14,22 @@
 //   includeOtherSubjects 기본값은 실제 경로와 같다(주제 true, 자료 false).
 //   limit 은 1~50, 기본 20. 두 RPC 본문이 least(match_count, 20) 으로 자르므로 20을
 //   넘겨도 20행까지만 온다.
-// 응답 200 { ok, mode, threshold, queryText, keywordQuery,
+// 응답 200 { mode, threshold, queryText, keywordQuery,
 //            items: [{ rank, id, title, grade, subject, career_field, similarity,
 //                      passesThreshold, wouldBeInjected,
 //                      semanticRank?, keywordRank?, rrfScore? }] }
 //   keywordQuery 는 hybrid 일 때 RPC 에 넘긴 단어 질의, vector 일 때 null.
-// 오류(coded): 400 INVALID_BODY, 401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL
+// 오류(problem): 400 VALIDATION_FAILED, 401/403, 405, 500
+// 권한: knowledgeType 이 가리키는 메뉴의 view. 읽기 POST 라 level 을 직접 적는다.
 //
-// 핸들러 본문은 테스트하지 않는다. 판단은 api/_lib/knowledge/preview.ts.
+// 판단은 api/_lib/knowledge/preview.ts, 계약 검증은 knowledge-search.test.ts.
 
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { performanceTraceContext } from "../../_lib/ai/telemetry/performanceContext.js";
 import { createAiTrace } from "../../_lib/ai/telemetry/trace.js";
 import { defineHandler } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { knowledgeBodySchema } from "../../_lib/knowledge/bodySchema.js";
+import { knowledgeSectionKey } from "../../_lib/knowledge/permission.js";
 import {
   buildSearchPreviewItems,
   buildSearchPreviewRpc,
@@ -39,24 +41,16 @@ import { buildKnowledgeQueryText } from "../../_lib/performance/knowledge.js";
 export default defineHandler({
   methods: ["POST"],
   auth: "admin",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  authFailureExtra: { ok: false },
+  errorShape: "problem",
+  permission: { key: knowledgeSectionKey, level: "view" },
+  body: knowledgeBodySchema(validateSearchPreviewBody),
+  // 데이터를 바꾸지 않는 읽기 POST 라 조회로 남긴다.
+  audit: { action: "view" },
   unhandledMessage: "검색 테스트에 실패했습니다.",
-  unhandledCode: "INTERNAL",
-  unhandledExtra: { ok: false },
   logLabel: "admin/knowledge-search",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const parsed = validateSearchPreviewBody(req.body);
-    if (!parsed.ok) {
-      sendError(res, "coded", 400, parsed.reason, "INVALID_BODY", {
-        ok: false,
-      });
-      return;
-    }
-    const { body } = parsed;
+  handler: async (_req, res, ctx) => {
+    const { body } = ctx;
     const db = ctx.supabaseAdmin;
     const queryText = buildKnowledgeQueryText(body);
 
@@ -86,7 +80,6 @@ export default defineHandler({
         body.mode,
       );
       res.status(200).json({
-        ok: true,
         mode: body.mode,
         threshold,
         queryText,

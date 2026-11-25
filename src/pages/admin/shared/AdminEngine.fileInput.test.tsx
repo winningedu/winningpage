@@ -35,6 +35,7 @@ function renderForm(type: string) {
       onCancel={() => {}}
       onSave={() => {}}
       onUpload={onUpload as never}
+      onRemoveFiles={() => {}}
     />,
   );
   return { onUpload };

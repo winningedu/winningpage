@@ -1,3 +1,4 @@
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   Dialog,
@@ -14,14 +15,17 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import {
+  createGoldenQuery,
+  failureText,
   type GoldenQuery,
-  saveGoldenQuery,
+  patchGoldenQuery,
   searchKnowledgeResources,
 } from "./api";
 import {
   EMPTY_GOLDEN_DRAFT,
   type ExpectedResource,
   type GoldenDraft,
+  type GoldenRowInput,
   type KnowledgeType,
   toGoldenRow,
 } from "./form";
@@ -62,20 +66,32 @@ export default function QueryDialog({
     draftFrom(target, titles),
   );
   const [term, setTerm] = useState("");
-  const [results, setResults] = useState<ExpectedResource[] | null>(null);
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
+
+  const searchResources = useMutation({
+    mutationFn: (value: string) =>
+      searchKnowledgeResources(knowledgeType, value),
+    onError: (e) => setMessage(failureText("자료 검색", e)),
+  });
+  const results = searchResources.data ?? null;
+
+  // 수정은 유형을 바꾸지 않으므로 knowledge_type 을 빼고 보낸다(유형은 쿼리로 범위만 정한다).
+  const save = useMutation({
+    mutationFn: (row: GoldenRowInput) => {
+      if (!target) return createGoldenQuery(row);
+      const { knowledge_type: _type, ...fields } = row;
+      return patchGoldenQuery(target.id, knowledgeType, fields);
+    },
+    onSuccess: onSaved,
+    onError: (e) => setMessage(failureText("질의 저장", e)),
+  });
+  const busy = save.isPending;
 
   const set = (key: keyof Omit<GoldenDraft, "expected">) => (value: string) =>
     setDraft((prev) => ({ ...prev, [key]: value }));
 
-  async function search() {
-    const result = await searchKnowledgeResources(knowledgeType, term);
-    if (!result.ok) {
-      setMessage(result.message);
-      return;
-    }
-    setResults(result.data);
+  function search() {
+    searchResources.mutate(term);
   }
 
   function addExpected(resource: ExpectedResource) {
@@ -93,21 +109,15 @@ export default function QueryDialog({
     }));
   }
 
-  async function submit() {
+  function submit() {
     if (busy) return;
     const parsed = toGoldenRow(knowledgeType, draft);
     if (!parsed.ok) {
       setMessage(parsed.message);
       return;
     }
-    setBusy(true);
-    const result = await saveGoldenQuery(target?.id ?? null, parsed.row);
-    setBusy(false);
-    if (!result.ok) {
-      setMessage(result.message);
-      return;
-    }
-    onSaved();
+    setMessage("");
+    save.mutate(parsed.row);
   }
 
   return (
@@ -195,7 +205,11 @@ export default function QueryDialog({
               onChange={setTerm}
               placeholder="자료 제목 검색"
             />
-            <ActionButton type="submit" variant="light">
+            <ActionButton
+              type="submit"
+              variant="light"
+              disabled={searchResources.isPending}
+            >
               검색
             </ActionButton>
           </form>

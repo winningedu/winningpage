@@ -71,7 +71,7 @@ describe.each([
       req("GET"),
     );
 
-    expect(result).toEqual({ ok: true, userId: "u1" });
+    expect(result).toEqual({ ok: true, userId: "u1", email: "u1@t.local" });
   });
 
   test("QA 가 아닌 관리자의 쓰기 요청은 그대로 통과한다", async () => {
@@ -80,7 +80,7 @@ describe.each([
       req("POST"),
     );
 
-    expect(result).toEqual({ ok: true, userId: "u1" });
+    expect(result).toEqual({ ok: true, userId: "u1", email: "u1@t.local" });
   });
 
   test("관리자가 아니면 QA 여부와 상관없이 기존처럼 403 관리자 권한 문구다", async () => {
@@ -115,7 +115,7 @@ describe("QA_ACCOUNT_GUARD_ENABLED", () => {
       fakeAdmin({ qa: true, role: "admin" }),
       req("POST"),
     );
-    expect(admin).toEqual({ ok: true, userId: "u1" });
+    expect(admin).toEqual({ ok: true, userId: "u1", email: "u1@t.local" });
     await expect(
       assertNotQaAccount(fakeAdmin({ qa: true, role: "user" }), "u1"),
     ).resolves.toBeUndefined();
@@ -144,6 +144,6 @@ describe("QA_ACCOUNT_GUARD_ENABLED", () => {
       fakeAdmin({ qa: false, role: "admin" }),
       req("POST"),
     );
-    expect(admin).toEqual({ ok: true, userId: "u1" });
+    expect(admin).toEqual({ ok: true, userId: "u1", email: "u1@t.local" });
   });
 });

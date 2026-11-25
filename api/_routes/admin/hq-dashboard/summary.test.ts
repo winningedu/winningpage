@@ -71,6 +71,7 @@ let rpcArgs: Record<string, unknown>[] = [];
 beforeEach(() => {
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
+  kit.state.rows.profiles = () => ({ role: "admin" });
   rpcArgs = [];
   kit.state.rpc.fn_admin_effective_permissions = () => ({
     data: [{ resource_key: "hqDashboard", level: "view" }],
@@ -90,19 +91,30 @@ afterEach(() => {
 });
 
 describe("권한과 입력", () => {
-  test("hqDashboard 보기 권한이 없으면 403", async () => {
+  test("hqDashboard 보기 권한이 없으면 403 FORBIDDEN problem", async () => {
     kit.state.rpc.fn_admin_effective_permissions = () => ({
       data: [{ resource_key: "tenants", level: "edit" }],
       error: null,
     });
     const res = await get();
     expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ code: "FORBIDDEN" });
     expect(kit.state.events).not.toContain("rpc:fn_hq_tenant_overview");
   });
 
-  test("GET 이 아니면 405", async () => {
+  test("hqDashboard 편집 권한이어도 읽을 수 있다", async () => {
+    kit.state.rpc.fn_admin_effective_permissions = () => ({
+      data: [{ resource_key: "hqDashboard", level: "edit" }],
+      error: null,
+    });
+    const res = await get();
+    expect(res.status).toBe(200);
+  });
+
+  test("GET 이 아니면 405 problem", async () => {
     const res = await callHandler(handler, {}, "POST");
     expect(res.status).toBe(405);
+    expect(res.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
   });
 
   test("기본은 QA, 관리자 계정을 뺀다(p_include_internal false)", async () => {
@@ -116,9 +128,16 @@ describe("권한과 입력", () => {
     expect(rpcArgs).toEqual([{ p_include_internal: true }]);
   });
 
-  test("includeInternal 이 1, 0 이 아니면 400", async () => {
+  test("includeInternal 이 1, 0 이 아니면 400 VALIDATION_FAILED", async () => {
     const res = await get({ includeInternal: "yes" });
     expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(kit.state.events).not.toContain("rpc:fn_hq_tenant_overview");
+  });
+
+  test("includeInternal=0 은 제외로 센다", async () => {
+    await get({ includeInternal: "0" });
+    expect(rpcArgs).toEqual([{ p_include_internal: false }]);
   });
 
   test("기관 현황 조회가 실패하면 500", async () => {
@@ -190,8 +209,8 @@ describe("합계 카드", () => {
     const res = await get();
     expect(res.status).toBe(200);
     expect(res.headers["Cache-Control"]).toBe("no-store");
+    expect(res.body).not.toHaveProperty("ok");
     expect(res.body).toMatchObject({
-      ok: true,
       tenantCount: 6,
       studentCount: 18,
       studentWithoutEnrollmentCount: 3,

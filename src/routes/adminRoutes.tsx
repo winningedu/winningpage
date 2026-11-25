@@ -7,23 +7,12 @@ import { requireAdminMiddleware } from "@/lib/routeMiddleware";
 // 주석 참고 — /admin에 들어가지 않는 사용자의 초기 번들에 CONFIGS를 얹지 않기 위함이다.
 import {
   ADMIN_DEFAULT_SECTION_KEY,
+  ADMIN_ENGINE_SECTION_KEYS,
   ADMIN_SECTION_KEYS,
 } from "@/pages/admin/adminSectionKeys";
-
-// 청크(../pages/Admin) 다운로드 대기 중 표시 — route.lazy가 대기하는 동안
-// (middleware 판정 + JS 청크 로딩을 함께 블록한다) 정적 최상위 HydrateFallback으로
-// 둬야 한다 — lazy() 반환 객체 안에 넣으면 그 자체가 아직 resolve 되기 전이라
-// 첫 렌더에 이 라우트가 fallbackIndex 후보에서 빠져 상위(RootLayout, 자체 폴백 없음)
-// 까지 올라가 빈 화면이 뜬다.
-function AdminChunkLoadingFallback() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F7F4EF] pt-16 text-[#0D1B2A]">
-      <div className="rounded-2xl border border-[#0D1B2A]/10 bg-white px-6 py-4 text-sm font-extrabold shadow-[0_18px_45px_rgba(13,27,42,0.10)]">
-        관리자 페이지 불러오는 중...
-      </div>
-    </main>
-  );
-}
+// HydrateFallback에 쓰는 셸 스켈레톤. react, ui/skeleton, utils만 import하는 가벼운 모듈이라
+// Admin 청크를 끌어오지 않는다.
+import { AdminShellSkeleton } from "@/pages/admin/shared/skeletons/AdminShellSkeleton";
 
 // Admin.jsx 전면 route화(§5-1) — 각 CONFIGS 도메인 섹션이 실제 개별 RouteObject다.
 // AdminLayout(사이드바/탑바)은 부모 라우트로 한 번만 마운트되어 섹션을
@@ -35,6 +24,41 @@ function AdminChunkLoadingFallback() {
 // AdminLayout과 AdminSectionRoute는 같은 모듈(../pages/Admin)의 named export라
 // import() specifier가 같으면 번들러가 청크 하나로 묶는다 — 섹션 46개 각각
 // 자신의 lazy()에서 다시 import해도 중복 다운로드가 없다(모듈 캐시로 즉시 resolve).
+// 하위 주소를 화면 안의 descendant <Routes> 가 읽는 섹션. 같은 라우트가 /admin/<key> 와 그 아래를 모두 받아
+// 목록에서 상세로 옮겨도 섹션이 다시 마운트되지 않는다.
+const SPLAT_SECTION_KEYS: ReadonlySet<string> = new Set([
+  "tenants",
+  "memberPurge",
+  "coupons",
+  "members",
+  "adminMembers",
+  "adminRoles",
+  "growthReports",
+  "inquirySessions",
+  "selfevalSessions",
+  "serviceCreditAdjust",
+  "mentorApplications",
+  "premiumBookPages",
+]);
+
+const ENGINE_SECTION_KEYS: ReadonlySet<string> = new Set(
+  ADMIN_ENGINE_SECTION_KEYS,
+);
+
+// 엔진 섹션의 하위 주소는 splat 하나가 아니라 명시 경로(new, :id)로 둔다. 주소 모양이 라우트 표에
+// 그대로 보이고, "/admin/popups/a/b" 같은 엉뚱한 하위 주소는 아래 "*" 로 기본 섹션에 되돌아간다.
+// 목록에서 폼으로 옮기면 섹션이 다시 마운트되지만, 목록 상태는 주소(검색값)에 있어 잃지 않는다.
+function sectionRoute(path: string, key: string): RouteObject {
+  return {
+    path,
+    lazy: async () => {
+      const { AdminSectionRoute } = await import("@/pages/Admin");
+      // biome-ignore lint/correctness/noComponentHookFactories: 라우트 정의는 모듈 로드 때 한 번만 만들어져 렌더마다 새 컴포넌트가 생기지 않는다
+      return { Component: () => <AdminSectionRoute section={key} /> };
+    },
+  };
+}
+
 const adminRoutes: RouteObject[] = [
   {
     path: "/admin",
@@ -43,7 +67,12 @@ const adminRoutes: RouteObject[] = [
       return { Component: AdminLayout };
     },
     middleware: [requireAdminMiddleware],
-    HydrateFallback: AdminChunkLoadingFallback,
+    // 청크(../pages/Admin) 다운로드 대기 중 표시. route.lazy가 대기하는 동안
+    // (middleware 판정과 JS 청크 로딩을 함께 블록한다) 정적 최상위 HydrateFallback으로
+    // 둬야 한다. lazy() 반환 객체 안에 넣으면 그 자체가 아직 resolve 되기 전이라
+    // 첫 렌더에 이 라우트가 fallbackIndex 후보에서 빠져 상위(RootLayout, 자체 폴백 없음)
+    // 까지 올라가 빈 화면이 뜬다.
+    HydrateFallback: AdminShellSkeleton,
     ErrorBoundary: AdminAccessBoundary,
     children: [
       {
@@ -52,14 +81,26 @@ const adminRoutes: RouteObject[] = [
           <Navigate to={`/admin/${ADMIN_DEFAULT_SECTION_KEY}`} replace />
         ),
       },
-      ...ADMIN_SECTION_KEYS.map((key) => ({
-        path: key,
+      ...ADMIN_SECTION_KEYS.flatMap((key) =>
+        ENGINE_SECTION_KEYS.has(key)
+          ? [
+              sectionRoute(key, key),
+              sectionRoute(`${key}/new`, key),
+              sectionRoute(`${key}/:id`, key),
+            ]
+          : [sectionRoute(SPLAT_SECTION_KEYS.has(key) ? `${key}/*` : key, key)],
+      ),
+      // 목표관리 학생 상세. 같은 섹션 컴포넌트가 :id 로 상세를 그린다(새로고침해도 API 에서 읽는다).
+      {
+        path: "goalStudents/:id",
         lazy: async () => {
           const { AdminSectionRoute } = await import("@/pages/Admin");
-          // biome-ignore lint/correctness/noComponentHookFactories: 라우트 정의는 모듈 로드 때 한 번만 만들어져 렌더마다 새 컴포넌트가 생기지 않는다
-          return { Component: () => <AdminSectionRoute section={key} /> };
+          return {
+            // biome-ignore lint/correctness/noComponentHookFactories: 위 섹션 라우트와 같다. 라우트 정의는 모듈 로드 때 한 번만 만들어진다
+            Component: () => <AdminSectionRoute section="goalStudents" />,
+          };
         },
-      })),
+      },
       // 존재하지 않는 섹션 키 — 이전(구 activeKey 기본값)과 동일하게 기본 섹션으로 되돌린다.
       {
         path: "*",

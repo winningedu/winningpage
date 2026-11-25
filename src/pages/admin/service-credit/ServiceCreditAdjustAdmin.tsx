@@ -1,4 +1,13 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 import {
   Table,
   TableBody,
@@ -7,21 +16,30 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ApiError } from "@/lib/http/client";
 import {
   ActionButton,
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
+import { studentSearchQueryOptions } from "@/pages/admin/shared/studentSearch";
 import {
   type AdjustBody,
-  fetchServiceCredits,
   postServiceCreditAdjust,
   type ServiceCreditRow,
-  type StudentRow,
-  searchStudents,
+  type ServiceCreditSummary,
+  serviceCreditKeys,
+  serviceCreditSummaryQueryOptions,
 } from "./api";
+import { SERVICE_CREDIT_PATH } from "./paths";
 
 const REASON_MIN_LENGTH = 2;
+const SEARCH_ERROR = "학생 조회에 실패했습니다.";
+const REQUEST_ERROR = "요청에 실패했습니다.";
+
+const errorText = (error: unknown, fallback: string) =>
+  error instanceof ApiError ? error.detail : fallback;
 
 function formatDate(value: string | null) {
   if (!value) return "-";
@@ -105,7 +123,8 @@ function AdjustForm({
   const [months, setMonths] = useState("");
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState<AdjustBody | null>(null);
-  const [busy, setBusy] = useState(false);
+  const adjust = useMutation({ mutationFn: postServiceCreditAdjust });
+  const busy = adjust.isPending;
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -124,23 +143,23 @@ function AdjustForm({
 
   async function apply() {
     if (!pending || busy) return;
-    setBusy(true);
-    const result = await postServiceCreditAdjust(pending);
-    setBusy(false);
-    setPending(null);
-    if (!result.ok) {
+    const body = pending;
+    let credit: ServiceCreditRow;
+    try {
+      credit = await adjust.mutateAsync(body);
+    } catch (error) {
+      setPending(null);
       setSuccess(false);
-      setMessage(result.message);
+      setMessage(errorText(error, REQUEST_ERROR));
       return;
     }
-    onApplied(result.data.credit);
+    setPending(null);
+    onApplied(credit);
     setDelta("");
     setMonths("");
     setReason("");
     setSuccess(true);
-    setMessage(
-      `적용했습니다. 잔여 ${formatCount(result.data.credit.quotaRemaining)}`,
-    );
+    setMessage(`적용했습니다. 잔여 ${formatCount(credit.quotaRemaining)}`);
   }
 
   return (
@@ -211,49 +230,42 @@ interface Props {
   config: { title: string; [key: string]: unknown };
 }
 
+// 섹션 라우트가 serviceCreditAdjust/* 라 아래 Routes 가 나머지 경로를 맡는다.
+// 검색 화면과 학생 화면은 같은 화면이라 선택 주소(:studentId?)로 한 번에 묶어 검색 입력이 유지된다.
 export default function ServiceCreditAdjustAdmin({ config }: Props) {
-  const [term, setTerm] = useState("");
-  const [results, setResults] = useState<StudentRow[] | null>(null);
-  const [student, setStudent] = useState<StudentRow | null>(null);
-  const [rows, setRows] = useState<ServiceCreditRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  return (
+    <Routes>
+      <Route
+        path=":studentId?"
+        element={<ServiceCreditScreen title={config.title} />}
+      />
+      <Route path="*" element={<Navigate to={SERVICE_CREDIT_PATH} replace />} />
+    </Routes>
+  );
+}
 
-  async function search() {
-    setError("");
-    const result = await searchStudents(term);
-    if (!result.ok) {
-      setError(result.message);
-      setResults([]);
-      return;
-    }
-    setResults(result.data);
-  }
+function ServiceCreditScreen({ title }: { title: string }) {
+  const { studentId } = useParams();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const submitted = searchParams.get("q") ?? "";
+  const [term, setTerm] = useState(submitted);
+  const studentSearch = useQuery(
+    studentSearchQueryOptions("serviceCreditAdjust", submitted),
+  );
+  const results = studentSearch.data?.items ?? null;
 
-  async function select(picked: StudentRow) {
-    setStudent(picked);
-    setRows([]);
-    setError("");
-    setLoading(true);
-    const result = await fetchServiceCredits(picked.id);
-    setLoading(false);
-    if (!result.ok) {
-      setError(result.message);
-      return;
-    }
-    setRows(result.data);
-  }
-
-  function replaceRow(credit: ServiceCreditRow) {
-    setRows((prev) =>
-      prev.map((r) => (r.programKey === credit.programKey ? credit : r)),
-    );
+  function pick(id: string) {
+    navigate({
+      pathname: `${SERVICE_CREDIT_PATH}/${encodeURIComponent(id)}`,
+      search: searchParams.toString(),
+    });
   }
 
   return (
     <div>
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
-        <h1 className="text-xl font-semibold">{config.title}</h1>
+        <h1 className="text-xl font-semibold">{title}</h1>
         <p className="mb-4 mt-2 rounded-sm border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
           이 메뉴에서 적용한 조정은 학생의 서비스 이용횟수에 즉시 반영됩니다.
         </p>
@@ -261,7 +273,8 @@ export default function ServiceCreditAdjustAdmin({ config }: Props) {
           className="flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
             e.preventDefault();
-            search();
+            const trimmed = term.trim();
+            setSearchParams(trimmed ? { q: trimmed } : {});
           }}
         >
           <div className="w-[18rem]">
@@ -287,9 +300,9 @@ export default function ServiceCreditAdjustAdmin({ config }: Props) {
               <li key={s.id}>
                 <button
                   type="button"
-                  onClick={() => select(s)}
+                  onClick={() => pick(s.id)}
                   className={`w-full px-3 py-2 text-left text-sm font-medium hover:bg-gray-50 ${
-                    student?.id === s.id ? "bg-muted" : ""
+                    studentId === s.id ? "bg-muted" : ""
                   }`}
                 >
                   {s.name || "(이름 없음)"} ({s.email || "-"})
@@ -305,75 +318,112 @@ export default function ServiceCreditAdjustAdmin({ config }: Props) {
         )}
       </div>
 
-      {error && (
+      {studentSearch.error && (
         <div
           role="alert"
           className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
         >
-          {error}
+          {errorText(studentSearch.error, SEARCH_ERROR)}
         </div>
       )}
 
-      {student && (
-        <div className="bg-white px-6 py-5 shadow-sm">
-          <h2 className="mb-3 text-base font-semibold">
-            {student.name || "(이름 없음)"} 님의 서비스 이용횟수
-          </h2>
-          {loading ? (
-            <p role="status" className="text-sm font-medium text-gray-500">
-              불러오는 중...
-            </p>
-          ) : (
-            rows.length > 0 && (
-              <Table className="border-collapse">
-                <TableHeader>
-                  <TableRow className="border-b border-gray-300 hover:bg-transparent">
-                    {["서비스", "총", "사용", "잔여", "만료", "조정"].map(
-                      (label) => (
-                        <TableHead
-                          key={label}
-                          scope="col"
-                          className="whitespace-normal py-2 text-xs font-semibold text-muted-foreground"
-                        >
-                          {label}
-                        </TableHead>
-                      ),
-                    )}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row) => (
-                    <TableRow
-                      key={row.programKey}
-                      className="border-b border-gray-200 align-top"
-                    >
-                      <TableCell className="whitespace-normal py-3 font-semibold">
-                        {row.label}
-                      </TableCell>
-                      <TableCell className="py-3">
-                        {formatCount(row.quotaTotal)}
-                      </TableCell>
-                      <TableCell className="py-3">{row.quotaUsed}</TableCell>
-                      <TableCell className="py-3">
-                        {formatCount(row.quotaRemaining)}
-                      </TableCell>
-                      <TableCell className="py-3">
-                        {formatExpiry(row)}
-                      </TableCell>
-                      <TableCell className="whitespace-normal py-3">
-                        <AdjustForm
-                          row={row}
-                          profileId={student.id}
-                          onApplied={replaceRow}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )
-          )}
-        </div>
+      {studentId && <StudentCredits studentId={studentId} />}
+    </div>
+  );
+}
+
+function StudentCredits({ studentId }: { studentId: string }) {
+  const queryClient = useQueryClient();
+  const summary = useQuery(serviceCreditSummaryQueryOptions(studentId));
+
+  // 조정 응답의 행만 캐시에 끼워 넣어 현황 전체를 다시 읽지 않는다.
+  function replaceRow(credit: ServiceCreditRow) {
+    queryClient.setQueryData<ServiceCreditSummary>(
+      serviceCreditKeys.summary(studentId),
+      (prev) =>
+        prev && {
+          ...prev,
+          items: prev.items.map((r) =>
+            r.programKey === credit.programKey ? credit : r,
+          ),
+        },
+    );
+  }
+
+  if (summary.error) {
+    return (
+      <div
+        role="alert"
+        className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
+      >
+        {errorText(summary.error, REQUEST_ERROR)}
+      </div>
+    );
+  }
+  if (!summary.data) {
+    return (
+      <div className="bg-white px-6 py-5 shadow-sm">
+        <AdminTableSkeleton
+          columns={6}
+          rows={4}
+          label="서비스 이용횟수를 불러오는 중"
+        />
+      </div>
+    );
+  }
+
+  const { student, items } = summary.data;
+  return (
+    <div className="bg-white px-6 py-5 shadow-sm">
+      <h2 className="text-base font-semibold">
+        {student.name || "(이름 없음)"} 님의 서비스 이용횟수
+      </h2>
+      <p className="mb-3 text-sm font-medium text-gray-500">
+        {student.email || "-"}
+      </p>
+      {items.length > 0 && (
+        <Table className="border-collapse">
+          <TableHeader>
+            <TableRow className="border-b border-gray-300 hover:bg-transparent">
+              {["서비스", "총", "사용", "잔여", "만료", "조정"].map((label) => (
+                <TableHead
+                  key={label}
+                  scope="col"
+                  className="whitespace-normal py-2 text-xs font-semibold text-muted-foreground"
+                >
+                  {label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((row) => (
+              <TableRow
+                key={row.programKey}
+                className="border-b border-gray-200 align-top"
+              >
+                <TableCell className="whitespace-normal py-3 font-semibold">
+                  {row.label}
+                </TableCell>
+                <TableCell className="py-3">
+                  {formatCount(row.quotaTotal)}
+                </TableCell>
+                <TableCell className="py-3">{row.quotaUsed}</TableCell>
+                <TableCell className="py-3">
+                  {formatCount(row.quotaRemaining)}
+                </TableCell>
+                <TableCell className="py-3">{formatExpiry(row)}</TableCell>
+                <TableCell className="whitespace-normal py-3">
+                  <AdjustForm
+                    row={row}
+                    profileId={student.id}
+                    onApplied={replaceRow}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
     </div>
   );

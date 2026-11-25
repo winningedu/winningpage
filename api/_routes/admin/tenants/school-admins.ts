@@ -3,17 +3,16 @@
 // 본사가 기관 관리 화면에서 그 기관의 학교 관리자 목록을 본다(사 #159, 결정 102.6). 담임은 빼고,
 // 주소(기관 주소), 발급일, 등록취소일은 읽기 전용 값이다. 취소와 재발급은 본사 대행으로 하므로 쓰기 길은 없다.
 // teachers 는 authenticated 에 막혀 있어 service_role 로 읽는다.
-// 권한: 로그인 + HQ 권한 tenants view 이상(fn_admin_effective_permissions).
+// 권한: 관리자 + 메뉴 tenants view 이상. 판정은 defineHandler 의 permission 옵션이 한다.
 
-import { hasAdminViewPermission } from "../../../_lib/console/proxy.js";
+import { z } from "zod";
 import { defineHandler } from "../../../_lib/handler.js";
-import { sendError } from "../../../_lib/httpResponse.js";
-import { isUuid } from "../../../_lib/service-credit/adjust.js";
 
 export const config = { runtime: "nodejs" };
 
-const TENANTS_RESOURCE_KEY = "tenants";
 const MAX_ADMINS = 200;
+
+const querySchema = z.object({ tenantId: z.guid() });
 
 interface TeacherRow {
   id: string;
@@ -31,30 +30,15 @@ interface TeacherRow {
 
 export default defineHandler({
   methods: ["GET"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+  auth: "admin",
+  errorShape: "problem",
+  permission: { key: "tenants" },
+  query: querySchema,
   unhandledMessage: "전체 관리자를 불러오지 못했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "[admin/tenants/school-admins]",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    if (
-      !(await hasAdminViewPermission(
-        ctx.supabaseAdmin,
-        ctx.userId as string,
-        TENANTS_RESOURCE_KEY,
-      ))
-    ) {
-      sendError(res, "coded", 403, "기관 관리 권한이 없습니다.", "FORBIDDEN");
-      return;
-    }
-
-    const tenantId = req.query.tenantId;
-    if (typeof tenantId !== "string" || !isUuid(tenantId)) {
-      sendError(res, "coded", 400, "기관을 확인해 주세요.", "BAD_REQUEST");
-      return;
-    }
+  handler: async (_req, res, ctx) => {
+    const { tenantId } = ctx.query;
 
     const [{ data: teachers, error }, { data: tenant, error: tenantError }] =
       await Promise.all([
@@ -76,9 +60,8 @@ export default defineHandler({
     if (error || tenantError) throw new Error("school admins read failed");
 
     res.status(200).json({
-      ok: true,
       address: (tenant as { address: string | null } | null)?.address ?? null,
-      admins: ((teachers ?? []) as TeacherRow[]).map((row) => ({
+      items: ((teachers ?? []) as TeacherRow[]).map((row) => ({
         id: row.id,
         name: row.name,
         phone: row.phone,

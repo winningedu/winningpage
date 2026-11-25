@@ -40,7 +40,7 @@ import { getBearerToken } from "./serviceAccess.js";
 export { getBearerToken };
 
 export type AdminResolution =
-  | { ok: true; userId: string }
+  | { ok: true; userId: string; email: string | null }
   | { ok: false; status: number; detail: string; code?: string };
 
 // QA 본사 관리자는 읽기만 된다. 관리자임이 확인된 뒤에만 부르므로 여기서 QA 이면 곧 QA 관리자다.
@@ -84,6 +84,7 @@ export async function resolveAdmin(
   }
 
   const userId = userData.user.id;
+  const email = userData.user.email ?? null;
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
@@ -109,6 +110,7 @@ export async function resolveAdmin(
     (await rejectQaWrite(supabaseAdmin, userId, req.method)) ?? {
       ok: true,
       userId,
+      email,
     }
   );
 }
@@ -155,6 +157,7 @@ export async function resolveWinningAdmin(
   }
 
   const userId = userData.user.id;
+  const email = userData.user.email ?? null;
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
@@ -186,6 +189,7 @@ export async function resolveWinningAdmin(
     (await rejectQaWrite(supabaseAdmin, userId, req.method)) ?? {
       ok: true,
       userId,
+      email,
     }
   );
 }

@@ -37,7 +37,8 @@ import {
 import { blocksToPlainText } from "@/lib/blockToPlainText";
 import { plainTextToBlocks } from "@/lib/plainTextToBlocks";
 import { withDedupedKeys } from "@/lib/reactKeys";
-import { supabase } from "@/lib/supabase";
+import { putSignedUpload } from "@/lib/storage/signedUpload";
+import { issueUpload, previewUpload, removeUploads } from "../engine/api";
 import AdminPagination from "./AdminPagination";
 import { reportAdminError } from "./adminErrors";
 import { toastSuccess, toastWarning } from "./adminToast";
@@ -162,7 +163,7 @@ export type AdminUploadHandler<T extends AdminRow = AdminRow> = (
   field: Partial<AdminField<T>>,
 ) => Promise<AdminUploadedFile[] | null | undefined>;
 
-// multiFile 필드 값(form[field.key]) 항목 셰이프. 업로드 직후엔 uploadImage가
+// multiFile 필드 값(form[field.key]) 항목 셰이프. 업로드 직후엔 uploadSectionFiles가
 // 만든 {name,url,size,type}이지만, 기존 데이터에는 문자열(URL)만 저장된
 // 경우도 있다(아래 렌더가 `typeof item === 'string'` 분기로 두 형태를 모두
 // 받아온다).
@@ -657,12 +658,14 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   onCancel,
   onSave,
   onUpload,
+  onRemoveFiles,
   origin = "form",
   initialSection = null,
   // createDefaults: 다른 탭에서 "이 값으로 새 행을 만들어라"며 넘겨 온 1회성
   // 프리필. Admin()의 pendingCreateDefaults가 유일한 공급자다. 넘기지 않으면
   // undefined라 아래 spread가 {}가 되어 기존 동작과 완전히 동일하다.
   createDefaults = null,
+  onDirtyChange,
 }: {
   config: AdminConfigInput<T>;
   mode: string;
@@ -671,9 +674,13 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   // 비동기 저장(Admin.tsx saveRow)이 Promise 를 돌려주면 끝날 때까지 재진입을 막는다.
   onSave: (form: T) => unknown;
   onUpload: AdminUploadHandler<T>;
+  onRemoveFiles: (paths: Iterable<string>) => void;
   origin?: "form" | "list";
   initialSection?: string | null;
   createDefaults?: Partial<T> | null;
+  // 주면 폼 자체의 이탈 가드(beforeunload, 히스토리 항목, 취소 확인)를 끄고 변경 여부만 알린다.
+  // 주소가 있는 화면이 useBlocker 와 useBeforeUnload 로 이탈 확인을 직접 맡을 때 쓴다.
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   // config prop 경계는 PremiumBookAdmin.tsx류 개별 페이지 wrapper의 좁은(인덱스
   // 시그니처) config 타입도 받아야 한다(AdminConfigInput 주석 참고) — 본문은
@@ -734,10 +741,8 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   );
 
   // 이번 편집 세션(이 AdminForm 마운트)에서 업로드된 banners 경로 → blockEditor
-  // 삽입분인지 여부. uploadImage 자체는 PremiumBookAdmin도 재사용하는 순수 모듈
-  // 스코프 함수라 여기(컴포넌트 레벨 ref)에서만 추적한다 — 그래야 마운트마다
-  // 격리되고 PremiumBookAdmin의 booklet.pdf 고정 경로 upsert(uploadImage를 아예
-  // 거치지 않음)와도 섞이지 않는다. 저장 시엔 blockEditor 삽입분을 diff 삭제
+  // 삽입분인지 여부. 업로드 함수는 순수 모듈 스코프 함수라 여기(컴포넌트 레벨
+  // ref)에서만 추적한다. 그래야 마운트마다 격리된다. 저장 시엔 blockEditor 삽입분을 diff 삭제
   // 대상에서 제외하지만(주간 GC 몫, 고아 방지 스펙 1), 취소 시엔 전량 삭제
   // 대상이다(스펙 2) — 그래서 값 하나만이 아니라 태그까지 들고 있는다.
   const sessionUploadsRef = useRef<Map<string, boolean>>(new Map());
@@ -787,14 +792,19 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   // 편집 중 이탈 시 작업 유실을 막기 위한 최소 가드. 정확도보다 "경고가 뜨는 것" 자체가 핵심이라
   // 편집 여부 판정은 단순하게(필드 변경 또는 에디터 영역 입력 감지) 둔다.
   useEffect(() => {
-    if (!dirty) return undefined;
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  const ownsLeaveGuard = onDirtyChange === undefined;
+  useEffect(() => {
+    if (!dirty || !ownsLeaveGuard) return undefined;
     function handleBeforeUnload(e: BeforeUnloadEvent) {
       e.preventDefault();
       e.returnValue = "";
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [dirty]);
+  }, [dirty, ownsLeaveGuard]);
 
   // 상세/편집 진입은 라우트가 아니라 이 컴포넌트의 마운트 여부(Admin.tsx의
   // mode/editingRow state)로만 표현된다 — 즉 진입 시 URL·히스토리 엔트리가
@@ -815,6 +825,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   }, [onCancel]);
   const pushedHistoryRef = useRef(false);
   useEffect(() => {
+    if (!ownsLeaveGuard) return undefined;
     pushedHistoryRef.current = true;
     window.history.pushState({ __adminFormGuard: true }, "");
 
@@ -844,11 +855,12 @@ export function AdminForm<T extends AdminRow = AdminRow>({
         window.history.back();
       }
     };
-  }, []);
+  }, [ownsLeaveGuard]);
 
   async function handleCancel() {
     if (
       dirty &&
+      ownsLeaveGuard &&
       !(await confirmAdmin({
         title: "저장하지 않은 변경사항이 있습니다. 나가시겠습니까?",
         confirmLabel: "나가기",
@@ -860,7 +872,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
     // 고아 방지 스펙 2: 저장 없이 폼을 나가면 이번 세션에 업로드한 파일은
     // (blockEditor 삽입분 포함) 전부 고아가 된다 — best-effort로 지운다.
     if (sessionUploadsRef.current.size > 0) {
-      removeBannerPaths(sessionUploadsRef.current.keys());
+      onRemoveFiles(sessionUploadsRef.current.keys());
       sessionUploadsRef.current.clear();
     }
 
@@ -1030,7 +1042,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
         bannerPathsToDelete.add(path);
     }
     sessionUploadsRef.current.clear();
-    if (bannerPathsToDelete.size > 0) removeBannerPaths(bannerPathsToDelete);
+    if (bannerPathsToDelete.size > 0) onRemoveFiles(bannerPathsToDelete);
 
     setDirty(false);
     savingRef.current = true;
@@ -2034,8 +2046,6 @@ export function AdminTable<T extends AdminRow = AdminRow>({
   );
 }
 
-const IMAGE_BUCKET = "banners";
-
 const BANNERS_PUBLIC_PATH_MARKER = "/storage/v1/object/public/banners/";
 
 // banners 버킷 공개 URL에서 스토리지 경로만 뽑아낸다(고아 파일 정리 대상 판별용).
@@ -2086,17 +2096,17 @@ export function collectBannerPaths(
   return paths;
 }
 
-// best-effort 삭제(고아 방지 스펙 4) — 실패해도 throw하지 않고 warn만 남긴다.
-// 저장/취소/행삭제 UX를 막으면 안 되므로 호출부는 await 없이 fire-and-forget으로
-// 불러도 안전하다.
-export async function removeBannerPaths(
+// 섹션 엔진용 best-effort 삭제. 서버가 권한을 확인하고 banners 파일을 지운다.
+export async function removeSectionFiles(
+  sectionKey: string,
   paths: Iterable<string>,
 ): Promise<void> {
   const unique = [...new Set(paths)].filter(Boolean);
   if (unique.length === 0) return;
 
-  const { error } = await supabase.storage.from(IMAGE_BUCKET).remove(unique);
-  if (error) {
+  try {
+    await removeUploads(sectionKey, unique);
+  } catch (error) {
     console.warn(
       "banners 고아 파일 삭제 실패(best-effort, 무시하고 진행)",
       error,
@@ -2112,7 +2122,7 @@ function formatFileSize(bytes: number) {
   return `${Math.round(bytes / 1024)}KB`;
 }
 
-// maxMB 초과 시 alert 후 false 반환. 압축 대상 필드는 압축 이후(uploadImage)에 별도 호출.
+// maxMB 초과 시 alert 후 false 반환. 압축 대상 필드는 압축 이후(uploadSectionFiles)에 별도 호출.
 function validateMaxMB(file: File, maxMB: number | undefined) {
   if (!maxMB) return true;
   if (file.size > maxMB * 1024 * 1024) {
@@ -2228,96 +2238,106 @@ async function maybeCompressImage(file: File, field: Partial<AdminField> = {}) {
   }
 }
 
-// Admin()이 AdminForm에 onUpload로 넘기던 함수. 컴포넌트 상태를 전혀 참조하지 않는 순수 함수라
-// PremiumBookAdmin(제네릭 개별 페이지 편집)도 그대로 재사용할 수 있도록 모듈 스코프로 뺐다.
-export async function uploadImage(
-  files: File | File[] | FileList | null | undefined,
-  field: Partial<AdminField> = {},
-): Promise<AdminUploadedFile[]> {
+type UploadInput =
+  | File
+  | (File | null | undefined)[]
+  | FileList
+  | null
+  | undefined;
+
+function toFileList(files: UploadInput): File[] {
   // 배열이면 그대로(원본 그대로 — Boolean 필터를 태우지 않는다), 아니면
   // (단일 File 또는 falsy) [files]로 감싸 Boolean 필터를 태운다 — 실제
   // 호출부는 항상 File[] 아니면 단일 File만 넘긴다(uploadMultiple이 미리
   // Array.from으로 변환), FileList는 파라미터 계약(AdminUploadHandler)에만
   // 존재하는 여유분이라 as File[]로 좁힌다.
-  const fileList: File[] = Array.isArray(files)
-    ? files
+  return Array.isArray(files)
+    ? (files as File[])
     : ([files].filter(Boolean) as File[]);
+}
+
+// 파일 하나의 업로드 전 준비(규격 검사, 압축, 압축 뒤 용량 검사). 올리면 안 되면 null.
+async function prepareUploadFile(
+  rawFile: File,
+  field: Partial<AdminField>,
+): Promise<File | null> {
+  const willCompress = isCompressibleField(field);
+
+  if (field.imageSpec) {
+    const proceed = await validateImageSpec(rawFile, field.imageSpec, {
+      skipMaxMB: willCompress,
+    });
+    if (!proceed) return null;
+  }
+
+  const file = await maybeCompressImage(rawFile, field);
+
+  if (
+    willCompress &&
+    field.imageSpec?.maxMB &&
+    !validateMaxMB(file, field.imageSpec.maxMB)
+  ) {
+    return null;
+  }
+
+  return file;
+}
+
+// 다중 업로드에서 일부만 실패하면 성공분만 조용히 반영돼 누락이 무증상으로
+// 남는다(2026-08-31 분석 2-c). 건별 alert 와 별개로 합계를 한 번 더 알린다.
+function warnPartialUpload(total: number, succeeded: number) {
+  const failedCount = total - succeeded;
+  if (failedCount > 0 && succeeded > 0) {
+    toastWarning(
+      `${total}개 중 ${failedCount}개는 업로드되지 않았습니다.`,
+      "성공한 파일만 반영됩니다.",
+    );
+  }
+}
+
+// 섹션 엔진 업로드. 서버가 임시 버킷 주소를 발급하고 브라우저가 PUT 한 뒤,
+// 폼에는 임시 읽기 주소를 넣는다(저장 때 서버가 banners 로 옮기고 주소를 바꾼다).
+export async function uploadSectionFiles(
+  sectionKey: string,
+  files: UploadInput,
+  field: Partial<AdminField> = {},
+): Promise<AdminUploadedFile[]> {
+  const fileList = toFileList(files);
   if (fileList.length === 0) return [];
+  // 필드 키가 없으면 서버가 임시 파일 이름을 만들지 못한다.
+  const fieldKey = field.key;
+  if (!fieldKey)
+    throw new Error("uploadSectionFiles: field.key 가 필요합니다.");
 
   const uploaded: AdminUploadedFile[] = [];
 
   for (const rawFile of fileList) {
-    const willCompress = isCompressibleField(field);
+    const file = await prepareUploadFile(rawFile, field);
+    if (!file) continue;
 
-    if (field.imageSpec) {
-      const proceed = await validateImageSpec(rawFile, field.imageSpec, {
-        skipMaxMB: willCompress,
+    try {
+      const issued = await issueUpload(sectionKey, {
+        field: fieldKey,
+        fileName: file.name,
+        contentType: file.type || "application/octet-stream",
+        size: file.size,
       });
-      if (!proceed) continue;
-    }
-
-    const file = await maybeCompressImage(rawFile, field);
-
-    if (
-      willCompress &&
-      field.imageSpec?.maxMB &&
-      !validateMaxMB(file, field.imageSpec.maxMB)
-    ) {
-      continue;
-    }
-
-    const ext = file.name.split(".").pop()?.toLowerCase() || "file";
-
-    const safeName =
-      file.name
-        .replace(/\.[^/.]+$/, "")
-        .normalize("NFKD")
-        .replace(/[^a-zA-Z0-9_-]/g, "_")
-        .replace(/_+/g, "_")
-        .replace(/^_+|_+$/g, "")
-        .slice(0, 50) || "upload";
-
-    const folder =
-      field.folder ||
-      (field.type === "file" || field.type === "multiFile"
-        ? "notice-files"
-        : "admin");
-
-    const path = `${folder}/${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}-${safeName}.${ext}`;
-
-    const { error } = await supabase.storage
-      .from(IMAGE_BUCKET)
-      .upload(path, file, {
-        cacheControl: field.cacheControl || "3600",
-        upsert: false,
+      await putSignedUpload(issued.uploadUrl, file, {
+        ...(field.cacheControl ? { cacheControl: field.cacheControl } : {}),
       });
-
-    if (error) {
-      reportAdminError("업로드 실패", error);
-      continue;
+      const url = await previewUpload(sectionKey, issued.path);
+      uploaded.push({
+        name: file.name,
+        url,
+        size: file.size,
+        type: file.type,
+      });
+    } catch (error) {
+      reportAdminError("업로드 실패", error as Error);
     }
-
-    const { data } = supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path);
-
-    uploaded.push({
-      name: file.name,
-      url: data.publicUrl,
-      size: file.size,
-      type: file.type,
-    });
   }
 
-  // 다중 업로드에서 일부만 실패하면 성공분만 조용히 반영돼 누락이 무증상으로
-  // 남는다(2026-08-31 분석 2-c). 건별 alert 와 별개로 합계를 한 번 더 알린다.
-  const failedCount = fileList.length - uploaded.length;
-  if (failedCount > 0 && uploaded.length > 0) {
-    toastWarning(
-      `${fileList.length}개 중 ${failedCount}개는 업로드되지 않았습니다.`,
-      "성공한 파일만 반영됩니다.",
-    );
-  }
+  warnPartialUpload(fileList.length, uploaded.length);
 
   return uploaded;
 }

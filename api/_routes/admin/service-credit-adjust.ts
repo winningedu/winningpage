@@ -7,13 +7,17 @@
 //   - 차감: fn_admin_deduct_service_credit (advisory 101 잠금 안에서 원장 적재)
 // 처리 뒤 fn_sync_program_access_cache 로 program_access 캐시를 맞춘다.
 //
-// 응답 200 { ok, credit: ServiceCreditRow }
-// 오류(coded): 400 INVALID_BODY / NOT_STUDENT, 404 PROFILE_NOT_FOUND,
-//   409 NO_ENTITLEMENT / UNLIMITED_SESSIONS / INSUFFICIENT_CREDIT,
-//   401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL
+// 권한: 메뉴 serviceCreditAdjust(POST edit).
 //
-// 핸들러 본문은 테스트하지 않는다. 판단과 조립은 api/_lib/service-credit/.
+// 응답 200 { credit: ServiceCreditRow }
+// 오류(problem): 400 VALIDATION_FAILED / INVALID_BODY / NOT_STUDENT, 404 PROFILE_NOT_FOUND,
+//   409 NO_ENTITLEMENT / UNLIMITED_SESSIONS / INSUFFICIENT_CREDIT,
+//   401/403 인증, 405 METHOD_NOT_ALLOWED, 500
+//
+// 본문은 zod 가 모양을 보고 모르는 키를 버린다. 값 규칙은 validateAdjustBody 가 맡고 insert 와 rpc 인자는
+// buildAdjustGrantRow, buildDeductArgs 의 키만 쓴다. 멱등 키는 아직 없다(후속 PR). 판단과 조립은 api/_lib/service-credit/.
 
+import { z } from "zod";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import {
@@ -31,24 +35,27 @@ const DEDUCT_STATUS_MESSAGES: Record<string, string> = {
   insufficient_credit: "잔여 횟수보다 많이 차감할 수 없습니다.",
 };
 
+const bodySchema = z.object({
+  profileId: z.string(),
+  programKey: z.string(),
+  delta: z.number(),
+  months: z.number().nullish(),
+  reason: z.string(),
+});
+
 export default defineHandler({
   methods: ["POST"],
   auth: "admin",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  authFailureExtra: { ok: false },
+  errorShape: "problem",
+  permission: { key: "serviceCreditAdjust" },
   unhandledMessage: "서비스 이용횟수 조정에 실패했습니다.",
-  unhandledCode: "INTERNAL",
-  unhandledExtra: { ok: false },
   logLabel: "admin/service-credit-adjust",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const parsed = validateAdjustBody(req.body);
+  body: bodySchema,
+  handler: async (_req, res, ctx) => {
+    const parsed = validateAdjustBody(ctx.body);
     if (!parsed.ok) {
-      sendError(res, "coded", 400, parsed.reason, "INVALID_BODY", {
-        ok: false,
-      });
+      sendError(res, "problem", 400, parsed.reason, "INVALID_BODY");
       return;
     }
     const { body } = parsed;
@@ -66,22 +73,20 @@ export default defineHandler({
     if (!profile) {
       sendError(
         res,
-        "coded",
+        "problem",
         404,
         "회원을 찾을 수 없습니다.",
         "PROFILE_NOT_FOUND",
-        { ok: false },
       );
       return;
     }
     if (!isAdjustableProfile(profile)) {
       sendError(
         res,
-        "coded",
+        "problem",
         400,
         "학생 또는 관리자 계정에만 조정할 수 있습니다.",
         "NOT_STUDENT",
-        { ok: false },
       );
       return;
     }
@@ -101,7 +106,7 @@ export default defineHandler({
         -body.delta,
       );
       if (!check.ok) {
-        sendError(res, "coded", 409, check.message, check.code, { ok: false });
+        sendError(res, "problem", 409, check.message, check.code);
         return;
       }
       const { data, error: deductError } = await db.rpc(
@@ -116,11 +121,10 @@ export default defineHandler({
       if (status !== "deducted") {
         sendError(
           res,
-          "coded",
+          "problem",
           409,
           DEDUCT_STATUS_MESSAGES[status] ?? "차감할 수 없습니다.",
           status.toUpperCase(),
-          { ok: false },
         );
         return;
       }
@@ -136,7 +140,6 @@ export default defineHandler({
       );
 
     res.status(200).json({
-      ok: true,
       credit: await readServiceCredit(db, body.profileId, body.programKey),
     });
   },
