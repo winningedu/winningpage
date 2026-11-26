@@ -2,7 +2,7 @@
   "regions": ["icn1"],
   "rewrites": [
     {
-      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/(?:coupons(?:/.*)?|tenant-options/?|send-message/?|web-analytics/?|invite-member/?|access-logs/?|ai-telemetry(?:-pricing)?/?|service-credit-(?:adjust|summary)/?|(?:growth|inquiry|selfeval)-(?:grant|recover)/?|knowledge-bulk/?))",
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/(?:coupons(?:/.*)?|tenant-options/?|send-message/?|web-analytics/?|invite-member/?|access-logs/?|ai-telemetry(?:-pricing)?/?|service-credit-(?:adjust|summary)/?|(?:growth|inquiry|selfeval)-(?:grant|recover)/?|knowledge-bulk/?|mentor-applications/?))",
       "destination": "/api/app"
     },
     {

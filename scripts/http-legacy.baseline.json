@@ -138,9 +138,6 @@
   "api/_routes/admin/members/[id]/tenant.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/mentor-applications.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/mentor-applications/[id].ts": {
     "legacyHandler": 1
   },
