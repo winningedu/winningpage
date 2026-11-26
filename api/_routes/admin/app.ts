@@ -3,12 +3,14 @@
 
 import { createAdminApp } from "../../_lib/hono/admin.js";
 import { coupons } from "./coupons.js";
+import { growthReports } from "./growth-reports.js";
 import { homeSectionCopy } from "./home-section-copy.js";
 import { knowledgeEval } from "./knowledge-eval.js";
 import { knowledgeItems } from "./knowledge-items.js";
 
 export const admin = createAdminApp()
   .route("/coupons", coupons)
+  .route("/growth-reports", growthReports)
   .route("/home-section-copy", homeSectionCopy)
   .route("/knowledge-eval", knowledgeEval)
   .route("/knowledge-items", knowledgeItems);

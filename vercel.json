@@ -6,7 +6,7 @@
       "destination": "/api/app"
     },
     {
-      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/(?:home-section-copy|knowledge-eval/queries|knowledge-items)(?:/.*)?)",
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/(?:growth-reports|home-section-copy|knowledge-eval/queries|knowledge-items)(?:/.*)?)",
       "destination": "/api/app"
     },
     {
