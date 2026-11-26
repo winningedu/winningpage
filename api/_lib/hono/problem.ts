@@ -3,8 +3,12 @@
 
 import type { Context, Handler, NotFoundHandler } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { PROBLEM_CONTENT_TYPE } from "../../../shared/http/problem.js";
-import { problemBody } from "../httpResponse.js";
+import { PROBLEM_CODE } from "../../../shared/http/codes.js";
+import {
+  PROBLEM_CONTENT_TYPE,
+  type ProblemFieldError,
+} from "../../../shared/http/problem.js";
+import { problemBody, VALIDATION_FAILED_MESSAGE } from "../httpResponse.js";
 
 /** 핸들러와 미들웨어가 던지면 onError(handleError)가 problem 응답으로 바꾼다. */
 export class ProblemError extends Error {
@@ -36,20 +40,25 @@ export function problemResponse(
 /** defineHandler 의 검증 실패와 같은 400 VALIDATION_FAILED. */
 export function validationFailed(
   c: Context,
-  errors: { path: string; message: string }[],
+  errors: ProblemFieldError[],
 ): Response {
   return problemResponse(
     c,
     400,
-    "요청 값이 올바르지 않아요.",
-    "VALIDATION_FAILED",
+    VALIDATION_FAILED_MESSAGE,
+    PROBLEM_CODE.VALIDATION_FAILED,
     { errors },
   );
 }
 
 /** 루트 앱의 notFound. Hono 기본은 text 404 라 problem 으로 맞춘다(notFound 는 루트 앱에서만 불린다). */
 export const notFound: NotFoundHandler = (c) =>
-  problemResponse(c, 404, "요청한 주소를 찾을 수 없어요.", "NOT_FOUND");
+  problemResponse(
+    c,
+    404,
+    "요청한 주소를 찾을 수 없어요.",
+    PROBLEM_CODE.NOT_FOUND,
+  );
 
 /**
  * 라우트 메서드 핸들러들 뒤에 `.all(path, methodNotAllowed("GET", "POST"))` 로 단다. Hono 는 모르는 메서드를 404 로 보내기 때문이다.
@@ -62,6 +71,11 @@ export function methodNotAllowed(...methods: string[]): Handler {
   ].sort();
   return (c) => {
     c.header("Allow", allow.join(", "));
-    return problemResponse(c, 405, "Method not allowed", "METHOD_NOT_ALLOWED");
+    return problemResponse(
+      c,
+      405,
+      "Method not allowed",
+      PROBLEM_CODE.METHOD_NOT_ALLOWED,
+    );
   };
 }

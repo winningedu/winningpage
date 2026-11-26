@@ -20,6 +20,12 @@ import { PROBLEM_CONTENT_TYPE } from "../../shared/http/problem.js";
 
 export type ErrorShape = "detail" | "okDetail" | "error" | "coded" | "problem";
 
+// defineHandler 와 Hono 미들웨어(api/_lib/hono/)가 같이 쓰는 응답 문구. 화면 문구(src/ 의 copy)와는 따로다.
+export const AUTH_REQUIRED_MESSAGE = "로그인이 필요합니다.";
+export const VALIDATION_FAILED_MESSAGE = "요청 값이 올바르지 않아요.";
+// dev 원본 약 20파일이 개별 try/catch 로 냈던 문구. 실제 예외 메시지(SUPABASE_CONFIG_ERROR_MESSAGE)는 개발자용 원인이고 이건 클라이언트용 안내문이다.
+export const CONFIG_ERROR_RESPONSE_MESSAGE = "서버 설정이 올바르지 않습니다.";
+
 export function sendError(
   res: VercelResponse,
   shape: ErrorShape,

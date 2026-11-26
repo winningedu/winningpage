@@ -81,16 +81,18 @@ export async function assertNotQaAccount(
   }
 }
 
-/** 403 응답. 어떤 에러 바디 형태든 최상위에 code 와 detail 을 함께 싣는다. */
+/** QA 차단 403 바디에 얹는 멤버. 어떤 에러 바디 형태든 최상위에 code 와 detail 을 함께 싣는다(Hono 쪽도 이것을 쓴다). */
+export function qaBlockedExtra(code: string): Record<string, unknown> {
+  return { code, detail: QA_ACCOUNT_MESSAGE };
+}
+
+/** 403 응답. */
 export function sendQaBlocked(
   res: VercelResponse,
   shape: ErrorShape,
   code: string,
 ): void {
-  sendError(res, shape, 403, QA_ACCOUNT_MESSAGE, code, {
-    code,
-    detail: QA_ACCOUNT_MESSAGE,
-  });
+  sendError(res, shape, 403, QA_ACCOUNT_MESSAGE, code, qaBlockedExtra(code));
 }
 
 /**

@@ -11,13 +11,14 @@ import { type Context, type ErrorHandler, Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 import type { AdminMenuKey } from "../../../shared/admin-permission/menu.js";
+import { PROBLEM_CODE } from "../../../shared/http/codes.js";
 import { rawRouteKey } from "../../_routes/dispatch.js";
 import {
   type AdminAuditAction,
   isAuditableMethod,
   scheduleAdminAudit,
 } from "../accessLog/adminWrite.js";
-import { resolveAdmin } from "../adminAuth.js";
+import { adminProblemCode, resolveAdmin } from "../adminAuth.js";
 import {
   type AdminLevel,
   assertSectionPermission,
@@ -25,7 +26,16 @@ import {
 } from "../adminPermission.js";
 import { RouteParamError } from "../handler.js";
 import { resolveUser } from "../httpAuth.js";
-import { QA_ACCOUNT_MESSAGE, QaBlockedError } from "../qaAccount.js";
+import {
+  AUTH_REQUIRED_MESSAGE,
+  CONFIG_ERROR_RESPONSE_MESSAGE,
+} from "../httpResponse.js";
+import {
+  isReadMethod,
+  QA_ACCOUNT_MESSAGE,
+  QaBlockedError,
+  qaBlockedExtra,
+} from "../qaAccount.js";
 import {
   createSupabaseAdmin,
   isSupabaseConfigError,
@@ -70,11 +80,6 @@ export type AdminEnv = {
   };
 };
 
-// defineHandler 와 같은 문구와 코드(admin.parity.test.ts 가 지킨다).
-const AUTH_REQUIRED_MESSAGE = "로그인이 필요합니다.";
-const CONFIG_ERROR_RESPONSE_MESSAGE = "서버 설정이 올바르지 않습니다.";
-const READ_ONLY_METHODS = new Set(["GET", "HEAD"]);
-
 /** Fetch 헤더를 소문자 키 객체로. 기존 헬퍼(getBearerToken, readTimeZone, resolveAdmin)가 이 모양을 읽는다. */
 function nodeHeaders(c: Context): Record<string, string> {
   return Object.fromEntries(c.req.raw.headers.entries());
@@ -87,16 +92,8 @@ function rawPath(c: Context): string {
   return (start === -1 ? "/" : url.slice(start)).split("?")[0] ?? "/";
 }
 
-// sendQaBlocked 와 같은 바디: 최상위에 code 와 detail 을 함께 싣는다.
 const qaBlocked = (code: string) =>
-  new ProblemError(403, QA_ACCOUNT_MESSAGE, code, {
-    code,
-    detail: QA_ACCOUNT_MESSAGE,
-  });
-
-// resolveAdmin 은 code 없이 status 와 detail 만 준다. 500 은 code 없이 INTERNAL_ERROR 가 된다.
-const adminFailureCode = (status: number) =>
-  status === 401 ? "UNAUTHENTICATED" : status === 403 ? "FORBIDDEN" : undefined;
+  new ProblemError(403, QA_ACCOUNT_MESSAGE, code, qaBlockedExtra(code));
 
 /**
  * dispatch 와 같은 원문 경로 검사. 빈 구간, ".", "..", 역슬래시, "%", 대괄호가 있으면 라우트를 찾지 않고 404 다.
@@ -172,13 +169,23 @@ export const handleError: ErrorHandler<AdminEnv> = (error, c) => {
     return validationFailed(c, []);
   }
   if (error instanceof SectionPermissionDeniedError) {
-    return problemResponse(c, 403, error.message, "FORBIDDEN");
+    return problemResponse(c, 403, error.message, PROBLEM_CODE.FORBIDDEN);
   }
   if (error instanceof InvalidTimeZoneError) {
-    return problemResponse(c, 400, error.message, "INVALID_TIME_ZONE");
+    return problemResponse(
+      c,
+      400,
+      error.message,
+      PROBLEM_CODE.INVALID_TIME_ZONE,
+    );
   }
   if (error instanceof TimeZoneRequiredError) {
-    return problemResponse(c, 400, error.message, "TIME_ZONE_REQUIRED");
+    return problemResponse(
+      c,
+      400,
+      error.message,
+      PROBLEM_CODE.TIME_ZONE_REQUIRED,
+    );
   }
   console.error(`${c.get("logLabel") || "handler"} error:`, error);
   if (isSupabaseConfigError(error)) {
@@ -241,7 +248,7 @@ export const admin = (options: AdminRouteOptions) =>
       throw new ProblemError(
         resolved.status,
         resolved.detail,
-        adminFailureCode(resolved.status),
+        adminProblemCode(resolved.status),
       );
     }
     c.set("userId", resolved.userId);
@@ -262,7 +269,7 @@ export const admin = (options: AdminRouteOptions) =>
       supabaseAdmin,
       resolved.userId,
       requestedKey,
-      level ?? (READ_ONLY_METHODS.has(c.req.method) ? "view" : "edit"),
+      level ?? (isReadMethod(c.req.method) ? "view" : "edit"),
     );
     await next();
   });
@@ -273,7 +280,11 @@ export const user = (options: RouteOptions) =>
     prepare(c, options);
     const authed = await resolveUser({ headers: nodeHeaders(c) });
     if (!authed) {
-      throw new ProblemError(401, AUTH_REQUIRED_MESSAGE, "UNAUTHENTICATED");
+      throw new ProblemError(
+        401,
+        AUTH_REQUIRED_MESSAGE,
+        PROBLEM_CODE.UNAUTHENTICATED,
+      );
     }
     c.set("userId", authed.userId);
     c.set("user", authed.user);

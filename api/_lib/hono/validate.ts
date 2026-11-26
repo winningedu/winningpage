@@ -4,6 +4,7 @@
 import { zValidator } from "@hono/zod-validator";
 import type { ValidationTargets } from "hono";
 import type { z } from "zod";
+import { zodIssuesToErrors } from "../../../shared/http/problem.js";
 import { validationFailed } from "./problem.js";
 
 export const validate = <
@@ -15,11 +16,5 @@ export const validate = <
 ) =>
   zValidator(target, schema, (result, c) => {
     if (result.success) return;
-    return validationFailed(
-      c,
-      result.error.issues.map((issue) => ({
-        path: issue.path.map(String).join("."),
-        message: issue.message,
-      })),
-    );
+    return validationFailed(c, zodIssuesToErrors(result.error.issues));
   });
