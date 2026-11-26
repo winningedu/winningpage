@@ -13,7 +13,7 @@ type ColumnNewsSectionProps = {
   boxes: HomeColumnBox[];
 };
 
-/** 칼럼-교육청소식 섹션(W1, 스쿨멘토 전용). 영상 박스는 팝업(W2)을, 칼럼 박스는 상세 글을 연다. */
+/** 홈 칼럼 섹션(W1, 두 사이트 공통). 영상 박스는 팝업(W2)을, 칼럼 박스는 상세 글을 연다. */
 export default function ColumnNewsSection({
   status,
   boxes,
@@ -23,18 +23,18 @@ export default function ColumnNewsSection({
 
   return (
     <section
-      aria-label={site.columnTitle}
+      aria-label={site.homeColumnTitle}
       aria-busy={status === "loading" || undefined}
       className="mx-auto w-full max-w-content px-5 pb-8 sm:px-8 md:pb-20"
     >
       <div className="flex items-center justify-between">
         <span aria-hidden="true" className="size-10" />
         <h2 className="text-center text-[1.75rem] font-semibold leading-[1.4] tracking-[-0.04rem] text-ink sm:text-[2rem]">
-          {site.columnTitle}
+          {site.homeColumnTitle}
         </h2>
         <Link
           to="/info/column"
-          aria-label={`${site.columnTitle} 더 보기`}
+          aria-label={`${site.homeColumnTitle} 더 보기`}
           className="relative flex size-10 items-center justify-center rounded-perf-modal after:absolute after:left-1/2 after:top-1/2 after:size-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] lg:after:hidden"
         >
           <Plus size={24} aria-hidden="true" />

@@ -12,7 +12,8 @@ import {
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../_lib/supabaseAdmin.js")>()),
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
@@ -76,7 +77,13 @@ const EMPTY_TABLES = [
   "inquiry_topics",
 ];
 
+// 이름 가림은 사이트가 정한다. 가린 이름을 검증하는 이 파일은 스쿨멘토로 고정한다.
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 beforeEach(() => {
+  vi.stubEnv("SITE", "schoolmentor");
   kit.state = createKitState();
   kit.state.actor = schoolAdminActor({ kind: "homeroom", class_ids: ["c-A"] });
   kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학교" });

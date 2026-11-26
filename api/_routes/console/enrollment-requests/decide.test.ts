@@ -2,7 +2,7 @@
 // 승인자 판정(도착 학급 담임, 없으면 학교 관리자나 대행)은 fn_decide_enrollment_change 가 한다. 여기서는 위임과 매핑, 로그를 본다.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 type Row = Record<string, unknown>;
 
@@ -19,7 +19,8 @@ const state = vi.hoisted(() => ({
   inserts: [] as { table: string; row: Row }[],
 }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../_lib/supabaseAdmin.js")>()),
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => ({
     auth: {
@@ -110,7 +111,13 @@ function decideCall() {
   return state.rpcCalls.find((c) => c.name === "fn_decide_enrollment_change");
 }
 
+// 이름 가림은 사이트가 정한다. 가린 이름을 검증하는 이 파일은 스쿨멘토로 고정한다.
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 beforeEach(() => {
+  vi.stubEnv("SITE", "schoolmentor");
   state.actor = HOMEROOM;
   state.changes = [
     {

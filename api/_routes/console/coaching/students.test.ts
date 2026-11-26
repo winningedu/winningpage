@@ -1,6 +1,6 @@
 // GET /api/console/coaching/students 계약 검증(W9 학생 고르기). 범위 안 재학생과 처음 열 학생.
 
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   callHandler,
   createFakeAdmin,
@@ -12,7 +12,8 @@ import {
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../_lib/supabaseAdmin.js")>()),
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
@@ -43,7 +44,13 @@ type Body = {
   defaultStudentId: string | null;
 };
 
+// 이름 가림은 사이트가 정한다. 가린 이름을 검증하는 이 파일은 스쿨멘토로 고정한다.
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 beforeEach(() => {
+  vi.stubEnv("SITE", "schoolmentor");
   kit.state = createKitState();
   kit.state.actor = schoolAdminActor();
   kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학교" });

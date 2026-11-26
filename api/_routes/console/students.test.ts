@@ -12,7 +12,8 @@ import {
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../_lib/supabaseAdmin.js")>()),
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
@@ -73,7 +74,13 @@ const ENROLLMENTS = [
   }),
 ];
 
+// 이름 가림은 사이트가 정한다. 가린 이름을 검증하는 이 파일은 스쿨멘토로 고정한다.
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 beforeEach(() => {
+  vi.stubEnv("SITE", "schoolmentor");
   kit.state = createKitState();
   kit.state.actor = schoolAdminActor();
   kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학원" });
@@ -268,6 +275,21 @@ describe("GET /api/console/students", () => {
       class_ids: ["c-A"],
     });
     expect(ids(await get({ q: "하린" }))).toEqual(["s2"]);
+  });
+
+  test("the Winning site gives a school admin real names without a star and a partial q match", async () => {
+    vi.stubEnv("SITE", "winning");
+    const r = await get();
+
+    expect(ids(r)).toEqual(["s3", "s2", "s1", "s4"]);
+    expect(items(r).map((i) => i.displayName)).toEqual([
+      "박서준",
+      "윤하린",
+      "김하늘",
+      "이도윤",
+    ]);
+    expect(ids(await get({ q: "하린" }))).toEqual(["s2"]);
+    expect(ids(await get({ q: "윤하" }))).toEqual(["s2"]);
   });
 
   test("tab narrows to students who used that service, and none lists students with no service", async () => {

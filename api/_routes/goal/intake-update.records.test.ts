@@ -1,11 +1,11 @@
 // POST /api/goal/intake-update 핸들러 회귀 테스트 — 성적관리(grades.ts)가 naesin_scores/
 // mock_exam_scores 안 최상위 `records` 배열에 쌓은 회차를, 내 정보 수정이 컬럼을 새 객체로
 // 다시 쓰면서 지우지 않는지 고정한다. DB I/O(repo.js)와 확률 계산(intake.js)은 mock하고,
-// upsertStudentRow에 실제로 넘어간 행만 본다.
+// updateStudentRow에 실제로 넘어간 행만 본다.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const upsertStudentRowMock = vi.fn();
+const updateStudentRowMock = vi.fn();
 const fetchStudentRowMock = vi.fn();
 
 vi.mock("../../_lib/goal/repo.js", async (importOriginal) => {
@@ -20,7 +20,7 @@ vi.mock("../../_lib/goal/repo.js", async (importOriginal) => {
     }),
     narrowGoalSession: (session: unknown) => session,
     fetchStudentRow: (...args: unknown[]) => fetchStudentRowMock(...args),
-    upsertStudentRow: (...args: unknown[]) => upsertStudentRowMock(...args),
+    updateStudentRow: (...args: unknown[]) => updateStudentRowMock(...args),
     appendProbabilityLog: vi.fn().mockResolvedValue(undefined),
     fetchStudentStateRow: vi.fn().mockResolvedValue(null),
     fetchProfileName: vi.fn().mockResolvedValue(null),
@@ -87,13 +87,13 @@ async function callRoute(body: unknown) {
 }
 
 function savedUpdate(): Record<string, unknown> {
-  expect(upsertStudentRowMock).toHaveBeenCalledTimes(1);
-  return upsertStudentRowMock.mock.calls[0]?.[1];
+  expect(updateStudentRowMock).toHaveBeenCalledTimes(1);
+  return updateStudentRowMock.mock.calls[0]?.[2];
 }
 
 describe("intake-update records 보존", () => {
   beforeEach(() => {
-    upsertStudentRowMock.mockReset().mockResolvedValue({});
+    updateStudentRowMock.mockReset().mockResolvedValue({});
     fetchStudentRowMock.mockReset().mockResolvedValue(studentRow());
   });
 
@@ -132,7 +132,7 @@ describe("intake-update records 보존", () => {
     await callRoute(naesinBody);
     expect(savedUpdate().naesin_scores).not.toHaveProperty("records");
 
-    upsertStudentRowMock.mockClear();
+    updateStudentRowMock.mockClear();
     await callRoute(mockBody);
     expect(savedUpdate().mock_exam_scores).not.toHaveProperty("records");
   });
@@ -148,7 +148,7 @@ describe("intake-update records 보존", () => {
     await callRoute(naesinBody);
     expect(savedUpdate().naesin_scores).not.toHaveProperty("records");
 
-    upsertStudentRowMock.mockClear();
+    updateStudentRowMock.mockClear();
     await callRoute(mockBody);
     expect(savedUpdate().mock_exam_scores).not.toHaveProperty("records");
   });
@@ -157,7 +157,7 @@ describe("intake-update records 보존", () => {
     await callRoute(naesinBody);
     expect(savedUpdate()).not.toHaveProperty("mock_exam_scores");
 
-    upsertStudentRowMock.mockClear();
+    updateStudentRowMock.mockClear();
     await callRoute(mockBody);
     expect(savedUpdate()).not.toHaveProperty("naesin_scores");
   });

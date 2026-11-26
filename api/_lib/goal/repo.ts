@@ -684,6 +684,29 @@ export async function upsertStudentRow(
 }
 
 /**
+ * 이미 있는 학생 행의 일부 컬럼만 고친다. 저장된 전체 행을 그대로 돌려준다.
+ *
+ * upsertStudentRow 를 쓰면 안 되는 이유: Postgres 는 INSERT 후보 행의 NOT NULL 을
+ * ON CONFLICT 보다 먼저 검사한다. 부분 행에는 school_type, grade(NOT NULL, 기본값 없음)가
+ * 없어 23502 로 실패한다. update 는 명시한 키만 건드린다.
+ */
+export async function updateStudentRow(
+  supabaseAdmin: SupabaseClient,
+  profileId: string,
+  patch: Row,
+): Promise<Row> {
+  const { data, error } = await supabaseAdmin
+    .from(TABLE_STUDENTS)
+    .update(patch)
+    .eq("profile_id", profileId)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
  * 일별 기록 upsert. 정본 충돌키는 (profile_id, record_date) — 실제 달력 모델에서는
  * 하루 1건이 곧 record_index 도 1대1로 정하므로(record_index 는 diffDaysYMD 로
  * record_date 의 순함수) 두 UNIQUE 인덱스(index_key / date_key)가 동시에 지켜진다.

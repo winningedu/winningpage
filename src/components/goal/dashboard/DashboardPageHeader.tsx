@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 
 const BADGE_LABEL: Record<string, string> = {
   daily: "일일 분석 조언",
-  ai: "AI 입시 분석 조언",
+  ai: "입시분석 조언",
 };
 
 // 스파클 아이콘(part-07 §128 "파란 스파클 아이콘 벡터 23.3×23.3 + 10×10" 근사) — 시안은 벡터 2개

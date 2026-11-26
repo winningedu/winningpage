@@ -74,6 +74,7 @@ import {
   TOPIC_MAX_CHARS,
   TOPIC_MAX_ITEMS,
 } from "../../_lib/performance/knowledge.js";
+import { splitPreviousTopics } from "../../_lib/performance/previous-topics.js";
 import {
   buildTopicExclusionBlock,
   buildTopicRecommendationSystem,
@@ -677,6 +678,9 @@ export default defineHandler({
       const previousTopic =
         String(sessionRow.previous_topic || "").trim() ||
         NO_PREVIOUS_TOPIC_TEXT;
+      // RAG 질의문은 6줄 고정 레이아웃이라 줄바꿈이 든 값을 그대로 넣지 못한다. 쉼표로 잇는다.
+      const ragPreviousTopic =
+        splitPreviousTopics(previousTopic).join(", ") || NO_PREVIOUS_TOPIC_TEXT;
       const gradeLabel = String(sessionRow.grade_label || "").trim();
       const subject = String(sessionRow.subject || "").trim();
       const career = String(sessionRow.career_goal || "").trim();
@@ -720,7 +724,7 @@ export default defineHandler({
         grade: ragGrade,
         subject: ragSubject,
         career,
-        selectedTopic: previousTopic,
+        selectedTopic: ragPreviousTopic,
         assessmentInfo: assessmentText,
         purpose: "topic",
         maxItems: TOPIC_MAX_ITEMS,
@@ -741,7 +745,7 @@ export default defineHandler({
           grade: ragGrade,
           subject: ragSubject,
           career,
-          selectedTopic: previousTopic,
+          selectedTopic: ragPreviousTopic,
           assessmentInfo: assessmentText,
           telemetry: trace,
         });

@@ -1,6 +1,12 @@
 // 3p 성적 (22 r38-r46).
 
-import { copy, fill } from "../copy.js";
+import {
+  copy,
+  fill,
+  SUBJ_ACHIEVEMENT_NOTE,
+  SUBJ_ALL_BELOW_NOTE,
+  SUBJ_BELOW_EXCLUDED_NOTE,
+} from "../copy.js";
 import {
   EXAM_ITEM,
   EXAM_ITEM_LABEL,
@@ -8,9 +14,11 @@ import {
   EXAM_OPTION,
 } from "../examOps.js";
 import { LIKERT_LEVELS } from "../likert.js";
-import { OPTIONS } from "../options.js";
+import { OPTIONS, trackOf } from "../options.js";
 import type { Engine } from "../report.js";
 import {
+  ACHIEVEMENT_Q4,
+  belowTableSubjects,
   MIDDLE_SUBJECT_CODES,
   SUBJECT_CODES,
   subjectTextId,
@@ -63,6 +71,15 @@ const examOpsEvidence = (answers: Engine["answers"]) => {
   };
 };
 
+/** Why the 22 r45 table is skipped: 성취평가제, every M3 score under 26, or no input. */
+const skipNote = (answers: Engine["answers"], belowTable: number) => {
+  if (trackOf(answers.q1) !== "M3" && answers.q4 === ACHIEVEMENT_Q4) {
+    return SUBJ_ACHIEVEMENT_NOTE;
+  }
+  if (belowTable > 0) return SUBJ_ALL_BELOW_NOTE;
+  return copy("SUBJ_SKIP_NOTE");
+};
+
 export function buildPage3(engine: Engine): Page3 {
   const { answers, scores } = engine;
   const school = gradesOf<MiddleSubjectCode>(
@@ -70,6 +87,7 @@ export function buildPage3(engine: Engine): Page3 {
     answers.q6s ?? {},
   );
   const verdicts = scores.subjects;
+  const belowTable = belowTableSubjects(answers).length;
   return {
     // 22 r38: 7번 option number, NA when unanswered
     title: copy("GRD_HEAD_" + (answers.q8 ?? "NA")),
@@ -110,8 +128,9 @@ export function buildPage3(engine: Engine): Page3 {
                 ];
           }),
           note: copy("SUBJ_RULE_NOTE"),
+          ...(belowTable > 0 ? { excludedNote: SUBJ_BELOW_EXCLUDED_NOTE } : {}),
         }
-      : { kind: "skip", note: copy("SUBJ_SKIP_NOTE") },
+      : { kind: "skip", note: skipNote(answers, belowTable) },
     // 22 r46
     examOps: {
       heading: copy("EXAMOPS_TITLE"),

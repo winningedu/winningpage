@@ -17,7 +17,7 @@
 // 학년은 그대로 두거나(학기 중) 한 학년 올린다(넘기기).
 
 import { normalizeClassName } from "./className.js";
-import { maskName } from "./maskName.js";
+import { consoleMaskName, consoleNamesMasked } from "./maskName.js";
 
 /** 한 번에 읽는 명단 줄 수의 한도(미리보기와 적용이 같이 쓴다). */
 export const MAX_ROWS = 3000;
@@ -488,7 +488,9 @@ export function evaluateRolloverPreview(input: PreviewInput): {
   for (const line of input.lines) {
     const rosterOnly = rosterOnlyOf(line);
     const found = foundFor(line);
-    const masked = maskName(line.name);
+    const masked = consoleMaskName(line.name);
+    // 끝 별표는 가린 이름끼리 구분하는 표시라 실명을 보이는 사이트에는 붙이지 않는다.
+    const star = consoleNamesMasked() ? "*" : "";
     const name = cleanName(line.name);
     const formatReasons = formatReasonsOf(line, academy);
     if (formatReasons.length > 0) {
@@ -578,7 +580,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
       }
       rows.push({
         line: line.line,
-        displayName: same ? `${masked}*` : masked,
+        displayName: same ? `${masked}${star}` : masked,
         from: null,
         to: null,
         studentId: null,
@@ -592,7 +594,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
       displayName:
         student.className !== null &&
         (sameNameCounts.get(sameNameKey(student)) ?? 0) > 1
-          ? `${masked}*`
+          ? `${masked}${star}`
           : masked,
       from: slotOf(student),
       to: null,

@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Star } from "lucide-react";
 import type { CSSProperties, MouseEvent, MutableRefObject } from "react";
 import { Link } from "react-router";
 import benefitStrengthTable from "@/assets/renewal/landing/benefit-strength-table.png";
@@ -6,8 +6,6 @@ import benefitSummaryCard from "@/assets/renewal/landing/benefit-summary-card.pn
 import benefitSupplementGuide from "@/assets/renewal/landing/benefit-supplement-guide.png";
 import heroGlow from "@/assets/renewal/landing/hero-glow.svg";
 import heroGrain from "@/assets/renewal/landing/hero-grain.png";
-import heroReportPage1 from "@/assets/renewal/landing/hero-report-page-1.png";
-import heroReportPage2 from "@/assets/renewal/landing/hero-report-page-2.png";
 import illustrationStrength from "@/assets/renewal/landing/illustration-strength.png";
 import illustrationTrial from "@/assets/renewal/landing/illustration-trial.png";
 import illustrationWeakness from "@/assets/renewal/landing/illustration-weakness.png";
@@ -16,6 +14,8 @@ import { useServiceStart } from "@/components/service-start/useServiceStart";
 import ServiceProcessCards from "@/components/services/ServiceProcessCards";
 import { site } from "@/config/site";
 import { useInView } from "@/hooks/useInView";
+import DiagnosisReportFan from "./DiagnosisReportFan";
+import { DIAGNOSIS_REPORT_CONTENTS } from "./diagnosisReportContents";
 
 const CTA_LINK_CLASS =
   "inline-flex h-14 w-full max-w-75 items-center justify-center rounded-[1.875rem] px-8 text-base font-semibold text-white transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-offset-2 sm:h-17 sm:text-[1.25rem]";
@@ -271,7 +271,15 @@ function HeroSection({ onStart }: { onStart: StartClickHandler }) {
         </h1>
 
         <p className={`mt-6 ${HERO_SUBTEXT_CLASS}`}>
-          설문조사로 나의 강점과 약점을 찾아드려요
+          학습진단으로 나의 강점과 약점을 찾아드려요
+        </p>
+
+        <p className="mt-3 break-keep text-base leading-[1.6] text-ink-title sm:text-[1.125rem] md:text-[1.375rem]">
+          목표대학 입결 비교, MBTI 학습궁합 등{" "}
+          <strong className="font-bold text-report-orange">
+            16가지 분석 결과
+          </strong>
+          를 한 권의 리포트로 받아보세요
         </p>
 
         <Link
@@ -282,33 +290,66 @@ function HeroSection({ onStart }: { onStart: StartClickHandler }) {
           지금 시작하기
         </Link>
 
-        {/* Figma 2181:10898. 흩뿌림 합성 1장(heroReportPages)을 걷어내고 A4 페이지 2장을
-            나란히 평면 배치한다. 시안 실측(1600폭 프레임 기준): 페이지 각 326.5×462,
-            간격 36px(2.25rem), 두 장 합계 폭 690px(43.125rem). 컨테이너 max-w를 그 값으로
-            고정한다. 페이지 top=398/히어로 높이 750이라 페이지 하단 110px가 히어로 아래에서
-            잘려 나가는데(다음 섹션에 가려지는 게 아니라 히어로 프레임 자체의 클리핑),
-            섹션에 이미 overflow-hidden이 있으므로 이 wrapper에는 desktop 전용으로
-            max-h(462−110=352px=22rem)+overflow-hidden만 얹어 재현한다. 모바일은 클리핑 없이
-            전체 노출(작은 화면에서 페이지 하단이 잘리면 내용을 못 읽는다).
-            items-start 가 필수다. flex 기본 stretch 는 img 높이를 max-h(352px)에 맞춰
-            눌러 버려 object-cover 가 페이지 상단(제목, 학생 정보)을 잘라냈다(2026-09-07 실측).
-            상단 정렬로 img 가 aspect 높이(462px)를 유지하고 wrapper 가 하단만 클리핑한다. */}
-        <div className="relative z-10 mx-auto mt-8 flex w-full max-w-172.5 items-start justify-center gap-4 sm:mt-10 md:mt-12.25 lg:gap-9 lg:max-h-88 lg:overflow-hidden">
-          <img
-            src={heroReportPage1}
-            alt="학습진단 리포트 1페이지 미리보기"
-            width={980}
-            height={1387}
-            className="aspect-[326.5/462] min-w-0 flex-1 max-w-[20.40625rem] rounded-[0.25rem] bg-white object-cover object-top"
-          />
-          <img
-            src={heroReportPage2}
-            alt="학습진단 리포트 2페이지 미리보기"
-            width={980}
-            height={1387}
-            className="aspect-[326.5/462] min-w-0 flex-1 max-w-[20.40625rem] rounded-[0.25rem] bg-white object-cover object-top"
-          />
+        <p className="mt-10 inline-flex items-center gap-3 rounded-full bg-white py-1.5 pl-1.5 pr-5 text-[0.875rem] font-semibold text-ink-title shadow-[0_0.25rem_1rem_rgba(15,23,42,0.08)] sm:text-base">
+          <span className="rounded-full bg-report-orange px-3 py-1 text-[0.75rem] font-bold leading-none text-white">
+            NEW
+          </span>
+          <span className="break-keep">
+            16개 영역의 전문리포트로 업그레이드되었어요
+          </span>
+        </p>
+
+        <div className="mt-6 w-full sm:mt-8">
+          <DiagnosisReportFan />
         </div>
+
+        <p className={`mt-2 break-keep ${HERO_SUBTEXT_CLASS}`}>
+          회원가입만 해도 전문리포트를 우선 받아볼 수 있어요
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function ReportContentsSection() {
+  return (
+    <section className="bg-white pt-20 md:pt-30">
+      <div className="mx-auto w-full max-w-content px-5 text-center sm:px-8">
+        <p className="break-keep text-base font-semibold text-report-orange sm:text-[1.25rem]">
+          학습 상태부터 4주 실행 플랜까지 한 권으로
+        </p>
+        <h2 className={`mt-3 ${SECTION_HEADING_CLASS} text-ink-title`}>
+          학습진단 결과리포트에는 이런 내용이 담겨요
+        </h2>
+
+        {/* 데스크톱은 왼쪽 열 01~08, 오른쪽 열 09~16(세로 우선 채움). 모바일은 한 열. */}
+        <ol className="mx-auto mt-10 grid max-w-240 gap-3 text-left md:mt-12 md:grid-flow-col md:grid-cols-2 md:grid-rows-8 md:gap-x-5">
+          {DIAGNOSIS_REPORT_CONTENTS.map((item, index) => (
+            <li
+              key={item.title}
+              className="flex items-center gap-4 rounded-2xl border border-line bg-white px-5 py-4"
+            >
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-report-orange text-base font-semibold text-white">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="break-keep text-[1.0625rem] font-semibold leading-[1.4] text-ink-title">
+                  {item.title}
+                </p>
+                <p className="break-keep text-[0.9375rem] leading-[1.5] text-ink-sub">
+                  {item.description}
+                </p>
+              </div>
+              {item.starred && (
+                <Star
+                  role="img"
+                  aria-label="핵심 분석"
+                  className="size-6 shrink-0 fill-gold-tab text-gold-tab"
+                />
+              )}
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
   );
@@ -657,6 +698,7 @@ export default function LearningDiagnosisLanding() {
   return (
     <main className="min-h-screen bg-white pt-16">
       <HeroSection onStart={handleStart} />
+      <ReportContentsSection />
       <StepsSection />
       <AudienceSection />
       <BenefitsSection />

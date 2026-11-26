@@ -1,7 +1,7 @@
 // GET /api/console/admission-coaching 계약 검증(W10 입시 상담코칭). 중3, 고3 학생만, 담임은 담당 학급의 실명, 관리자는 전교의 가린 이름.
 // 상담 상태와 변경 일자는 counsel_statuses 에서 읽는다.
 
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   callHandler,
   createFakeAdmin,
@@ -13,7 +13,8 @@ import {
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../_lib/supabaseAdmin.js")>()),
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
@@ -41,7 +42,13 @@ const enrollment = (
 const axes = (scores: number[]) =>
   scores.map((score, i) => ({ name: `축${i + 1}`, score, status: "보통" }));
 
+// 이름 가림은 사이트가 정한다. 가린 이름을 검증하는 이 파일은 스쿨멘토로 고정한다.
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 beforeEach(() => {
+  vi.stubEnv("SITE", "schoolmentor");
   kit.state = createKitState();
   kit.state.actor = schoolAdminActor({ kind: "homeroom", class_ids: ["c-3"] });
   kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학교" });
