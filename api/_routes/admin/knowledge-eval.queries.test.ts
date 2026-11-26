@@ -8,20 +8,26 @@ import {
   firstQuery,
   problemCode,
   type Respond,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
-vi.mock("../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: () => null,
 }));
 
-import handler from "./queries.js";
+import {
+  goldenList,
+  goldenQuery,
+} from "../../../shared/knowledge-eval/contract.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/knowledge-eval/queries" };
 
 const R1 = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 const R2 = "5b1e7f3c-2a10-4c55-9a52-0f6d1f8f9b11";
@@ -80,6 +86,7 @@ describe("GET /api/admin/knowledge-eval/queries", () => {
     const r = await get();
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ items: [ROW] });
+    expect(goldenList.parse(r.body)).toEqual(r.body);
     const query = firstQuery(admin, "knowledge_golden_queries");
     expect(argsOf(query, "select")).toEqual([COLUMNS]);
     expect(argsOf(query, "eq")).toEqual(["knowledge_type", "topic_pattern"]);
@@ -136,6 +143,7 @@ describe("POST /api/admin/knowledge-eval/queries", () => {
     const r = await post();
     expect(r.status).toBe(201);
     expect(r.body).toEqual(ROW);
+    expect(goldenQuery.parse(r.body)).toEqual(r.body);
     const query = firstQuery(admin, "knowledge_golden_queries");
     expect(argsOf(query, "insert")).toEqual([INPUT]);
     expect(argsOf(query, "select")).toEqual([COLUMNS]);

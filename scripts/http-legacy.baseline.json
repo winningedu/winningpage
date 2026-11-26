@@ -111,15 +111,6 @@
   "api/_routes/admin/knowledge-dedupe.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/knowledge-eval.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-eval/queries.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-eval/queries/[id].ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/knowledge-search.ts": {
     "legacyHandler": 1
   },

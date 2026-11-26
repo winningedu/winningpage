@@ -8,20 +8,23 @@ import {
   firstQuery,
   problemCode,
   type Respond,
-} from "../../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
-vi.mock("../../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: () => null,
 }));
 
-import handler from "./[id].js";
+import { goldenQuery } from "../../../shared/knowledge-eval/contract.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/knowledge-eval/queries/:id" };
 
 const ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 const R1 = "5b1e7f3c-2a10-4c55-9a52-0f6d1f8f9b11";
@@ -40,6 +43,7 @@ const ROW = {
   knowledge_type: "topic_pattern",
   ...FORM,
   is_active: true,
+  created_at: "2026-10-07T00:00:00Z",
 };
 const COLUMNS =
   "id, knowledge_type, grade, subject, career, selected_topic, assessment_info, note, expected_resource_ids, is_active, created_at";
@@ -80,6 +84,7 @@ describe("PATCH /api/admin/knowledge-eval/queries/:id", () => {
     const r = await patch();
     expect(r.status).toBe(200);
     expect(r.body).toEqual(ROW);
+    expect(goldenQuery.parse(r.body)).toEqual(r.body);
     const query = firstQuery(admin, "knowledge_golden_queries");
     expect(argsOf(query, "update")).toEqual([FORM]);
     expect(argsOf(query, "select")).toEqual([COLUMNS]);
@@ -134,6 +139,9 @@ describe("PATCH /api/admin/knowledge-eval/queries/:id", () => {
     const r = await patch();
     expect(r.status).toBe(404);
     expect(problemCode(r.body)).toBe("NOT_FOUND");
+    expect((r.body as { detail: string }).detail).toBe(
+      "질의를 찾을 수 없어요.",
+    );
   });
 
   test.each([
@@ -194,6 +202,7 @@ describe("PATCH /api/admin/knowledge-eval/queries/:id", () => {
         query: { id: ID, knowledgeType: "topic_pattern" },
       });
       expect(r.status).toBe(405);
+      expect(r.headers.allow).toBe("PATCH");
     }
     expect(admin.queries).toEqual([]);
   });

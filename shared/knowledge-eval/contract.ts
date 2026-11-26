@@ -77,11 +77,11 @@ export const perQueryResult = z.object({
 });
 export type PerQueryResult = z.output<typeof perQueryResult>;
 
-/** POST { action: "run" } 200. params 는 요청에서 덮어쓴 값만 담는다. */
+/** POST { action: "run" } 200. params 는 덮어쓴 값에 운영값을 채운 실행 값이다. */
 export const runResponse = z.object({
   runId: z.string(),
   queryCount: z.number(),
-  params: evalParams.partial(),
+  params: evalParams,
   metrics: runMetrics,
   perQuery: z.array(perQueryResult),
 });
