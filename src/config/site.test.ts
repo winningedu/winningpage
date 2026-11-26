@@ -266,6 +266,18 @@ describe("site - 본사 대시보드 B2C 화면 스위치", () => {
   });
 });
 
+describe("site - 홈 칼럼 섹션 제목", () => {
+  it("두 사이트 모두 홈 섹션 제목은 칼럼-교육청소식이고 게시판 이름은 사이트별 그대로다", async () => {
+    const winning = (await loadSite("winning")).site;
+    const schoolmentor = (await loadSite("schoolmentor")).site;
+
+    expect(winning.homeColumnTitle).toBe("칼럼-교육청소식");
+    expect(schoolmentor.homeColumnTitle).toBe("칼럼-교육청소식");
+    expect(winning.columnTitle).toBe("교육칼럼");
+    expect(schoolmentor.columnTitle).toBe("칼럼-교육청소식");
+  });
+});
+
 describe("site - 계획 8 사이트 설정 값(결정 107)", () => {
   it("스쿨멘토는 빈 게시판 문구를 갖고 칼럼 영상 등 위닝 전용 기능은 닫는다", async () => {
     const { site } = await loadSite("schoolmentor");

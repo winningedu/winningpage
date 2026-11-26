@@ -23,6 +23,8 @@ export interface SiteConfig {
   homeUrl: string;
   // 칼럼 게시판의 사용자 노출 이름(제목, 홈 링크, 빈 안내).
   columnTitle: string;
+  // 홈 칼럼 섹션의 제목. 게시판 이름(columnTitle)과 다를 수 있다.
+  homeColumnTitle: string;
   // 게시판 목록이 비었을 때 보여줄 안내 문구(결정 107 1번). 없으면 화면의 기존 문구를 쓴다.
   boardEmpty?: string;
   // 고객안내 FAQ와 교육-정보안내 상단 배너. 없으면 배너 영역을 렌더하지 않는다.
@@ -115,6 +117,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     manifest: "/site.webmanifest",
     homeUrl: "https://www.winningedu.com",
     columnTitle: "교육칼럼",
+    homeColumnTitle: "칼럼-교육청소식",
     news: {
       maxRows: 5,
       companyTitle: "회사소식",
@@ -177,6 +180,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     manifest: "/schoolmentor/site.webmanifest",
     homeUrl: "https://www.schoolmentor.kr",
     columnTitle: "칼럼-교육청소식",
+    homeColumnTitle: "칼럼-교육청소식",
     boardEmpty: "작성된 글이 없어요",
     boardBanners: {
       faq: {

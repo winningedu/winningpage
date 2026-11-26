@@ -15,6 +15,7 @@ vi.mock("@/config/site", () => ({
   site: {
     brandName: "스쿨멘토",
     columnTitle: "칼럼-교육청소식",
+    homeColumnTitle: "칼럼-교육청소식",
     logo: { horizontal: "/images/schoolmentor-logo.png" },
     company: {},
     news: {
@@ -190,13 +191,13 @@ describe("Home 스쿨멘토 구성", () => {
     ).toBeInTheDocument();
   });
 
-  test("위닝 홈에는 칼럼 섹션이 없다", async () => {
+  test("위닝 홈에도 칼럼 섹션이 보인다", async () => {
     state.b2b = false;
     renderHome();
-    await screen.findByRole("region", { name: "핵심 서비스" });
-    expect(
-      screen.queryByRole("region", { name: "칼럼-교육청소식" }),
-    ).toBeNull();
+    const column = await screen.findByRole("region", {
+      name: "칼럼-교육청소식",
+    });
+    await within(column).findByText("칼럼 하나");
   });
 
   test("선배 카드 조회가 실패하면 그 영역에만 오류 안내를 보여주고 다른 영역은 그대로다", async () => {

@@ -7,7 +7,9 @@ import type { HomeColumnBox } from "./homeColumns";
 vi.mock("@/config/site", () => ({
   site: {
     brandName: "스쿨멘토",
-    columnTitle: "칼럼-교육청소식",
+    // 게시판 이름과 홈 섹션 제목이 다를 때 섹션은 홈 섹션 제목을 쓴다.
+    columnTitle: "교육칼럼",
+    homeColumnTitle: "칼럼-교육청소식",
     logo: { horizontal: "/images/schoolmentor-logo.png" },
   },
 }));
