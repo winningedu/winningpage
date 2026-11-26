@@ -6,13 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
@@ -150,14 +150,17 @@ function RoleList({ config }: AdminRolesAdminProps) {
         </div>
       ) : (
         <div className="bg-white shadow-sm">
-          <Table className="min-w-205">
+          <AdminTableFrame label="권한 묶음 목록" className="min-w-205">
             <TableHeader>
               <TableRow className="bg-muted hover:bg-transparent">
                 {[
                   ["번호", "w-16"],
                   ["권한 묶음 이름", ""],
                   ["포함 메뉴", ""],
-                  ["관리", "w-32"],
+                  [
+                    "관리",
+                    "sticky right-0 w-32 border-l border-gray-200 bg-muted",
+                  ],
                 ].map(([label, width]) => (
                   <TableHead
                     key={label}
@@ -199,7 +202,7 @@ function RoleList({ config }: AdminRolesAdminProps) {
                           ? "없음"
                           : `${names.join(", ")}${keys.length > names.length ? ` 외 ${keys.length - names.length}개` : ""}`}
                     </TableCell>
-                    <TableCell className="px-4 py-3">
+                    <TableCell className="sticky right-0 border-l border-gray-100 bg-white px-4 py-3">
                       <div className="flex gap-2">
                         <Button
                           type="button"
@@ -244,7 +247,7 @@ function RoleList({ config }: AdminRolesAdminProps) {
                 </TableRow>
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </div>

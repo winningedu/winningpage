@@ -17,7 +17,6 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -28,6 +27,7 @@ import { ymdIn } from "@/lib/time/day";
 import { formatDate, formatDateTime } from "@/lib/time/format";
 import { browserTimeZone } from "@/lib/time/zone";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
 import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
@@ -94,7 +94,11 @@ function UsageDetail({
   usage: HqUsageRow[] | undefined;
 }) {
   return (
-    <Table aria-label={`${name} 서비스 사용량`} className="bg-white">
+    <AdminTableFrame
+      label={`${name} 서비스 사용량`}
+      aria-label={`${name} 서비스 사용량`}
+      className="bg-white"
+    >
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           {USAGE_HEAD.map((label) => (
@@ -130,7 +134,7 @@ function UsageDetail({
           );
         })}
       </TableBody>
-    </Table>
+    </AdminTableFrame>
   );
 }
 
@@ -374,7 +378,7 @@ export default function TenantOverview({
             label="기관 목록을 불러오는 중"
           />
         ) : (
-          <Table className="min-w-[62.5rem]">
+          <AdminTableFrame label="기관 목록" className="min-w-[62.5rem]">
             <TableHeader>
               <TableRow className="bg-muted text-left hover:bg-transparent">
                 {COLUMNS.map((col) => {
@@ -517,7 +521,7 @@ export default function TenantOverview({
                 ))
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         )}
         {table.totalPages > 1 && (
           <AdminPagination

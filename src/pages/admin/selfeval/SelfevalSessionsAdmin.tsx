@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -26,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { ApiError } from "@/lib/http/client";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   ActionButton,
   Field,
@@ -194,7 +194,10 @@ function SelfevalSessionsScreen({ title }: { title: string }) {
           <div className="mb-4 text-sm font-medium text-gray-500">
             전체 <span className="text-blue-600">{total}</span>건
           </div>
-          <Table className="min-w-[72rem] border-collapse">
+          <AdminTableFrame
+            label={title}
+            className="min-w-[72rem] border-collapse"
+          >
             <TableHeader>
               <TableRow className="border-y border-gray-300 hover:bg-transparent">
                 {[
@@ -285,7 +288,7 @@ function SelfevalSessionsScreen({ title }: { title: string }) {
                 ))
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
 
           <AdminPagination
             page={query.page}

@@ -101,6 +101,16 @@ test("결제내역 표의 머리글은 scope=col이다", async () => {
   expect(header).toHaveAttribute("scope", "col");
 });
 
+test("결제내역 표는 이름 붙은 가로 스크롤 영역 안에 있고 낱말 단위로 줄바꿈한다", async () => {
+  await openDetail();
+  fireEvent.click(await screen.findByRole("tab", { name: "결제내역" }));
+
+  const header = await screen.findByRole("columnheader", { name: "주문번호" });
+  const region = screen.getByRole("region", { name: "결제 내역" });
+  expect(region).toContainElement(header);
+  expect(header.closest("table")).toHaveClass("break-keep");
+});
+
 test("상세를 닫았다가 다시 열면 첫 탭으로 돌아온다", async () => {
   await openDetail();
   fireEvent.click(await screen.findByRole("tab", { name: "결제내역" }));

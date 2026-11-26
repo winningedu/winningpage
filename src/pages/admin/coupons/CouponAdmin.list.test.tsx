@@ -48,6 +48,30 @@ test("목록 헤더는 열 범위를 갖고 관리 칸은 고정되며 행 hover
   expect(callsTo("GET", "admin/coupons")).toHaveLength(1);
 });
 
+test("목록 표는 이름 붙은 가로 스크롤 영역 안에 있고 낱말 단위로 줄바꿈한다", async () => {
+  renderCoupons();
+  const edit = await screen.findByRole("button", { name: "수정" });
+
+  const region = screen.getByRole("region", { name: "쿠폰 목록" });
+  expect(region).toContainElement(edit);
+  expect(edit.closest("table")).toHaveClass("break-keep");
+});
+
+test("금액 열은 머리글과 칸이 오른쪽 정렬이고 금액이 한 줄로 고정폭 숫자다", async () => {
+  renderCoupons();
+  await screen.findByRole("button", { name: "수정" });
+
+  const headers = screen.getAllByRole("columnheader");
+  const row = screen.getAllByRole("row")[1] as HTMLElement;
+  const cells = row.querySelectorAll("td");
+  for (const name of ["할인 금액", "최소 결제 금액"]) {
+    const header = screen.getByRole("columnheader", { name });
+    expect(header).toHaveClass("text-right");
+    const cell = cells[headers.indexOf(header)];
+    expect(cell).toHaveClass("text-right", "whitespace-nowrap", "tabular-nums");
+  }
+});
+
 test("사용 건수, 발급 이력 버튼 게이트, 열화(null)가 예전과 같다", async () => {
   on(
     "GET",

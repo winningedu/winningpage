@@ -122,6 +122,15 @@ describe("AccessLogsAdmin", () => {
     expect(Object.fromEntries(lastParams())).toEqual({ page: "1" });
   });
 
+  test("로그 표는 이름 붙은 가로 스크롤 영역 안에 있고 낱말 단위로 줄바꿈한다", async () => {
+    renderScreen();
+
+    const row = (await screen.findByText("박교사")).closest("tr");
+    const region = screen.getByRole("region", { name: "개인정보 접근 로그" });
+    expect(region).toContainElement(row);
+    expect(row?.closest("table")).toHaveClass("break-keep");
+  });
+
   test("처음 받는 동안 빈 표 대신 스켈레톤을 보이고 응답이 오면 행으로 바뀐다", async () => {
     let release: (page: PageBody) => void = () => {};
     http.get.mockReturnValue({

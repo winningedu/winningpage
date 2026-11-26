@@ -30,6 +30,7 @@ import { ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
 import { PAGE_SIZE } from "@/pages/admin/shared/AdminEngine";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { toastSuccess } from "@/pages/admin/shared/adminToast";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
@@ -714,7 +715,10 @@ function GoalStudentsList({ config }: { config: GoalStudentsAdminConfig }) {
             명
           </div>
 
-          <Table className="w-full min-w-325 text-sm">
+          <AdminTableFrame
+            label="학생 목록"
+            className="w-full min-w-325 text-sm"
+          >
             <TableHeader>
               {/* 표 폭이 컨테이너보다 넓으면 가로 스크롤로 처리한다(§4-1 관행).
                     머리글이 줄바꿈되면 "상한 수 / 시" 처럼 끊겨 읽히므로 nowrap 을 건다. */}
@@ -805,7 +809,7 @@ function GoalStudentsList({ config }: { config: GoalStudentsAdminConfig }) {
                 </TableHead>
                 <TableHead
                   scope="col"
-                  className="font-semibold whitespace-normal w-20 px-3 py-3 text-center"
+                  className="sticky right-0 border-l border-gray-200 bg-white font-semibold whitespace-normal w-20 px-3 py-3 text-center"
                 >
                   관리
                 </TableHead>
@@ -888,7 +892,7 @@ function GoalStudentsList({ config }: { config: GoalStudentsAdminConfig }) {
                           )}
                         </span>
                       </TableCell>
-                      <TableCell className="whitespace-normal px-3 py-3 text-center">
+                      <TableCell className="sticky right-0 border-l border-gray-100 bg-white whitespace-normal px-3 py-3 text-center">
                         <Button
                           type="button"
                           variant="outline"
@@ -905,7 +909,7 @@ function GoalStudentsList({ config }: { config: GoalStudentsAdminConfig }) {
                 })
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
 
           <AdminPagination
             page={page}

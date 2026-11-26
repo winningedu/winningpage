@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import type { CallItem, CallsPage } from "./api";
 import CallDetailDialog from "./CallDetailDialog";
 import {
@@ -37,7 +38,7 @@ export default function CallsTab({
       <div className="mb-4 text-sm text-muted-foreground">
         전체 <span className="text-primary">{data.total}</span>건
       </div>
-      <Table className="min-w-[80rem]">
+      <AdminTableFrame label="호출 기록" className="min-w-[80rem]">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <Th>시각</Th>
@@ -46,14 +47,14 @@ export default function CallsTab({
             <Th>단계</Th>
             <Th>호출</Th>
             <Th>모델</Th>
-            <Th>시도</Th>
-            <Th>전송 시도</Th>
+            <Th className="text-right">시도</Th>
+            <Th className="text-right">전송 시도</Th>
             <Th>상태</Th>
             <Th>finish</Th>
-            <Th>prompt</Th>
-            <Th>output</Th>
-            <Th>cached</Th>
-            <Th>지연 ms</Th>
+            <Th className="text-right">prompt</Th>
+            <Th className="text-right">output</Th>
+            <Th className="text-right">cached</Th>
+            <Th className="text-right">지연 ms</Th>
             <Th>검증</Th>
           </TableRow>
         </TableHeader>
@@ -93,8 +94,10 @@ export default function CallsTab({
                 <TableCell className="px-3 py-3">{row.step ?? ""}</TableCell>
                 <TableCell className="px-3 py-3">{row.callKey ?? ""}</TableCell>
                 <TableCell className="px-3 py-3">{row.model}</TableCell>
-                <TableCell className="px-3 py-3">{row.attempt}</TableCell>
-                <TableCell className="px-3 py-3">
+                <TableCell className="px-3 py-3 text-right tabular-nums">
+                  {row.attempt}
+                </TableCell>
+                <TableCell className="px-3 py-3 text-right tabular-nums">
                   {row.transportAttempt ?? ""}
                 </TableCell>
                 <TableCell
@@ -108,16 +111,16 @@ export default function CallsTab({
                 <TableCell className="px-3 py-3">
                   {row.finishReason ?? ""}
                 </TableCell>
-                <TableCell className="px-3 py-3">
+                <TableCell className="px-3 py-3 text-right tabular-nums">
                   {formatNullableInt(row.tokens.prompt)}
                 </TableCell>
-                <TableCell className="px-3 py-3">
+                <TableCell className="px-3 py-3 text-right tabular-nums">
                   {formatNullableInt(row.tokens.output)}
                 </TableCell>
-                <TableCell className="px-3 py-3">
+                <TableCell className="px-3 py-3 text-right tabular-nums">
                   {formatNullableInt(row.tokens.cached)}
                 </TableCell>
-                <TableCell className="px-3 py-3">
+                <TableCell className="px-3 py-3 text-right tabular-nums">
                   {formatMs(row.latencyMs)}
                 </TableCell>
                 <TableCell className="px-3 py-3">
@@ -127,7 +130,7 @@ export default function CallsTab({
             ))
           )}
         </TableBody>
-      </Table>
+      </AdminTableFrame>
 
       <AdminPagination
         page={page}

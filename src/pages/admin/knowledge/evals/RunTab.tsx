@@ -7,12 +7,12 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   ActionButton,
   Field,
@@ -175,7 +175,7 @@ function PerQueryTable({ perQuery }: { perQuery: PerQueryResult[] }) {
     })),
   );
   return (
-    <Table>
+    <AdminTableFrame label="질의별 결과">
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           <Th>질의</Th>
@@ -200,7 +200,7 @@ function PerQueryTable({ perQuery }: { perQuery: PerQueryResult[] }) {
           </TableRow>
         ))}
       </TableBody>
-    </Table>
+    </AdminTableFrame>
   );
 }
 

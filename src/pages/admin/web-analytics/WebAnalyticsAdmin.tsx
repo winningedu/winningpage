@@ -4,7 +4,6 @@ import { useSearchParams } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
   TableBody,
   TableCaption,
   TableCell,
@@ -15,6 +14,7 @@ import {
 import { ApiError } from "@/lib/http/client";
 import { addDaysYmd, ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { ActionButton, Field } from "@/pages/admin/shared/formFields";
 import { AdminCardsSkeleton } from "@/pages/admin/shared/skeletons/AdminCardsSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
@@ -172,7 +172,11 @@ function ReportBody({ report }: { report: WebAnalyticsReport }) {
       <h2 className="mb-2 text-lg font-semibold text-foreground">
         많이 본 페이지
       </h2>
-      <Table aria-label="많이 본 페이지" className="mb-8">
+      <AdminTableFrame
+        label="많이 본 페이지"
+        aria-label="많이 본 페이지"
+        className="mb-8"
+      >
         <TableHeader>
           <TableRow>
             <TableHead scope="col">페이지</TableHead>
@@ -200,12 +204,12 @@ function ReportBody({ report }: { report: WebAnalyticsReport }) {
         {report.topPages.length === 0 && (
           <TableCaption>기록이 없어요.</TableCaption>
         )}
-      </Table>
+      </AdminTableFrame>
 
       <h2 className="mb-2 text-lg font-semibold text-foreground">
         이벤트 횟수
       </h2>
-      <Table aria-label="이벤트 횟수">
+      <AdminTableFrame label="이벤트 횟수" aria-label="이벤트 횟수">
         <TableHeader>
           <TableRow>
             <TableHead scope="col">이벤트</TableHead>
@@ -238,7 +242,7 @@ function ReportBody({ report }: { report: WebAnalyticsReport }) {
             </TableRow>
           ))}
         </TableBody>
-      </Table>
+      </AdminTableFrame>
     </>
   );
 }
