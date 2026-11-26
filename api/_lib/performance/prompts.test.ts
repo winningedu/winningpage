@@ -5,10 +5,13 @@
 // 이번 범위가 아니다.
 import { describe, expect, it } from "vitest";
 import {
+  buildDesignReportUser,
+  buildEvaluationUser,
   buildTopicExclusionBlock,
   buildTopicRecommendationSystem,
   buildTopicRecommendationUser,
   CORE_PRINCIPLES,
+  formatPreviousTopicsForPrompt,
   NO_PREVIOUS_TOPIC_TEXT,
 } from "./prompts.js";
 
@@ -54,5 +57,53 @@ describe("주제 추천 프롬프트의 이전 주제 반복 금지", () => {
 
   it("제외할 주제가 없으면 재추천 블록은 비어 있다", () => {
     expect(buildTopicExclusionBlock([])).toBe("");
+  });
+});
+
+describe("이전 주제 여러 개 렌더링", () => {
+  it("formatter는 0개면 없음, 1개면 그대로, 2개 이상이면 들여쓴 목록이다", () => {
+    expect(formatPreviousTopicsForPrompt("")).toBe(NO_PREVIOUS_TOPIC_TEXT);
+    expect(formatPreviousTopicsForPrompt(" \n ")).toBe(NO_PREVIOUS_TOPIC_TEXT);
+    expect(formatPreviousTopicsForPrompt(" 주제A ")).toBe("주제A");
+    expect(formatPreviousTopicsForPrompt("주제A\n\n주제B")).toBe(
+      "\n  - 주제A\n  - 주제B",
+    );
+    expect(formatPreviousTopicsForPrompt("주제A\n주제B", "block")).toBe(
+      "- 주제A\n- 주제B",
+    );
+  });
+
+  it("주제 추천 user 프롬프트는 여러 개를 라벨 아래 목록으로 싣는다", () => {
+    const user = buildTopicRecommendationUser({
+      subject: "생명과학",
+      previousTopic: "주제A\n주제B",
+    });
+
+    expect(user).toContain(
+      "- 같은 과목에서 이전에 한 주제: \n  - 주제A\n  - 주제B\n",
+    );
+    expect(user).toContain("같은 과목 이전 주제가 있으면 추천 1은 반드시");
+    expect(user).toContain("여러 개면 그중 하나 이상");
+  });
+
+  it("설계 보고서 user 프롬프트는 여러 개를 목록으로, 없으면 없음으로 싣는다", () => {
+    expect(buildDesignReportUser({ previousTopic: "주제A\n주제B" })).toContain(
+      "- 이전 주제: \n  - 주제A\n  - 주제B\n",
+    );
+    expect(buildDesignReportUser({ previousTopic: "" })).toContain(
+      `- 이전 주제: ${NO_PREVIOUS_TOPIC_TEXT}\n`,
+    );
+  });
+
+  it("평가 user 프롬프트는 이전 주제 블록에 한 줄씩 싣는다", () => {
+    expect(buildEvaluationUser({ previousTopic: "주제A\n주제B" })).toContain(
+      "[이전에 했던 주제]\n- 주제A\n- 주제B\n",
+    );
+    expect(buildEvaluationUser({ previousTopic: "주제A" })).toContain(
+      "[이전에 했던 주제]\n주제A\n",
+    );
+    expect(buildEvaluationUser({ previousTopic: "" })).toContain(
+      `[이전에 했던 주제]\n${NO_PREVIOUS_TOPIC_TEXT}\n`,
+    );
   });
 });

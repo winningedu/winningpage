@@ -24,6 +24,8 @@
 //     (`api/_routes/performance/analyze-guide.js`). `performance_attachments`에는 버전 컬럼이
 //     없다(sql/54_performance_app.sql 1-3) — 세션 쪽 봉투가 그 역할을 겸한다.
 
+import { splitPreviousTopics } from "./previous-topics.js";
+
 // ─────────────────────────────────────────────────────────────────────
 // CORE_PRINCIPLES — AI 수행평가 코치 핵심 원칙 6조
 // ─────────────────────────────────────────────────────────────────────
@@ -262,6 +264,24 @@ export const UNKNOWN_FIELD_TEXT = "미입력";
 export const NO_PREVIOUS_TOPIC_TEXT = "없음";
 
 /**
+ * `previous_topic`(줄바꿈으로 이은 최대 5개)을 프롬프트에 싣는 형태.
+ *   - 0개: `NO_PREVIOUS_TOPIC_TEXT`
+ *   - 1개: 주제 그대로(한 개일 때 프롬프트 바이트는 예전과 같다)
+ *   - 2개 이상, `inline`(기본): 라벨 뒤에 줄을 바꿔 `  - 주제` 목록
+ *   - 2개 이상, `block`: 제목 줄 아래에 `- 주제` 목록
+ */
+export function formatPreviousTopicsForPrompt(
+  previousTopic: string | null | undefined,
+  layout: "inline" | "block" = "inline",
+): string {
+  const topics = splitPreviousTopics(previousTopic);
+  if (topics.length === 0) return NO_PREVIOUS_TOPIC_TEXT;
+  if (topics.length === 1) return topics[0] as string;
+  if (layout === "block") return topics.map((t) => `- ${t}`).join("\n");
+  return `\n${topics.map((t) => `  - ${t}`).join("\n")}`;
+}
+
+/**
  * 주제 추천 system 프롬프트.
  *
  * @param {object} params
@@ -384,14 +404,14 @@ export function buildTopicRecommendationUser({
 - 학교 유형: ${String(schoolType || "").trim() || UNKNOWN_FIELD_TEXT}
 - 선택 과목: ${subjectText}
 - 희망 진로: ${String(career || "").trim() || UNKNOWN_FIELD_TEXT}
-- 같은 과목에서 이전에 한 주제: ${String(previousTopic || "").trim() || NO_PREVIOUS_TOPIC_TEXT}
+- 같은 과목에서 이전에 한 주제: ${formatPreviousTopicsForPrompt(previousTopic)}
 
 [수행평가 안내문]
 ${String(assessmentText || "").trim() || "수행평가 안내문 정보 없음"}
 
 작업:
 1. 수행평가 안내문 조건을 최우선으로 반영한다.
-2. 같은 과목 이전 주제가 있으면 추천 1은 반드시 심화·확장 주제로 제시한다.
+2. 같은 과목 이전 주제가 있으면 추천 1은 반드시 그 주제(여러 개면 그중 하나 이상)를 심화하거나 확장한 주제로 제시한다.
 3. 홈페이지 위닝 수행 주제 DB의 현재 과목 데이터는 적극 참고한다.
 4. 다른 과목 선배 데이터는 연계 가능할 때만 선택적으로 활용한다.
 5. 학생 과거 수행 RAG를 참고하여 이미 했던 주제는 반복하지 말고, 가능하면 심화·확장 방향으로 제안한다.
@@ -1185,7 +1205,7 @@ ${String(selectedTopicDetail || "").trim() || NO_TOPIC_DETAIL_TEXT}
 - 학교 유형: ${String(schoolType || "").trim() || UNKNOWN_FIELD_TEXT}
 - 선택 과목: ${subjectText}
 - 희망 진로: ${String(career || "").trim() || UNKNOWN_FIELD_TEXT}
-- 이전 주제: ${String(previousTopic || "").trim() || NO_PREVIOUS_TOPIC_TEXT}
+- 이전 주제: ${formatPreviousTopicsForPrompt(previousTopic)}
 
 [수행평가 안내문 요약]
 ${String(assessmentText || "").trim() || NO_ASSESSMENT_INFO_TEXT}
@@ -1837,7 +1857,7 @@ ${String(schoolType || "").trim() || UNKNOWN_FIELD_TEXT}
 ${subjectText}
 
 [이전에 했던 주제]
-${String(previousTopic || "").trim() || NO_PREVIOUS_TOPIC_TEXT}
+${formatPreviousTopicsForPrompt(previousTopic, "block")}
 
 [학생 제출물]
 ${String(submissionText || "")}
