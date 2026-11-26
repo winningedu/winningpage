@@ -91,7 +91,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/roles/[id]": () => import("./admin/roles/[id].js"),
   "admin/roles/[id]/permissions": () =>
     import("./admin/roles/[id]/permissions.js"),
-  "admin/send-message": () => import("./admin/send-message.js"),
   "admin/service-credit-adjust": () =>
     import("./admin/service-credit-adjust.js"),
   "admin/service-credit-summary": () =>

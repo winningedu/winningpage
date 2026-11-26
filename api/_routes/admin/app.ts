@@ -3,8 +3,10 @@
 
 import { createAdminApp } from "../../_lib/hono/admin.js";
 import { coupons } from "./coupons.js";
+import { sendMessage } from "./send-message.js";
 import { tenantOptions } from "./tenant-options.js";
 
 export const admin = createAdminApp()
   .route("/coupons", coupons)
-  .route("/tenant-options", tenantOptions);
+  .route("/tenant-options", tenantOptions)
+  .route("/send-message", sendMessage);
