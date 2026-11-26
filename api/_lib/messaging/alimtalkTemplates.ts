@@ -26,8 +26,23 @@
 //   ⚠️ www 유무도 승인 문안 그대로다(리포트 2종은 www 있음). 임의로
 //   통일하지 말 것. 가입 축하 템플릿은 2026-08-25 재심사에서 버튼을 뺐다.
 
-/** 승인 문안에 쓰인 사이트 주소. 승인 시점 문자열이라 임의로 바꾸지 않는다. */
-export const SITE_WWW = "https://www.winningedu.com";
+import { isSchoolmentorSite } from "../site.js";
+
+// 같은 repo 를 위닝과 스쿨멘토 두 Vercel 프로젝트로 배포한다. 스쿨멘토 템플릿은 위닝 승인본에서
+// 브랜드와 도메인만 바꿔 따로 승인받으므로(원부 4절), 두 값만 사이트에 따라 고른다.
+// 주소는 승인 문안에 쓰인 문자열이라 임의로 바꾸지 않는다.
+
+/** 승인 문안의 브랜드 이름. */
+export function siteBrand(): string {
+  return isSchoolmentorSite() ? "스쿨멘토" : "위닝에듀";
+}
+
+/** 승인 문안의 사이트 주소. */
+export function siteWww(): string {
+  return isSchoolmentorSite()
+    ? "https://www.schoolmentor.kr"
+    : "https://www.winningedu.com";
+}
 
 export type AlimtalkButton = {
   name: string;
@@ -103,7 +118,7 @@ const templates = {
   dailyReport: {
     codeEnv: "ALIGO_TPL_DAILY_REPORT",
     subject: "일간 학습 보고서",
-    build: (vars) => `안녕하세요, 위닝에듀입니다.
+    build: (vars) => `안녕하세요, ${siteBrand()}입니다.
 
 ${v(vars, "학생명")} 학생의 ${v(vars, "월")}월 ${v(vars, "일")}일 학습 현황을 알려드립니다.
 
@@ -126,28 +141,28 @@ ${v(vars, "오늘컨디션")}
 ■ 학생 한마디
 “${v(vars, "학생한마디")}”`,
     smsFallback: (vars) =>
-      `[위닝에듀] ${v(vars, "학생명")} 학생의 ${v(vars, "월")}/${v(vars, "일")} 학습 현황을 알려드립니다.`,
+      `[${siteBrand()}] ${v(vars, "학생명")} 학생의 ${v(vars, "월")}/${v(vars, "일")} 학습 현황을 알려드립니다.`,
   },
 
   /** 주간 리포트 — 발행 안내 + 리포트 링크. */
   weeklyReport: {
     codeEnv: "ALIGO_TPL_WEEKLY_REPORT",
     subject: "주간 학습 리포트",
-    build: (vars) => `안녕하세요, 위닝에듀입니다.
+    build: (vars) => `안녕하세요, ${siteBrand()}입니다.
 
 ${v(vars, "학생명")} 학생의 ${v(vars, "N월")}월 ${v(vars, "N주차")}주차 주간 학습 리포트가 발행되었습니다.
 
 아래 버튼을 눌러 이번 주 학습 시간과 목표 달성 현황, 계획 실천 결과를 리포트에서 확인해 보세요.`,
     smsFallback: (vars) =>
-      `[위닝에듀] ${v(vars, "학생명")} 학생의 주간 학습 리포트가 발행되었습니다.`,
+      `[${siteBrand()}] ${v(vars, "학생명")} 학생의 주간 학습 리포트가 발행되었습니다.`,
     button: (vars) => ({
       name: "주간 리포트 확인하기",
       linkType: "WL",
       linkTypeName: "웹링크",
       // reportId 자리에는 그 주 월요일 YMD 를 넣는다 — 리포트는 저장되지 않고
       // 기간 키로 계산되기 때문이다(alimtalkLinkRoutes.tsx 주석 참고).
-      linkMo: `${SITE_WWW}/services/goal/reports/weekly/${v(vars, "reportId")}`,
-      linkPc: `${SITE_WWW}/services/goal/reports/weekly/${v(vars, "reportId")}`,
+      linkMo: `${siteWww()}/services/goal/reports/weekly/${v(vars, "reportId")}`,
+      linkPc: `${siteWww()}/services/goal/reports/weekly/${v(vars, "reportId")}`,
     }),
   },
 
@@ -155,20 +170,20 @@ ${v(vars, "학생명")} 학생의 ${v(vars, "N월")}월 ${v(vars, "N주차")}주
   monthlyReport: {
     codeEnv: "ALIGO_TPL_MONTHLY_REPORT",
     subject: "월간 학습 리포트",
-    build: (vars) => `안녕하세요, 위닝에듀입니다.
+    build: (vars) => `안녕하세요, ${siteBrand()}입니다.
 
 ${v(vars, "학생명")} 학생의 ${v(vars, "N월")}월 월간 학습 리포트가 발행되었습니다.
 
 아래 버튼을 눌러 이번 달 학습 시간과 목표 달성 현황, 계획 실천 결과를 리포트에서 확인해 보세요.`,
     smsFallback: (vars) =>
-      `[위닝에듀] ${v(vars, "학생명")} 학생의 월간 학습 리포트가 발행되었습니다.`,
+      `[${siteBrand()}] ${v(vars, "학생명")} 학생의 월간 학습 리포트가 발행되었습니다.`,
     button: (vars) => ({
       name: "월간 리포트 확인하기",
       linkType: "WL",
       linkTypeName: "웹링크",
       // 월간 키는 'YYYY-MM'.
-      linkMo: `${SITE_WWW}/services/goal/reports/monthly/${v(vars, "reportId")}`,
-      linkPc: `${SITE_WWW}/services/goal/reports/monthly/${v(vars, "reportId")}`,
+      linkMo: `${siteWww()}/services/goal/reports/monthly/${v(vars, "reportId")}`,
+      linkPc: `${siteWww()}/services/goal/reports/monthly/${v(vars, "reportId")}`,
     }),
   },
   /**
@@ -192,7 +207,7 @@ ${v(vars, "학생이름")} 학생
 
 성적 진단 항목은 학부모 화면에 보이지 않아요.`,
     smsFallback: (vars) =>
-      `[위닝에듀] ${v(vars, "학생이름")} 학생의 성장설계 리포트가 도착했습니다.`,
+      `[${siteBrand()}] ${v(vars, "학생이름")} 학생의 성장설계 리포트가 도착했습니다.`,
     button: (vars) => ({
       name: "성장설계 리포트 보기",
       linkType: "WL",

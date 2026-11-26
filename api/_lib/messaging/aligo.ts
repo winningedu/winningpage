@@ -61,7 +61,7 @@ function isTestMode(): boolean {
  */
 export function buildAlimtalkMessage(code: string): string {
   return [
-    "안녕하세요, 위닝에듀입니다.",
+    `안녕하세요, ${siteBrand()}입니다.`,
     "",
     "본인 확인을 위한 인증번호를 입력해주세요.",
     `인증번호: ${code}`,
@@ -82,7 +82,7 @@ const SMS_BYTE_LIMIT = 90;
  * 알림톡 실패 시 대체 발송(failover)에도 이 문구를 쓴다.
  */
 export function buildSmsMessage(code: string): string {
-  return `[위닝에듀] 인증번호 ${code}`;
+  return `[${siteBrand()}] 인증번호 ${code}`;
 }
 
 /** EUC-KR 기준 바이트 수 — 한글/전각 2바이트, 그 외 1바이트. */
@@ -284,6 +284,7 @@ export async function sendVerificationCode({
 import {
   ALIMTALK_TEMPLATES,
   type AlimtalkTemplateKey,
+  siteBrand,
 } from "./alimtalkTemplates.js";
 
 export type TemplateSendResult = SendResult & {
