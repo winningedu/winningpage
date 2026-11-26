@@ -45,6 +45,11 @@
 import type { VercelResponse } from "@vercel/node";
 import { defineHandler, requireUserId } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
+import {
+  isPreviousTopicValid,
+  joinPreviousTopics,
+  splitPreviousTopics,
+} from "../../_lib/performance/previous-topics.js";
 import { chargedPerformanceSessionIds } from "../../_lib/performance/tenantCredit.js";
 import { TOPIC_MAX_ROUNDS } from "../../_lib/performance/topic-rounds.js";
 import {
@@ -207,7 +212,7 @@ function toClientSession(row: SessionRow) {
  * 읽지 않는다** — 이 함수가 꺼내는 키는 아래 6개가 전부이며, 그 외 클라이언트가
  * 무엇을 보내든 무시된다(신뢰 경계, Q61-ⓔ).
  */
-function normalizeBasicInfo(raw: unknown): NormalizeBasicInfoResult {
+export function normalizeBasicInfo(raw: unknown): NormalizeBasicInfoResult {
   if (!raw || typeof raw !== "object") {
     return { ok: false, code: "INVALID_BASIC_INFO" };
   }
@@ -232,6 +237,11 @@ function normalizeBasicInfo(raw: unknown): NormalizeBasicInfoResult {
     }
   }
 
+  // 이전 주제는 줄바꿈으로 이은 최대 5개 항목이다(개수와 항목 길이 상한은 공용 모듈).
+  if (!isPreviousTopicValid(clean.previousTopic ?? "")) {
+    return { ok: false, code: "INVALID_BASIC_INFO" };
+  }
+
   return {
     ok: true,
     columns: {
@@ -243,7 +253,8 @@ function normalizeBasicInfo(raw: unknown): NormalizeBasicInfoResult {
       career_goal: clean.careerGoal!,
       // 프롬프트 기본값 '없음'은 애플리케이션(추천 프롬프트) 레이어의 몫이다(§8.3) —
       // 여기서는 미입력을 있는 그대로 null로 저장한다.
-      previous_topic: clean.previousTopic || null,
+      previous_topic:
+        joinPreviousTopics(splitPreviousTopics(clean.previousTopic)) || null,
     },
   };
 }
