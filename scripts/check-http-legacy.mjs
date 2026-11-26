@@ -26,6 +26,7 @@ const CATEGORIES = [
   "legacyError",
   "outsideHandler",
   "okSuccess",
+  "legacyHandler",
 ];
 
 const EXEMPT = [
@@ -153,13 +154,49 @@ function responseCall(call, sf) {
   return { method, status, arg: call.arguments[0] };
 }
 
+// Hono 컨텍스트 응답 c.json(body, status), c.text(text, status) 를 읽는다. 응답 호출이 아니면 null.
+const HONO_CONTEXT = /^(c|ctx|context)$/;
+
+function honoResponseCall(call, sf) {
+  const callee = call.expression;
+  if (!ts.isPropertyAccessExpression(callee)) return null;
+  const method = callee.name.text;
+  if (method !== "json" && method !== "text") return null;
+  if (!ts.isIdentifier(callee.expression)) return null;
+  if (!HONO_CONTEXT.test(callee.expression.text)) return null;
+  if (call.arguments.length === 0) return null;
+  return {
+    method,
+    status: call.arguments[1]?.getText(sf) ?? null,
+    arg: call.arguments[0],
+  };
+}
+
+// 객체 리터럴 인수에 이름이 names 중 하나인 멤버가 있는지 본다.
+function hasMember(arg, sf, names) {
+  if (arg === undefined || !ts.isObjectLiteralExpression(arg)) return false;
+  return arg.properties.some(
+    (p) =>
+      (ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)) &&
+      names.includes(p.name.getText(sf)),
+  );
+}
+
 // 상태 코드 글자가 400 이상 숫자이거나 숫자가 아니면 오류로 본다(상태 없음은 성공).
 function isErrorStatus(status) {
   if (status === null) return false;
   return /^\d+$/.test(status) ? Number(status) >= 400 : true;
 }
 
-function isLegacyError(call, sf) {
+function isLegacyError(call, sf, ctx) {
+  if (ctx.hono) {
+    // Hono 파일의 오류는 problemResponse 나 ProblemError 로 낸다. c.json 의 error, detail 바디와 c.text 오류는 옛 모양이다.
+    const h = honoResponseCall(call, sf);
+    if (h !== null && isErrorStatus(h.status)) {
+      if (h.method === "text") return true;
+      if (hasMember(h.arg, sf, ["error", "detail"])) return true;
+    }
+  }
   const callee = call.expression.getText(sf);
   if (callee === "sendError") {
     const shape = call.arguments[1];
@@ -187,7 +224,13 @@ function isLegacyError(call, sf) {
 }
 
 // 성공 본문(.json, 오류 상태 아님)에 ok 멤버가 있는지 본다.
-function isOkSuccess(call, sf) {
+function isOkSuccess(call, sf, ctx) {
+  if (ctx.hono) {
+    const h = honoResponseCall(call, sf);
+    if (h !== null && h.method === "json" && !isErrorStatus(h.status)) {
+      return hasMember(h.arg, sf, ["ok"]);
+    }
+  }
   const r = responseCall(call, sf);
   if (r === null || r.method !== "json" || isErrorStatus(r.status)) {
     return false;
@@ -213,7 +256,19 @@ const RULES = {
     exempt: /^api\/_lib\/httpResponse\.ts$/,
   },
   okSuccess: { scope: "api", match: isOkSuccess },
+  // 아직 Hono 로 옮기지 않은 defineHandler 호출. 0 이 되면 handler.ts 를 지운다.
+  legacyHandler: {
+    scope: "api",
+    match: (call, sf) => call.expression.getText(sf) === "defineHandler",
+  },
 };
+
+// Hono 앱이나 미들웨어를 쓰는 파일: api/_lib/hono/ 안, 또는 api/_routes/ 에서 hono 나 _lib/hono/ 를 import 하는 파일.
+function isHonoFile(file, text) {
+  if (file.startsWith("api/_lib/hono/")) return true;
+  if (!file.startsWith("api/_routes/")) return false;
+  return /from\s+["'](hono(\/[^"']*)?|[^"']*_lib\/hono\/[^"']*)["']/.test(text);
+}
 
 function analyze(file, text) {
   const sf = ts.createSourceFile(
@@ -224,6 +279,7 @@ function analyze(file, text) {
     /x$/.test(file) ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
   const side = file.startsWith("src/") ? "src" : "api";
+  const ctx = { hono: isHonoFile(file, text) };
   const found = {};
   let callsDefineHandler = false;
   visit(sf, (node) => {
@@ -233,7 +289,7 @@ function analyze(file, text) {
     }
     for (const [category, rule] of Object.entries(RULES)) {
       if (rule.scope !== side || rule.exempt?.test(file)) continue;
-      if (!rule.match(node, sf)) continue;
+      if (!rule.match(node, sf, ctx)) continue;
       const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
       const list = found[category] ?? [];
       const first = node.getText(sf).split("\n")[0] ?? "";

@@ -251,8 +251,6 @@ describe("check-http-legacy legacyError", () => {
     ['sendError(res, "coded", 400, "x", "c");'],
     ['sendError(res, "error", 500, "x");'],
     ['sendError(res, shape, 400, "x");'],
-    ['export default defineHandler({ errorShape: "detail", handler });'],
-    ['export default defineHandler({ errorShape: "coded", handler });'],
     ['res.status(400).json({ detail: "x" });'],
     ['res.status(500).send("x");'],
     ["res.status(404).end();"],
@@ -268,7 +266,6 @@ describe("check-http-legacy legacyError", () => {
 
   test.each([
     ['sendError(res, "problem", 400, "x", "c");'],
-    ['export default defineHandler({ errorShape: "problem", handler });'],
     ["res.status(200).json({ a: 1 });"],
     ["res.status(201).json({ a: 1 });"],
     ["res.json({ a: 1 });"],
@@ -280,6 +277,27 @@ describe("check-http-legacy legacyError", () => {
   ])("레거시 오류가 아니면 세지 않는다: %s", (code) => {
     put("api/_lib/a.ts", `${code}\n`);
     expect(counts()).toEqual({});
+  });
+
+  test.each([
+    ['export default defineHandler({ errorShape: "detail", handler });'],
+    ['export default defineHandler({ errorShape: "coded", handler });'],
+  ])(
+    "problem 이 아닌 defineHandler 는 legacyError 와 legacyHandler 로 센다: %s",
+    (code) => {
+      put("api/_lib/a.ts", `${code}\n`);
+      expect(counts()).toEqual({
+        "api/_lib/a.ts": { legacyError: 1, legacyHandler: 1 },
+      });
+    },
+  );
+
+  test("problem defineHandler 는 legacyHandler 로만 센다", () => {
+    put(
+      "api/_lib/a.ts",
+      'export default defineHandler({ errorShape: "problem", handler });\n',
+    );
+    expect(counts()).toEqual({ "api/_lib/a.ts": { legacyHandler: 1 } });
   });
 
   test("src/ 파일과 httpResponse.ts 정의 파일은 세지 않는다", () => {
@@ -344,10 +362,10 @@ describe("check-http-legacy outsideHandler", () => {
     },
   );
 
-  test("defineHandler 를 부르는 엔드포인트는 세지 않는다", () => {
+  test("defineHandler 를 부르는 엔드포인트는 outsideHandler 로 세지 않는다", () => {
     put("api/_routes/manifest.ts", manifest([["a", "./a.js"]]));
     put("api/_routes/a.ts", wrapped);
-    expect(counts()).toEqual({});
+    expect(counts()).toEqual({ "api/_routes/a.ts": { legacyHandler: 1 } });
   });
 
   test("같은 파일에 sendError 가 여러 번 있어도 outsideHandler 는 1이다", () => {
@@ -376,11 +394,109 @@ describe("check-http-legacy outsideHandler", () => {
       "api/report-pdf.ts": { outsideHandler: 1 },
       "api/cron/daily.ts": { outsideHandler: 1 },
       "api/performance/clean.ts": { outsideHandler: 1 },
+      "api/cron/ok.ts": { legacyHandler: 1 },
     });
   });
 
   test("매니페스트가 없거나 없는 파일을 가리켜도 죽지 않는다", () => {
     put("api/_routes/manifest.ts", manifest([["gone", "./gone.js"]]));
+    expect(counts()).toEqual({});
+  });
+});
+
+describe("check-http-legacy Hono 파일", () => {
+  const hono = 'import { Hono } from "hono";\n';
+
+  test.each([
+    [
+      "성공 본문의 ok 멤버",
+      "const h = (c) => c.json({ ok: true, items: [] });",
+      { okSuccess: 1 },
+    ],
+    [
+      "상태를 준 성공 본문의 ok 멤버",
+      "const h = (c) => c.json({ ok: true }, 201);",
+      { okSuccess: 1 },
+    ],
+    [
+      "error 키와 4xx",
+      'const h = (c) => c.json({ error: "x" }, 400);',
+      { legacyError: 1 },
+    ],
+    [
+      "detail 키와 5xx",
+      'const h = (c) => c.json({ detail: "x" }, 500);',
+      { legacyError: 1 },
+    ],
+    ["c.text 4xx", 'const h = (c) => c.text("no", 404);', { legacyError: 1 }],
+  ])("%s 를 센다", (_label, line, expected) => {
+    put("api/_routes/admin/x.ts", `${hono}${line}\n`);
+    expect(counts()).toEqual({ "api/_routes/admin/x.ts": expected });
+  });
+
+  test.each([
+    ["리소스 본문", "const h = (c) => c.json({ items: [] });"],
+    ["problemResponse", 'const h = (c) => problemResponse(c, 400, "x", "C");'],
+    [
+      "ProblemError",
+      'const h = () => { throw new ProblemError(404, "x", "NOT_FOUND"); };',
+    ],
+    ["상태 없는 error 키", "const h = (c) => c.json({ error: null });"],
+    ["c.text 200", 'const h = (c) => c.text("ok");'],
+  ])("%s 는 세지 않는다", (_label, line) => {
+    put("api/_routes/admin/x.ts", `${hono}${line}\n`);
+    expect(counts()).toEqual({});
+  });
+
+  test("api/_lib/hono/ 안의 파일은 hono import 없이도 Hono 파일로 본다", () => {
+    put(
+      "api/_lib/hono/x.ts",
+      'import { baseFactory } from "./factory.js";\nconst h = (c) => c.json({ ok: true });\n',
+    );
+    expect(counts()).toEqual({ "api/_lib/hono/x.ts": { okSuccess: 1 } });
+  });
+
+  test("Hono 기반 모듈(_lib/hono/)을 import 한 라우트 파일도 Hono 파일이다", () => {
+    put(
+      "api/_routes/admin/y.ts",
+      'import { admin } from "../../_lib/hono/admin.js";\nconst h = (c) => c.text("x", 500);\n',
+    );
+    expect(counts()).toEqual({ "api/_routes/admin/y.ts": { legacyError: 1 } });
+  });
+
+  test("Hono 를 쓰지 않는 파일의 c.json 은 Hono 규칙으로 세지 않는다", () => {
+    put("api/_lib/other.ts", "const h = (c) => c.json({ ok: true });\n");
+    expect(counts()).toEqual({});
+  });
+});
+
+describe("check-http-legacy legacyHandler", () => {
+  test("파일별 defineHandler 호출 수를 센다", () => {
+    put(
+      "api/_routes/a.ts",
+      "const a = defineHandler({ errorShape: 'problem' });\nconst b = defineHandler({ errorShape: 'problem' });\n",
+    );
+    expect(counts()).toEqual({ "api/_routes/a.ts": { legacyHandler: 2 } });
+  });
+
+  test("baseline 보다 늘면 실패하고 줄면 통과한다", () => {
+    put(
+      "api/_routes/a.ts",
+      "export default defineHandler({ errorShape: 'problem' });\n",
+    );
+    setBaseline({});
+    const grew = run();
+    expect(grew.code).toBe(1);
+    expect(grew.out).toContain("legacyHandler");
+    setBaseline({ "api/_routes/a.ts": { legacyHandler: 2 } });
+    expect(run().code).toBe(0);
+  });
+
+  test("정의(export function defineHandler)는 호출이 아니라 세지 않는다", () => {
+    put(
+      "api/_lib/handler.ts",
+      "export function defineHandler(opts) { return opts; }\n",
+    );
     expect(counts()).toEqual({});
   });
 });
