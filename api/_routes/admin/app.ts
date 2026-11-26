@@ -3,5 +3,18 @@
 
 import { createAdminApp } from "../../_lib/hono/admin.js";
 import { coupons } from "./coupons.js";
+import { growthReports } from "./growth-reports.js";
+import { homeSectionCopy } from "./home-section-copy.js";
+import { inquirySessions } from "./inquiry-sessions.js";
+import { knowledgeEval } from "./knowledge-eval.js";
+import { knowledgeItems } from "./knowledge-items.js";
+import { selfevalSessions } from "./selfeval-sessions.js";
 
-export const admin = createAdminApp().route("/coupons", coupons);
+export const admin = createAdminApp()
+  .route("/coupons", coupons)
+  .route("/growth-reports", growthReports)
+  .route("/home-section-copy", homeSectionCopy)
+  .route("/inquiry-sessions", inquirySessions)
+  .route("/knowledge-eval", knowledgeEval)
+  .route("/knowledge-items", knowledgeItems)
+  .route("/selfeval-sessions", selfevalSessions);

@@ -8,11 +8,11 @@ import {
   firstQuery,
   problemCode,
   type Respond,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
@@ -26,7 +26,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-import handler from "./[id].js";
+import { selfevalSessionDetail } from "../../../shared/selfeval-session/contract.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/selfeval-sessions/:id" };
 
 const SID = "123e4567-e89b-42d3-a456-426614174000";
 const PID = "223e4567-e89b-42d3-a456-426614174000";
@@ -98,7 +101,8 @@ describe("GET /api/admin/selfeval-sessions/:id", () => {
     const admin = setup();
     const r = await get();
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(selfevalSessionDetail.parse(r.body)).toEqual(r.body);
     const body = r.body as Record<string, unknown>;
     expect(body).not.toHaveProperty("ok");
     expect(Object.keys(body).sort()).toEqual(

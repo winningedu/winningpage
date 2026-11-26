@@ -6,17 +6,20 @@ import {
   firstQuery,
   problemCode,
   type Respond,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./[id].js";
+import { growthReport } from "../../../shared/growth-report/contract.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/growth-reports/:id" };
 
 const ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 const PROFILE = "5b1e7f3c-2a10-4c55-9a52-0f6d1f8f9b11";
@@ -76,6 +79,7 @@ describe("GET /api/admin/growth-reports/:id", () => {
       currentStep: 1,
     });
     expect(r.body).toHaveProperty("progress");
+    expect(growthReport.parse(r.body)).toEqual(r.body);
     expect(r.body).not.toHaveProperty("ok");
     expect(argsOf(firstQuery(admin, "growth_reports"), "eq")).toEqual([
       "id",
@@ -90,16 +94,13 @@ describe("GET /api/admin/growth-reports/:id", () => {
     expect(r.status).toBe(404);
     expect(problemCode(r.body)).toBe("NOT_FOUND");
     expect((r.body as { detail: string }).detail).toBe(
-      "회차를 찾을 수 없습니다.",
+      "회차를 찾을 수 없어요.",
     );
   });
 
-  test.each([
-    ["id 없음", {}],
-    ["uuid 가 아닌 id", { id: "abc" }],
-  ])("%s 이면 400 VALIDATION_FAILED 다", async (_label, query) => {
+  test("uuid 가 아닌 id 이면 400 VALIDATION_FAILED 다", async () => {
     const admin = setup();
-    const r = await get(query);
+    const r = await get({ id: "abc" });
     expect(r.status).toBe(400);
     expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
     expect(admin.queries.map((x) => x.table)).not.toContain("growth_reports");

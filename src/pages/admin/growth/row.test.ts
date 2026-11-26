@@ -17,7 +17,7 @@ const base: GrowthReportItem = {
   currentStep: 3,
   track: null,
   issuedAt: null,
-  lastActivityAt: null,
+  lastActivityAt: "2026-11-24T00:00:00.000Z",
   ledgerId: null,
   ledgerReversedAt: null,
   terminal: null,

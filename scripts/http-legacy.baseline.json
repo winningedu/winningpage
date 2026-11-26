@@ -63,15 +63,6 @@
   "api/_routes/admin/growth-recover.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/growth-reports.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/growth-reports/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/home-section-copy/[sectionKey].ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/hq-dashboard/b2c.ts": {
     "legacyHandler": 1
   },
@@ -96,12 +87,6 @@
   "api/_routes/admin/inquiry-recover.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/inquiry-sessions.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/inquiry-sessions/[id].ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/invite-member.ts": {
     "legacyHandler": 1
   },
@@ -109,18 +94,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/knowledge-dedupe.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-eval.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-eval/queries.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-eval/queries/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-items/titles.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/knowledge-search.ts": {
@@ -226,12 +199,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/selfeval-recover.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/selfeval-sessions.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/selfeval-sessions/[id].ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/send-message.ts": {

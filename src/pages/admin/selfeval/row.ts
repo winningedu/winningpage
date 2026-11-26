@@ -1,71 +1,11 @@
 // 서버 계약(GET /api/admin/selfeval-sessions)의 행 모양과 표시 변환.
-export type SelfevalTerminal = {
-  reason: string;
-  at: string;
-  step: string | null;
-};
+import type {
+  SelfevalSessionDetail,
+  SelfevalSessionItem,
+} from "../../../../shared/selfeval-session/contract.js";
 
-export type SelfevalProgress = {
-  step: string;
-  label: string;
-  status: string;
-  attempts: number;
-};
-
-export type SelfevalSessionItem = {
-  id: string;
-  profileId: string;
-  studentName: string | null;
-  email: string | null;
-  status: string;
-  currentStep: number;
-  academicYear: number | null;
-  semester: number | null;
-  area: string | null;
-  subject: string | null;
-  activityName: string | null;
-  regenerateCount: number;
-  ledgerId: string | null;
-  ledgerReversedAt: string | null;
-  terminal: SelfevalTerminal | null;
-  progress: SelfevalProgress[];
-  lastActivityAt: string | null;
-  completedAt: string | null;
-};
-
-export type SelfevalActivity = {
-  activityRecordId: string;
-  role: string;
-  fitScore: number | null;
-  analysisSource: string | null;
-};
-
-export type SelfevalReportRevision = {
-  id: string;
-  type: string;
-  revision: number;
-  score: number | null;
-  createdAt: string;
-};
-
-// 상세 응답의 session 은 DB 행 그대로(snake_case)라 화면이 읽는 컬럼만 적는다.
-export type SelfevalSessionRaw = {
-  id: string;
-  status: string;
-  current_step: number;
-  ledger_id: string | null;
-  ledger_reversed_at: string | null;
-};
-
-export type SelfevalSessionDetail = {
-  session: SelfevalSessionRaw;
-  studentName: string | null;
-  email: string | null;
-  terminal: SelfevalTerminal | null;
-  progress: SelfevalProgress[];
-  activities: SelfevalActivity[];
-  reports: SelfevalReportRevision[];
-};
+export type { SelfevalSessionDetail, SelfevalSessionItem };
+export type SelfevalTerminal = NonNullable<SelfevalSessionItem["terminal"]>;
 
 export const SELFEVAL_STEP_COUNT = 6;
 
