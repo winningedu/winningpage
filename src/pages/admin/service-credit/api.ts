@@ -1,41 +1,20 @@
 // 서비스이용횟수조정 화면의 서버 호출. 학생 검색은 shared/studentSearch.ts 를 쓰고,
 // 현황 조회와 조정은 /api/admin/service-credit-summary, /api/admin/service-credit-adjust 를 부른다.
+// 요청 타입과 응답 스키마는 서버와 같은 계약(shared/service-credit/contract.ts)을 쓴다.
 
 import { queryOptions } from "@tanstack/react-query";
-import { z } from "zod";
 import { api } from "@/lib/http/client";
+import {
+  type AdjustInput,
+  adjustResultSchema,
+  serviceCreditSummarySchema,
+} from "../../../../shared/service-credit/contract.js";
 
-const rowSchema = z.object({
-  programKey: z.string(),
-  label: z.string(),
-  periodBased: z.boolean(),
-  liveCount: z.number(),
-  quotaTotal: z.number().nullable(),
-  quotaUsed: z.number(),
-  quotaRemaining: z.number().nullable(),
-  expiresAt: z.string().nullable(),
-});
-export type ServiceCreditRow = z.infer<typeof rowSchema>;
-
-const summarySchema = z.object({
-  student: z.object({
-    id: z.string(),
-    name: z.string().nullable(),
-    email: z.string().nullable(),
-  }),
-  items: z.array(rowSchema),
-});
-export type ServiceCreditSummary = z.infer<typeof summarySchema>;
-
-const adjustSchema = z.object({ credit: rowSchema });
-
-export type AdjustBody = {
-  profileId: string;
-  programKey: string;
-  delta: number;
-  months?: number;
-  reason: string;
-};
+export type {
+  AdjustInput,
+  ServiceCreditRow,
+  ServiceCreditSummary,
+} from "../../../../shared/service-credit/contract.js";
 
 export const serviceCreditKeys = {
   all: ["admin", "service-credit"] as const,
@@ -52,13 +31,13 @@ export function serviceCreditSummaryQueryOptions(profileId: string) {
           searchParams: { profileId },
           signal,
         })
-        .json(summarySchema),
+        .json(serviceCreditSummarySchema),
   });
 }
 
-export async function postServiceCreditAdjust(body: AdjustBody) {
+export async function postServiceCreditAdjust(body: AdjustInput) {
   const result = await api
     .post("admin/service-credit-adjust", { json: body })
-    .json(adjustSchema);
+    .json(adjustResultSchema);
   return result.credit;
 }

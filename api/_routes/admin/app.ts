@@ -2,6 +2,15 @@
 // 도메인 하위 앱을 여기서 .route() 로 잇는다. Hono 로 옮긴 경로는 vercel.json 에서 /api/app 진입 함수로 보낸다(api/_routes/app.test.ts 가 본다).
 
 import { createAdminApp } from "../../_lib/hono/admin.js";
+import { aiTelemetry } from "./ai-telemetry.js";
+import { aiTelemetryPricing } from "./ai-telemetry-pricing.js";
 import { coupons } from "./coupons.js";
+import { serviceCreditAdjust } from "./service-credit-adjust.js";
+import { serviceCreditSummary } from "./service-credit-summary.js";
 
-export const admin = createAdminApp().route("/coupons", coupons);
+export const admin = createAdminApp()
+  .route("/ai-telemetry", aiTelemetry)
+  .route("/ai-telemetry-pricing", aiTelemetryPricing)
+  .route("/coupons", coupons)
+  .route("/service-credit-adjust", serviceCreditAdjust)
+  .route("/service-credit-summary", serviceCreditSummary);

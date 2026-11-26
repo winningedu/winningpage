@@ -51,12 +51,6 @@
   "api/_routes/admin/admission/results/rows.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/ai-telemetry-pricing.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/ai-telemetry.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/growth-grant.ts": {
     "legacyHandler": 1
   },
@@ -235,12 +229,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/send-message.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/service-credit-adjust.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/service-credit-summary.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/staff.ts": {
