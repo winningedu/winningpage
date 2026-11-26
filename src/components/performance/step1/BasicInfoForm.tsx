@@ -324,14 +324,9 @@ export default function BasicInfoForm({
           // biome-ignore lint/suspicious/noArrayIndexKey: 항목에 고유 id가 없다
           <div key={index}>
             <TextField
-              label={
-                index === 0
-                  ? optionalLabel("같은 과목에서 이전에 한 주제")
-                  : undefined
-              }
-              aria-label={
-                index === 0 ? undefined : `이전에 한 주제 ${index + 1}`
-              }
+              {...(index === 0
+                ? { label: optionalLabel("같은 과목에서 이전에 한 주제") }
+                : { "aria-label": `이전에 한 주제 ${index + 1}` })}
               name={`previousTopic-${index + 1}`}
               labelClassName={OPTIONAL_LABEL_CLASS}
               size="perf"
