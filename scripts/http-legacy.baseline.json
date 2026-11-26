@@ -192,9 +192,6 @@
   "api/_routes/admin/students/search.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/tenants.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/tenants/[id].ts": {
     "legacyHandler": 1
   },
