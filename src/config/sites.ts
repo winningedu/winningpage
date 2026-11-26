@@ -79,6 +79,14 @@ export interface SiteConfig {
     // 이용신청 > 이용안내 화면(/usage-guide: 안내서 뷰어와 도입 문의 폼)의 라우트 노출 여부.
     usageGuide: boolean;
   };
+  // 공용 푸터(SiteFooter)의 사이트별 표시.
+  footer: {
+    // 회사 정보 위 브랜드 자리. 로고 이미지(alt는 brandName) 또는 글자.
+    brand: { logo: string } | { text: string };
+    // 첫 줄 앞에 흰 글씨로 붙는 운영 형태(예: 운영위탁). 없으면 그리지 않는다.
+    operatorLabel?: string;
+    copyright: string;
+  };
   company: {
     name: string;
     ceo: string;
@@ -89,6 +97,8 @@ export interface SiteConfig {
     // 스쿨멘토 푸터 운영위탁 줄의 사업 유형 문구(예: 소프트웨어 사업자). 없으면 그 조각을 그리지 않는다.
     businessType?: string;
     mailOrderNo?: string;
+    // 전자상거래법 제10조 표시 항목. 값이 있는 사이트만 푸터에 호스팅 제공자 줄을 그린다.
+    hostingProvider?: string;
     supportChannelLabel?: string;
     tel?: string;
     centerTel?: string;
@@ -132,6 +142,10 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       companyEmpty: "등록된 회사소식이 없습니다.",
       noticeEmpty: "등록된 공지사항이 없습니다.",
     },
+    footer: {
+      brand: { logo: "/images/winning-logo-horizontal-white.svg" },
+      copyright: "© All rights reserved.",
+    },
     features: {
       premium: true,
       callmentor: true,
@@ -156,9 +170,10 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       name: "주식회사 위닝에듀",
       ceo: "강원석",
       corpRegNo: "180111-0161411",
-      patentNo: "10-3038224-0000",
+      patentNo: "10-3038224",
       bizRegNo: "266-88-03449",
       mailOrderNo: "제2026-세종아름-0264호",
+      hostingProvider: "Vercel Inc.",
       address: "(본점) 세종특별자치시 마음안1로 61, 404호",
       tel: "010-3664-0081",
       centerTel: "051-902-0080",
@@ -214,6 +229,11 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       noticeTitle: "교육-정보안내",
       companyEmpty: "작성된 글이 없어요",
       noticeEmpty: "작성된 글이 없어요",
+    },
+    footer: {
+      brand: { text: "WINNING LOGIC" },
+      operatorLabel: "운영위탁",
+      copyright: "Copyright © WINNING LOGIC. All rights reserved.",
     },
     features: {
       premium: false,
