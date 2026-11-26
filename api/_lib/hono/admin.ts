@@ -65,12 +65,17 @@ interface RouteOptions {
 }
 
 export interface AdminRouteOptions extends RouteOptions {
-  /** 메뉴 권한. key 는 메뉴 키이거나 요청에서 뽑는 함수다(던진 RouteParamError 는 400). level 생략 시 GET, HEAD 는 view, 나머지는 edit. */
-  permission: {
-    /** 리터럴은 메뉴 키 목록 안에서만. 키 함수는 요청 값에서 만들므로 string 을 돌려준다(모르는 키는 권한 판정에서 403). */
-    key: AdminMenuKey | ((c: Context<AdminEnv>) => string);
-    level?: AdminLevel;
-  };
+  /**
+   * 메뉴 권한. key 는 메뉴 키이거나 요청에서 뽑는 함수다(던진 RouteParamError 는 400). level 생략 시 GET, HEAD 는 view, 나머지는 edit.
+   * "none" 은 관리자 인증만 보고 메뉴 권한 판정과 감사 행을 건너뛴다. api/_routes/adminRoutes.test.ts 허용 목록의 파일만 쓸 수 있다.
+   */
+  permission:
+    | "none"
+    | {
+        /** 리터럴은 메뉴 키 목록 안에서만. 키 함수는 요청 값에서 만들므로 string 을 돌려준다(모르는 키는 권한 판정에서 403). */
+        key: AdminMenuKey | ((c: Context<AdminEnv>) => string);
+        level?: AdminLevel;
+      };
   /** false 면 자동 감사 행을 끈다(라우트가 직접 남기는 경우). { action } 은 메서드 기본값을 바꾼다. */
   audit?: false | { action: AdminAuditAction };
 }
@@ -125,6 +130,10 @@ export const admin = (options: AdminRouteOptions) =>
       }
       c.set("userId", resolved.userId);
 
+      if (options.permission === "none") {
+        await next();
+        return;
+      }
       const { key, level } = options.permission;
       // 키 함수가 던지면(400) 대상 메뉴가 없으니 감사 행도 없다.
       const requestedKey = typeof key === "function" ? key(c) : key;
