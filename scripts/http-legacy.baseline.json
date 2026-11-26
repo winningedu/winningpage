@@ -33,9 +33,6 @@
     "legacyError": 1,
     "okSuccess": 2
   },
-  "api/_routes/admin/access-logs.ts": {
-    "legacyHandler": 2
-  },
   "api/_routes/admin/admission/active-year.ts": {
     "legacyHandler": 1
   },
@@ -100,9 +97,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/inquiry-sessions/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/invite-member.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/knowledge-bulk.ts": {
@@ -234,9 +228,6 @@
   "api/_routes/admin/selfeval-sessions/[id].ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/send-message.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/service-credit-adjust.ts": {
     "legacyHandler": 1
   },
@@ -253,9 +244,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/students/search.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/tenant-options.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/tenants.ts": {
@@ -292,9 +280,6 @@
     "legacyHandler": 2
   },
   "api/_routes/admin/uploads/preview.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/web-analytics.ts": {
     "legacyHandler": 1
   },
   "api/_routes/auth/login.ts": {
