@@ -4,6 +4,11 @@
 
 import { z } from "zod";
 import { ApiError, api } from "@/lib/http/client";
+import {
+  TITLES_IDS_MAX,
+  type TitlesQueryInput,
+  titlesResponse,
+} from "../../../../../shared/knowledge-item/contract.js";
 import type {
   EvalParams,
   ExpectedResource,
@@ -14,9 +19,6 @@ import type {
 
 // 서버 maxDuration(knowledge-eval 60초)보다 조금 길게 잡아 서버 응답을 기다린다.
 const RUN_TIMEOUT_MS = 65_000;
-
-/** 서버가 한 번에 받는 id 수 상한(titles 라우트와 같다). */
-const TITLES_CHUNK = 200;
 
 export const evalKeys = {
   all: ["admin", "knowledge-evals"] as const,
@@ -115,10 +117,6 @@ export type GoldenQuery = z.infer<typeof goldenQuerySchema>;
 
 const goldenListSchema = z.object({ items: z.array(goldenQuerySchema) });
 
-const titlesSchema = z.object({
-  items: z.array(z.object({ id: z.string(), title: z.string() })),
-});
-
 /** 화면에 보여 줄 실패 문구. 서버가 준 problem 의 detail 이 있으면 그것이다. */
 export function errorText(error: unknown): string {
   if (error instanceof ApiError) return error.detail;
@@ -213,9 +211,9 @@ export async function searchKnowledgeResources(
   if (!q) return [];
   const reply = await api
     .get("admin/knowledge-items/titles", {
-      searchParams: { knowledgeType, q },
+      searchParams: { knowledgeType, q } satisfies TitlesQueryInput,
     })
-    .json(titlesSchema);
+    .json(titlesResponse);
   return reply.items;
 }
 
@@ -226,17 +224,17 @@ export async function fetchResourceTitles(
 ): Promise<Record<string, string>> {
   const unique = [...new Set(ids)];
   const chunks: string[][] = [];
-  for (let start = 0; start < unique.length; start += TITLES_CHUNK) {
-    chunks.push(unique.slice(start, start + TITLES_CHUNK));
+  for (let start = 0; start < unique.length; start += TITLES_IDS_MAX) {
+    chunks.push(unique.slice(start, start + TITLES_IDS_MAX));
   }
   const replies = await Promise.all(
     chunks.map((chunk) =>
       api
         .get("admin/knowledge-items/titles", {
-          searchParams: { ids: chunk.join(",") },
+          searchParams: { ids: chunk.join(",") } satisfies TitlesQueryInput,
           ...(signal ? { signal } : {}),
         })
-        .json(titlesSchema),
+        .json(titlesResponse),
     ),
   );
   return Object.fromEntries(

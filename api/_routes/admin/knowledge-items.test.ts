@@ -8,20 +8,23 @@ import {
   firstQuery,
   problemCode,
   type Respond,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
-vi.mock("../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: () => null,
 }));
 
-import handler from "./titles.js";
+import { titlesResponse } from "../../../shared/knowledge-item/contract.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/knowledge-items/titles" };
 
 const A = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 const B = "5b1e7f3c-2a10-4c55-9a52-0f6d1f8f9b11";
@@ -66,6 +69,8 @@ describe("GET /api/admin/knowledge-items/titles ids 모드", () => {
         { id: B, title: "" },
       ],
     });
+    expect(titlesResponse.parse(r.body)).toEqual(r.body);
+    expect(r.headers["cache-control"]).toBe("no-store");
     const query = firstQuery(admin, "winning_assessment_knowledge_items");
     expect(argsOf(query, "select")).toEqual(["id, title"]);
     expect(argsOf(query, "in")).toEqual(["id", [A, B]]);
@@ -192,6 +197,7 @@ describe("GET /api/admin/knowledge-items/titles 공통", () => {
     setup("edit");
     const r = await callRoute(handler, { method: "POST", query: { ids: A } });
     expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe("GET, HEAD");
   });
 
   test("조회 오류는 500 INTERNAL_ERROR 다", async () => {
