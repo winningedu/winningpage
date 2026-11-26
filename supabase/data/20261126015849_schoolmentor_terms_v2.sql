@@ -954,3 +954,10 @@ update public.terms
 --   실행 전:
 --   실행 후:
 --   재실행:
+
+-- 실행 기록
+-- 2026-11-26 Schoolmentor prod(aalujumpwlnwlemnqrus), 릴리스 #525(main b5970fd9) 배포와 DB Push 성공 뒤 실행.
+--   전: 켜진 행 6개(service_fulltext v7, privacy_policy v3, student_service, student_privacy, student_marketing, student_db_transfer), terms 27행.
+--   후: terms 28행(teacher_service v1 추가). 켜짐 student_identity, parent_service, parent_privacy, parent_marketing, privacy_additional,
+--       service_consent, payment_terms, payment_consent, teacher_service. 꺼짐 student_db_transfer. 자리표시 남은 행 0.
+--   재실행: terms 전체 해시 같음(54d8768b...), 변경 없음.
