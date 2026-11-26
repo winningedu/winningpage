@@ -9,6 +9,7 @@ import {
   type ProblemFieldError,
 } from "../../../shared/http/problem.js";
 import { problemBody, VALIDATION_FAILED_MESSAGE } from "../httpResponse.js";
+import { QA_ACCOUNT_MESSAGE, qaBlockedExtra } from "../qaAccount.js";
 
 /** 핸들러와 미들웨어가 던지면 onError(handleError)가 problem 응답으로 바꾼다. */
 export class ProblemError extends Error {
@@ -51,8 +52,28 @@ export function validationFailed(
   );
 }
 
+/** QA 계정 차단 403. sendQaBlocked 와 같은 바디다. */
+export const qaBlocked = (code: string) =>
+  new ProblemError(403, QA_ACCOUNT_MESSAGE, code, qaBlockedExtra(code));
+
+// 마지막 글자에 받침이 있으면 "을", 없으면 "를". 한글이 아니면 "을(를)".
+function objectParticle(word: string): string {
+  const last = word.charCodeAt(word.length - 1) - 0xac00;
+  if (last < 0 || last > 11171) return "을(를)";
+  return last % 28 === 0 ? "를" : "을";
+}
+
+/** 대상 행이 없을 때 던진다. 예: throw notFound("쿠폰") 은 404 "쿠폰을 찾을 수 없어요." */
+export function notFound(what: string): ProblemError {
+  return new ProblemError(
+    404,
+    `${what}${objectParticle(what)} 찾을 수 없어요.`,
+    PROBLEM_CODE.NOT_FOUND,
+  );
+}
+
 /** 루트 앱의 notFound. Hono 기본은 text 404 라 problem 으로 맞춘다(notFound 는 루트 앱에서만 불린다). */
-export const notFound: NotFoundHandler = (c) =>
+export const notFoundHandler: NotFoundHandler = (c) =>
   problemResponse(
     c,
     404,

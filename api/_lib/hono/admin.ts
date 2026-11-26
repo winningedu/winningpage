@@ -1,18 +1,13 @@
 // defineHandler(auth:"admin" | "user", errorShape:"problem") 를 Hono 미들웨어로 옮긴 것.
 //
 // 순서는 defineHandler 와 같다: 요청 로그, 메서드(405), 응답 헤더, X-Time-Zone, 인증(관리자 판정과 QA 쓰기 차단), 메뉴 권한, 검증, 핸들러, 감사.
-//   루트 앱(createAdminApp)이 원문 경로 검사, 요청 로그, JSON charset, 감사, onError, notFound 를 한 번 건다.
-//   라우트마다 admin() 또는 user() 를 첫 미들웨어로 달고, 메서드 핸들러들 뒤에 .all(path, methodNotAllowed(...)) 를 단다.
-//   검증은 validate.ts 의 zValidator 가 라우트에서 한다.
-// 오류는 던지고 handleError 가 problem 응답으로 바꾼다. Hono 는 오류가 난 층에서 onError 를 부르므로 바깥 미들웨어(로그, 감사)는 최종 status 를 본다.
+//   루트 앱(root.ts)이 원문 경로 검사, 요청 로그, JSON charset, notFound, onError 를, 관리자 앱(createAdminApp)이 감사를 한 번 건다.
+//   라우트 파일마다 const guard = admin({...}) 를 하나 만들어 메서드 라우트의 첫 미들웨어로 쓰고, 메서드들 뒤에 .all(path, methodNotAllowed(...)) 를 단다.
+//   검증은 validate.ts 의 zValidator 가 라우트에서 한다. 오류는 던지고 error.ts 가 problem 응답으로 바꾼다.
 
-import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { type Context, type ErrorHandler, Hono } from "hono";
-import { createMiddleware } from "hono/factory";
-import { HTTPException } from "hono/http-exception";
+import type { Context, MiddlewareHandler } from "hono";
 import type { AdminMenuKey } from "../../../shared/admin-permission/menu.js";
 import { PROBLEM_CODE } from "../../../shared/http/codes.js";
-import { rawRouteKey } from "../../_routes/dispatch.js";
 import {
   type AdminAuditAction,
   isAuditableMethod,
@@ -22,114 +17,20 @@ import { adminProblemCode, resolveAdmin } from "../adminAuth.js";
 import {
   type AdminLevel,
   assertSectionPermission,
-  SectionPermissionDeniedError,
 } from "../adminPermission.js";
-import { RouteParamError } from "../handler.js";
 import { resolveUser } from "../httpAuth.js";
-import {
-  AUTH_REQUIRED_MESSAGE,
-  CONFIG_ERROR_RESPONSE_MESSAGE,
-} from "../httpResponse.js";
-import {
-  isReadMethod,
-  QA_ACCOUNT_MESSAGE,
-  QaBlockedError,
-  qaBlockedExtra,
-} from "../qaAccount.js";
-import {
-  createSupabaseAdmin,
-  isSupabaseConfigError,
-} from "../supabaseAdmin.js";
-import {
-  InvalidTimeZoneError,
-  readTimeZone,
-  TimeZoneRequiredError,
-} from "../timeZone.js";
-import {
-  notFound,
-  ProblemError,
-  problemResponse,
-  validationFailed,
-} from "./problem.js";
-
-interface AuditTarget {
-  actor: { userId: string; email: string | null };
-  /** 권한 판정에 요청한 메뉴 키(별칭 해석 전). */
-  requestedKey: string;
-  /** 라우트 경로 값. 대상 id 를 고르는 데 쓴다. */
-  params: Record<string, string>;
-  action?: AdminAuditAction;
-}
-
-export type AdminEnv = {
-  Variables: {
-    /** 인증을 통과한 뒤에만 있다(요청 로그의 userId). */
-    userId: string | undefined;
-    /** auth user 모드에서만 있다. */
-    user: User | undefined;
-    token: string | undefined;
-    /** 인증 직전에 만든다. 그 전에 끝나는 405, 시간대 400 은 환경 변수 없이도 응답한다. */
-    supabaseAdmin: SupabaseClient;
-    /** X-Time-Zone 헤더가 있고 유효할 때만 있다. */
-    timeZone: string | undefined;
-    /** 미처리 예외(500) 문구와 console.error 라벨. 라우트 미들웨어가 맨 먼저 채운다. */
-    unhandledMessage: string;
-    logLabel: string;
-    /** 관리자 판정과 권한 키가 정해진 뒤에만 있다. 루트의 adminAudit 이 응답 뒤에 쓴다. */
-    audit: AuditTarget | undefined;
-  };
-};
-
-/** Fetch 헤더를 소문자 키 객체로. 기존 헬퍼(getBearerToken, readTimeZone, resolveAdmin)가 이 모양을 읽는다. */
-function nodeHeaders(c: Context): Record<string, string> {
-  return Object.fromEntries(c.req.raw.headers.entries());
-}
-
-/** 요청 주소에서 origin 과 쿼리를 뗀 원문 경로. defineHandler 의 req.url.split("?")[0] 과 같은 값이다. */
-function rawPath(c: Context): string {
-  const url = c.req.url;
-  const start = url.indexOf("/", url.indexOf("://") + 3);
-  return (start === -1 ? "/" : url.slice(start)).split("?")[0] ?? "/";
-}
-
-const qaBlocked = (code: string) =>
-  new ProblemError(403, QA_ACCOUNT_MESSAGE, code, qaBlockedExtra(code));
-
-/**
- * dispatch 와 같은 원문 경로 검사. 빈 구간, ".", "..", 역슬래시, "%", 대괄호가 있으면 라우트를 찾지 않고 404 다.
- * Request 는 URL 을 표준대로 정규화하므로 보통은 rewrite 의 lookahead 가 먼저 막는다. 원문이 그대로 오는 런타임을 위한 두 번째 줄이다.
- */
-const pathGuard = createMiddleware<AdminEnv>(async (c, next) => {
-  if (rawRouteKey(rawPath(c)) === undefined) return c.notFound();
-  await next();
-});
-
-/** 요청당 한 줄. 토큰, 본문, 쿼리, 개인정보는 싣지 않는다. 키와 순서는 defineHandler 와 같다. */
-const requestLog = createMiddleware<AdminEnv>(async (c, next) => {
-  const startedAt = performance.now();
-  await next();
-  console.log(
-    JSON.stringify({
-      requestId: c.req.header("x-vercel-id") ?? null,
-      route: rawPath(c),
-      method: c.req.method,
-      status: c.res.status,
-      durationMs: Math.round(performance.now() - startedAt),
-      userId: c.get("userId") ?? null,
-    }),
-  );
-});
-
-/** c.json 은 application/json 만 보낸다. Vercel res.json 과 같은 값으로 맞춘다. */
-const jsonCharset = createMiddleware<AdminEnv>(async (c, next) => {
-  await next();
-  if (c.res.headers.get("content-type") === "application/json") {
-    c.res.headers.set("content-type", "application/json; charset=utf-8");
-  }
-});
+import { AUTH_REQUIRED_MESSAGE } from "../httpResponse.js";
+import { isReadMethod } from "../qaAccount.js";
+import { getBearerToken } from "../serviceAccess.js";
+import { createSupabaseAdmin } from "../supabaseAdmin.js";
+import { createSupabaseUserClient } from "../supabaseUser.js";
+import { readTimeZone } from "../timeZone.js";
+import { type AdminEnv, adminFactory } from "./factory.js";
+import { ProblemError, qaBlocked } from "./problem.js";
+import { nodeHeaders, rawPath } from "./request.js";
 
 /** 응답이 정해진 뒤 감사 행을 예약한다(성공, 실패 모두). HEAD 는 감사 대상이 아니다. 적재 실패는 응답에 닿지 않는다. */
-const adminAudit = createMiddleware<AdminEnv>(async (c, next) => {
+const adminAudit = adminFactory.createMiddleware(async (c, next) => {
   await next();
   const audit = c.get("audit");
   if (!audit || !isAuditableMethod(c.req.method)) return;
@@ -147,59 +48,12 @@ const adminAudit = createMiddleware<AdminEnv>(async (c, next) => {
   });
 });
 
-export const handleError: ErrorHandler<AdminEnv> = (error, c) => {
-  if (error instanceof ProblemError) {
-    return problemResponse(
-      c,
-      error.status,
-      error.message,
-      error.code,
-      error.extra,
-    );
-  }
-  if (error instanceof QaBlockedError) {
-    const qa = qaBlocked(error.code);
-    return problemResponse(c, 403, qa.message, qa.code, qa.extra);
-  }
-  if (error instanceof RouteParamError) {
-    return validationFailed(c, [{ path: error.path, message: error.message }]);
-  }
-  // zValidator 의 깨진 JSON 본문.
-  if (error instanceof HTTPException && error.status === 400) {
-    return validationFailed(c, []);
-  }
-  if (error instanceof SectionPermissionDeniedError) {
-    return problemResponse(c, 403, error.message, PROBLEM_CODE.FORBIDDEN);
-  }
-  if (error instanceof InvalidTimeZoneError) {
-    return problemResponse(
-      c,
-      400,
-      error.message,
-      PROBLEM_CODE.INVALID_TIME_ZONE,
-    );
-  }
-  if (error instanceof TimeZoneRequiredError) {
-    return problemResponse(
-      c,
-      400,
-      error.message,
-      PROBLEM_CODE.TIME_ZONE_REQUIRED,
-    );
-  }
-  console.error(`${c.get("logLabel") || "handler"} error:`, error);
-  if (isSupabaseConfigError(error)) {
-    return problemResponse(c, 500, CONFIG_ERROR_RESPONSE_MESSAGE);
-  }
-  return problemResponse(c, 500, c.get("unhandledMessage"));
-};
+/** 관리자 영역 앱. 도메인 하위 앱을 .route() 로 붙인다(api/_routes/admin/app.ts). */
+export const createAdminApp = () => adminFactory.createApp().use(adminAudit);
 
-/** 관리자 라우트의 루트 앱. 하위 앱은 .route() 로 붙인다. 끝 슬래시는 dispatch 처럼 같은 라우트로 본다. */
-export const createAdminApp = () =>
-  new Hono<AdminEnv>({ strict: false })
-    .use(pathGuard, requestLog, jsonCharset, adminAudit)
-    .notFound(notFound)
-    .onError(handleError);
+/** 관리자 본인 토큰으로 만든 클라이언트. auth.uid() 로 is_admin() 을 확인하는 rpc 와 RLS 로 범위가 정해지는 읽기에 쓴다(service_role 은 uid 가 null). */
+export const userClient = (c: Context) =>
+  createSupabaseUserClient(getBearerToken({ headers: nodeHeaders(c) }));
 
 interface RouteOptions {
   /** 미처리 예외(500) 응답 문구. 라우트마다 다르다. */
@@ -221,74 +75,95 @@ export interface AdminRouteOptions extends RouteOptions {
   audit?: false | { action: AdminAuditAction };
 }
 
+// 관리자 응답은 개인정보가 섞여 캐시하지 않는다(owner 결정 2026-11-26). headers 옵션이 같은 이름을 주면 그 값을 쓴다.
+const ADMIN_DEFAULT_HEADERS = { "Cache-Control": "no-store" };
+
 // 라우트 미들웨어 공통 앞부분: 오류 문구, 응답 헤더, 시간대(인증보다 먼저, 잘못된 값은 어디서나 같은 400).
-function prepare(c: Context<AdminEnv>, options: RouteOptions): void {
+function prepare(
+  c: Context<AdminEnv>,
+  options: RouteOptions,
+  headers: Record<string, string>,
+): void {
   c.set("unhandledMessage", options.unhandledMessage);
   c.set("logLabel", options.logLabel);
-  for (const [key, value] of Object.entries(options.headers ?? {})) {
-    c.header(key, value);
-  }
+  for (const [key, value] of Object.entries(headers)) c.header(key, value);
   const timeZone = readTimeZone({ headers: nodeHeaders(c) });
   if (timeZone) c.set("timeZone", timeZone);
 }
 
+// 라우트 표 가드(api/_routes/app.test.ts)가 메서드 라우트의 첫 미들웨어가 인증인지 본다.
+const authMiddlewares = new WeakSet<MiddlewareHandler>();
+
+export function isAuthMiddleware(handler: unknown): boolean {
+  return authMiddlewares.has(handler as MiddlewareHandler);
+}
+
+function registered<T extends MiddlewareHandler>(middleware: T): T {
+  authMiddlewares.add(middleware);
+  return middleware;
+}
+
 /** defineHandler auth:"admin". 관리자 판정(QA 관리자의 쓰기 차단 포함)과 메뉴 권한을 본다. */
 export const admin = (options: AdminRouteOptions) =>
-  createMiddleware<AdminEnv>(async (c, next) => {
-    prepare(c, options);
-    const supabaseAdmin = createSupabaseAdmin();
-    c.set("supabaseAdmin", supabaseAdmin);
+  registered(
+    adminFactory.createMiddleware(async (c, next) => {
+      prepare(c, options, { ...ADMIN_DEFAULT_HEADERS, ...options.headers });
+      const supabaseAdmin = createSupabaseAdmin();
+      c.set("supabaseAdmin", supabaseAdmin);
 
-    const resolved = await resolveAdmin(supabaseAdmin, {
-      headers: nodeHeaders(c),
-      method: c.req.method,
-    });
-    if (!resolved.ok) {
-      if (resolved.code) throw qaBlocked(resolved.code);
-      throw new ProblemError(
-        resolved.status,
-        resolved.detail,
-        adminProblemCode(resolved.status),
-      );
-    }
-    c.set("userId", resolved.userId);
-
-    const { key, level } = options.permission;
-    // 키 함수가 던지면(400) 대상 메뉴가 없으니 감사 행도 없다.
-    const requestedKey = typeof key === "function" ? key(c) : key;
-    if (options.audit !== false) {
-      c.set("audit", {
-        actor: { userId: resolved.userId, email: resolved.email },
-        requestedKey,
-        params: c.req.param(),
-        ...(options.audit ? { action: options.audit.action } : {}),
+      const resolved = await resolveAdmin(supabaseAdmin, {
+        headers: nodeHeaders(c),
+        method: c.req.method,
       });
-    }
-    // 거부는 SectionPermissionDeniedError(403), 조회 오류는 일반 예외(500)로 handleError 가 응답한다.
-    await assertSectionPermission(
-      supabaseAdmin,
-      resolved.userId,
-      requestedKey,
-      level ?? (isReadMethod(c.req.method) ? "view" : "edit"),
-    );
-    await next();
-  });
+      if (!resolved.ok) {
+        if (resolved.code) throw qaBlocked(resolved.code);
+        throw new ProblemError(
+          resolved.status,
+          resolved.detail,
+          adminProblemCode(resolved.status),
+        );
+      }
+      c.set("userId", resolved.userId);
+
+      const { key, level } = options.permission;
+      // 키 함수가 던지면(400) 대상 메뉴가 없으니 감사 행도 없다.
+      const requestedKey = typeof key === "function" ? key(c) : key;
+      if (options.audit !== false) {
+        c.set("audit", {
+          actor: { userId: resolved.userId, email: resolved.email },
+          requestedKey,
+          params: c.req.param(),
+          ...(options.audit ? { action: options.audit.action } : {}),
+        });
+      }
+      // 거부는 SectionPermissionDeniedError(403), 조회 오류는 일반 예외(500)로 error.ts 가 응답한다.
+      await assertSectionPermission(
+        supabaseAdmin,
+        resolved.userId,
+        requestedKey,
+        level ?? (isReadMethod(c.req.method) ? "view" : "edit"),
+      );
+      await next();
+    }),
+  );
 
 /** defineHandler auth:"user". 관리자가 되기 전 사용자가 부르는 라우트(admin/me/activate)용. */
 export const user = (options: RouteOptions) =>
-  createMiddleware<AdminEnv>(async (c, next) => {
-    prepare(c, options);
-    const authed = await resolveUser({ headers: nodeHeaders(c) });
-    if (!authed) {
-      throw new ProblemError(
-        401,
-        AUTH_REQUIRED_MESSAGE,
-        PROBLEM_CODE.UNAUTHENTICATED,
-      );
-    }
-    c.set("userId", authed.userId);
-    c.set("user", authed.user);
-    c.set("token", authed.token);
-    c.set("supabaseAdmin", createSupabaseAdmin());
-    await next();
-  });
+  registered(
+    adminFactory.createMiddleware(async (c, next) => {
+      prepare(c, options, options.headers ?? {});
+      const authed = await resolveUser({ headers: nodeHeaders(c) });
+      if (!authed) {
+        throw new ProblemError(
+          401,
+          AUTH_REQUIRED_MESSAGE,
+          PROBLEM_CODE.UNAUTHENTICATED,
+        );
+      }
+      c.set("userId", authed.userId);
+      c.set("user", authed.user);
+      c.set("token", authed.token);
+      c.set("supabaseAdmin", createSupabaseAdmin());
+      await next();
+    }),
+  );

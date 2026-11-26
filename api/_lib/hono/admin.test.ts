@@ -13,7 +13,8 @@ vi.mock("../supabaseAdmin.js", () => ({
 }));
 
 import { admin, createAdminApp, user } from "./admin.js";
-import { methodNotAllowed } from "./problem.js";
+import { methodNotAllowed, notFound } from "./problem.js";
+import { createRootApp } from "./root.js";
 import { validate } from "./validate.js";
 
 const AUTH = { authorization: "Bearer admin-token" };
@@ -23,21 +24,43 @@ const OPTIONS = {
   logLabel: "[admin/demo]",
 };
 
-const app = createAdminApp()
-  .get("/api/admin/demo", admin(OPTIONS), (c) => c.json({ items: [] }))
-  .post(
-    "/api/admin/demo",
-    admin(OPTIONS),
-    validate("json", z.object({ reason: z.string().optional() })),
-    (c) => c.json(c.req.valid("json")),
-  )
-  .all("/api/admin/demo", methodNotAllowed("GET", "POST"))
-  .post(
-    "/api/admin/me",
-    user({ unhandledMessage: "활성화하지 못했어요.", logLabel: "[admin/me]" }),
-    (c) => c.json({ userId: c.var.userId, token: c.var.token }),
-  )
-  .all("/api/admin/me", methodNotAllowed("POST"));
+const guard = admin(OPTIONS);
+
+const app = createRootApp().route(
+  "/",
+  createAdminApp()
+    .get("/api/admin/demo", guard, (c) => c.json({ items: [] }))
+    .get("/api/admin/demo/missing", guard, () => {
+      throw notFound("사용 이력");
+    })
+    .get("/api/admin/demo/menu", guard, () => {
+      throw notFound("메뉴");
+    })
+    .get(
+      "/api/admin/demo/cache",
+      admin({
+        ...OPTIONS,
+        headers: { "Cache-Control": "private, max-age=60" },
+      }),
+      (c) => c.json({}),
+    )
+    .post(
+      "/api/admin/demo",
+      guard,
+      validate("json", z.object({ reason: z.string().optional() })),
+      (c) => c.json(c.req.valid("json")),
+    )
+    .all("/api/admin/demo", methodNotAllowed("GET", "POST"))
+    .post(
+      "/api/admin/me",
+      user({
+        unhandledMessage: "활성화하지 못했어요.",
+        logLabel: "[admin/me]",
+      }),
+      (c) => c.json({ userId: c.var.userId, token: c.var.token }),
+    )
+    .all("/api/admin/me", methodNotAllowed("POST")),
+);
 
 const problem = async (response: Response) => ({
   status: response.status,
@@ -104,6 +127,36 @@ describe("없는 주소", () => {
   test("끝 슬래시는 같은 라우트로 간다", async () => {
     const response = await app.request("/api/admin/demo/", { headers: AUTH });
     expect(response.status).toBe(200);
+  });
+});
+
+describe("admin() 기본 헤더와 404 헬퍼", () => {
+  test("관리자 응답은 기본으로 Cache-Control no-store 다(오류 응답 포함)", async () => {
+    const ok = await app.request("/api/admin/demo", { headers: AUTH });
+    expect(ok.headers.get("cache-control")).toBe("no-store");
+    const denied = await app.request("/api/admin/demo");
+    expect(denied.status).toBe(401);
+    expect(denied.headers.get("cache-control")).toBe("no-store");
+  });
+
+  test("headers 옵션이 기본값을 바꾼다", async () => {
+    const r = await app.request("/api/admin/demo/cache", { headers: AUTH });
+    expect(r.headers.get("cache-control")).toBe("private, max-age=60");
+  });
+
+  test("notFound(what) 는 받침에 맞는 조사로 problem 404 를 낸다", async () => {
+    const a = await problem(
+      await app.request("/api/admin/demo/missing", { headers: AUTH }),
+    );
+    expect(a.status).toBe(404);
+    expect(a.body).toMatchObject({
+      detail: "사용 이력을 찾을 수 없어요.",
+      code: "NOT_FOUND",
+    });
+    const b = await problem(
+      await app.request("/api/admin/demo/menu", { headers: AUTH }),
+    );
+    expect(b.body.detail).toBe("메뉴를 찾을 수 없어요.");
   });
 });
 

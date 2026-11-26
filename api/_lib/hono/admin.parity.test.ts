@@ -29,6 +29,7 @@ import { defineHandler, RouteParamError } from "../handler.js";
 import { QaBlockedError } from "../qaAccount.js";
 import { admin, createAdminApp } from "./admin.js";
 import { methodNotAllowed } from "./problem.js";
+import { createRootApp } from "./root.js";
 import { validate } from "./validate.js";
 
 const ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
@@ -102,7 +103,7 @@ function newApp(variant: Variant) {
     logLabel,
   };
   const query = z.object({ q: z.string().max(3).optional() });
-  return createAdminApp()
+  const routes = createAdminApp()
     .get(
       "/api/admin/demo/:id",
       admin(options),
@@ -119,6 +120,7 @@ function newApp(variant: Variant) {
       async (c) => c.json((await behavior()) as object, 201),
     )
     .all("/api/admin/demo/:id", methodNotAllowed("GET", "POST"));
+  return createRootApp().route("/", routes);
 }
 
 interface Request {
@@ -295,14 +297,18 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+// 새 쪽 admin() 은 Cache-Control no-store 를 기본으로 건다(owner 결정 2026-11-26). 그 밖은 같아야 한다.
 const expectSame = async (
   variant: Variant,
   request: Request,
   status: number,
+  newCacheControl: string | null = "no-store",
 ) => {
   const { before, after } = await both(variant, request);
-  const { allow: _allow, ...rest } = after;
-  expect(rest).toEqual(before);
+  const { allow: _allow, cacheControl, ...rest } = after;
+  const { cacheControl: _oldCacheControl, ...restBefore } = before;
+  expect(rest).toEqual(restBefore);
+  expect(cacheControl ?? null).toBe(newCacheControl);
   expect(before.status).toBe(status);
   return { before, after };
 };
@@ -479,7 +485,13 @@ describe("defineHandler 와 Hono admin 미들웨어의 응답 비교", () => {
   });
 
   test("지원하지 않는 메서드는 같은 405 이고 새 쪽만 Allow 를 붙인다", async () => {
-    const { after } = await expectSame("plain", { method: "DELETE" }, 405);
+    // 405 는 admin() 앞에서 끝나 기본 헤더가 없다(defineHandler 도 405 뒤에 headers 를 건다).
+    const { after } = await expectSame(
+      "plain",
+      { method: "DELETE" },
+      405,
+      null,
+    );
     expect(after.allow).toBe("GET, HEAD, POST");
   });
 });
