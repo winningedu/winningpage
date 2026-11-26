@@ -28,6 +28,7 @@ vi.mock("@/config/site", () => ({
       premium: false,
       hiddenPrograms: [],
       bannerEmptyNotice: true,
+      columnVideo: true,
       get b2bMenu() {
         return state.b2b;
       },
