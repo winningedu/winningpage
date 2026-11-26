@@ -1,13 +1,13 @@
 // POST /api/admin/me/activate 계약 검증. 초대받은 본인의 admin_members 행을 active 로 올린다.
 // fn_activate_admin_member 는 auth.uid() 를 읽으므로 사용자 토큰 클라이언트로 불러야 한다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
@@ -15,49 +15,24 @@ const kit = vi.hoisted(() => ({
   createUserClient: vi.fn(),
 }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-vi.mock("../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: kit.createUserClient,
 }));
 
-import handler from "./activate.js";
+import { app } from "../app.js";
 
-async function post(token: string | null = "user-token") {
-  const out = { status: 0, body: undefined as unknown };
-  const headers: Record<string, string> = token
-    ? { authorization: `Bearer ${token}` }
-    : {};
-  const res = {
-    req: { headers },
-    setHeader: () => res,
-    status(code: number) {
-      out.status = code;
-      return res;
-    },
-    json(payload: unknown) {
-      out.body = payload;
-      return res;
-    },
-    end(payload: string) {
-      out.body = JSON.parse(payload);
-      return res;
-    },
-  };
-  await handler(
-    {
-      method: "POST",
-      headers,
-      query: {},
-      body: undefined,
-    } as unknown as VercelRequest,
-    res as unknown as VercelResponse,
-  );
-  return out;
-}
+const handler = { app, path: "/api/admin/me/activate" };
+
+const post = (token: string | null = "user-token") =>
+  callRoute(handler, {
+    method: "POST",
+    headers: { authorization: token ? `Bearer ${token}` : "" },
+  });
 
 beforeEach(() => {
   kit.state = createKitState();
@@ -75,6 +50,13 @@ describe("POST /api/admin/me/activate", () => {
     expect(out.status).toBe(401);
     expect((out.body as { code: string }).code).toBe("UNAUTHENTICATED");
     expect(kit.rpc).not.toHaveBeenCalled();
+  });
+
+  test("GET 은 405 METHOD_NOT_ALLOWED 이고 Allow 는 POST 다", async () => {
+    const out = await callRoute(handler, { method: "GET" });
+
+    expect(out.status).toBe(405);
+    expect(out.headers.allow).toBe("POST");
   });
 
   test("활성화되면 status active 를 돌려준다", async () => {

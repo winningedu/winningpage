@@ -144,12 +144,6 @@
   "api/_routes/admin/learning-diagnosis/questions/[id].ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/me/activate.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/me/permissions.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/members.ts": {
     "legacyHandler": 1
   },
@@ -250,9 +244,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/staff/[profileId]/permissions.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/students/search.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/tenant-options.ts": {

@@ -6,17 +6,19 @@ import {
   createAdminFake,
   problemCode,
   type Respond,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./search.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/students/search" };
 
 const SECTIONS = [
   "growthReports",
@@ -149,6 +151,7 @@ describe("GET /api/admin/students/search", () => {
     setup(view("growthReports"));
     const r = await callRoute(handler, { method: "POST" });
     expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe("GET, HEAD");
     expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
   });
 

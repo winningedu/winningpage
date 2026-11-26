@@ -3,5 +3,10 @@
 
 import { createAdminApp } from "../../_lib/hono/admin.js";
 import { coupons } from "./coupons.js";
+import { me } from "./me.js";
+import { students } from "./students.js";
 
-export const admin = createAdminApp().route("/coupons", coupons);
+export const admin = createAdminApp()
+  .route("/coupons", coupons)
+  .route("/me", me)
+  .route("/students", students);

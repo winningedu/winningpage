@@ -1,50 +1,29 @@
 // GET /api/admin/me/permissions 계약 검증. 로그인한 관리자 본인의 메뉴 권한 맵과 최고 관리자 여부를 돌려준다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./permissions.js";
+import { app } from "../app.js";
 
-// problem 바디는 res.end 로 나가므로 json 과 end 를 모두 받는 가짜 res 로 부른다.
-async function get(token: string | null = "token", method = "GET") {
-  const out = { status: 0, body: undefined as unknown };
-  const headers: Record<string, string> = token
-    ? { authorization: `Bearer ${token}` }
-    : {};
-  const res = {
-    req: { headers },
-    setHeader: () => res,
-    status(code: number) {
-      out.status = code;
-      return res;
-    },
-    json(payload: unknown) {
-      out.body = payload;
-      return res;
-    },
-    end(payload: string) {
-      out.body = JSON.parse(payload);
-      return res;
-    },
-  };
-  await handler(
-    { method, headers, query: {}, body: undefined } as unknown as VercelRequest,
-    res as unknown as VercelResponse,
-  );
-  return out;
-}
+const handler = { app, path: "/api/admin/me/permissions" };
+
+const get = (token: string | null = "token", method = "GET") =>
+  callRoute(handler, {
+    method,
+    headers: { authorization: token ? `Bearer ${token}` : "" },
+  });
 
 const rpcArgs: Record<string, unknown>[] = [];
 
@@ -117,6 +96,26 @@ describe("GET /api/admin/me/permissions", () => {
 
     expect(out.status).toBe(401);
     expect((out.body as { code: string }).code).toBe("UNAUTHENTICATED");
+  });
+
+  test("POST 는 405 METHOD_NOT_ALLOWED 이고 Allow 는 GET, HEAD 다", async () => {
+    const out = await get("token", "POST");
+
+    expect(out.status).toBe(405);
+    expect(out.headers.allow).toBe("GET, HEAD");
+    expect((out.body as { code: string }).code).toBe("METHOD_NOT_ALLOWED");
+  });
+
+  test("메뉴 권한 행이 없어도 관리자면 200 이다", async () => {
+    kit.state.rpc.fn_admin_effective_permissions = () => ({
+      data: [],
+      error: null,
+    });
+
+    const out = await get();
+
+    expect(out.status).toBe(200);
+    expect(out.body).toEqual({ permissions: {}, isSuper: false });
   });
 
   test("권한 rpc 가 실패하면 500 INTERNAL_ERROR 다", async () => {

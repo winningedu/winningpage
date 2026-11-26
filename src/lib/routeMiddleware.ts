@@ -1,6 +1,5 @@
 import type { MiddlewareFunction } from "react-router";
 import { redirect } from "react-router";
-import { z } from "zod";
 import type { GateableProgram } from "@/config/programs";
 import { site } from "@/config/site";
 import {
@@ -12,6 +11,7 @@ import {
   parseListPageAndQ,
   sectionListQueryOptions,
 } from "@/pages/admin/engine/sectionList";
+import { adminActivationSchema } from "../../shared/admin-me/contract.js";
 import {
   type AdminPermissionMap,
   adminPermissionsQueryOptions,
@@ -147,8 +147,6 @@ async function assertAdminSectionAccess(request: Request, userId: string) {
   throw new AdminForbiddenError();
 }
 
-const activationResponseSchema = z.object({ status: z.string().nullable() });
-
 /**
  * 엔진 섹션 목록 주소(/admin/<키>, 끝 슬래시 허용)면 목록 요청을 미리 시작하고 그 쿼리 옵션을 돌려준다.
  * /new, /:id, 커스텀 섹션, /admin 자체는 목록 화면이 아니라 null 이다.
@@ -263,7 +261,7 @@ async function checkAdminAccess(request: Request, userId: string) {
   // 활성화는 쓰기라 GET 과 분리된 POST 다. 실패는 활성화 안 됨과 같이 다룬다.
   const activated = await api
     .post("admin/me/activate")
-    .json(activationResponseSchema)
+    .json(adminActivationSchema)
     .catch(() => null);
 
   if (activated?.status === "active") {
