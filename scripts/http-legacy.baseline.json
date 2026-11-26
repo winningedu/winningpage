@@ -87,12 +87,6 @@
   "api/_routes/admin/inquiry-recover.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/inquiry-sessions.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/inquiry-sessions/[id].ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/invite-member.ts": {
     "legacyHandler": 1
   },
