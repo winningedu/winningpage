@@ -210,12 +210,14 @@ insert into public.app_settings (key, value) values ('signup_enabled', 'true'::j
 
 -- 약관은 데이터 SQL 로 들어가는 행이라 이 스펙이 직접 만든다(롤백된다).
 delete from public.user_term_agreements;
-delete from public.terms where code in ('student_service', 'student_privacy', 'student_db_transfer', 'student_marketing');
+delete from public.terms where code in ('student_service', 'student_privacy', 'student_identity', 'student_db_transfer', 'student_marketing', 'privacy_additional');
 insert into public.terms (code, version, audience, title, is_required, profile_column) values
   ('student_service', 'T1', 'student', '이용약관', true, 'terms_service_agreed'),
   ('student_privacy', 'T1', 'student', '개인정보', true, 'privacy_required_agreed'),
+  ('student_identity', 'T1', 'student', '본인인증', true, null),
   ('student_db_transfer', 'T1', 'student', 'DB 전환', true, null),
-  ('student_marketing', 'T1', 'student', '마케팅', false, 'marketing_agreed');
+  ('student_marketing', 'T1', 'student', '마케팅', false, 'marketing_agreed'),
+  ('privacy_additional', 'T1', 'common', '선택 개인정보', false, 'privacy_optional_agreed');
 
 -- handle_new_user 트리거가 만드는 상태(auth.users 와 빈 profiles 행)를 흉내 낸다.
 -- 인증 코드(verifyOtp)를 마친 계정이 기본이다. p_confirmed 가 false 면 이메일 미인증 계정이다.
@@ -263,8 +265,8 @@ begin
     p_identity_request_id => case when p ? 'identity_request_id' then p->>'identity_request_id' else null end,
     p_agree_service => case when p ? 'agree_service' then (p->>'agree_service')::boolean else true end,
     p_agree_privacy => case when p ? 'agree_privacy' then (p->>'agree_privacy')::boolean else true end,
-    p_agree_db_transfer => case when p ? 'agree_db_transfer' then (p->>'agree_db_transfer')::boolean else true end,
-    p_agree_marketing => case when p ? 'agree_marketing' then (p->>'agree_marketing')::boolean else false end
+    p_agree_marketing => case when p ? 'agree_marketing' then (p->>'agree_marketing')::boolean else false end,
+    p_agree_privacy_additional => case when p ? 'agree_privacy_additional' then (p->>'agree_privacy_additional')::boolean else false end
   );
 end $$;
 
@@ -290,8 +292,8 @@ select pg_temp.expect_text('프로필: 학교 소속이면 school_name 이 기�
   (select coalesce(school_name, '-') || ':' || coalesce(region, '-') || ':' || coalesce(school_type, '-') from public.profiles where id = :'a_uid'::uuid),
   'SA222222 기관:-:-');
 select pg_temp.expect_text('프로필: 약관 동의 열',
-  (select terms_service_agreed || ':' || privacy_required_agreed || ':' || marketing_agreed from public.profiles where id = :'a_uid'::uuid),
-  'true:true:false');
+  (select terms_service_agreed || ':' || privacy_required_agreed || ':' || marketing_agreed || ':' || privacy_optional_agreed from public.profiles where id = :'a_uid'::uuid),
+  'true:true:false:false');
 select pg_temp.expect_text('student_profiles 에 학년이 들어간다',
   (select grade from public.student_profiles where profile_id = :'a_uid'::uuid), '고1');
 select pg_temp.expect_text('학적: 학년, 반, 번호',
@@ -299,11 +301,11 @@ select pg_temp.expect_text('학적: 학년, 반, 번호',
      join public.classes c on c.id = e.class_id where e.student_id = :'a_uid'::uuid), '고1:3:7');
 select pg_temp.expect_int('학적 변경 이력 signup 1건',
   (select count(*) from public.enrollment_changes where student_id = :'a_uid'::uuid and kind = 'signup'), 1);
-select pg_temp.expect_int('약관 동의 기록은 약관 4종 전부', (select count(*) from public.user_term_agreements where user_id = :'a_uid'::uuid), 4);
-select pg_temp.expect_text('약관 동의: DB 전환 true, 마케팅 false',
+select pg_temp.expect_int('약관 동의 기록은 V2 약관 5종(켜진 DB 전환 안내는 기록하지 않는다)', (select count(*) from public.user_term_agreements where user_id = :'a_uid'::uuid), 5);
+select pg_temp.expect_text('약관 동의: 필수 칸은 이용약관, 개인정보, 본인인증 true, 선택 칸은 false',
   (select string_agg(t.code || '=' || a.agreed, ',' order by t.code) from public.user_term_agreements a
-     join public.terms t on t.id = a.term_id where a.user_id = :'a_uid'::uuid and t.code in ('student_db_transfer', 'student_marketing')),
-  'student_db_transfer=true,student_marketing=false');
+     join public.terms t on t.id = a.term_id where a.user_id = :'a_uid'::uuid),
+  'privacy_additional=false,student_identity=true,student_marketing=false,student_privacy=true,student_service=true');
 select pg_temp.expect_bool('연결코드 발급, 결과에 같은 코드',
   (select code = (:'a_r'::jsonb)->>'link_code' from public.student_link_codes where student_id = :'a_uid'::uuid and is_active), true);
 -- 같은 계정의 동시 호출은 계정 id 의 advisory 잠금으로 줄을 선다(한 세션 스펙이라 트랜잭션이 끝나기 전 잠금이 남는 것으로 확인한다).
@@ -440,7 +442,13 @@ insert into public.app_settings (key, value) values ('signup_enabled', 'true'::j
 
 select pg_temp.expect_msg('이용약관 미동의', $$select pg_temp.go(3, '{"agree_service": false}')$$, 'P0001', 'terms_service_required');
 select pg_temp.expect_msg('개인정보 미동의', $$select pg_temp.go(4, '{"agree_privacy": false}')$$, 'P0001', 'privacy_required');
-select pg_temp.expect_msg('DB 전환 미동의', $$select pg_temp.go(5, '{"agree_db_transfer": false}')$$, 'P0001', 'db_transfer_required');
+select pg_temp.expect_ok('선택 개인정보(4-2) 동의 가입', $$select pg_temp.go(5, '{"agree_privacy_additional": true}')$$);
+select pg_temp.expect_text('4-2 동의는 privacy_additional 기록과 profiles.privacy_optional_agreed 에 남는다',
+  (select pr.privacy_optional_agreed || ':' || a.agreed from public.profiles pr
+     join public.user_term_agreements a on a.user_id = pr.id
+     join public.terms t on t.id = a.term_id and t.code = 'privacy_additional'
+    where pr.email = 'go5@example.com'),
+  'true:true');
 select pg_temp.expect_msg('이름 없음', $$select pg_temp.go(6, '{"name": "  "}')$$, 'P0001', 'name_required');
 select pg_temp.expect_msg('이메일 인증을 마치지 않은 계정은 email_not_verified', $$
   select pg_temp.verify('010-5007-0001');
@@ -750,11 +758,11 @@ select pg_temp.expect_error('authenticated 는 fn_student_signup 실행 불가',
 reset role;
 select pg_temp.expect_bool('service_role 만 실행 권한이 있다',
   has_function_privilege('service_role',
-    'public.fn_student_signup(uuid, text, text, text, text, date, text, uuid, text, text, text, smallint, text, text, text, boolean, text, boolean, boolean, boolean, boolean)', 'execute')
+    'public.fn_student_signup(uuid, text, text, text, text, date, text, uuid, text, text, text, smallint, text, text, text, boolean, text, boolean, boolean, boolean, boolean, boolean)', 'execute')
   and not has_function_privilege('anon',
-    'public.fn_student_signup(uuid, text, text, text, text, date, text, uuid, text, text, text, smallint, text, text, text, boolean, text, boolean, boolean, boolean, boolean)', 'execute')
+    'public.fn_student_signup(uuid, text, text, text, text, date, text, uuid, text, text, text, smallint, text, text, text, boolean, text, boolean, boolean, boolean, boolean, boolean)', 'execute')
   and not has_function_privilege('authenticated',
-    'public.fn_student_signup(uuid, text, text, text, text, date, text, uuid, text, text, text, smallint, text, text, text, boolean, text, boolean, boolean, boolean, boolean)', 'execute'), true);
+    'public.fn_student_signup(uuid, text, text, text, text, date, text, uuid, text, text, text, smallint, text, text, text, boolean, text, boolean, boolean, boolean, boolean, boolean)', 'execute'), true);
 
 do $$ begin raise notice '=== b2b-school-signup.spec: 전체 통과 ==='; end $$;
 

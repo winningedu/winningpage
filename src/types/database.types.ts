@@ -9879,9 +9879,10 @@ export type Database = {
       };
       fn_student_signup: {
         Args: {
-          p_agree_db_transfer: boolean;
+          p_agree_db_transfer?: boolean;
           p_agree_marketing: boolean;
           p_agree_privacy: boolean;
+          p_agree_privacy_additional?: boolean;
           p_agree_service: boolean;
           p_birth_date: string;
           p_class_name: string;

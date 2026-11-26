@@ -138,8 +138,8 @@ export default defineHandler({
         p_identity_request_id: input.identityRequestId,
         p_agree_service: input.agreeService,
         p_agree_privacy: input.agreePrivacy,
-        p_agree_db_transfer: input.agreeDbTransfer,
         p_agree_marketing: input.agreeMarketing,
+        p_agree_privacy_additional: input.agreePrivacyAdditional,
       },
     );
     if (signupError) {
