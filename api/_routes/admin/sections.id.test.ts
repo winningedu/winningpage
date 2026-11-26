@@ -1,19 +1,19 @@
 // GET, PATCH, DELETE /api/admin/sections/:key/:id 계약 검증.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { SECTIONS } from "../../../../_lib/admin-sections/registry.js";
+import { SECTIONS } from "../../_lib/admin-sections/registry.js";
 import {
   createSectionAdmin,
   createSectionDb,
   type SectionDb,
   seedAdmin,
-} from "../../../../_lib/admin-sections/sectionTestKit.js";
-import { createFakeStorage } from "../../../../_lib/admin-uploads/storageTestKit.js";
+} from "../../_lib/admin-sections/sectionTestKit.js";
+import { createFakeStorage } from "../../_lib/admin-uploads/storageTestKit.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
@@ -21,7 +21,8 @@ const kit = vi.hoisted(() => ({
   fake: null as unknown as { storage: unknown },
 }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => ({
     ...createSectionAdmin(kit.state, kit.db),
@@ -29,10 +30,12 @@ vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
   }),
 }));
 
-import handler from "./[id].js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/sections/:key/:id" };
 
 const call = (method: string, key: string, id: string, body?: unknown) =>
-  callHandler(handler, body, method, { key, id });
+  callRoute(handler, { method: method, query: { key, id }, body: body });
 
 beforeEach(() => {
   kit.state = createKitState();

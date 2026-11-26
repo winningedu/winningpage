@@ -1,19 +1,20 @@
 // GET, POST /api/admin/sections/:key 계약 검증.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { SECTIONS } from "../../../_lib/admin-sections/registry.js";
+import { sectionListSchema } from "../../../shared/sections/contract.js";
+import { SECTIONS } from "../../_lib/admin-sections/registry.js";
 import {
   createSectionAdmin,
   createSectionDb,
   type SectionDb,
   seedAdmin,
-} from "../../../_lib/admin-sections/sectionTestKit.js";
-import { createFakeStorage } from "../../../_lib/admin-uploads/storageTestKit.js";
+} from "../../_lib/admin-sections/sectionTestKit.js";
+import { createFakeStorage } from "../../_lib/admin-uploads/storageTestKit.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
@@ -21,7 +22,8 @@ const kit = vi.hoisted(() => ({
   fake: null as unknown as { storage: unknown },
 }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => ({
     ...createSectionAdmin(kit.state, kit.db),
@@ -29,10 +31,12 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   }),
 }));
 
-import handler from "./[key].js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/sections/:key" };
 
 const get = (query: Record<string, string>) =>
-  callHandler(handler, undefined, "GET", query);
+  callRoute(handler, { method: "GET", query: query });
 
 const rows = (count: number) =>
   Array.from({ length: count }, (_, i) => ({
@@ -148,7 +152,7 @@ describe("GET /api/admin/sections/:key", () => {
 });
 
 const post = (key: string, body: unknown) =>
-  callHandler(handler, body, "POST", { key });
+  callRoute(handler, { method: "POST", query: { key }, body: body });
 
 describe("POST /api/admin/sections/:key", () => {
   test("등록하면 201 과 저장된 행을 돌려주고 보호 컬럼과 목록 전용 키는 뗀다", async () => {
@@ -370,5 +374,21 @@ describe("POST /api/admin/sections/:key", () => {
     const r = await post("faqs", { values: { question: "q" } });
     expect(r.status).toBe(500);
     expect(JSON.stringify(r.body)).not.toContain("secret_col");
+  });
+});
+
+describe("계약", () => {
+  test("목록 응답은 계약 스키마를 통과하고 캐시하지 않는다", async () => {
+    seedAdmin(kit.state, "view", "faqs");
+    kit.db.tables.faqs = [{ id: "f1", question: "q" }];
+
+    const r = await get({ key: "faqs" });
+
+    expect(r.status).toBe(200);
+    expect(sectionListSchema.parse(r.body)).toEqual({
+      items: [{ id: "f1", question: "q" }],
+      total: 1,
+    });
+    expect(r.headers["cache-control"]).toBe("no-store");
   });
 });

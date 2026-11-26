@@ -3,14 +3,17 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
+import { UPLOAD_ERROR } from "../../../shared/uploads/preview.js";
 import type { SectionEntry } from "../admin-sections/registry.js";
 import { RouteParamError } from "../handler.js";
+import { ProblemError } from "../hono/problem.js";
 import {
   destinationPath,
   PUBLIC_BUCKET,
   parseTempName,
   sendUploadExpired,
   TMP_BUCKET,
+  UPLOAD_EXPIRED_MESSAGE,
   validateUpload,
 } from "./tmp.js";
 
@@ -130,5 +133,23 @@ export async function promoteForWrite<T>(
     if (!(error instanceof UploadExpiredError)) throw error;
     sendUploadExpired(res);
     return null;
+  }
+}
+
+/** sendUploadExpired 의 Hono 판. 던지면 409 UPLOAD_EXPIRED 가 된다(섹션 저장, 업로드 미리보기). */
+export const uploadExpired = () =>
+  new ProblemError(409, UPLOAD_EXPIRED_MESSAGE, UPLOAD_ERROR.UPLOAD_EXPIRED);
+
+/** promoteForWrite 의 Hono 판: 만료면 409 UPLOAD_EXPIRED 를 던지고, 아니면 바뀐 payload 를 돌려준다. 쓰기 쿼리 전에 불러 만료 때 DB 를 건드리지 않는다. */
+export async function promoteForSave<T>(
+  admin: SupabaseClient,
+  entry: Pick<SectionEntry, "uploads">,
+  payload: T,
+): Promise<T> {
+  try {
+    return await promoteTempUploads(admin, entry, payload);
+  } catch (error) {
+    if (error instanceof UploadExpiredError) throw uploadExpired();
+    throw error;
   }
 }

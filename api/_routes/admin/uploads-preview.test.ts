@@ -1,26 +1,28 @@
 // POST /api/admin/uploads/preview 계약 검증: 임시 객체의 읽기 URL.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { uploadPreviewSchema } from "../../../shared/uploads/preview.js";
 import {
   createSectionAdmin,
   createSectionDb,
   seedAdmin,
-} from "../../../_lib/admin-sections/sectionTestKit.js";
-import { createFakeStorage } from "../../../_lib/admin-uploads/storageTestKit.js";
+} from "../../_lib/admin-sections/sectionTestKit.js";
+import { createFakeStorage } from "../../_lib/admin-uploads/storageTestKit.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   fake: null as unknown as ReturnType<
-    typeof import("../../../_lib/admin-uploads/storageTestKit.js").createFakeStorage
+    typeof import("../../_lib/admin-uploads/storageTestKit.js").createFakeStorage
   >,
 }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => ({
     ...createSectionAdmin(kit.state, createSectionDb({})),
@@ -28,11 +30,14 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   }),
 }));
 
-import handler from "./preview.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/uploads/preview" };
 
 const UUID = "123e4567-e89b-12d3-a456-426614174000";
 const NAME = `${UUID}.image_url.hero.png`;
-const post = (body: unknown) => callHandler(handler, body, "POST");
+const post = (body: unknown) =>
+  callRoute(handler, { method: "POST", body: body });
 
 beforeEach(() => {
   kit.state = createKitState();
@@ -106,5 +111,13 @@ describe("POST /api/admin/uploads/preview", () => {
     kit.fake.failures.push({ op: "createSignedUrl" });
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect((await post({ section: "banners", path: NAME })).status).toBe(500);
+  });
+});
+
+describe("계약", () => {
+  test("미리보기 응답은 계약 스키마를 통과한다", async () => {
+    const r = await post({ section: "banners", path: NAME });
+
+    expect(uploadPreviewSchema.safeParse(r.body).success).toBe(true);
   });
 });

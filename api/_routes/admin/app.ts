@@ -9,7 +9,9 @@ import { inquirySessions } from "./inquiry-sessions.js";
 import { knowledgeEval } from "./knowledge-eval.js";
 import { knowledgeItems } from "./knowledge-items.js";
 import { learningDiagnosis } from "./learning-diagnosis.js";
+import { sections } from "./sections.js";
 import { selfevalSessions } from "./selfeval-sessions.js";
+import { uploadsPreview } from "./uploads-preview.js";
 
 export const admin = createAdminApp()
   .route("/coupons", coupons)
@@ -19,4 +21,6 @@ export const admin = createAdminApp()
   .route("/knowledge-eval", knowledgeEval)
   .route("/knowledge-items", knowledgeItems)
   .route("/learning-diagnosis", learningDiagnosis)
-  .route("/selfeval-sessions", selfevalSessions);
+  .route("/sections", sections)
+  .route("/selfeval-sessions", selfevalSessions)
+  .route("/uploads", uploadsPreview);

@@ -1,32 +1,36 @@
 // GET /api/admin/sections/:key/export 계약 검증. 한 번에 1000행씩, 호출마다 범위 쿼리 하나.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { sectionExportSchema } from "../../../shared/sections/contract.js";
 import {
   createSectionAdmin,
   createSectionDb,
   type SectionDb,
   seedAdmin,
-} from "../../../../_lib/admin-sections/sectionTestKit.js";
+} from "../../_lib/admin-sections/sectionTestKit.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   db: null as unknown as SectionDb,
 }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createSectionAdmin(kit.state, kit.db),
 }));
 
-import handler from "./export.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/sections/:key/export" };
 
 const get = (query: Record<string, string>) =>
-  callHandler(handler, undefined, "GET", query);
+  callRoute(handler, { method: "GET", query: query });
 
 interface Body {
   items: { id: string }[];
@@ -130,5 +134,19 @@ describe("GET /api/admin/sections/:key/export", () => {
     kit.db.tables.admission_results = [];
     expect((await get({ key: "admissionResults" })).status).toBe(403);
     expect(kit.db.calls).toHaveLength(0);
+  });
+});
+
+describe("계약", () => {
+  test("내보내기 응답은 계약 스키마를 통과한다", async () => {
+    seedAdmin(kit.state, "view", "admissionResults");
+    kit.db.tables.admission_results = [{ id: "r1", result_year: 2026 }];
+
+    const r = await get({ key: "admissionResults" });
+
+    expect(sectionExportSchema.parse(r.body)).toEqual({
+      items: [{ id: "r1", result_year: 2026 }],
+      next: null,
+    });
   });
 });

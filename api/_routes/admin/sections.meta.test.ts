@@ -6,27 +6,30 @@ import {
   createSectionDb,
   type SectionDb,
   seedAdmin,
-} from "../../../../../_lib/admin-sections/sectionTestKit.js";
+} from "../../_lib/admin-sections/sectionTestKit.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
-} from "../../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   db: null as unknown as SectionDb,
 }));
 
-vi.mock("../../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createSectionAdmin(kit.state, kit.db),
 }));
 
-import handler from "./meta.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/sections/:key/:id/meta" };
 
 const patch = (key: string, id: string, body: unknown) =>
-  callHandler(handler, body, "PATCH", { key, id });
+  callRoute(handler, { method: "PATCH", query: { key, id }, body: body });
 
 beforeEach(() => {
   kit.state = createKitState();

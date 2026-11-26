@@ -43,14 +43,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/members/[id]/services": () =>
     import("./admin/members/[id]/services.js"),
   "admin/members/[id]/links": () => import("./admin/members/[id]/links.js"),
-  "admin/sections/[key]": () => import("./admin/sections/[key].js"),
-  "admin/sections/[key]/[id]": () => import("./admin/sections/[key]/[id].js"),
-  "admin/sections/[key]/[id]/meta": () =>
-    import("./admin/sections/[key]/[id]/meta.js"),
-  "admin/sections/[key]/[id]/reviewed": () =>
-    import("./admin/sections/[key]/[id]/reviewed.js"),
-  "admin/sections/[key]/export": () =>
-    import("./admin/sections/[key]/export.js"),
   "admin/selfeval-grant": () => import("./admin/selfeval-grant.js"),
   "admin/selfeval-recover": () => import("./admin/selfeval-recover.js"),
   "admin/premium-book/pages": () => import("./admin/premium-book/pages.js"),
@@ -89,7 +81,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/tenants/student-usage": () =>
     import("./admin/tenants/student-usage.js"),
   "admin/uploads": () => import("./admin/uploads.js"),
-  "admin/uploads/preview": () => import("./admin/uploads/preview.js"),
   "admin/web-analytics": () => import("./admin/web-analytics.js"),
   "auth/login": () => import("./auth/login.js"),
   "auth/teacher-reset-password": () =>

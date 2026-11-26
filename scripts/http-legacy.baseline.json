@@ -162,21 +162,6 @@
   "api/_routes/admin/roles/[id]/permissions.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/sections/[key].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/sections/[key]/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/sections/[key]/[id]/meta.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/sections/[key]/[id]/reviewed.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/sections/[key]/export.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/selfeval-grant.ts": {
     "legacyHandler": 1
   },
@@ -239,9 +224,6 @@
   },
   "api/_routes/admin/uploads.ts": {
     "legacyHandler": 2
-  },
-  "api/_routes/admin/uploads/preview.ts": {
-    "legacyHandler": 1
   },
   "api/_routes/admin/web-analytics.ts": {
     "legacyHandler": 1
