@@ -44,7 +44,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/inquiry-sessions/[id]": () =>
     import("./admin/inquiry-sessions/[id].js"),
   "admin/me/permissions": () => import("./admin/me/permissions.js"),
-  "admin/knowledge-bulk": () => import("./admin/knowledge-bulk.js"),
   "admin/knowledge-items/titles": () =>
     import("./admin/knowledge-items/titles.js"),
   "admin/knowledge-eval/queries": () =>

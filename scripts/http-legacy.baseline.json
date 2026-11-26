@@ -81,12 +81,6 @@
   "api/_routes/admin/inquiry-sessions/[id].ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/knowledge-bulk.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-dedupe.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/knowledge-eval.ts": {
     "legacyHandler": 1
   },
@@ -97,9 +91,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/knowledge-items/titles.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-search.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/learning-diagnosis/options.ts": {

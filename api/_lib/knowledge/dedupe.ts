@@ -1,6 +1,29 @@
 // 수행평가 지식 DB 중복 감지 순수 함수. 브라우저(엑셀 업로드 미리보기)와
 // 서버(api/_routes/admin/knowledge-dedupe.ts)가 이 파일 하나를 같이 import 해
 // 정규화 규칙이 두 벌로 갈라지지 않게 한다. 그래서 node 전용 모듈을 쓰지 않는다.
+// 한도, 필드 목록, 요청과 응답의 모양은 shared/knowledge/contract.ts 가 정하고 여기서 다시 내보낸다.
+
+import {
+  BULK_KNOWLEDGE_TYPES,
+  type BulkKnowledgeType,
+  type DedupeItem,
+  type DedupeResult,
+  KNOWLEDGE_TEXT_FIELDS,
+  type KnowledgeTextField,
+  MAX_DEDUPE_ITEMS,
+  type NearMatch,
+} from "../../../shared/knowledge/contract.js";
+
+export {
+  BULK_KNOWLEDGE_TYPES,
+  type BulkKnowledgeType,
+  type DedupeItem,
+  type DedupeResult,
+  KNOWLEDGE_TEXT_FIELDS,
+  type KnowledgeTextField,
+  MAX_DEDUPE_ITEMS,
+  type NearMatch,
+};
 
 function normalizeText(value: string): string {
   return value
@@ -64,40 +87,11 @@ export async function matchExactDuplicates<
   return results;
 }
 
-/** 일괄 등록 대상 knowledge_type. admin-embed 의 RAG_KNOWLEDGE_TYPES 와 같은 2종이다. */
-export const BULK_KNOWLEDGE_TYPES = [
-  "topic_pattern",
-  "verified_resource",
-] as const;
-export type BulkKnowledgeType = (typeof BULK_KNOWLEDGE_TYPES)[number];
-
 export function isBulkKnowledgeType(
   value: unknown,
 ): value is BulkKnowledgeType {
   return (BULK_KNOWLEDGE_TYPES as readonly unknown[]).includes(value);
 }
-
-/** 근사 비교가 행마다 임베딩을 1회 호출하므로 요청 한 번의 상한을 둔다. */
-export const MAX_DEDUPE_ITEMS = 200;
-
-/** 검색 텍스트 공식(buildKnowledgeSearchText)이 읽는 본문 필드. */
-export const KNOWLEDGE_TEXT_FIELDS = [
-  "grade",
-  "subject",
-  "career_field",
-  "title",
-  "content",
-  "source",
-  "source_link",
-  "keywords",
-  "memo",
-] as const;
-export type KnowledgeTextField = (typeof KNOWLEDGE_TEXT_FIELDS)[number];
-
-export type DedupeItem = { rowNo: number; id?: string } & Record<
-  KnowledgeTextField,
-  string
->;
 
 export type DedupeBody = {
   knowledgeType: BulkKnowledgeType;
@@ -146,14 +140,6 @@ export function validateDedupeBody(
  * 근거: 2026 RAG 중복 감지 관행(정확 해시 1차, 임베딩 0.95 2차), 검토 문서 2026-10-07.
  */
 export const KNOWLEDGE_NEAR_DUPLICATE_THRESHOLD = 0.95;
-
-export type NearMatch = { id: string; title: string; similarity: number };
-
-export type DedupeResult = {
-  rowNo: number;
-  exact: Array<{ id: string; title: string }>;
-  near: NearMatch[];
-};
 
 export type DedupeDeps = {
   /** 같은 knowledge_type 의 기존 행 전체(title, content 만). */
