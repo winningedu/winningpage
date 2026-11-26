@@ -7,6 +7,22 @@ const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
 vi.mock("@/lib/supabase", () => ({
   supabase: { auth: { getSession: mocks.getSession } },
 }));
+const siteState = vi.hoisted(() => ({ teacherTerms: true }));
+vi.mock("@/config/site", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    site: {
+      ...actual.site,
+      features: {
+        ...actual.site.features,
+        get teacherTerms() {
+          return siteState.teacherTerms;
+        },
+      },
+    },
+  };
+});
 
 import ConsoleGate from "./ConsoleGate";
 import MyPage from "./MyPage";
@@ -33,6 +49,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  siteState.teacherTerms = true;
 });
 
 describe("MyPage", () => {
@@ -72,5 +89,26 @@ describe("MyPage", () => {
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("비밀번호 변경")).toBeTruthy();
+  });
+
+  it("스쿨멘토는 교사, 기관관리자 이용약관 열람 링크를 보여 준다", async () => {
+    stubApi({ "GET /api/console/me": { body: homeroomMe } });
+    renderRoutes(routes, "/teacher/my");
+
+    const link = await screen.findByRole("link", {
+      name: "교사, 기관관리자 이용약관",
+    });
+    expect(link.getAttribute("href")).toBe("/terms/teacher/service");
+  });
+
+  it("교사 약관이 없는 사이트는 링크를 그리지 않는다", async () => {
+    siteState.teacherTerms = false;
+    stubApi({ "GET /api/console/me": { body: homeroomMe } });
+    renderRoutes(routes, "/teacher/my");
+
+    await screen.findByRole("button", { name: "비밀번호 변경" });
+    expect(
+      screen.queryByRole("link", { name: "교사, 기관관리자 이용약관" }),
+    ).toBeNull();
   });
 });
