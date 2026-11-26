@@ -11,6 +11,7 @@
 //    깨진 전례가 있다.
 // ---------------------------------------------------------------------------
 
+import type { AccessLogWriteInput } from "../../shared/access-log/contract.js";
 import { ApiError, api } from "./http/client";
 import { supabase } from "./supabase";
 
@@ -98,15 +99,14 @@ export async function writeAdminAccessLog(
 
   try {
     // 본인 id 와 이메일은 서버가 토큰에서 채운다. 보내지 않는다.
-    await api.post("admin/access-logs", {
-      json: {
-        action: entry.action,
-        resourceKey: entry.resourceKey,
-        reason,
-        ...(entry.rowCount !== undefined ? { rowCount: entry.rowCount } : {}),
-        ...(entry.targetId !== undefined ? { targetId: entry.targetId } : {}),
-      },
-    });
+    const body: AccessLogWriteInput = {
+      action: entry.action,
+      resourceKey: entry.resourceKey,
+      reason,
+      ...(entry.rowCount !== undefined ? { rowCount: entry.rowCount } : {}),
+      ...(entry.targetId !== undefined ? { targetId: entry.targetId } : {}),
+    };
+    await api.post("admin/access-logs", { json: body });
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       return {

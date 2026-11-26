@@ -1,3 +1,6 @@
+// /api/admin/send-message 아래 문자 발송 라우트. 관리자 앱(api/_routes/admin/app.ts)이 .route("/send-message", sendMessage) 로 붙인다.
+// 요청 검증과 응답 모양은 shared/send-message/contract.ts 를 따른다.
+//
 // POST /api/admin/send-message
 // Authorization: Bearer <supabase access token>
 //
@@ -13,8 +16,7 @@
 // 권한
 //   회원 정보를 보고 그 사람에게 연락하는 행위라 메뉴 키는 'members' 다.
 //   POST 라 edit 을 요구한다. 읽기 전용(view) 관리자가 고객에게 문자를 보낼 수는
-//   없어야 한다. 관리자 판정, 메뉴 권한, QA 계정 쓰기 차단은 defineHandler 의
-//   auth:"admin" 과 permission 옵션이 한다.
+//   없어야 한다. 관리자 판정, 메뉴 권한, QA 계정 쓰기 차단은 admin() 가드가 한다.
 //
 // 응답 규격
 //   200 { channel, logId }
@@ -23,44 +25,39 @@
 //   405 problem  POST 아님
 //   500 problem  발송 실패(SEND_FAILED)와 설정 누락
 
-import { z } from "zod";
-import { defineHandler } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import {
+  SEND_MESSAGE_ERROR,
+  type SendMessageResult,
+  sendMessageBody,
+} from "../../../shared/send-message/contract.js";
+import { admin } from "../../_lib/hono/admin.js";
+import { adminFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
+import { validate } from "../../_lib/hono/validate.js";
 import { sendPlainMessage } from "../../_lib/messaging/aligo.js";
 
-export const config = { runtime: "nodejs" };
-
-const bodySchema = z.object({
-  profileId: z.string().optional(),
-  phone: z.string().optional(),
-  text: z.string(),
-  subject: z.string().optional(),
-});
-
-export default defineHandler({
-  methods: ["POST"],
-  auth: "admin",
-  errorShape: "problem",
+const guard = admin({
   permission: { key: "members" },
   unhandledMessage: "문자 발송 처리 중 오류가 발생했습니다.",
   logLabel: "admin/send-message",
-  body: bodySchema,
-  handler: async (_req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const actorId = ctx.userId as string;
-    const body = ctx.body;
+});
+
+export const sendMessage = adminFactory
+  .createApp()
+  .post("/", guard, validate("json", sendMessageBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const actorId = c.var.userId as string;
+    const body = c.req.valid("json");
 
     const profileId = (body.profileId ?? "").trim() || null;
     const text = body.text.trim();
     let phone = (body.phone ?? "").replace(/[^0-9]/g, "");
 
     if (!text) {
-      return void sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         400,
         "보낼 내용을 입력해 주세요.",
-        "TEXT_REQUIRED",
+        SEND_MESSAGE_ERROR.TEXT_REQUIRED,
       );
     }
 
@@ -76,12 +73,10 @@ export default defineHandler({
     }
 
     if (!phone) {
-      return void sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         400,
         "수신자 연락처가 없습니다.",
-        "RECIPIENT_REQUIRED",
+        SEND_MESSAGE_ERROR.RECIPIENT_REQUIRED,
       );
     }
 
@@ -120,19 +115,17 @@ export default defineHandler({
       .select("id")
       .maybeSingle();
 
-    if (!ok) {
-      return void sendError(
-        res,
-        "problem",
+    if (!ok || !result) {
+      throw new ProblemError(
         500,
         `발송 실패: ${thrown || result?.providerMessage || "알 수 없는 오류"}`,
-        "SEND_FAILED",
+        SEND_MESSAGE_ERROR.SEND_FAILED,
       );
     }
 
-    return void res.status(200).json({
-      channel: result?.channel,
+    return c.json({
+      channel: result.channel,
       logId: (inserted?.id as number) ?? null,
-    });
-  },
-});
+    } satisfies SendMessageResult);
+  })
+  .all("/", methodNotAllowed("POST"));

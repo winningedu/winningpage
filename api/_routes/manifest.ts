@@ -2,7 +2,6 @@ import type { RouteLoader } from "./dispatch.js";
 
 // 라우트 키(/api/ 뒤 경로)별 핸들러 지연 로더. 정적 문자열 지정자여야 Vercel 파일 추적기가 따라간다.
 export const routes: Record<string, RouteLoader> = {
-  "admin/access-logs": () => import("./admin/access-logs.js"),
   "admin/me/activate": () => import("./admin/me/activate.js"),
   "admin/admission/active-year": () =>
     import("./admin/admission/active-year.js"),
@@ -50,7 +49,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/inquiry-sessions": () => import("./admin/inquiry-sessions.js"),
   "admin/inquiry-sessions/[id]": () =>
     import("./admin/inquiry-sessions/[id].js"),
-  "admin/invite-member": () => import("./admin/invite-member.js"),
   "admin/me/permissions": () => import("./admin/me/permissions.js"),
   "admin/knowledge-bulk": () => import("./admin/knowledge-bulk.js"),
   "admin/knowledge-items/titles": () =>
@@ -91,7 +89,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/roles/[id]": () => import("./admin/roles/[id].js"),
   "admin/roles/[id]/permissions": () =>
     import("./admin/roles/[id]/permissions.js"),
-  "admin/send-message": () => import("./admin/send-message.js"),
   "admin/service-credit-adjust": () =>
     import("./admin/service-credit-adjust.js"),
   "admin/service-credit-summary": () =>
@@ -101,7 +98,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/staff/[profileId]/permissions": () =>
     import("./admin/staff/[profileId]/permissions.js"),
   "admin/students/search": () => import("./admin/students/search.js"),
-  "admin/tenant-options": () => import("./admin/tenant-options.js"),
   "admin/tenants": () => import("./admin/tenants.js"),
   "admin/tenants/[id]": () => import("./admin/tenants/[id].js"),
   "admin/tenants/member-purge": () => import("./admin/tenants/member-purge.js"),
@@ -118,7 +114,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/tenants/student-usage.js"),
   "admin/uploads": () => import("./admin/uploads.js"),
   "admin/uploads/preview": () => import("./admin/uploads/preview.js"),
-  "admin/web-analytics": () => import("./admin/web-analytics.js"),
   "auth/login": () => import("./auth/login.js"),
   "auth/teacher-reset-password": () =>
     import("./auth/teacher-reset-password.js"),

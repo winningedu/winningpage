@@ -1,45 +1,19 @@
 // 개인정보 접근 로그 화면의 데이터 호출. teachers 가 클라이언트에 막혀 있어 /api/admin/access-logs 로만 읽는다.
 
 import { queryOptions } from "@tanstack/react-query";
-import { z } from "zod";
 import { api } from "@/lib/http/client";
 import { addDaysYmd, dayStartUtc } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
+import {
+  type AccessLogKind,
+  accessLogPageSchema,
+} from "../../../../shared/access-log/contract.js";
 
-export type AccessLogKind =
-  | "view"
-  | "edit"
-  | "create"
-  | "delete"
-  | "export"
-  | "proxy";
-
-const accessLogEntrySchema = z.object({
-  id: z.string(),
-  createdAt: z.string(),
-  tenantCode: z.string().nullable(),
-  actorName: z.string().nullable(),
-  actorEmail: z.string().nullable(),
-  reason: z.string().nullable(),
-  teacherName: z.string().nullable(),
-  teacherLoginId: z.string().nullable(),
-  teacherPhone: z.string().nullable(),
-  kind: z.enum(["view", "edit", "create", "delete", "export", "proxy"]),
-  kindLabel: z.string(),
-  targetStudentName: z.string().nullable(),
-  content: z.string(),
-  isProxy: z.boolean(),
-});
-
-export type AccessLogEntry = z.infer<typeof accessLogEntrySchema>;
-
-const accessLogPageSchema = z.object({
-  items: z.array(accessLogEntrySchema),
-  page: z.number(),
-  hasNext: z.boolean(),
-});
-
-export type AccessLogPage = z.infer<typeof accessLogPageSchema>;
+export type {
+  AccessLogEntry,
+  AccessLogKind,
+  AccessLogPage,
+} from "../../../../shared/access-log/contract.js";
 
 export interface AccessLogFilter {
   tenantCode: string;
