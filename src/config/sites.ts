@@ -21,6 +21,8 @@ export interface SiteConfig {
   manifest: string;
   // 서비스 소개 화면의 브라우저 목업 주소창에 보일 사이트 주소.
   homeUrl: string;
+  // index.html의 meta description과 Open Graph 값. og:url과 og:image 절대 주소는 homeUrl에서 만든다.
+  seo: { description: string; ogImage: string };
   // 칼럼 게시판의 사용자 노출 이름(제목, 홈 링크, 빈 안내).
   columnTitle: string;
   // 홈 칼럼 섹션의 제목. 게시판 이름(columnTitle)과 다를 수 있다.
@@ -116,6 +118,11 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     },
     manifest: "/site.webmanifest",
     homeUrl: "https://www.winningedu.com",
+    seo: {
+      description:
+        "위닝에듀는 학습진단, 목표관리, 수행평가, 성장설계, 자기평가, 심화탐구와 1:1 콜멘토링, 프리미엄 입시 컨설팅을 제공합니다. 데이터와 실적으로 증명하는 대한민국 대표 입시 컨설팅 플랫폼입니다.",
+      ogImage: "/images/og/og-winning.png",
+    },
     columnTitle: "교육칼럼",
     homeColumnTitle: "칼럼-교육청소식",
     news: {
@@ -179,6 +186,11 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     },
     manifest: "/schoolmentor/site.webmanifest",
     homeUrl: "https://www.schoolmentor.kr",
+    seo: {
+      description:
+        "스쿨멘토는 학습진단, 목표관리, 수행평가, 성장설계, 자기평가, 심화탐구를 한곳에서 제공하는 학습 플랫폼입니다. 학생 한 명, 한 명의 가능성을 데이터와 전문성으로 증명합니다.",
+      ogImage: "/images/og/og-schoolmentor.png",
+    },
     columnTitle: "칼럼-교육청소식",
     homeColumnTitle: "칼럼-교육청소식",
     boardEmpty: "작성된 글이 없어요",
