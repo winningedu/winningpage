@@ -7,6 +7,10 @@ import {
   getSubjectOptions,
   SUBJECT_GROUPS,
 } from "@/data/performanceCurriculum";
+import {
+  PREVIOUS_TOPIC_MAX_LENGTH,
+  splitPreviousTopics,
+} from "../../../../api/_lib/performance/previous-topics.js";
 
 // STEP1 기본 정보 입력 폼 — docs/수행평가-상세-명세.md §5.5(`3754:3206`) 단정 전문.
 //
@@ -52,7 +56,6 @@ const CUSTOM_SUBJECT_SENTINEL = "직접 입력";
 // 일관되게 상한을 둔다(과설계 방지를 위해 넉넉한 값). 잘라내기가 아니라 네이티브
 // `maxLength`로 입력 자체를 막는다(초과 시 잘림 금지 — QA 지적).
 const CUSTOM_SUBJECT_MAX_LENGTH = 20;
-const PREVIOUS_TOPIC_MAX_LENGTH = 40;
 const CAREER_GOAL_MAX_LENGTH = 20;
 
 const REQUIRED_LABEL_CLASS = "text-performance-required";
@@ -89,7 +92,6 @@ type BasicInfoFormValues = {
   subjectGroup: string;
   subject: string;
   customSubject: string;
-  previousTopic: string;
   careerGoal: string;
 };
 
@@ -99,7 +101,6 @@ const EMPTY_VALUES: BasicInfoFormValues = {
   subjectGroup: "",
   subject: "",
   customSubject: "",
-  previousTopic: "",
   careerGoal: "",
 };
 
@@ -137,7 +138,10 @@ type BasicInfoFormSubmitValues = {
 
 type BasicInfoFormProps = {
   /** 부분 초기값(P13 재방문 복원이 채운다). 생략하면 빈 폼. */
-  initialValues?: Partial<BasicInfoFormValues>;
+  initialValues?: Partial<BasicInfoFormValues> & {
+    /** 줄바꿈으로 이은 이전 주제(저장 형식). 줄마다 입력칸이 하나씩 생긴다. */
+    previousTopic?: string;
+  };
   /** 검증 통과 후 호출. `subject`는 '직접 입력' 선택 시 이미 커스텀 텍스트로 치환된
    * 최종값이다. */
   onSubmit?: (values: BasicInfoFormSubmitValues) => void;
@@ -153,9 +157,17 @@ export default function BasicInfoForm({
   submitting = false,
   submitError = null,
 }: BasicInfoFormProps) {
+  const { previousTopic: initialPreviousTopic, ...initialRest } =
+    initialValues ?? {};
   const [values, setValues] = useState<BasicInfoFormValues>({
     ...EMPTY_VALUES,
-    ...initialValues,
+    ...initialRest,
+  });
+  // 이전 주제는 입력칸마다 한 항목이다. 저장 형식(줄바꿈으로 이은 문자열)과의 변환은
+  // `previous-topics.ts`가 맡는다.
+  const [previousTopics, setPreviousTopics] = useState<string[]>(() => {
+    const initial = splitPreviousTopics(initialPreviousTopic);
+    return initial.length > 0 ? initial : [""];
   });
   // 과목 옵션 갱신·값 초기화를 스크린리더에 알리는 sr-only aria-live 문구(WARN #3).
   const [subjectAnnouncement, setSubjectAnnouncement] = useState("");
@@ -224,7 +236,7 @@ export default function BasicInfoForm({
       semester: values.semester,
       subjectGroup: values.subjectGroup,
       subject: isSubjectCustom ? values.customSubject.trim() : values.subject,
-      previousTopic: values.previousTopic.trim(),
+      previousTopic: previousTopics.map((topic) => topic.trim()).join("\n"),
       careerGoal: values.careerGoal.trim(),
     });
   }
@@ -304,16 +316,32 @@ export default function BasicInfoForm({
         />
       )}
 
-      <TextField
-        label={optionalLabel("같은 과목에서 이전에 한 주제")}
-        name="previousTopic"
-        labelClassName={OPTIONAL_LABEL_CLASS}
-        size="perf"
-        value={values.previousTopic}
-        onChange={(value) => setField("previousTopic", value)}
-        placeholder="예: 항생제 내성, 조건부확률, 소설 속 인물 심리 분석"
-        maxLength={PREVIOUS_TOPIC_MAX_LENGTH}
-      />
+      <div className="flex flex-col gap-2">
+        {previousTopics.map((topic, index) => (
+          <TextField
+            // 입력칸은 순서만 있는 항목이라 인덱스가 곧 식별자다.
+            // biome-ignore lint/suspicious/noArrayIndexKey: 항목에 고유 id가 없다
+            key={index}
+            label={
+              index === 0
+                ? optionalLabel("같은 과목에서 이전에 한 주제")
+                : undefined
+            }
+            aria-label={index === 0 ? undefined : `이전에 한 주제 ${index + 1}`}
+            name={`previousTopic-${index + 1}`}
+            labelClassName={OPTIONAL_LABEL_CLASS}
+            size="perf"
+            value={topic}
+            onChange={(value) =>
+              setPreviousTopics((prev) =>
+                prev.map((item, i) => (i === index ? value : item)),
+              )
+            }
+            placeholder="예: 항생제 내성, 조건부확률, 소설 속 인물 심리 분석"
+            maxLength={PREVIOUS_TOPIC_MAX_LENGTH}
+          />
+        ))}
+      </div>
 
       <TextField
         label={asLabel(<RequiredLabel>희망 진로</RequiredLabel>)}
