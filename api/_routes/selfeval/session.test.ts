@@ -1,9 +1,9 @@
-// POST /api/selfeval/session 의 이용 게이트와 생성 전 한도 확인.
+// POST /api/selfeval/session 의 이용 게이트와 생성 전 한도 확인(Hono 라우트를 루트 앱으로 부른다).
 // 스쿨멘토는 기관 상태로 막고 tenantReason 을 싣는다. 위닝 응답에는 tenantReason 이 없다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createFakeDb,
   createFakeSupabase,
   type FakeDb,
@@ -16,14 +16,23 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => state.db,
 }));
-vi.mock("../../_lib/selfeval/sessionBody.js", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("../../_lib/selfeval/sessionBody.js")
-  >()),
-  validateSessionCreateBody: () => ({ ok: true, input: {} }),
-}));
 
-import handler from "./session.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/selfeval/session" };
+
+const CREATE_BODY = {
+  action: "create",
+  academicYear: 2026,
+  gradeLabel: "고2",
+  semester: 1,
+  area: "subject",
+  subject: "생명과학",
+  targetChars: 500,
+  targetCharsMode: "with_space",
+  career: { career: null, department: null, universities: [] },
+  growthApplied: false,
+};
 
 let db: FakeDb;
 
@@ -65,14 +74,12 @@ function setup(row: Record<string, unknown> = tenantRow()) {
   state.db = supabase;
 }
 
-const create = () =>
-  callHandler(
-    handler as never,
-    { action: "create" },
-    { authorization: "Bearer t" },
-  );
+const create = () => callRoute(route, { method: "POST", body: CREATE_BODY });
 
-beforeEach(() => vi.spyOn(console, "warn").mockImplementation(() => {}));
+beforeEach(() => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(console, "log").mockImplementation(() => {});
+});
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -84,10 +91,8 @@ describe("selfeval/session 위닝", () => {
     setup();
     const res = await create();
     expect(res.status).toBe(403);
-    expect(res.body).toMatchObject({
-      error: { code: "NO_ENTITLEMENT" },
-      ok: false,
-    });
+    expect(res.body).toMatchObject({ status: 403, code: "NO_ENTITLEMENT" });
+    expect(Object.keys(res.body as object)).not.toContain("ok");
     expect(Object.keys(res.body as object)).not.toContain("tenantReason");
   });
 });
@@ -102,8 +107,7 @@ describe("selfeval/session 스쿨멘토", () => {
       const res = await create();
       expect(res.status).toBe(403);
       expect(res.body).toMatchObject({
-        error: { code: "NO_ENTITLEMENT" },
-        ok: false,
+        code: "NO_ENTITLEMENT",
         tenantReason: reason,
       });
     },
@@ -119,8 +123,7 @@ describe("selfeval/session 스쿨멘토", () => {
       const res = await create();
       expect(res.status).toBe(409);
       expect(res.body).toMatchObject({
-        error: { code: "QUOTA_EXHAUSTED" },
-        ok: false,
+        code: "QUOTA_EXHAUSTED",
         tenantReason: reason,
       });
     },

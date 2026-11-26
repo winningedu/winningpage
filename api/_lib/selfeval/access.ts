@@ -2,6 +2,7 @@
 
 import type { VercelResponse } from "@vercel/node";
 import type { Db } from "../growth/intake/collectDb.js";
+import { ProblemError } from "../hono/problem.js";
 import { sendError } from "../httpResponse.js";
 import {
   findProgramAccessRow,
@@ -26,6 +27,16 @@ export function fail(
   extra: Record<string, unknown> = {},
 ) {
   sendError(res, "coded", status, message, code, { ok: false, ...extra });
+}
+
+/** Hono 라우트가 던지는 도메인 problem. 코드와 문구는 fail 과 같고 ok 는 싣지 않는다. extra 는 problem 확장 멤버다. */
+export function selfevalProblem(
+  status: number,
+  code: string,
+  message: string,
+  extra?: Record<string, unknown>,
+): ProblemError {
+  return new ProblemError(status, message, code, extra);
 }
 
 /** 진입 판정과 거부 사유. tenantReason 은 스쿨멘토에서만 채워진다. */

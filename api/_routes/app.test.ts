@@ -73,7 +73,10 @@ const destinationOf = (url: string) =>
   apiRewrites.find(({ pattern }) => pattern.test(url))?.destination;
 
 // maxDuration 이 있는 옮긴 경로. 없으면 /api/app 으로 간다(api/router-30, -60 과 같은 한도).
-const MIGRATED_30: string[] = [];
+const MIGRATED_30: string[] = [
+  "/api/selfeval/reports",
+  "/api/selfeval/session",
+];
 const MIGRATED_60: string[] = [];
 const entryFor = (pattern: string) =>
   MIGRATED_30.includes(pattern)
@@ -92,10 +95,10 @@ describe("vercel.json rewrite", () => {
     expect(misrouted).toEqual([]);
   });
 
-  test("안 옮긴 관리자 경로는 새 진입 함수로 가지 않는다", () => {
+  test("안 옮긴 관리자, 자기평가서 경로는 새 진입 함수로 가지 않는다", () => {
     const keys = [defaultRoutes, routes30, routes60]
       .flatMap((routes) => Object.keys(routes))
-      .filter((key) => key.startsWith("admin/"));
+      .filter((key) => key.startsWith("admin/") || key.startsWith("selfeval/"));
     const hijacked = keys
       .map((key) => `/api/${key.replace(/\[[A-Za-z]+\]/g, "1")}`)
       .filter((url) => destinationOf(url)?.startsWith("/api/app"));
@@ -108,6 +111,9 @@ describe("vercel.json rewrite", () => {
       "/api/admin/coupons/./user-search",
       "/api/admin/coupons/..",
       "/api/admin/./coupons",
+      "/api/selfeval/../session",
+      "/api/selfeval/./reports",
+      "/api/selfeval/reports/..",
     ];
     expect(
       dotted.filter((url) => destinationOf(url)?.startsWith("/api/app")),

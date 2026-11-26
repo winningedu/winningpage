@@ -6,7 +6,11 @@
       "destination": "/api/app"
     },
     {
-      "source": "/api/((?:admin/knowledge-search|selfeval/reports|selfeval/session)/?)",
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))selfeval/(?:reports|session)/?)",
+      "destination": "/api/app-30"
+    },
+    {
+      "source": "/api/((?:admin/knowledge-search)/?)",
       "destination": "/api/router-30"
     },
     {
