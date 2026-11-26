@@ -126,7 +126,11 @@ export default function CouponList() {
                   <TableHead
                     scope="col"
                     key={key}
-                    className="px-3 py-3 text-left font-semibold whitespace-normal"
+                    className={`px-3 py-3 font-semibold whitespace-normal ${
+                      key === "discount_amount" || key === "min_amount"
+                        ? "text-right"
+                        : "text-left"
+                    }`}
                   >
                     <FieldName k={key} />
                   </TableHead>
@@ -203,10 +207,10 @@ export default function CouponList() {
                             ? "선물"
                             : "할인"}
                       </TableCell>
-                      <TableCell className="px-3 py-3 whitespace-normal">
+                      <TableCell className="px-3 py-3 text-right whitespace-nowrap tabular-nums">
                         {moneyText(row.discount_amount)}
                       </TableCell>
-                      <TableCell className="px-3 py-3 whitespace-normal">
+                      <TableCell className="px-3 py-3 text-right whitespace-nowrap tabular-nums">
                         {moneyText(row.min_amount)}
                       </TableCell>
                       <TableCell className="px-3 py-3 whitespace-normal">
