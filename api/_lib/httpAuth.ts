@@ -19,7 +19,7 @@ export interface AuthedUser {
 
 /** Bearer 토큰 검증 → 유저. 실패 시 null. 401 응답은 defineHandler/호출부 책임. */
 export async function resolveUser(
-  req: VercelRequest,
+  req: Pick<VercelRequest, "headers">,
 ): Promise<AuthedUser | null> {
   const token = getBearerToken(req);
   if (!token) return null;
