@@ -1,7 +1,7 @@
 // GET /api/console/teachers/connect-preview 계약 검증(W14 학생 가입 연결 미리보기, 교 #119).
 // 학생 한 명의 이름, 학년, 그룹, 반, 번호로 가입 결과를 시험한다. 아무것도 쓰지 않는다.
 
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   callHandler,
   createFakeAdmin,
@@ -13,7 +13,8 @@ import {
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../_lib/supabaseAdmin.js")>()),
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
@@ -27,6 +28,7 @@ const T = "tenant-1";
 const BASE = { name: "김서연", grade: "고2", className: "3반", number: "12" };
 
 beforeEach(() => {
+  vi.stubEnv("SITE", "schoolmentor");
   kit.state = createKitState();
   kit.state.actor = schoolAdminActor();
   kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학교" });
@@ -83,7 +85,42 @@ beforeEach(() => {
     );
 });
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("GET /api/console/teachers/connect-preview", () => {
+  test("위닝 사이트는 번호를 쓰는 학생의 실명을 주고 별표를 붙이지 않는다", async () => {
+    vi.stubEnv("SITE", "winning");
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows(
+        ["s-kim", "s-han", "s-han2"].map((id, i) => ({
+          tenant_id: T,
+          school_year: 2026,
+          status: "active",
+          class_id: "c-3",
+          student_id: id,
+          number: i === 0 ? 5 : i === 1 ? 12 : null,
+        })),
+        f,
+      );
+    kit.state.rows.profiles = (f) =>
+      matchRows(
+        [
+          { id: "s-kim", name: "김서연" },
+          { id: "s-han", name: "한지우" },
+          { id: "s-han2", name: "한지우" },
+        ],
+        f,
+      );
+    const r = await get({ ...BASE, name: "정도윤" });
+
+    expect(r.body).toMatchObject({
+      result: "number_taken",
+      holderName: "한지우",
+    });
+  });
+
   test("같은 반에 같은 이름의 학생이 이미 있으면 이미 가입으로 알린다", async () => {
     const r = await get(BASE);
 

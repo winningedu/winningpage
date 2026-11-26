@@ -1,10 +1,18 @@
 // 학적 RPC 에러 코드를 코드가 붙은 HTTP 에러로 바꾸는 규칙 검증.
 
 import type { VercelResponse } from "@vercel/node";
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { sendEnrollmentRpcError } from "./enrollmentErrors.js";
 
 const SLOT = { grade: "고2", className: "3", number: 7 };
+
+// 가림은 사이트가 정한다. 가린 이름 검증은 스쿨멘토로 고정한다.
+beforeEach(() => {
+  vi.stubEnv("SITE", "schoolmentor");
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 function run(
   error: { code?: string; details?: string | null } | null,
@@ -131,6 +139,14 @@ describe("sendEnrollmentRpcError", () => {
     const result = run({ code: "WC077", details: "홍길동" }, SLOT, true);
     expect(result.body).toMatchObject({
       occupant: { displayName: "홍*동" },
+    });
+  });
+
+  test("WC077 shows the holder real name on the Winning site even when masking is requested", () => {
+    vi.stubEnv("SITE", "winning");
+    const result = run({ code: "WC077", details: "홍길동" }, SLOT, true);
+    expect(result.body).toMatchObject({
+      occupant: { displayName: "홍길동" },
     });
   });
 
