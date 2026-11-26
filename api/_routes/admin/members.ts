@@ -1,34 +1,42 @@
+// /api/admin/members 루트 경로. 관리자 앱(api/_routes/admin/app.ts)이 .route("/members", members) 로 붙인다.
+// 하위 경로(/:id 와 그 아래)는 아직 라우터가 받는다.
+//
 // GET /api/admin/members
 //
 // 회원 목록(profiles 전체 열, 최신순)에 이용서비스(program_access 중 active 의 program_key 를 ", " 로 이은 값)와
 // 소속 이름(tenants.name)을 얹어 돌려준다. 예전에는 브라우저가 세 표를 직접 읽었고 경계는 members 보기 권한이었다.
 // 목록 화면이 회원 수만큼 쿼리하지 않도록 program_access 와 tenants 는 한 번씩만 읽는다.
+// 응답 모양은 shared/member/contract.ts 를 따른다.
 
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
+import type { MembersList } from "../../../shared/member/contract.js";
+import { admin } from "../../_lib/hono/admin.js";
+import { adminFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
 import { canViewTenantNames } from "../../_lib/members/member.js";
 
-export const config = { runtime: "nodejs" };
-
-export default defineHandler({
-  methods: ["GET"],
-  auth: "admin",
-  errorShape: "problem",
+const guard = admin({
   permission: { key: "members" },
   unhandledMessage: "회원 목록을 불러오지 못했습니다.",
   logLabel: "[admin/members]",
-  headers: { "Cache-Control": "no-store" },
-  handler: async (_req, res, ctx) => {
-    const admin = ctx.supabaseAdmin;
+});
+
+export const members = adminFactory
+  .createApp()
+  .get("/", guard, async (c) => {
+    const supabase = c.var.supabaseAdmin;
     // tenants 보기 권한이 없으면 소속 이름은 null 이고 tenants 를 읽지 않는다.
-    const canViewTenants = await canViewTenantNames(admin, requireUserId(ctx));
+    const canViewTenants = await canViewTenantNames(
+      supabase,
+      c.var.userId as string,
+    );
     const [profiles, access, tenants] = await Promise.all([
-      admin
+      supabase
         .from("profiles")
         .select("*")
         .order("created_at", { ascending: false }),
-      admin.from("program_access").select("id, program_key, access_status"),
+      supabase.from("program_access").select("id, program_key, access_status"),
       canViewTenants
-        ? admin.from("tenants").select("id, name")
+        ? supabase.from("tenants").select("id, name")
         : Promise.resolve({
             data: [] as { id: string; name: string }[],
             error: null,
@@ -51,7 +59,7 @@ export default defineHandler({
       (tenants.data ?? []).map((t): [string, string] => [t.id, t.name]),
     );
 
-    res.status(200).json({
+    return c.json({
       items: (profiles.data ?? []).map((row) => ({
         ...row,
         service_labels: (servicesById.get(row.id) ?? []).join(", "),
@@ -61,6 +69,6 @@ export default defineHandler({
             : ""
           : null,
       })),
-    });
-  },
-});
+    } satisfies MembersList);
+  })
+  .all("/", methodNotAllowed("GET"));

@@ -2,7 +2,7 @@
 
 import { expect, test } from "vitest";
 import { formatValue } from "@/pages/admin/shared/csvExport";
-import { memberRowSchema } from "./api";
+import { memberRowSchema } from "../../../../shared/member/contract.js";
 
 test("tenant_name 이 null 이어도 행을 받고 빈 값과 같게 그려진다", () => {
   const row = memberRowSchema.parse({ id: "p-1", tenant_name: null });

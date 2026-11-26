@@ -14,6 +14,7 @@ import { inviteMember } from "./invite-member.js";
 import { knowledgeBulk } from "./knowledge-bulk.js";
 import { knowledgeDedupe } from "./knowledge-dedupe.js";
 import { knowledgeSearch } from "./knowledge-search.js";
+import { members } from "./members.js";
 import { mentorApplications } from "./mentor-applications.js";
 import { revenue } from "./revenue.js";
 import { selfevalGrant } from "./selfeval-grant.js";
@@ -45,4 +46,5 @@ export const admin = createAdminApp()
   .route("/knowledge-dedupe", knowledgeDedupe)
   .route("/knowledge-search", knowledgeSearch)
   .route("/mentor-applications", mentorApplications)
-  .route("/revenue", revenue);
+  .route("/revenue", revenue)
+  .route("/members", members);
