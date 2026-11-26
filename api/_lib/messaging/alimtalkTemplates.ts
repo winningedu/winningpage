@@ -189,7 +189,8 @@ ${v(vars, "학생명")} 학생의 ${v(vars, "N월")}월 월간 학습 리포트�
   /**
    * 성장설계 리포트 완료 안내(No.111). 수신자는 연결된 학부모.
    * 문안은 시안 651:4775 의 고정 문장을 옮겼다. 시안의 구성, 방향 일관성,
-   * 먼저 할 일 줄은 변수 계약(학생이름, 발행일, 링크)에 없어 넣지 않았다.
+   * 먼저 할 일 줄은 변수 계약(학생이름, 발행일, 학생ID, 리포트ID)에 없어 넣지 않았다.
+   * 버튼은 승인본 UO_3143 형식이다: 사이트 www 에 경로 변수 학생ID, 리포트ID.
    *
    * 카카오 템플릿 등록과 승인 전에는 발송이 실패 로그로 남는다.
    * ALIGO_TPL_GROWTH_REPORT_DONE 에 승인 코드가 들어가야 하고, 본문과 버튼은
@@ -212,8 +213,8 @@ ${v(vars, "학생이름")} 학생
       name: "성장설계 리포트 보기",
       linkType: "WL",
       linkTypeName: "웹링크",
-      linkMo: v(vars, "링크"),
-      linkPc: v(vars, "링크"),
+      linkMo: `${siteWww()}/mypage/children/${v(vars, "학생ID")}/growth/${v(vars, "리포트ID")}`,
+      linkPc: `${siteWww()}/mypage/children/${v(vars, "학생ID")}/growth/${v(vars, "리포트ID")}`,
     }),
   },
 } satisfies Record<string, AlimtalkTemplate>;
