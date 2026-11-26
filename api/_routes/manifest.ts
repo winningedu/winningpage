@@ -30,13 +30,11 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/mentor-applications/[id].js"),
   "admin/mentor-applications/[id]/proof-url": () =>
     import("./admin/mentor-applications/[id]/proof-url.js"),
-  "admin/growth-grant": () => import("./admin/growth-grant.js"),
   "admin/home-section-copy/[sectionKey]": () =>
     import("./admin/home-section-copy/[sectionKey].js"),
   "admin/hq-dashboard/summary": () => import("./admin/hq-dashboard/summary.js"),
   "admin/hq-dashboard/tenants": () => import("./admin/hq-dashboard/tenants.js"),
   "admin/hq-dashboard/usage": () => import("./admin/hq-dashboard/usage.js"),
-  "admin/growth-recover": () => import("./admin/growth-recover.js"),
   "admin/growth-reports": () => import("./admin/growth-reports.js"),
   "admin/growth-reports/[id]": () => import("./admin/growth-reports/[id].js"),
   "admin/hq-dashboard/logins": () => import("./admin/hq-dashboard/logins.js"),

@@ -48,12 +48,6 @@
   "api/_routes/admin/admission/results/rows.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/growth-grant.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/growth-recover.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/growth-reports.ts": {
     "legacyHandler": 1
   },
