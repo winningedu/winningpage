@@ -2,7 +2,11 @@
 
 import { z } from "zod";
 import { ApiError, api } from "@/lib/http/client";
-import type { buildGrantBody } from "./grantForm";
+import {
+  type InquiryGrantInput,
+  inquiryGrantResultSchema,
+  inquiryRecoverResultSchema,
+} from "../../../../shared/inquiry-ops/contract.js";
 import type { InquirySessionsParams } from "./query";
 import type { InquirySessionItem } from "./row";
 
@@ -50,9 +54,6 @@ const inquirySessionsPageSchema = z.object({
   pageSize: z.number(),
 });
 
-const grantSchema = z.object({ grantId: z.string(), quota: z.unknown() });
-const recoverSchema = z.object({ newSessionId: z.string() });
-
 export const inquirySessionKeys = {
   all: ["admin", "inquirySessions"] as const,
   list: (params: InquirySessionsParams) =>
@@ -86,14 +87,16 @@ export function fetchInquirySession(id: string, signal?: AbortSignal) {
     .json(inquirySessionSchema);
 }
 
-export function postInquiryGrant(body: ReturnType<typeof buildGrantBody>) {
-  return api.post("admin/inquiry-grant", { json: body }).json(grantSchema);
+export function postInquiryGrant(body: InquiryGrantInput) {
+  return api
+    .post("admin/inquiry-grant", { json: body })
+    .json(inquiryGrantResultSchema);
 }
 
 export function postInquiryRecover(sessionId: string) {
   return api
     .post("admin/inquiry-recover", { json: { sessionId } })
-    .json(recoverSchema);
+    .json(inquiryRecoverResultSchema);
 }
 
 /** 서버가 준 problem detail 을 그대로 보여주고, 응답을 읽지 못한 실패만 일반 문구로 대신한다. */

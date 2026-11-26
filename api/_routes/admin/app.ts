@@ -8,6 +8,8 @@ import { aiTelemetryPricing } from "./ai-telemetry-pricing.js";
 import { coupons } from "./coupons.js";
 import { growthGrant } from "./growth-grant.js";
 import { growthRecover } from "./growth-recover.js";
+import { inquiryGrant } from "./inquiry-grant.js";
+import { inquiryRecover } from "./inquiry-recover.js";
 import { inviteMember } from "./invite-member.js";
 import { sendMessage } from "./send-message.js";
 import { serviceCreditAdjust } from "./service-credit-adjust.js";
@@ -27,4 +29,6 @@ export const admin = createAdminApp()
   .route("/service-credit-adjust", serviceCreditAdjust)
   .route("/service-credit-summary", serviceCreditSummary)
   .route("/growth-grant", growthGrant)
-  .route("/growth-recover", growthRecover);
+  .route("/growth-recover", growthRecover)
+  .route("/inquiry-grant", inquiryGrant)
+  .route("/inquiry-recover", inquiryRecover);

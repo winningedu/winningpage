@@ -30,7 +30,10 @@ vi.mock("../../_lib/serviceAccess.js", async (importOriginal) => ({
   readQuotaSnapshot: vi.fn(async () => QUOTA),
 }));
 
-import handler from "./inquiry-grant.js";
+import { inquiryGrantResultSchema } from "../../../shared/inquiry-ops/contract.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/inquiry-grant" };
 
 const PROFILE = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 const GRANT_ID = "5b1e7f3c-2a10-4c55-9a52-0f6d1f8f9b11";
@@ -67,7 +70,7 @@ afterEach(() => {
 
 const BODY = { profileId: PROFILE, sessionQuota: 5 };
 const post = (body: unknown = BODY) =>
-  callRoute(handler, { method: "POST", body });
+  callRoute(route, { method: "POST", body });
 
 const GRANT_KEYS = [
   "granted_by",
@@ -88,8 +91,9 @@ describe("POST /api/admin/inquiry-grant", () => {
     const admin = setup();
     const r = await post();
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
     expect(r.body).toEqual({ grantId: GRANT_ID, quota: QUOTA });
+    expect(inquiryGrantResultSchema.safeParse(r.body).success).toBe(true);
     const row = argsOf(
       firstQuery(admin, "program_access_grants"),
       "insert",
@@ -241,9 +245,10 @@ describe("POST /api/admin/inquiry-grant", () => {
 
   test("GET 은 405 METHOD_NOT_ALLOWED 다", async () => {
     setup();
-    const r = await callRoute(handler, { method: "GET" });
+    const r = await callRoute(route, { method: "GET" });
     expect(r.status).toBe(405);
     expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
+    expect(r.headers.allow).toBe("POST");
   });
 
   test("insert 오류는 500 INTERNAL_ERROR 이고 문구는 그대로다", async () => {

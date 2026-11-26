@@ -75,12 +75,6 @@
   "api/_routes/admin/hq-dashboard/usage.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/inquiry-grant.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/inquiry-recover.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/inquiry-sessions.ts": {
     "legacyHandler": 1
   },
