@@ -17,11 +17,11 @@ vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+import { app } from "../app.js";
 import startProxy from "../console/proxy/start.js";
 import memberPurge from "./tenants/member-purge.js";
 import moveStudent from "./tenants/move-student.js";
 import schoolAdmin from "./tenants/school-admin.js";
-import { app } from "../app.js";
 
 const QA_BODY = {
   detail: "QA 계정이라 이 기능은 작동하지 않아요.",
