@@ -1,7 +1,7 @@
 // GET /api/admin/mentor-applications 계약 검증.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { mentorApplicationListSchema } from "../../../shared/mentor-application/contract.js";
+import { mentorApplicationListSchema } from "../../../shared/mentor-applications/contract.js";
 import {
   argsOf,
   callRoute,

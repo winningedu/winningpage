@@ -17,11 +17,13 @@ import { knowledgeSearch } from "./knowledge-search.js";
 import { members } from "./members.js";
 import { mentorApplications } from "./mentor-applications.js";
 import { revenue } from "./revenue.js";
+import { roles } from "./roles.js";
 import { selfevalGrant } from "./selfeval-grant.js";
 import { selfevalRecover } from "./selfeval-recover.js";
 import { sendMessage } from "./send-message.js";
 import { serviceCreditAdjust } from "./service-credit-adjust.js";
 import { serviceCreditSummary } from "./service-credit-summary.js";
+import { staff } from "./staff.js";
 import { tenantOptions } from "./tenant-options.js";
 import { webAnalytics } from "./web-analytics.js";
 
@@ -47,4 +49,6 @@ export const admin = createAdminApp()
   .route("/knowledge-search", knowledgeSearch)
   .route("/mentor-applications", mentorApplications)
   .route("/revenue", revenue)
-  .route("/members", members);
+  .route("/members", members)
+  .route("/staff", staff)
+  .route("/roles", roles);

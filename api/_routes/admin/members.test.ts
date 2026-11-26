@@ -1,7 +1,7 @@
 // GET /api/admin/members 계약 검증. 회원 목록과 파생 필드(이용서비스, 소속 이름).
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { membersListSchema } from "../../../shared/member/contract.js";
+import { membersListSchema } from "../../../shared/members/contract.js";
 import {
   createSectionAdmin,
   type SectionDb,

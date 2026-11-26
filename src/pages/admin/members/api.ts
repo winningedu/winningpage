@@ -7,7 +7,7 @@ import {
   type MemberRow,
   memberRowSchema,
   membersListSchema,
-} from "../../../../shared/member/contract.js";
+} from "../../../../shared/members/contract.js";
 
 const text = z.string().nullish();
 const linksSchema = z.object({

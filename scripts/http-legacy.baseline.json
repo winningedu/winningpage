@@ -156,9 +156,6 @@
   "api/_routes/admin/revenue/services.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/roles.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/roles/[id].ts": {
     "legacyHandler": 1
   },
@@ -184,9 +181,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/selfeval-sessions/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/staff.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/staff/[profileId].ts": {

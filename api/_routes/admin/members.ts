@@ -6,9 +6,9 @@
 // 회원 목록(profiles 전체 열, 최신순)에 이용서비스(program_access 중 active 의 program_key 를 ", " 로 이은 값)와
 // 소속 이름(tenants.name)을 얹어 돌려준다. 예전에는 브라우저가 세 표를 직접 읽었고 경계는 members 보기 권한이었다.
 // 목록 화면이 회원 수만큼 쿼리하지 않도록 program_access 와 tenants 는 한 번씩만 읽는다.
-// 응답 모양은 shared/member/contract.ts 를 따른다.
+// 응답 모양은 shared/members/contract.ts 를 따른다.
 
-import type { MembersList } from "../../../shared/member/contract.js";
+import type { MembersList } from "../../../shared/members/contract.js";
 import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
