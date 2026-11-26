@@ -3,7 +3,7 @@
 
 import type { Context, Handler, NotFoundHandler } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { PROBLEM_CONTENT_TYPE } from "../../../src/lib/http/problem.js";
+import { PROBLEM_CONTENT_TYPE } from "../../../shared/http/problem.js";
 import { problemBody } from "../httpResponse.js";
 
 /** 핸들러와 미들웨어가 던지면 onError(handleError)가 problem 응답으로 바꾼다. */

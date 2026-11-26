@@ -1,9 +1,9 @@
 // 브라우저 전용 HTTP 클라이언트. 재시도는 react-query가 맡으므로 ky retry 는 끈다.
 
 import ky, { isHTTPError, isNetworkError, isTimeoutError } from "ky";
+import { type Problem, problemSchema } from "../../../shared/http/problem.js";
 import { supabase } from "../supabase";
 import { browserTimeZone, isValidTimeZone } from "../time/zone";
-import { type Problem, problemSchema } from "./problem";
 
 /** 화면이 다루는 실패는 이 에러 하나뿐이다. status 가 null 이면 서버 응답이 없었다는 뜻이다. */
 export class ApiError extends Error {

@@ -16,7 +16,7 @@
 
 import { STATUS_CODES } from "node:http";
 import type { VercelResponse } from "@vercel/node";
-import { PROBLEM_CONTENT_TYPE } from "../../src/lib/http/problem.js";
+import { PROBLEM_CONTENT_TYPE } from "../../shared/http/problem.js";
 
 export type ErrorShape = "detail" | "okDetail" | "error" | "coded" | "problem";
 

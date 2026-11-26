@@ -7,6 +7,7 @@ Repo-specific facts and exceptions. General placement and naming rules live in t
 - Domain folders: `api/_lib/goal/`, `api/_lib/inquiry/`, `api/_lib/consult/`, `api/_lib/growth/`, `api/_lib/selfeval/`, `api/_lib/diagnosis/`, `api/_lib/premium-book/`, `src/pages/admin/knowledge/`, `src/pages/admin/staff/`, `src/pages/admin/admission/`, `src/pages/admin/coupons/`, `src/pages/admin/goal/`, `src/pages/admin/learning-diagnosis/`, `src/pages/admin/members/`, `src/pages/admin/mentor/`, `src/pages/admin/premium-book/`, `src/pages/admin/revenue/`, `src/pages/admin/tenants/`.
 - Feature folders shared by several domains: `api/_lib/ai/` (gemini, sdkAdapter, telemetry), `api/_lib/messaging/` (aligo, alimtalk).
 - Shared top-level files: `handler.ts`, `http*.ts`, `supabaseAdmin.ts`, `serviceAccess.ts`, `programAccess.ts`, `phoneCode.ts`, `niceIdentity.ts`, `outbound.ts`, `adminAuth.ts`, `cronAuth.ts`, `site.ts`.
+- `shared/` holds the contract layer used by both the browser and `api/`: per-domain request and response zod schemas, their types, codes, and limits (`shared/<domain>/`). No React, no DOM, no Node-only modules (`node:*`), no DB client, no `@/` alias; relative imports with `.js`. `shared/` imports nothing from `src/` or `api/`. `src/` never imports `api/`; the files that still do are a frozen allowlist in `shared/boundaries.test.ts` that only shrinks.
 - `src/lib/diagnosis-v3/` is the pure-TS diagnosis engine shared by the browser and `api/` (no React, no `@/` alias, relative imports with `.js`).
 - Cross-domain import example: growth reads `../_lib/goal/repo.js`. Never hoist it to hide the dependency.
 - Six camelCase folders are legacy (`mentorApply`, `routeGuards`, `admissionResults`, `premiumBook`, `growthLanding`, `selfevalLanding`). Never add more.
@@ -29,7 +30,7 @@ Repo-specific facts and exceptions. General placement and naming rules live in t
 ## Code
 
 - Browser requests to `/api` use `api` from `src/lib/http/client.ts` (ky, `retry: 0`) inside react-query `useQuery` / `useMutation`. Pass the query `signal`. Request failures (HTTP error, timeout, network) arrive as `ApiError` (`status`, `code`, `detail`, `supportCode`); a response that fails `.json(schema)` throws ky `SchemaValidationError` instead, which means the client and server contracts disagree. Never add new browser `supabase.from` / `rpc` / `storage` calls or new `apiFetch` callers; `apiFetch` goes away when its last caller moves.
-- `src/lib/http/problem.ts` is the one problem body schema, shared by `api/` and `src/`.
+- `shared/http/problem.ts` is the one problem body schema (with `errors` and `zodIssuesToErrors()`), shared by `api/` and `src/`. Common problem codes are `PROBLEM_CODE` in `shared/http/codes.ts`.
 - `npm run check:http-legacy` enforces the HTTP standard against `scripts/http-legacy.baseline.json`; area migrations shrink it to zero; never raise it.
 
 - npm only. Never run pnpm or yarn.
