@@ -1,4 +1,10 @@
 import { describe, expect, test } from "vitest";
+import {
+  MIDDLE_AVERAGE_LABEL,
+  SUBJ_ACHIEVEMENT_NOTE,
+  SUBJ_ALL_BELOW_NOTE,
+  SUBJ_BELOW_EXCLUDED_NOTE,
+} from "./copy.js";
 import { scoreDiagnosisV3 } from "./index.js";
 import { LIKERT_LEVELS, SCALE_ITEMS } from "./likert.js";
 import { OPTIONS } from "./options.js";
@@ -1077,5 +1083,69 @@ describe("표지 (22 r6-r7, judge-report R6)", () => {
     expect(m3.toc.map((t) => t.page)).not.toContain(7);
     expect(m3.toc).toHaveLength(15);
     expect(m3.studentName).toBe("김위닝");
+  });
+});
+
+describe("과목 판정 생략 안내 구분 (고객 답 2026-11-24 학습진단 5번)", () => {
+  const M3 = validAnswers("M3");
+
+  test("M3: 26점 미만 과목만 빠지면 표와 함께 제외 안내를 붙인다", () => {
+    const { p3 } = run({
+      ...M3,
+      q6s: { KOR: 90, MATH: 20, ENG: 85, SOC: 75, SCI: 70, HISTORY: 80 },
+    }).pages;
+    expect(p3.subjects.kind).toBe("table");
+    expect(
+      p3.subjects.kind === "table" && p3.subjects.rows.map((r) => r.subject),
+    ).toEqual(["KOR", "ENG", "SOC", "SCI", "HISTORY"]);
+    expect(p3.subjects.kind === "table" && p3.subjects.excludedNote).toBe(
+      SUBJ_BELOW_EXCLUDED_NOTE,
+    );
+  });
+
+  test("M3: 모든 과목이 26점 미만이면 미입력 안내가 아니라 환산표 범위 밖 안내", () => {
+    const { p3 } = run({
+      ...M3,
+      q6: 15,
+      q6s: { KOR: 10, MATH: 20, ENG: 15, SOC: 25, SCI: 5, HISTORY: 15 },
+    }).pages;
+    expect(p3.subjects).toEqual({ kind: "skip", note: SUBJ_ALL_BELOW_NOTE });
+  });
+
+  test("M3: 26점 이상만 입력하면 제외 안내가 없다", () => {
+    const { p3 } = run(M3).pages;
+    expect(p3.subjects.kind === "table" && p3.subjects.excludedNote).toBe(
+      undefined,
+    );
+  });
+
+  test("고등 성취평가제는 미입력 안내가 아니라 성취평가제 안내", () => {
+    const { p3 } = run({
+      ...CALC_EXAMPLE,
+      q4: 3,
+      q6: 85,
+      q6s: { KOR: 90, MATH: 80, ENG: 85, SOC: 75 },
+    }).pages;
+    expect(p3.subjects).toEqual({ kind: "skip", note: SUBJ_ACHIEVEMENT_NOTE });
+  });
+
+  test("과목 성적을 입력하지 않으면 기존 SUBJ_SKIP_NOTE 그대로", () => {
+    expect(run().pages.p3.subjects).toEqual({
+      kind: "skip",
+      note: COPY_TEXT.SUBJ_SKIP_NOTE,
+    });
+  });
+});
+
+describe("M3 6번 표기는 평균 점수 (고객 답 2026-11-24 학습진단 5번)", () => {
+  test.each([1, 3])("q4 %s 라도 1p, 3p 모두 점수 평균으로 표기한다", (q4) => {
+    const { p1, p3 } = run({ ...validAnswers("M3"), q4, q6: 72.3 }).pages;
+    const text = "72.3점 (" + MIDDLE_AVERAGE_LABEL + ")";
+    expect(p1.profile.gpa).toBe(text);
+    expect(p3.gpa).toBe(text);
+  });
+
+  test("고등은 4번 등급제 표기 그대로", () => {
+    expect(run().pages.p3.gpa).toBe("1.4 (5등급제)");
   });
 });

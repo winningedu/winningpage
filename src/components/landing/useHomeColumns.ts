@@ -11,15 +11,13 @@ import {
  * 홈 칼럼 박스 조회. columnData.fetchActiveColumns는 실패를 빈 배열로 삼켜 '글 없음'과 구분되지 않으므로,
  * 홈은 영역별 오류 안내(W1 error)를 위해 같은 조회를 직접 하고 status를 돌려준다.
  */
-export function useHomeColumns({ enabled = true }: { enabled?: boolean } = {}) {
+export function useHomeColumns() {
   const [state, setState] = useState<{
     status: "loading" | "ready" | "error";
     boxes: HomeColumnBox[];
   }>({ status: "loading", boxes: [] });
 
   useEffect(() => {
-    if (!enabled) return undefined;
-
     let mounted = true;
 
     async function fetchColumns() {
@@ -50,7 +48,7 @@ export function useHomeColumns({ enabled = true }: { enabled?: boolean } = {}) {
     return () => {
       mounted = false;
     };
-  }, [enabled]);
+  }, []);
 
   return state;
 }

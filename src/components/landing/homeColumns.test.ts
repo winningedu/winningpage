@@ -1,7 +1,16 @@
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const zone = vi.hoisted(() => ({ tz: "Asia/Seoul" }));
 vi.mock("@/lib/time/zone", () => ({ browserTimeZone: () => zone.tz }));
+
+const siteState = vi.hoisted(() => ({ columnVideo: true }));
+vi.mock("@/config/site", () => ({
+  site: {
+    get features() {
+      return { columnVideo: siteState.columnVideo };
+    },
+  },
+}));
 
 import {
   formatDuration,
@@ -49,6 +58,27 @@ describe("formatDuration", () => {
 });
 
 describe("toHomeColumnBox", () => {
+  beforeEach(() => {
+    siteState.columnVideo = true;
+  });
+
+  test("영상 기능이 꺼진 사이트(위닝)는 유튜브 링크 글도 칼럼 박스로 만든다", () => {
+    siteState.columnVideo = false;
+    expect(
+      toHomeColumnBox(
+        row("v", {
+          link_url: "https://youtu.be/abcDEF12345",
+          video_duration_seconds: 760,
+        }),
+      ),
+    ).toEqual({
+      id: "v",
+      kind: "column",
+      title: "글 v",
+      date: "2026.10.01",
+    });
+  });
+
   test("유튜브 링크는 영상 박스로 만들고 썸네일이 없으면 유튜브 기본 썸네일을 쓴다", () => {
     expect(
       toHomeColumnBox(

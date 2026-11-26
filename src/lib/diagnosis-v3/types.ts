@@ -590,6 +590,8 @@ export type Page3 = {
           readonly text: string;
         }[];
         readonly note: string;
+        /** M3 subjects under 26 left out of the table */
+        readonly excludedNote?: string;
       }
     | { readonly kind: "skip"; readonly note: string };
   /** 22 r46 */

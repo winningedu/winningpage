@@ -1,98 +1,32 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SiteConfig } from "@/config/site";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SiteConfig, SiteKey } from "@/config/sites";
 import type { FooterOperatorImage } from "@/hooks/useFooterOperatorImage";
-import { trackEvent } from "@/lib/analytics";
 import SiteFooter from "./SiteFooter";
 
-type MockSite = Pick<SiteConfig, "brandName" | "logo" | "company">;
-
-// 사이트별 브랜드(로고·회사정보) — 기본값은 위닝에듀 정본과 동일해 기존 테스트의
-// alt/src/사업자 문구 단언이 그대로 통과한다. Header.test.tsx와 동일한 관례
-// (vi.hoisted + vi.mock("@/config/site"))를 쓴다.
-const siteState = vi.hoisted(() => ({
-  current: {
-    brandName: "위닝에듀",
-    logo: {
-      horizontal: "/images/winning-logo-horizontal.svg",
-      stacked: "/images/winning-logo-stacked.svg",
-    },
-    company: {
-      name: "주식회사 위닝에듀",
-      ceo: "강원석",
-      corpRegNo: "180111-0161411",
-      patentNo: "10-3038224-0000",
-      bizRegNo: "266-88-03449",
-      mailOrderNo: "제2026-세종아름-0264호",
-      address: "(본점) 세종특별자치시 마음안1로 61, 404호",
-      supportChannelLabel: "카카오 채널 '위닝에듀'",
-      kakaoChannelUrl: "https://pf.kakao.com/_EfjwX",
-      naverBlogUrl: "https://blog.naver.com/winningedu",
-      youtubeUrl: "https://www.youtube.com/@winningedu",
-      instagramUrl: "https://www.youtube.com/shorts/rdZ2COapC90",
-      naverClipUrl: "https://clip.naver.com/@winningedu",
-    },
-  } as MockSite,
-}));
-vi.mock("@/config/site", () => ({
-  get site() {
-    return siteState.current;
-  },
-}));
-
-const WINNING_SITE = structuredClone(siteState.current);
-afterEach(() => {
-  siteState.current = structuredClone(WINNING_SITE);
-  operatorImage.value = null;
+// 두 사이트가 같은 푸터를 쓴다. 사이트 값은 sites.ts 정본을 그대로 읽는다.
+const siteState = vi.hoisted(() => ({ key: "schoolmentor" as SiteKey }));
+vi.mock("@/config/site", async () => {
+  const { SITES } = await import("@/config/sites");
+  return {
+    site: new Proxy({} as SiteConfig, {
+      get: (_target, prop) => Reflect.get(SITES[siteState.key], prop),
+    }),
+  };
 });
 
-// 운영기관 이미지 훅은 기본 null(이미지 없음)이라 기존 단언은 그대로 통과한다.
 const operatorImage = vi.hoisted(() => ({
   value: null as FooterOperatorImage | null,
 }));
-vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
-
 vi.mock("@/hooks/useFooterOperatorImage", () => ({
   useFooterOperatorImage: () => operatorImage.value,
 }));
 
-// 푸터 회귀 테스트(dev 레이아웃 기준). useNavGroups는 실제 구현을 쓰지 않고 5개 그룹
-// 고정값으로 대체한다(Header.test.tsx의 관례를 따름) — 실 Supabase 조회가 테스트에
-// 영향을 주지 않게 하기 위함이다.
-vi.mock("@/hooks/useNavGroups", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/hooks/useNavGroups")>();
-  return {
-    ...actual,
-    useNavGroups: () => [
-      {
-        title: "서비스",
-        to: "/services",
-        items: [{ label: "학습진단", to: "/diagnosis", sortOrder: 0 }],
-      },
-      {
-        title: "프리미엄",
-        to: "/premium",
-        items: [{ label: "프리미엄 안내", to: "/premium", sortOrder: 0 }],
-      },
-      {
-        title: "입시정보",
-        to: "/info",
-        items: [{ label: "대학모집요강", to: "/info/admission", sortOrder: 0 }],
-      },
-      {
-        title: "이용신청",
-        to: "/apply",
-        items: [{ label: "상담신청", to: "/apply/consult", sortOrder: 0 }],
-      },
-      {
-        title: "고객안내",
-        to: "/support",
-        items: [{ label: "자주묻는질문", to: "/support/faq", sortOrder: 0 }],
-      },
-    ],
-  };
+beforeEach(() => {
+  siteState.key = "schoolmentor";
+  operatorImage.value = null;
 });
 
 function renderFooter() {
@@ -103,252 +37,206 @@ function renderFooter() {
   );
 }
 
-describe("SiteFooter", () => {
-  it("5개 컬럼 제목을 모두 렌더한다", () => {
-    renderFooter();
-    for (const title of [
-      "서비스",
-      "프리미엄",
-      "입시정보",
-      "이용신청",
-      "고객안내",
-    ]) {
-      expect(screen.getAllByText(title).length).toBeGreaterThan(0);
-    }
-  });
-
-  it("정본 로고(winning-logo-stacked.svg)를 alt와 함께 렌더한다", () => {
-    renderFooter();
-    const logos = screen.getAllByAltText("위닝에듀");
-    expect(logos.length).toBeGreaterThan(0);
-    for (const logo of logos) {
-      expect(logo).toHaveAttribute("src", "/images/winning-logo-stacked.svg");
-    }
-  });
-
-  it("이용약관·개인정보처리방침 링크의 href가 올바르다", () => {
-    renderFooter();
-    expect(screen.getByRole("link", { name: "이용약관" })).toHaveAttribute(
-      "href",
-      "/terms",
-    );
-    expect(
-      screen.getByRole("link", { name: "개인정보처리방침" }),
-    ).toHaveAttribute("href", "/privacy");
-  });
-
-  it("사업자 정보 두 줄을 문자 단위로 정확히 렌더한다", () => {
-    renderFooter();
-    expect(
-      screen.getByText(
-        "상호명: 주식회사 위닝에듀 | 대표: 강원석 | 법인등록번호: 180111-0161411 | 특허등록 : 10-3038224-0000 | 사업자 등록번호: 266-88-03449 | 통신판매업 신고번호: 제2026-세종아름-0264호",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "주소: (본점) 세종특별자치시 마음안1로 61, 404호 | 온라인고객센터 : 카카오 채널 '위닝에듀'",
-      ),
-    ).toBeInTheDocument();
-  });
-});
-
-describe("SiteFooter, 운영기관 이미지", () => {
-  it("이미지가 있으면 모바일과 데스크톱 로고 자리를 같은 링크 안에서 이미지로 바꾼다", () => {
-    operatorImage.value = {
-      imageUrl: "https://cdn.example/footer/operator.png",
-      title: "위닝 운영기관",
-    };
-    renderFooter();
-
-    expect(screen.queryByAltText("위닝에듀")).not.toBeInTheDocument();
-    const images = screen.getAllByAltText("위닝 운영기관");
-    expect(images).toHaveLength(2);
-    for (const image of images) {
-      expect(image).toHaveAttribute(
-        "src",
-        "https://cdn.example/footer/operator.png",
-      );
-      expect(image.closest("a")).toHaveAttribute("href", "/company-news");
-    }
-  });
-
-  it("이미지 모양이 달라도 레이아웃이 깨지지 않게 모바일은 폭, 데스크톱은 높이를 제한한다", () => {
-    operatorImage.value = {
-      imageUrl: "https://cdn.example/footer/operator.png",
-      title: "위닝 운영기관",
-    };
-    renderFooter();
-
-    const [mobile, desktop] = screen.getAllByAltText(
-      "위닝 운영기관",
-    ) as HTMLElement[];
-    expect(mobile).toHaveClass(
-      "h-25",
-      "w-auto",
-      "max-w-full",
-      "object-contain",
-    );
-    expect(desktop).toHaveClass("w-46.25", "max-h-25", "object-contain");
-  });
-
-  it("이미지가 없으면 기존 로고 클래스에 제한 클래스를 더하지 않는다", () => {
-    renderFooter();
-
-    const [mobile, desktop] = screen.getAllByAltText(
-      "위닝에듀",
-    ) as HTMLElement[];
-    expect(mobile?.className).toBe("h-25 w-auto object-contain");
-    expect(desktop?.className).toBe("h-auto w-46.25");
-  });
-});
-
-const SOCIAL_LABELS = [
-  "카카오톡 채널",
-  "네이버 블로그",
-  "네이버 클립",
-  "유튜브",
-  "인스타그램",
+// 시안(운영위탁 줄 세 개)과 글자 그대로 같아야 한다.
+const COMPANY_LINES = [
+  "(운영위탁) 상호명: 주식회사 위닝로직 | 대표: 강원석 | 소프트웨어 사업자",
+  "사업자 등록번호: 783-81-04298 | 특허등록: 10-3038224",
+  "주소: 세종특별자치시 마음안1로 61, 404-B호",
 ];
 
-function getSocialLinks() {
-  return screen
-    .queryAllByRole("link")
-    .filter((link) =>
-      SOCIAL_LABELS.includes(link.getAttribute("aria-label") ?? ""),
+function expectCommonFooterContent(footer: HTMLElement) {
+  expect(within(footer).getByText("WINNING LOGIC")).toBeInTheDocument();
+  expect(
+    within(footer).getByRole("link", { name: "개인정보처리방침" }),
+  ).toHaveAttribute("href", "/privacy");
+  expect(
+    within(footer).getByRole("link", { name: "이용약관" }),
+  ).toHaveAttribute("href", "/terms");
+  // 결정 26: 저작권보호정책 페이지가 생기기 전까지 링크를 그리지 않는다.
+  expect(within(footer).queryByText("저작권보호정책")).not.toBeInTheDocument();
+  for (const line of COMPANY_LINES) {
+    const paragraph = within(footer).getByText(
+      (_, element) => element?.tagName === "P" && element.textContent === line,
     );
+    expect(paragraph).toBeInTheDocument();
+  }
+  expect(
+    within(footer).getByText("Copyright © WINNING LOGIC. All rights reserved."),
+  ).toBeInTheDocument();
+  expect(within(footer).queryByText(/통신판매업/)).not.toBeInTheDocument();
+  expect(within(footer).queryByText(/법인등록번호/)).not.toBeInTheDocument();
+  // 호스팅 제공자와 사업자정보 확인은 통신판매업자(위닝)만 보인다.
+  expect(within(footer).queryByText(/호스팅서비스/)).not.toBeInTheDocument();
+  expect(
+    within(footer).queryByRole("link", { name: "사업자정보 확인" }),
+  ).not.toBeInTheDocument();
 }
 
-describe("SiteFooter, 카카오 문의 클릭 이벤트", () => {
-  it("카카오톡 채널 링크를 누르면 kakao_inquiry_click을 footer로 보낸다", () => {
-    vi.mocked(trackEvent).mockClear();
+describe("SiteFooter - 스쿨멘토", () => {
+  it("운영기관 이미지가 없으면 이미지와 구분선 없이 WINNING LOGIC 블록만 보여 준다", () => {
     renderFooter();
 
-    fireEvent.click(
-      screen.getAllByRole("link", { name: "카카오톡 채널" })[0] as HTMLElement,
-    );
-
-    expect(trackEvent).toHaveBeenCalledWith("kakao_inquiry_click", {
-      location: "footer",
-    });
+    const footer = screen.getByRole("contentinfo");
+    expectCommonFooterContent(footer);
+    expect(within(footer).queryByRole("img")).not.toBeInTheDocument();
+    expect(within(footer).queryByRole("separator")).not.toBeInTheDocument();
   });
 
-  it("다른 소셜 링크는 이벤트를 보내지 않는다", () => {
-    vi.mocked(trackEvent).mockClear();
-    renderFooter();
-
-    fireEvent.click(
-      screen.getAllByRole("link", { name: "유튜브" })[0] as HTMLElement,
-    );
-
-    expect(trackEvent).not.toHaveBeenCalled();
-  });
-});
-
-describe("SiteFooter, 소셜 아이콘", () => {
-  it("카카오, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램 순서로 새 탭 링크를 렌더한다", () => {
-    renderFooter();
-    // 모바일/데스크톱 레이아웃이 DOM에 둘 다 있으므로 한 벌씩 두 번 나온다.
-    const links = getSocialLinks();
-    expect(links.map((l) => l.getAttribute("aria-label"))).toEqual([
-      ...SOCIAL_LABELS,
-      ...SOCIAL_LABELS,
-    ]);
-    expect(links.slice(0, 5).map((l) => l.getAttribute("href"))).toEqual([
-      "https://pf.kakao.com/_EfjwX",
-      "https://blog.naver.com/winningedu",
-      "https://clip.naver.com/@winningedu",
-      "https://www.youtube.com/@winningedu",
-      "https://www.youtube.com/shorts/rdZ2COapC90",
-    ]);
-    for (const link of links) {
-      expect(link).toHaveAttribute("target", "_blank");
-      expect(link).toHaveAttribute("rel", "noopener noreferrer");
-    }
-  });
-
-  it("각 링크는 브랜드 컬러 원형 배지다", () => {
-    renderFooter();
-    const byLabel = (label: string) =>
-      screen.getAllByRole("link", { name: label })[0] as HTMLElement;
-    const kakao = byLabel("카카오톡 채널");
-    const naver = byLabel("네이버 블로그");
-    const youtube = byLabel("유튜브");
-    const instagram = byLabel("인스타그램");
-    const clip = byLabel("네이버 클립");
-    for (const link of [kakao, naver, youtube, instagram, clip]) {
-      expect(link).toHaveClass("size-8", "rounded-full");
-    }
-    expect(kakao.className).toContain("bg-[#fee500]");
-    expect(naver.className).toContain("bg-[#03c75a]");
-    expect(youtube.className).toContain("bg-[#ff0000]");
-    expect(instagram.style.background).toContain("linear-gradient");
-    expect(clip.className).toContain("bg-[#6f4dce]");
-  });
-
-  it("유튜브와 인스타그램 링크는 aria-label을 갖고, lucide가 아닌 장식용 svg를 담는다", () => {
-    renderFooter();
-    for (const label of ["유튜브", "인스타그램"]) {
-      for (const link of screen.getAllByRole("link", { name: label })) {
-        expect(link).toHaveAttribute("aria-label", label);
-        const svg = link.querySelector("svg");
-        expect(svg).not.toBeNull();
-        expect(svg).toHaveAttribute("aria-hidden", "true");
-        expect(svg?.getAttribute("class") ?? "").not.toContain("lucide");
-        expect(svg).toHaveClass("size-4");
-      }
-    }
-  });
-
-  it("URL이 없는 아이콘은 렌더하지 않는다", () => {
-    delete siteState.current.company.naverBlogUrl;
-    delete siteState.current.company.instagramUrl;
-    delete siteState.current.company.naverClipUrl;
-    renderFooter();
-    const labels = getSocialLinks().map((l) => l.getAttribute("aria-label"));
-    expect(labels).toEqual([
-      "카카오톡 채널",
-      "유튜브",
-      "카카오톡 채널",
-      "유튜브",
-    ]);
-  });
-});
-
-describe("SiteFooter — 스쿨멘토 사이트", () => {
-  it("로고 alt·src가 스쿨멘토 정본이고, 선택 필드가 없으면 해당 문구가 보이지 않는다", () => {
-    siteState.current = {
-      brandName: "스쿨멘토",
-      logo: {
-        horizontal: "/images/schoolmentor-logo-horizontal.png",
-        stacked: "/images/schoolmentor-logo-stacked.png",
-      },
-      company: {
-        name: "주식회사 위닝로직",
-        ceo: "강원석",
-        corpRegNo: "164711-0016571",
-        bizRegNo: "783-81-04298",
-        address:
-          "세종특별자치시 마음안1로 61, 404-B호 (고운동, 세종 리치먼드힐2 타운하우스)",
-      },
+  it("운영기관 이미지가 있으면 왼쪽에 alt 와 함께 보이고 구분선이 따라오며 나머지 문구는 그대로다", () => {
+    operatorImage.value = {
+      imageUrl: "https://cdn.example/footer/hansol.png",
+      title: "한솔고등학교",
     };
-
     renderFooter();
 
-    const logos = screen.getAllByAltText("스쿨멘토");
-    expect(logos.length).toBeGreaterThan(0);
-    for (const logo of logos) {
-      expect(logo).toHaveAttribute(
-        "src",
-        "/images/schoolmentor-logo-stacked.png",
-      );
-    }
+    const footer = screen.getByRole("contentinfo");
+    const image = within(footer).getByRole("img", { name: "한솔고등학교" });
+    expect(image).toHaveAttribute(
+      "src",
+      "https://cdn.example/footer/hansol.png",
+    );
+    expect(image).toHaveAttribute("loading", "lazy");
+    const divider = within(footer).getByRole("separator");
+    // 이미지, 구분선, 회사 블록 순서(DOM 순서가 모바일 세로 순서이기도 하다).
+    expect(
+      image.compareDocumentPosition(divider) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      divider.compareDocumentPosition(
+        within(footer).getByText("WINNING LOGIC"),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expectCommonFooterContent(footer);
+  });
 
-    expect(screen.getByText(/상호명: 주식회사 위닝로직/)).toBeInTheDocument();
-    expect(screen.getByText(/783-81-04298/)).toBeInTheDocument();
-    expect(screen.queryByText(/특허등록/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/통신판매업/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/온라인고객센터/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/카카오 채널/)).not.toBeInTheDocument();
-    expect(getSocialLinks()).toHaveLength(0);
+  it("줄바꿈은 항목 사이에서만 일어나고 링크 묶음은 줄어들지 않는다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    // "|" 로 이은 항목은 항목 안에서 줄이 바뀌지 않는다(예: 소프트웨어 사업자가 중간에서 끊기지 않는다).
+    const nameLine = within(footer).getByText(
+      (_, element) =>
+        element?.tagName === "P" && element.textContent === COMPANY_LINES[0],
+    );
+    const registrationLine = within(footer).getByText(
+      (_, element) =>
+        element?.tagName === "P" && element.textContent === COMPANY_LINES[1],
+    );
+    expect(
+      Array.from(nameLine.children).map((item) => item.textContent),
+    ).toEqual([
+      "(운영위탁) 상호명: 주식회사 위닝로직",
+      "대표: 강원석",
+      "소프트웨어 사업자",
+    ]);
+    expect(
+      Array.from(registrationLine.children).map((item) => item.textContent),
+    ).toEqual(["사업자 등록번호: 783-81-04298", "특허등록: 10-3038224"]);
+    for (const item of [...nameLine.children, ...registrationLine.children]) {
+      expect(item).toHaveClass("whitespace-nowrap");
+    }
+    // 항목이 없는 주소 줄은 단어 중간이 아니라 띄어쓰기에서만 끊긴다.
+    const addressLine = within(footer).getByText(COMPANY_LINES[2] as string);
+    expect(addressLine.closest(".break-keep")).not.toBeNull();
+
+    for (const name of ["개인정보처리방침", "이용약관"]) {
+      const link = within(footer).getByRole("link", { name });
+      expect(link).toHaveClass("whitespace-nowrap");
+      expect(link.parentElement).toHaveClass("shrink-0");
+    }
   });
 });
+
+const WINNING_LINES = [
+  "상호명: 주식회사 위닝에듀 | 대표: 강원석",
+  "사업자 등록번호: 266-88-03449 | 특허등록: 10-3038224 | 통신판매업 신고번호: 제2026-세종아름-0264호",
+  "주소: (본점) 세종특별자치시 마음안1로 61, 404호 | 온라인고객센터 : 카카오 채널 '위닝에듀'",
+  "호스팅서비스 제공자: Vercel Inc. | 사업자정보 확인",
+];
+
+describe("SiteFooter - 위닝", () => {
+  beforeEach(() => {
+    siteState.key = "winning";
+  });
+
+  it("시안 줄과 호스팅 제공자 줄을 보이고 법인등록번호와 운영위탁은 없다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    for (const line of WINNING_LINES) {
+      expect(
+        within(footer).getByText(
+          (_, element) =>
+            element?.tagName === "P" && element.textContent === line,
+        ),
+      ).toBeInTheDocument();
+    }
+    expect(
+      within(footer).getByText("© All rights reserved."),
+    ).toBeInTheDocument();
+    expect(within(footer).queryByText(/법인등록번호/)).not.toBeInTheDocument();
+    expect(within(footer).queryByText(/운영위탁/)).not.toBeInTheDocument();
+    expect(within(footer).queryByText("WINNING LOGIC")).not.toBeInTheDocument();
+  });
+
+  it("브랜드 자리에 흰색 위닝에듀 로고를 보인다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    expect(
+      within(footer).getByRole("img", { name: "위닝에듀" }),
+    ).toHaveAttribute("src", "/images/winning-logo-horizontal-white.svg");
+  });
+
+  it("사업자정보 확인은 공정위 사업자정보 페이지를 새 창으로 연다", () => {
+    renderFooter();
+    const link = screen.getByRole("link", { name: "사업자정보 확인" });
+
+    expect(link).toHaveAttribute(
+      "href",
+      "https://www.ftc.go.kr/bizCommPop.do?wrkr_no=2668803449",
+    );
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("옛 푸터의 메뉴 컬럼과 소셜 아이콘은 없다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    expect(within(footer).queryByRole("navigation")).not.toBeInTheDocument();
+    for (const name of [
+      "카카오톡 채널",
+      "네이버 블로그",
+      "유튜브",
+      "인스타그램",
+    ]) {
+      expect(
+        within(footer).queryByRole("link", { name }),
+      ).not.toBeInTheDocument();
+    }
+  });
+});
+
+describe.each(["winning", "schoolmentor"] as const)(
+  "SiteFooter 약관 링크(%s)",
+  (key) => {
+    beforeEach(() => {
+      siteState.key = key;
+    });
+
+    it("개인정보처리방침이 이용약관 앞에 오고 굵기와 색으로 구별된다", () => {
+      renderFooter();
+      const privacy = screen.getByRole("link", { name: "개인정보처리방침" });
+      const terms = screen.getByRole("link", { name: "이용약관" });
+
+      expect(
+        privacy.compareDocumentPosition(terms) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(privacy).toHaveClass("font-bold", "text-footer-b2b-privacy");
+      expect(terms).not.toHaveClass("font-bold");
+      expect(terms).not.toHaveClass("text-footer-b2b-privacy");
+    });
+  },
+);

@@ -32,7 +32,7 @@ import {
   narrowGoalSession,
   openGoalSession,
   PAID_MESSAGE,
-  upsertStudentRow,
+  updateStudentRow,
 } from "../../_lib/goal/repo.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
@@ -303,12 +303,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // 10) 저장 — profile_id만 걸고 나머지는 전부 이번에 실제로 바뀌는 컬럼만
-    //     담는다. upsertStudentRow의 onConflict merge는 바디에 없는 컬럼을
-    //     건드리지 않으므로 이 자체로 부분 업데이트가 된다.
+    // 10) 저장 — 이번에 실제로 바뀌는 컬럼만 담아 profile_id로 update한다(3단계
+    //     404가 행 존재를 보장한다). upsert는 쓰지 않는다: INSERT 후보 행의 NOT NULL
+    //     검사가 ON CONFLICT보다 먼저라 school_type, grade가 없는 부분 행은 23502로 실패한다.
     const rowUpdate: Record<string, unknown> = {
-      profile_id: profileId,
-
       ideal_naesin_cut: cuts.idealNaesin,
       ideal_jungsi_cut: cuts.idealJungsi,
       min_naesin_cut: cuts.minNaesin,
@@ -375,7 +373,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
     }
 
-    const savedRow = await upsertStudentRow(supabaseAdmin, rowUpdate);
+    const savedRow = await updateStudentRow(
+      supabaseAdmin,
+      profileId,
+      rowUpdate,
+    );
 
     // 11) 확률 스냅샷, reason: "score_update"(api/_lib/goal/repo.ts ProbabilityLogReason,
     //     온보딩 이후 점수 수정 전용으로 이미 정의돼 있던 값).

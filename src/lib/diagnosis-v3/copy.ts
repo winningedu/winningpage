@@ -4,6 +4,20 @@
 import { sheetRows, textCell } from "./sheet.js";
 import { COPY_SHEETS, COPY_TEXT } from "./source/copyText.js";
 
+// Report copy not in the copy xlsx yet (client answer 2026-11-24 학습진단 5번).
+// Drafts awaiting client confirmation; move them into the xlsx once confirmed.
+/** M3 subjects under 26 dropped from the table (table 10 starts at 26). */
+export const SUBJ_BELOW_EXCLUDED_NOTE =
+  "26점 미만 과목은 9등급 환산표 범위 밖이라 과목 판정에서 제외했어요.";
+/** M3 with every entered subject under 26: the table is skipped. */
+export const SUBJ_ALL_BELOW_NOTE =
+  "입력한 과목 점수가 모두 26점 미만이라 9등급 환산표 범위 밖이에요. 과목 판정을 생략했어요.";
+/** High school 성취평가제: the table is skipped (16 r8). */
+export const SUBJ_ACHIEVEMENT_NOTE =
+  "성취평가제 성적은 과목별 9등급 판정을 하지 않아요.";
+/** M3 6번 is the auto average of 원점수, not a grade on the 4번 system. */
+export const MIDDLE_AVERAGE_LABEL = "평균 점수";
+
 /** COPY_TEXT[id]; a missing id is a sheet or code bug, so it throws. */
 export function copy(id: string): string {
   const text = COPY_TEXT[id];

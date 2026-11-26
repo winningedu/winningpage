@@ -701,7 +701,7 @@
     "browserDb": 3
   },
   "src/lib/diagnosisReportQueries.ts": {
-    "browserDb": 3
+    "browserDb": 2
   },
   "src/lib/diagnosisSubmitApi.ts": {
     "legacyFetch": 1

@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import GoalCard from "@/components/goal/GoalCard";
+import DiagnosisReportList from "@/components/mypage/DiagnosisReportList";
 import {
   type DiagnosisReportListItem,
   listDiagnosisReports,
 } from "@/lib/diagnosisReportQueries";
 import { supabase } from "@/lib/supabase";
-import { formatDate } from "@/lib/time/format";
 
 // 학부모가 자녀의 학습진단 리포트 "회차 목록"을 여는 뷰어.
 // 진입: 마이페이지 > 자녀 등록 및 수정 > 자녀 카드 > "학습진단 리포트 보기"(다른 유닛이 건다).
@@ -26,16 +25,6 @@ type ParentChildRow = {
   student_name: string;
   link_status: string;
 };
-
-// "YYYY. MM. DD" 를 보는 사람의 브라우저 시간대로 표기한다(MyServicesTab.formatDateSpaced와 같은 표기).
-function formatDiagnosedAt(iso: string) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "-";
-  return formatDate(date).replaceAll("-", ". ");
-}
-
-// 신규 카피 — 승인 대기(0건 빈 상태, QA 시트 행 210).
-const EMPTY_STATE_NOTICE = "아직 완료된 학습진단이 없어요.";
 
 export default function ChildDiagnosisReports() {
   const { studentId } = useParams();
@@ -138,39 +127,12 @@ export default function ChildDiagnosisReports() {
         {backLink}
         {heading}
 
-        {reports === null ? (
-          <GoalCard tone="neutral" className="mt-6 px-8 py-7">
-            <p className="text-[0.9375rem] leading-[1.4] text-ink-sub">
-              목록을 불러오는 중입니다…
-            </p>
-          </GoalCard>
-        ) : reports.length === 0 ? (
-          <GoalCard tone="neutral" className="mt-6 px-8 py-7">
-            <p className="text-[0.9375rem] leading-[1.4] text-ink-sub">
-              {EMPTY_STATE_NOTICE}
-            </p>
-          </GoalCard>
-        ) : (
-          <ul className="mt-6 flex flex-col gap-3">
-            {reports.map((report, index) => (
-              <li key={report.attempt_id}>
-                <Link
-                  to={`/mypage/children/${studentId}/report/diagnosis/${report.attempt_id}`}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-[#e5e5e5] px-6 py-5 transition hover:bg-surface-04"
-                >
-                  <span className="text-[0.9375rem] font-medium text-ink">
-                    {/* 최신순 목록이라 마지막(가장 오래된) 행이 1회차다. */}
-                    {reports.length - index}회차 학습진단 ·{" "}
-                    {formatDiagnosedAt(report.diagnosed_at)}
-                  </span>
-                  <span className="text-[0.875rem] font-medium text-accent">
-                    리포트 보기 →
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <DiagnosisReportList
+          reports={reports}
+          reportHref={(attemptId) =>
+            `/mypage/children/${studentId}/report/diagnosis/${attemptId}`
+          }
+        />
       </div>
     </main>
   );

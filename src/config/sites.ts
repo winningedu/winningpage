@@ -21,8 +21,12 @@ export interface SiteConfig {
   manifest: string;
   // 서비스 소개 화면의 브라우저 목업 주소창에 보일 사이트 주소.
   homeUrl: string;
+  // index.html의 meta description과 Open Graph 값. og:url과 og:image 절대 주소는 homeUrl에서 만든다.
+  seo: { description: string; ogImage: string };
   // 칼럼 게시판의 사용자 노출 이름(제목, 홈 링크, 빈 안내).
   columnTitle: string;
+  // 홈 칼럼 섹션의 제목. 게시판 이름(columnTitle)과 다를 수 있다.
+  homeColumnTitle: string;
   // 게시판 목록이 비었을 때 보여줄 안내 문구(결정 107 1번). 없으면 화면의 기존 문구를 쓴다.
   boardEmpty?: string;
   // 고객안내 FAQ와 교육-정보안내 상단 배너. 없으면 배너 영역을 렌더하지 않는다.
@@ -75,6 +79,14 @@ export interface SiteConfig {
     // 이용신청 > 이용안내 화면(/usage-guide: 안내서 뷰어와 도입 문의 폼)의 라우트 노출 여부.
     usageGuide: boolean;
   };
+  // 공용 푸터(SiteFooter)의 사이트별 표시.
+  footer: {
+    // 회사 정보 위 브랜드 자리. 로고 이미지(alt는 brandName) 또는 글자.
+    brand: { logo: string } | { text: string };
+    // 첫 줄 앞에 흰 글씨로 붙는 운영 형태(예: 운영위탁). 없으면 그리지 않는다.
+    operatorLabel?: string;
+    copyright: string;
+  };
   company: {
     name: string;
     ceo: string;
@@ -85,6 +97,8 @@ export interface SiteConfig {
     // 스쿨멘토 푸터 운영위탁 줄의 사업 유형 문구(예: 소프트웨어 사업자). 없으면 그 조각을 그리지 않는다.
     businessType?: string;
     mailOrderNo?: string;
+    // 전자상거래법 제10조 표시 항목. 값이 있는 사이트만 푸터에 호스팅 제공자 줄을 그린다.
+    hostingProvider?: string;
     supportChannelLabel?: string;
     tel?: string;
     centerTel?: string;
@@ -114,13 +128,23 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     },
     manifest: "/site.webmanifest",
     homeUrl: "https://www.winningedu.com",
+    seo: {
+      description:
+        "위닝에듀는 학습진단, 목표관리, 수행평가, 성장설계, 자기평가, 심화탐구와 1:1 콜멘토링, 프리미엄 입시 컨설팅을 제공합니다. 데이터와 실적으로 증명하는 대한민국 대표 입시 컨설팅 플랫폼입니다.",
+      ogImage: "/images/og/og-winning.png",
+    },
     columnTitle: "교육칼럼",
+    homeColumnTitle: "칼럼-교육청소식",
     news: {
       maxRows: 5,
       companyTitle: "회사소식",
       noticeTitle: "공지사항",
       companyEmpty: "등록된 회사소식이 없습니다.",
       noticeEmpty: "등록된 공지사항이 없습니다.",
+    },
+    footer: {
+      brand: { logo: "/images/winning-logo-horizontal-white.svg" },
+      copyright: "© All rights reserved.",
     },
     features: {
       premium: true,
@@ -146,9 +170,10 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       name: "주식회사 위닝에듀",
       ceo: "강원석",
       corpRegNo: "180111-0161411",
-      patentNo: "10-3038224-0000",
+      patentNo: "10-3038224",
       bizRegNo: "266-88-03449",
       mailOrderNo: "제2026-세종아름-0264호",
+      hostingProvider: "Vercel Inc.",
       address: "(본점) 세종특별자치시 마음안1로 61, 404호",
       tel: "010-3664-0081",
       centerTel: "051-902-0080",
@@ -176,7 +201,13 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     },
     manifest: "/schoolmentor/site.webmanifest",
     homeUrl: "https://www.schoolmentor.kr",
+    seo: {
+      description:
+        "스쿨멘토는 학습진단, 목표관리, 수행평가, 성장설계, 자기평가, 심화탐구를 한곳에서 제공하는 학습 플랫폼입니다. 학생 한 명, 한 명의 가능성을 데이터와 전문성으로 증명합니다.",
+      ogImage: "/images/og/og-schoolmentor.png",
+    },
     columnTitle: "칼럼-교육청소식",
+    homeColumnTitle: "칼럼-교육청소식",
     boardEmpty: "작성된 글이 없어요",
     boardBanners: {
       faq: {
@@ -198,6 +229,11 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       noticeTitle: "교육-정보안내",
       companyEmpty: "작성된 글이 없어요",
       noticeEmpty: "작성된 글이 없어요",
+    },
+    footer: {
+      brand: { text: "WINNING LOGIC" },
+      operatorLabel: "운영위탁",
+      copyright: "Copyright © WINNING LOGIC. All rights reserved.",
     },
     features: {
       premium: false,

@@ -68,6 +68,8 @@
   --color-gold-text: #9a6a00;
   --color-taupe: #7c6c4d;
   --color-navy-ink: #0b2a5b;
+  /* 학습진단 결과리포트 강조색(번호 탭, NEW 배지, 강조 문구). 고객사 시안 기준. */
+  --color-report-orange: #c2501a;
 
   --color-ink: #525252;
   --color-ink-header: #4d4d4d;
@@ -200,6 +202,8 @@
   --color-footer-b2b-line: #2d375f;
   --color-footer-b2b-info: #b9c3e3;
   --color-footer-b2b-copyright: #8f9cc8;
+  /* 개인정보처리방침 링크는 이용약관과 색으로도 구별한다(표준 개인정보 보호지침 제20조 1항). */
+  --color-footer-b2b-privacy: #9cc8ff;
   --color-drawer-close-bg: #f5f8fb;
   --color-drawer-on-primary: #f5f5f5;
   --shadow-panel-strong: 0 1.125rem 2.8125rem rgba(13, 27, 42, 0.15);

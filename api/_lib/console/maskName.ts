@@ -1,6 +1,7 @@
 // 콘솔 이름 가림. 담임 이외 화면과 엑셀 출력에 쓴다(결정 8, 27, 41).
 // Figma 프레임 기준으로 성 다음 한 글자만 가리고 나머지는 그대로 둔다("김하늘" 은 "김*늘").
 
+import { getSiteKey } from "../site.js";
 import type { ConsoleActorKind } from "./actor.js";
 
 export function maskName(name: string): string {
@@ -10,17 +11,33 @@ export function maskName(name: string): string {
   return chars.join("");
 }
 
-/** 담임만 실명을 본다. 학교 관리자, 본사 대행 등 그 밖의 행위자에게는 가린 이름을 준다. */
+/**
+ * 콘솔의 가림 결정은 이 파일 한 곳에서 한다. 스쿨멘토는 가린 이름, 위닝은 실명을 쓴다.
+ * SITE 가 없으면 getSiteKey 가 던진다(폴백 없음).
+ */
+export function consoleMaskName(name: string): string {
+  return consoleNamesMasked() ? maskName(name) : name;
+}
+
+/** 이 사이트의 콘솔이 이름을 가리는가. 가린 이름끼리 구분하는 끝 별표를 붙일지 정할 때 쓴다. */
+export function consoleNamesMasked(): boolean {
+  return getSiteKey() === "schoolmentor";
+}
+
+/**
+ * 위닝 사이트와 담임은 실명을 본다. 스쿨멘토의 학교 관리자, 본사 대행 등 그 밖의 행위자에게는 가린 이름을 준다.
+ * 담임을 먼저 보므로 담임 경로는 SITE 가 없어도 동작한다.
+ */
 export function displayNameFor(
   actor: { kind: ConsoleActorKind },
   name: string,
 ): string {
-  return actor.kind === "homeroom" ? name : maskName(name);
+  return actor.kind === "homeroom" ? name : consoleMaskName(name);
 }
 
 /**
- * 이름 검색(결정 61). 담임은 부분 일치, 그 밖의 행위자는 가린 이름의 글자를 맞혀 보지 못하게
- * 성과 이름 전체가 같을 때만 찾는다. q 는 앞뒤 공백을 자르고 소문자로 바꾼 값이다.
+ * 이름 검색(결정 61). 담임과 위닝 사이트는 부분 일치, 스쿨멘토의 그 밖의 행위자는 가린 이름의 글자를
+ * 맞혀 보지 못하게 성과 이름 전체가 같을 때만 찾는다. q 는 앞뒤 공백을 자르고 소문자로 바꾼 값이다.
  */
 export function nameMatchesQuery(
   actor: { kind: ConsoleActorKind },
@@ -28,11 +45,13 @@ export function nameMatchesQuery(
   q: string,
 ): boolean {
   const lower = name.toLowerCase();
-  return actor.kind === "homeroom" ? lower.includes(q) : lower === q;
+  if (actor.kind === "homeroom" || getSiteKey() === "winning")
+    return lower.includes(q);
+  return lower === q;
 }
 
 /**
- * 목록 전체의 표시 이름. 담임 이외는 가리고, 같은 묶음(학급)에서 가린 이름이 같은 학생끼리는
+ * 목록 전체의 표시 이름. 스쿨멘토의 담임 이외는 가리고(위닝은 실명 그대로, 별표 없음), 같은 묶음(학급)에서 가린 이름이 같은 학생끼리는
  * 구분되게 끝에 `*` 를 붙인다(교 #233, 결정 5와 6). 묶음이 다르면 겹쳐도 붙이지 않는다.
  */
 export function displayNamesFor(
@@ -42,7 +61,7 @@ export function displayNamesFor(
   const shown = new Map(
     students.map((s) => [s.id, displayNameFor(actor, s.name)]),
   );
-  if (actor.kind === "homeroom") return shown;
+  if (actor.kind === "homeroom" || getSiteKey() === "winning") return shown;
   const counts = new Map<string, number>();
   const seen = new Set<string>();
   const keyOf = (s: { group: string | null }, name: string) =>

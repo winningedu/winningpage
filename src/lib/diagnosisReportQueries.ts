@@ -37,27 +37,7 @@ export async function fetchDiagnosisReport(
   return data ?? null;
 }
 
-/** 프로필의 가장 최근 리포트 한 건. MyServicesTab "결과 리포트 보기"가 세션 없이도
- * 다른 탭/기기에서 최신 진단 결과로 진입하기 위해 쓴다. */
-export async function fetchLatestDiagnosisReport(
-  profileId: string,
-): Promise<DiagnosisReportRow | null> {
-  const { data, error } = await supabase
-    .from("diagnosis_reports")
-    .select("*")
-    .eq("profile_id", profileId)
-    .order("diagnosed_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.warn("[diagnosis-report] 최신 조회 실패:", error.message);
-    return null;
-  }
-  return data ?? null;
-}
-
-/** 프로필의 리포트 목록(최신순) — payload 제외. ChildDiagnosisReports 목록 화면이 쓴다. */
+/** 프로필의 리포트 목록(최신순) — payload 제외. ChildDiagnosisReports, MyDiagnosisReports 목록과 MyServicesTab 이 쓴다. */
 export async function listDiagnosisReports(
   profileId: string,
 ): Promise<DiagnosisReportListItem[]> {

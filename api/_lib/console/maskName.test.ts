@@ -1,7 +1,21 @@
 // 콘솔 이름 가림 규칙 검증(결정 8, 27, 41: Figma 프레임 기준). 성 다음 한 글자만 가린다.
 
-import { describe, expect, test } from "vitest";
-import { displayNameFor, displayNamesFor, maskName } from "./maskName.js";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  consoleMaskName,
+  displayNameFor,
+  displayNamesFor,
+  maskName,
+  nameMatchesQuery,
+} from "./maskName.js";
+
+// 가림 여부는 사이트가 정한다. 기존 가림 검증은 스쿨멘토로 고정하고, 위닝은 따로 본다.
+beforeEach(() => {
+  vi.stubEnv("SITE", "schoolmentor");
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("maskName", () => {
   test.each([
@@ -66,5 +80,62 @@ describe("displayNamesFor", () => {
     ]);
     expect(clash.get("x")).toBe("김*늘*");
     expect(clash.get("y")).toBe("김*늘*");
+  });
+});
+
+describe("위닝 사이트는 실명을 보여 준다", () => {
+  beforeEach(() => {
+    vi.stubEnv("SITE", "winning");
+  });
+
+  test("consoleMaskName 은 위닝에서 실명, 스쿨멘토에서 가린 이름", () => {
+    expect(consoleMaskName("김하늘")).toBe("김하늘");
+    vi.stubEnv("SITE", "schoolmentor");
+    expect(consoleMaskName("김하늘")).toBe("김*늘");
+  });
+
+  test("displayNameFor 는 모든 행위자에게 실명을 준다", () => {
+    for (const kind of [
+      "homeroom",
+      "school_admin",
+      "hq_proxy",
+      "hq",
+    ] as const) {
+      expect(displayNameFor({ kind }, "김하늘")).toBe("김하늘");
+    }
+  });
+
+  test("담임은 SITE 가 없어도 실명이다", () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv("SITE", "");
+    expect(displayNameFor({ kind: "homeroom" }, "김하늘")).toBe("김하늘");
+  });
+
+  test("nameMatchesQuery 는 모든 행위자에게 부분 일치다", () => {
+    expect(nameMatchesQuery({ kind: "school_admin" }, "김하늘", "하")).toBe(
+      true,
+    );
+    expect(nameMatchesQuery({ kind: "hq" }, "김하늘", "김하")).toBe(true);
+  });
+
+  test("displayNamesFor 는 별표 없이 실명을 준다", () => {
+    const names = displayNamesFor({ kind: "school_admin" }, [
+      { id: "x", group: "c1", name: "김하늘" },
+      { id: "y", group: "c1", name: "김하늘" },
+    ]);
+    expect(names.get("x")).toBe("김하늘");
+    expect(names.get("y")).toBe("김하늘");
+  });
+});
+
+describe("스쿨멘토 사이트의 이름 검색", () => {
+  test("담임은 부분 일치, 그 밖은 전체 일치다", () => {
+    expect(nameMatchesQuery({ kind: "homeroom" }, "김하늘", "하")).toBe(true);
+    expect(nameMatchesQuery({ kind: "school_admin" }, "김하늘", "하")).toBe(
+      false,
+    );
+    expect(nameMatchesQuery({ kind: "school_admin" }, "김하늘", "김하늘")).toBe(
+      true,
+    );
   });
 });
