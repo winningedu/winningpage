@@ -8,7 +8,7 @@ import {
   problemCode,
   type Respond,
   type Result,
-} from "../../../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({
   admin: null as unknown,
@@ -16,20 +16,22 @@ const kit = vi.hoisted(() => ({
   tokens: [] as string[],
 }));
 
-vi.mock("../../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-vi.mock("../../../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: (token: string) => {
     kit.tokens.push(token);
     return kit.user;
   },
 }));
 
-import handler from "./revoke.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/coupons/grants/:id/revoke" };
 
 const ROW = { id: 5, revoked_at: "2026-11-24T00:00:00Z" };
 
@@ -110,10 +112,18 @@ describe("POST /api/admin/coupons/grants/:id/revoke", () => {
     expect(userRecorder.rpcCalls).toEqual([]);
   });
 
+  // owner 결정 2026-11-26: id 구간이 빈 주소는 라우트 미스라 problem 404 다(예전 400).
+  test("id 구간이 비면 problem 404 NOT_FOUND 이고 rpc 를 부르지 않는다", async () => {
+    setup();
+    const r = await post({}, {});
+    expect(r.status).toBe(404);
+    expect(problemCode(r.body)).toBe("NOT_FOUND");
+    expect(userRecorder.rpcCalls).toEqual([]);
+  });
+
   test.each([
     ["reason 이 문자열이 아님", { reason: 3 }, { id: "5" }],
     ["본문이 null", null, { id: "5" }],
-    ["id 없음", {}, {}],
     ["id 가 0", {}, { id: "0" }],
     ["id 가 음수", {}, { id: "-1" }],
     ["id 가 정수가 아님", {}, { id: "1.5" }],

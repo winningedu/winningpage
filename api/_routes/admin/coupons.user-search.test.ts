@@ -7,17 +7,19 @@ import {
   createAdminFake,
   problemCode,
   type Respond,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./user-search.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/coupons/user-search" };
 
 const FOUND = [{ id: "u1", name: "홍길동", email: "a@example.com" }];
 

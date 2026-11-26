@@ -130,6 +130,7 @@ export const couponListSchema = z.object({
   grantedCouponIds: z.array(z.string()).nullable(),
   tenants: z.array(z.object({ id: z.string(), name: z.string() })).nullable(),
 });
+export type CouponList = z.infer<typeof couponListSchema>;
 
 export const couponKeys = {
   all: ["admin", "coupons"] as const,

@@ -8,7 +8,7 @@ import {
   firstQuery,
   problemCode,
   type Respond,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({
   admin: null as unknown,
@@ -16,20 +16,22 @@ const kit = vi.hoisted(() => ({
   tokens: [] as string[],
 }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-vi.mock("../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: (token: string) => {
     kit.tokens.push(token);
     return kit.user;
   },
 }));
 
-import handler from "./[id].js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/coupons/:id" };
 
 const ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 
@@ -94,16 +96,16 @@ describe("GET /api/admin/coupons/:id", () => {
     expect(problemCode(r.body)).toBe("NOT_FOUND");
   });
 
-  test.each([
-    ["id 없음", {}],
-    ["uuid 가 아닌 id", { id: "abc" }],
-  ])("%s 이면 400 VALIDATION_FAILED 다", async (_label, query) => {
-    const admin = setup();
-    const r = await get(query);
-    expect(r.status).toBe(400);
-    expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
-    expect(admin.queries.map((q) => q.table)).not.toContain("coupons");
-  });
+  test.each([["uuid 가 아닌 id", { id: "abc" }]])(
+    "%s 이면 400 VALIDATION_FAILED 다",
+    async (_label, query) => {
+      const admin = setup();
+      const r = await get(query);
+      expect(r.status).toBe(400);
+      expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
+      expect(admin.queries.map((q) => q.table)).not.toContain("coupons");
+    },
+  );
 
   test("권한 행이 없으면 403 FORBIDDEN 이다", async () => {
     setup(null);

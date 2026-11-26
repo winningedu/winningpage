@@ -8,17 +8,19 @@ import {
   firstQuery,
   problemCode,
   type Respond,
-} from "../../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./redemptions.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/coupons/:id/redemptions" };
 
 const COUPON_ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 const U1 = "11111111-1111-4111-8111-111111111111";
@@ -141,14 +143,22 @@ describe("GET /api/admin/coupons/:id/redemptions", () => {
     );
   });
 
-  test.each([
-    ["id 없음", {}],
-    ["uuid 가 아닌 id", { id: "abc" }],
-  ])("%s 이면 400 VALIDATION_FAILED 다", async (_label, query) => {
+  test.each([["uuid 가 아닌 id", { id: "abc" }]])(
+    "%s 이면 400 VALIDATION_FAILED 다",
+    async (_label, query) => {
+      setup();
+      const r = await get(query);
+      expect(r.status).toBe(400);
+      expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
+    },
+  );
+
+  // owner 결정 2026-11-26: id 구간이 빈 주소는 라우트 미스라 problem 404 다(예전 400).
+  test("id 구간이 비면 problem 404 NOT_FOUND 다", async () => {
     setup();
-    const r = await get(query);
-    expect(r.status).toBe(400);
-    expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
+    const r = await get({});
+    expect(r.status).toBe(404);
+    expect(problemCode(r.body)).toBe("NOT_FOUND");
   });
 
   test("권한 행이 없으면 403 FORBIDDEN 이다", async () => {

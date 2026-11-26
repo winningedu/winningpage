@@ -361,13 +361,15 @@ describe("check-http-legacy outsideHandler", () => {
     });
   });
 
-  test("단독 엔드포인트 api/*.ts, cron, performance 는 세고 router 와 _lib 는 안 센다", () => {
+  test("단독 엔드포인트 api/*.ts, cron, performance 는 세고 router, Hono 진입 함수 app 과 _lib 는 안 센다", () => {
     put("api/report-pdf.ts", plain);
     put("api/cron/daily.ts", plain);
     put("api/performance/clean.ts", plain);
     put("api/cron/ok.ts", wrapped);
     put("api/router.ts", plain);
     put("api/router-30.ts", plain);
+    put("api/app.ts", plain);
+    put("api/app-60.ts", plain);
     put("api/_lib/helper.ts", plain);
     put("api/_routes/unreferenced.ts", plain);
     expect(counts()).toEqual({

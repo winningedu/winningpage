@@ -17,8 +17,22 @@ const ALLOWLIST: Record<string, string> = {
     "호출자 자신의 권한 맵을 읽는 라우트라 메뉴 권한이 없다",
 };
 
-/** defineHandler({ ... }) 호출마다 auth:"admin" 과 permission 이 있는지 보고, 어긋난 점을 돌려준다. */
+/**
+ * defineHandler({ ... }) 호출마다 auth:"admin" 과 permission 이 있는지 보고, 어긋난 점을 돌려준다.
+ * Hono 앱 파일(.createApp())은 admin({ ... }) 마다 permission 이 있는지만 본다. 메서드 라우트마다 인증 미들웨어가 붙었는지는
+ * 라우트 표 가드(api/_routes/app.test.ts)가 실제 앱에서 본다.
+ */
 function checkAdminRouteSource(source: string): string[] {
+  if (/\.createApp\(\)|create(Admin|Root)App\(\)/.test(source)) {
+    return source
+      .split("admin({")
+      .slice(1)
+      .flatMap((chunk, index) =>
+        /permission:/.test(chunk)
+          ? []
+          : [`admin #${index + 1}: permission 이 없다`],
+      );
+  }
   const chunks = source.split("defineHandler({").slice(1);
   if (chunks.length === 0) return ["defineHandler 를 쓰지 않는다"];
   const problems: string[] = [];
@@ -51,8 +65,8 @@ const AUDIT_EXPECTATIONS: Record<string, string> = {
   "admin/tenants/member-purge.ts": AUDIT_OFF,
   "admin/tenants/school-admin.ts": AUDIT_OFF,
   "admin/tenants/move-student.ts": AUDIT_OFF,
-  "admin/coupons/grants/[id]/revoke.ts": 'audit: { action: "update" }',
-  "admin/coupons/redemptions/[id]/void.ts": 'audit: { action: "update" }',
+  // 발급 회수, 사용 이력 무효화 둘 다 기존 행을 바꾼다.
+  "admin/coupons.ts": 'audit: { action: "update" }',
   "admin/sections/[key]/[id]/reviewed.ts": 'audit: { action: "update" }',
   "admin/growth-recover.ts": 'audit: { action: "update" }',
   "admin/inquiry-recover.ts": 'audit: { action: "update" }',

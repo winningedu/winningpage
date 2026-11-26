@@ -2,6 +2,10 @@
   "regions": ["icn1"],
   "rewrites": [
     {
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/coupons(?:/.*)?)",
+      "destination": "/api/app"
+    },
+    {
       "source": "/api/((?:admin/knowledge-search|selfeval/reports|selfeval/session)/?)",
       "destination": "/api/router-30"
     },

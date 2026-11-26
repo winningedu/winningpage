@@ -288,7 +288,9 @@ export function scan(root) {
   const endpoints = new Set([
     ...MANIFESTS.flatMap((m) => manifestTargets(root, m)),
     ...files.filter(
-      (f) => STANDALONE_ENDPOINT.test(f) && !/^api\/router(-\d+)?\.ts$/.test(f),
+      (f) =>
+        STANDALONE_ENDPOINT.test(f) &&
+        !/^api\/(router|app)(-\d+)?\.ts$/.test(f),
     ),
   ]);
   const hits = {};

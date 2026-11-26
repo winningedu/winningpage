@@ -120,9 +120,66 @@ export interface Captured {
   headers: Record<string, string>;
 }
 
-/** defineHandler 가 돌려준 핸들러를 Bearer 토큰 요청으로 한 번 부른다. problem 바디(end)와 json 바디를 모두 받는다. */
+/** Hono 라우트. app 은 루트 앱(api/_routes/app.ts), path 는 라우트 경로 패턴(예: /api/admin/coupons/:id). */
+export interface HonoRoute {
+  app: {
+    request: (
+      input: string,
+      init?: RequestInit,
+    ) => Response | Promise<Response>;
+  };
+  path: string;
+}
+
+// 경로의 :이름 은 같은 이름의 query 값으로 채우고(없으면 빈 구간이라 404), 나머지 query 는 쿼리스트링으로 보낸다.
+async function callHonoRoute(
+  route: HonoRoute,
+  request: {
+    method?: string;
+    query?: Record<string, string>;
+    body?: unknown;
+    headers?: Record<string, string>;
+  },
+): Promise<Captured> {
+  const search = new URLSearchParams();
+  const used = new Set<string>();
+  const path = route.path.replace(/:([A-Za-z]+)/g, (_match, name: string) => {
+    used.add(name);
+    return encodeURIComponent(request.query?.[name] ?? "");
+  });
+  for (const [key, value] of Object.entries(request.query ?? {})) {
+    if (!used.has(key)) search.set(key, value);
+  }
+  const query = search.toString();
+  const response = await route.app.request(query ? `${path}?${query}` : path, {
+    method: request.method ?? "GET",
+    headers: {
+      authorization: "Bearer admin-token",
+      ...(request.body === undefined
+        ? {}
+        : { "content-type": "application/json" }),
+      ...request.headers,
+    },
+    ...(request.body === undefined
+      ? {}
+      : { body: JSON.stringify(request.body) }),
+  });
+  const text = await response.text();
+  return {
+    status: response.status,
+    body: text === "" ? undefined : JSON.parse(text),
+    headers: Object.fromEntries(response.headers.entries()),
+  };
+}
+
+/**
+ * 라우트를 Bearer 토큰 요청으로 한 번 부른다. defineHandler 핸들러는 가짜 req, res 로, Hono 라우트는 app.request() 로 부른다.
+ * problem 바디와 json 바디를 모두 받는다. Hono 쪽 headers 의 키는 소문자다.
+ */
 export async function callRoute(
-  handler: (req: VercelRequest, res: VercelResponse) => Promise<void>,
+  handler:
+    | ((req: VercelRequest, res: VercelResponse) => Promise<void>)
+    | HonoRoute,
   request: {
     method?: string;
     query?: Record<string, string>;
@@ -131,6 +188,7 @@ export async function callRoute(
     headers?: Record<string, string>;
   } = {},
 ): Promise<Captured> {
+  if (typeof handler !== "function") return callHonoRoute(handler, request);
   const captured: Captured = { status: 0, body: undefined, headers: {} };
   const res = {
     setHeader: (key: string, value: string) => {

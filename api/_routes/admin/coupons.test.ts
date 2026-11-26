@@ -31,7 +31,9 @@ vi.mock("../../_lib/supabaseUser.js", () => ({
   },
 }));
 
-import handler from "./coupons.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/coupons" };
 
 const TENANT_ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 

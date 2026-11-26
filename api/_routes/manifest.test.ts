@@ -32,8 +32,13 @@ const listFiles = (dir: string): string[] =>
         : [path.join(dir, entry.name)],
     );
 
-// 라우트 키 = api/_routes 기준 상대 경로에서 확장자를 뗀 값
-const handlerKeys = listFiles(ROUTES_DIR)
+// Hono 앱 파일(루트 앱 app.ts 와 그 아래 .route() 로 붙는 하위 앱). 매니페스트가 아니라 루트 앱에 붙고 vercel.json 이 /api/app 으로 보낸다.
+const isHonoAppFile = (rel: string) =>
+  /\.createApp\(\)|create(Admin|Root)App\(\)/.test(
+    fs.readFileSync(path.join(ROUTES_DIR, rel), "utf8"),
+  );
+
+const routeSourceFiles = listFiles(ROUTES_DIR)
   .map((file) => path.relative(ROUTES_DIR, file).split(path.sep).join("/"))
   .filter(
     (rel) =>
@@ -41,7 +46,13 @@ const handlerKeys = listFiles(ROUTES_DIR)
       !rel.includes(".test.") &&
       rel !== "dispatch.ts" &&
       !/^manifest[^/]*\.ts$/.test(rel),
-  )
+  );
+
+const honoAppFiles = routeSourceFiles.filter(isHonoAppFile).sort();
+
+// 라우트 키 = api/_routes 기준 상대 경로에서 확장자를 뗀 값
+const handlerKeys = routeSourceFiles
+  .filter((rel) => !isHonoAppFile(rel))
   .map((rel) => rel.replace(SOURCE_EXT, ""))
   .sort();
 
@@ -70,6 +81,30 @@ describe("maxDuration 파싱", () => {
 
   test("config 선언이 없으면 undefined 다", () => {
     expect(declaredMaxDuration("export default () => {};")).toBeUndefined();
+  });
+});
+
+describe("Hono 앱 파일", () => {
+  test("루트 앱 말고는 모두 다른 Hono 앱 파일이 import 해서 .route() 로 붙인다", () => {
+    const sources = honoAppFiles.map((rel) =>
+      fs.readFileSync(path.join(ROUTES_DIR, rel), "utf8"),
+    );
+    const orphans = honoAppFiles
+      .filter((rel) => rel !== "app.ts")
+      .filter(
+        (rel) =>
+          !honoAppFiles.some((other, index) => {
+            if (other === rel) return false;
+            const spec = path.posix.relative(
+              path.posix.dirname(other),
+              rel.replace(/\.ts$/, ".js"),
+            );
+            const specifier = spec.startsWith(".") ? spec : `./${spec}`;
+            return sources[index]?.includes(`"${specifier}"`) ?? false;
+          }),
+      );
+    expect(honoAppFiles).toContain("app.ts");
+    expect(orphans).toEqual([]);
   });
 });
 
@@ -182,9 +217,13 @@ describe("대괄호 라우트 키", () => {
   });
 });
 
+const routerRewrites = vercelJson.rewrites.filter((rewrite) =>
+  /^\/api\/router(-\d+)?$/.test(rewrite.destination),
+);
+
 describe("vercel.json 라우터 rewrite", () => {
-  test("앞의 세 개가 30초, 60초, 기본 진입 함수로 보낸다", () => {
-    expect(vercelJson.rewrites.slice(0, 3)).toEqual([
+  test("router 로 가는 rewrite 는 30초, 60초, 기본 진입 함수 순서다", () => {
+    expect(routerRewrites).toEqual([
       { source: alternation(routes30), destination: "/api/router-30" },
       { source: alternation(routes60), destination: "/api/router-60" },
       // Vercel 은 원본 경로로 source 를 맞춰 보고 함수에는 정규화된 req.url 을 넘긴다.
@@ -204,10 +243,13 @@ describe("vercel.json rewrite 시뮬레이션", () => {
     "/api/router-30": routes30,
     "/api/router-60": routes60,
   };
-  const compiled = vercelJson.rewrites.slice(0, 3).map((rewrite) => ({
-    ...rewrite,
-    pattern: new RegExp(`^${rewrite.source}$`),
-  }));
+  // Hono 진입 함수(/api/app)로 가는 rewrite 도 함께 둔다. 매니페스트 키가 그쪽에 먼저 걸리면 안 된다.
+  const compiled = vercelJson.rewrites
+    .filter((rewrite) => rewrite.source.startsWith("/api/"))
+    .map((rewrite) => ({
+      ...rewrite,
+      pattern: new RegExp(`^${rewrite.source}$`),
+    }));
 
   const cases = Object.values(destinationManifests)
     .flatMap((routes) => Object.keys(routes))
@@ -244,7 +286,7 @@ describe("vercel.json rewrite 시뮬레이션", () => {
   });
 
   test("점이 들어 있어도 구간 전체가 점이 아니면 catch-all 에 걸린다", () => {
-    const catchAll = new RegExp(`^${vercelJson.rewrites[2]?.source}$`);
+    const catchAll = new RegExp(`^${routerRewrites[2]?.source}$`);
     const missed = [
       "/api/change-phone",
       "/api/change-phone/",
@@ -278,6 +320,10 @@ describe("api/ 직속 독립 함수", () => {
       "router.ts",
       "router-30.ts",
       "router-60.ts",
+      // Hono 루트 앱의 진입 함수(Web 표준 fetch, maxDuration 은 router 와 같다)
+      "app.ts",
+      "app-30.ts",
+      "app-60.ts",
       // body parser 를 꺼야 해서 라우터에 못 넣는다
       "zoom-webhook.ts",
       // Chromium 메모리를 AI 핸들러와 한 인스턴스에서 나눠 쓰지 않는다
@@ -307,9 +353,7 @@ describe("api/ 직속 독립 함수", () => {
 });
 
 // 실제 매니페스트 키로 요청이 어느 라우트에 닿고 경로 값이 어떻게 담기는지 본다.
-describe("쿠폰 경로 파라미터", () => {
-  const COUPON_ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
-
+describe("경로 파라미터", () => {
   const resolve = async (url: string) => {
     const hit: { key?: string; query?: unknown } = {};
     const stubs = Object.fromEntries(
@@ -332,43 +376,11 @@ describe("쿠폰 경로 파라미터", () => {
     return hit;
   };
 
-  test("글자 그대로인 user-search 가 [id] 보다 먼저다", async () => {
-    expect(await resolve("/api/admin/coupons/user-search")).toEqual({
-      key: "admin/coupons/user-search",
-      query: {},
-    });
-  });
-
   test.each([
-    [
-      `/api/admin/coupons/${COUPON_ID}`,
-      "admin/coupons/[id]",
-      { id: COUPON_ID },
-    ],
-    [
-      `/api/admin/coupons/${COUPON_ID}/redemptions`,
-      "admin/coupons/[id]/redemptions",
-      { id: COUPON_ID },
-    ],
-    [
-      `/api/admin/coupons/${COUPON_ID}/grants`,
-      "admin/coupons/[id]/grants",
-      { id: COUPON_ID },
-    ],
-    [
-      "/api/admin/coupons/redemptions/5/void",
-      "admin/coupons/redemptions/[id]/void",
-      { id: "5" },
-    ],
     [
       "/api/admin/premium-book/pages/7",
       "admin/premium-book/pages/[id]",
       { id: "7" },
-    ],
-    [
-      "/api/admin/coupons/grants/5/revoke",
-      "admin/coupons/grants/[id]/revoke",
-      { id: "5" },
     ],
   ])("%s 는 %s 로 가고 id 가 담긴다", async (url, key, query) => {
     expect(await resolve(url)).toEqual({ key, query });
