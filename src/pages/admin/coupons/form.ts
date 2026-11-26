@@ -1,6 +1,7 @@
 // 쿠폰 등록과 수정 폼 상태와 변환. 입력 검사는 화면에서 먼저 하고 서버 CHECK 는 마지막 방어선이다.
 
-import type { CouponPayload, CouponRow } from "./api";
+import type { CouponSaveInput } from "../../../../shared/coupon/contract.js";
+import type { CouponRow } from "./api";
 import { GRANT_TYPES } from "./copy";
 
 // 신규 등록/수정 폼 로컬 상태, NULLABLE_KEYS 3필드는 `${key}_mode` 3상태 컨트롤과
@@ -132,7 +133,7 @@ export function rowToForm(row: CouponRow): CouponForm {
   return form;
 }
 
-export function formToPayload(form: CouponForm): CouponPayload {
+export function formToPayload(form: CouponForm): CouponSaveInput {
   // NULLABLE_KEYS(3개)를 동적 키로 채우기 전까지는 내부적으로 Record로
   // 조립한다, 루프가 끝나면 slug/title/discount_amount 등 필수 필드까지
   // 전부 채워진 CouponInsert(=CouponUpdate와 키가 같다) 형태가 되므로 반환
@@ -169,7 +170,7 @@ export function formToPayload(form: CouponForm): CouponPayload {
       key === "valid_until" ? dynamicForm[key] : Number(dynamicForm[key]);
   }
 
-  return payload as unknown as CouponPayload;
+  return payload as unknown as CouponSaveInput;
 }
 
 // 검증 실패한 첫 키를 반환(없으면 null). 문구는 AdminForm 의 기존 템플릿에
