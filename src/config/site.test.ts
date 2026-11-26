@@ -49,7 +49,7 @@ describe("site — winning", () => {
     expect(site.company.address).toBe(
       "(본점) 세종특별자치시 마음안1로 61, 404호",
     );
-    expect(site.company.patentNo).toBe("10-3038224-0000");
+    expect(site.company.patentNo).toBe("10-3038224");
     expect(site.company.mailOrderNo).toBe("제2026-세종아름-0264호");
     expect(site.company.supportChannelLabel).toBe("카카오 채널 '위닝에듀'");
     expect(site.company.tel).toBe("010-3664-0081");
@@ -263,6 +263,18 @@ describe("site - 본사 대시보드 B2C 화면 스위치", () => {
     expect((await loadSite("schoolmentor")).site.features.hqB2cView).toBe(
       false,
     );
+  });
+});
+
+describe("site - 홈 칼럼 섹션 제목", () => {
+  it("두 사이트 모두 홈 섹션 제목은 칼럼-교육청소식이고 게시판 이름은 사이트별 그대로다", async () => {
+    const winning = (await loadSite("winning")).site;
+    const schoolmentor = (await loadSite("schoolmentor")).site;
+
+    expect(winning.homeColumnTitle).toBe("칼럼-교육청소식");
+    expect(schoolmentor.homeColumnTitle).toBe("칼럼-교육청소식");
+    expect(winning.columnTitle).toBe("교육칼럼");
+    expect(schoolmentor.columnTitle).toBe("칼럼-교육청소식");
   });
 });
 

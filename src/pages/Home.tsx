@@ -318,8 +318,7 @@ export default function Home() {
     : fetchedMentors;
   // 섹션 제목(큰제목/중제목/라벨)은 home_section_copy 행이 정본, 행이 없으면 제목을 렌더하지 않는다.
   const sectionCopy = useHomeSectionCopy();
-  // 칼럼-교육청소식 섹션은 스쿨멘토 전용이라 위닝은 조회하지 않는다.
-  const homeColumns = useHomeColumns({ enabled: site.features.b2bMenu });
+  const homeColumns = useHomeColumns();
   // 공지사항 섹션(회사소식/공지사항)은 실 Supabase DB 연동 완료 — 프리뷰 대상 아님.
   const [companyNews, setCompanyNews] = useState<NewsItem[]>([]);
   const [notices, setNotices] = useState<NewsItem[]>([]);
@@ -687,12 +686,10 @@ export default function Home() {
           {...(site.features.b2bMenu ? { statuses: newsStatuses } : {})}
         />
 
-        {site.features.b2bMenu && (
-          <ColumnNewsSection
-            status={homeColumns.status}
-            boxes={homeColumns.boxes}
-          />
-        )}
+        <ColumnNewsSection
+          status={homeColumns.status}
+          boxes={homeColumns.boxes}
+        />
       </main>
     </>
   );

@@ -1,10 +1,10 @@
-import { parseYoutubeVideoId } from "@/lib/youtube";
 import {
   type ColumnRow,
   formatDate,
   getDisplayDate,
   getThumbnailUrl,
 } from "@/pages/column/columnData";
+import { getVideoId } from "@/pages/column/kind";
 
 // 홈 칼럼 박스(W1 M13~M16) 데이터 변환. 결정 22: 카테고리 '교육청소식' 글은 홈 박스에서 뺀다.
 const EXCLUDED_CATEGORY = "교육청소식";
@@ -50,7 +50,8 @@ export function formatDuration(
 }
 
 export function toHomeColumnBox(row: ColumnRow): HomeColumnBox {
-  const videoId = parseYoutubeVideoId(row.link_url as string | undefined);
+  // 영상 판단은 칼럼 게시판과 같은 getVideoId(사이트 columnVideo 스위치 포함)를 쓴다.
+  const videoId = getVideoId(row);
   const registered = getThumbnailUrl(row);
   const thumbnailUrl =
     registered ||

@@ -37,6 +37,29 @@ const PRE_LOGO_SRC_RE = /(class="pre-logo"\s*\n\s*src=")[^"]*(")/;
 // 매치 0건이면 무음으로 넘어가지 않고 즉시 throw한다 — index.html 구조가 바뀌어
 // 치환 지점이 사라지면(리팩터 등) 스쿨멘토 빌드가 조용히 위닝에듀 자산을 섞어
 // 배포하는 사고를 막기 위함이다.
+// description과 og 태그. og:type(website)은 두 사이트가 같아 치환하지 않는다.
+function seoReplacements(config) {
+  const og = {
+    site_name: config.brandName,
+    title: config.brandName,
+    description: config.seo.description,
+    url: new URL("/", config.homeUrl).href,
+    image: new URL(config.seo.ogImage, config.homeUrl).href,
+  };
+  return [
+    [
+      /<meta name="description" content="[^"]*" \/>/,
+      `<meta name="description" content="${config.seo.description}" />`,
+      "description",
+    ],
+    ...Object.entries(og).map(([key, value]) => [
+      new RegExp(`<meta property="og:${key}" content="[^"]*" \\/>`),
+      `<meta property="og:${key}" content="${value}" />`,
+      `og:${key}`,
+    ]),
+  ];
+}
+
 function requireReplace(html, regex, replacement, label) {
   if (!regex.test(html)) {
     throw new Error(
@@ -80,6 +103,9 @@ export function transformSiteHtml(html, siteKey) {
     `$1${config.logo.horizontal}$2`,
     "스플래시 pre-logo",
   );
+  for (const [regex, replacement, label] of seoReplacements(config)) {
+    result = requireReplace(result, regex, replacement, label);
+  }
 
   return result;
 }

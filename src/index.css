@@ -200,6 +200,8 @@
   --color-footer-b2b-line: #2d375f;
   --color-footer-b2b-info: #b9c3e3;
   --color-footer-b2b-copyright: #8f9cc8;
+  /* 개인정보처리방침 링크는 이용약관과 색으로도 구별한다(표준 개인정보 보호지침 제20조 1항). */
+  --color-footer-b2b-privacy: #9cc8ff;
   --color-drawer-close-bg: #f5f8fb;
   --color-drawer-on-primary: #f5f5f5;
   --shadow-panel-strong: 0 1.125rem 2.8125rem rgba(13, 27, 42, 0.15);
