@@ -68,8 +68,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/sections/[key]/[id]/reviewed.js"),
   "admin/sections/[key]/export": () =>
     import("./admin/sections/[key]/export.js"),
-  "admin/selfeval-grant": () => import("./admin/selfeval-grant.js"),
-  "admin/selfeval-recover": () => import("./admin/selfeval-recover.js"),
   "admin/selfeval-sessions": () => import("./admin/selfeval-sessions.js"),
   "admin/selfeval-sessions/[id]": () =>
     import("./admin/selfeval-sessions/[id].js"),

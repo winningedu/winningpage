@@ -16,6 +16,15 @@ import { LIST_PATH, listBody, renderSelfeval } from "./testKit";
 const SEARCH_PATH = "admin/students/search";
 const GRANT_PATH = "admin/selfeval-grant";
 
+// 서버가 돌려주는 회차 현황(shared/program-quota/contract.ts)과 같은 모양이다.
+const QUOTA = {
+  quotaTotal: 3,
+  quotaUsed: 1,
+  quotaRemaining: 2,
+  planEndsAt: null,
+  planLabel: "수동 부여",
+};
+
 beforeEach(() => {
   resetApi();
   on("GET", LIST_PATH, listBody());
@@ -24,7 +33,7 @@ beforeEach(() => {
       { id: "p-1", name: "김학생", email: "kim@example.com", isAdmin: false },
     ],
   });
-  on("POST", GRANT_PATH, { grantId: "g-1", quota: { quotaTotal: 3 } });
+  on("POST", GRANT_PATH, { grantId: "g-1", quota: QUOTA });
 });
 
 async function openGrant() {
@@ -123,7 +132,7 @@ describe("SelfevalSessionsAdmin 이용권 부여 다이얼로그", () => {
     await fillAndSubmit();
 
     expect(
-      await screen.findByText(/부여했습니다. quota: \{"quotaTotal":3\}/),
+      await screen.findByText(`부여했습니다. quota: ${JSON.stringify(QUOTA)}`),
     ).toBeInTheDocument();
     expect(callsTo("POST", GRANT_PATH)[0]?.options.json).toEqual({
       profileId: "p-1",

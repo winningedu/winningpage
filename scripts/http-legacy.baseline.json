@@ -198,12 +198,6 @@
   "api/_routes/admin/sections/[key]/export.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/selfeval-grant.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/selfeval-recover.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/selfeval-sessions.ts": {
     "legacyHandler": 1
   },

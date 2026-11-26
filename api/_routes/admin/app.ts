@@ -11,6 +11,8 @@ import { growthRecover } from "./growth-recover.js";
 import { inquiryGrant } from "./inquiry-grant.js";
 import { inquiryRecover } from "./inquiry-recover.js";
 import { inviteMember } from "./invite-member.js";
+import { selfevalGrant } from "./selfeval-grant.js";
+import { selfevalRecover } from "./selfeval-recover.js";
 import { sendMessage } from "./send-message.js";
 import { serviceCreditAdjust } from "./service-credit-adjust.js";
 import { serviceCreditSummary } from "./service-credit-summary.js";
@@ -31,4 +33,6 @@ export const admin = createAdminApp()
   .route("/growth-grant", growthGrant)
   .route("/growth-recover", growthRecover)
   .route("/inquiry-grant", inquiryGrant)
-  .route("/inquiry-recover", inquiryRecover);
+  .route("/inquiry-recover", inquiryRecover)
+  .route("/selfeval-grant", selfevalGrant)
+  .route("/selfeval-recover", selfevalRecover);

@@ -26,7 +26,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-import handler from "./selfeval-recover.js";
+import { selfevalRecoverResultSchema } from "../../../shared/selfeval-ops/contract.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/selfeval-recover" };
 
 const SID = "123e4567-e89b-42d3-a456-426614174000";
 const NEW_ID = "323e4567-e89b-42d3-a456-426614174000";
@@ -113,13 +116,14 @@ beforeEach(() => {
 
 describe("POST /api/admin/selfeval-recover", () => {
   const post = (body: unknown = { sessionId: SID }) =>
-    callRoute(handler, { method: "POST", body });
+    callRoute(route, { method: "POST", body });
 
   test("edit 권한이면 새 세션을 만들고 ok 없이 { newSessionId } 를 돌려준다", async () => {
     const admin = setup();
     const r = await post();
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ newSessionId: NEW_ID });
+    expect(selfevalRecoverResultSchema.safeParse(r.body).success).toBe(true);
     const update = admin.queries.find(
       (q) => q.table === "selfeval_sessions" && callsOf(q, "update").length > 0,
     );
@@ -232,5 +236,12 @@ describe("POST /api/admin/selfeval-recover", () => {
       (q) => q.table === "selfeval_sessions" && callsOf(q, "delete").length > 0,
     );
     expect(del && argsOf(del, "eq")).toEqual(["id", NEW_ID]);
+  });
+  test("GET 은 405 METHOD_NOT_ALLOWED 이고 Allow 는 POST 다", async () => {
+    setup();
+    const r = await callRoute(route, { method: "GET" });
+    expect(r.status).toBe(405);
+    expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
+    expect(r.headers.allow).toBe("POST");
   });
 });

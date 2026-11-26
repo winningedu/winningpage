@@ -1,3 +1,6 @@
+// /api/admin/selfeval-recover. 관리자 앱(api/_routes/admin/app.ts)이 .route("/selfeval-recover", selfevalRecover) 로 붙인다.
+// 요청 검증과 응답 모양은 shared/selfeval-ops/contract.ts 를 따른다.
+//
 // POST /api/admin/selfeval-recover { sessionId }
 // Authorization: Bearer <supabase access token>   (관리자)
 //
@@ -17,9 +20,15 @@
 // 원본 표시 update 가 0행이면(그 사이 원본이 바뀜) 새 세션을 지우고 409 NOT_RECOVERABLE 로 끝낸다.
 // 판정과 복제는 판정과 복제는 api/_lib/selfeval/ops/recover.ts.
 
-import { z } from "zod";
-import { defineHandler } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import {
+  SELFEVAL_OPS_ERROR,
+  type SelfevalRecoverResult,
+  selfevalRecoverBody,
+} from "../../../shared/selfeval-ops/contract.js";
+import { admin } from "../../_lib/hono/admin.js";
+import { adminFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   canRecover,
   cloneActivitiesForRecovery,
@@ -34,29 +43,29 @@ const PG_UNIQUE_VIOLATION = "23505";
 const SOURCE_COLUMNS =
   "id, profile_id, status, current_step, academic_year, grade_label, semester, area, subject, activity_name, school_prompt, teacher_note, target_chars, target_chars_mode, career, growth_report_id, growth_applied, growth_snapshot, plan_item_id, step_state";
 
-const bodySchema = z.object({ sessionId: z.string() });
-
 const NOT_RECOVERABLE_MESSAGE =
   "복구할 수 없는 세션입니다. 종결된 세션만 복구할 수 있습니다.";
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "admin",
-  errorShape: "problem",
+const guard = admin({
   permission: { key: "selfevalSessions" },
   // 종결된 원본 세션을 고치는 복구라 수정으로 남긴다.
   audit: { action: "update" },
   unhandledMessage: "자기평가서 세션 복구에 실패했습니다.",
   logLabel: "admin/selfeval-recover",
-  headers: { "Cache-Control": "no-store" },
-  body: bodySchema,
-  handler: async (_req, res, ctx) => {
-    const parsed = validateRecoverBody(ctx.body);
+});
+
+export const selfevalRecover = adminFactory
+  .createApp()
+  .post("/", guard, validate("json", selfevalRecoverBody), async (c) => {
+    const parsed = validateRecoverBody(c.req.valid("json"));
     if (!parsed.ok) {
-      sendError(res, "problem", 400, parsed.reason, "INVALID_BODY");
-      return;
+      throw new ProblemError(
+        400,
+        parsed.reason,
+        SELFEVAL_OPS_ERROR.INVALID_BODY,
+      );
     }
-    const db = ctx.supabaseAdmin;
+    const db = c.var.supabaseAdmin;
 
     const { data: source, error: sourceError } = await db
       .from("selfeval_sessions")
@@ -66,14 +75,11 @@ export default defineHandler({
     if (sourceError)
       throw new Error(`selfeval_sessions 조회 실패: ${sourceError.message}`);
     if (!source) {
-      sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         404,
         "세션을 찾을 수 없습니다.",
-        "SESSION_NOT_FOUND",
+        SELFEVAL_OPS_ERROR.SESSION_NOT_FOUND,
       );
-      return;
     }
     const row = source as RecoverSourceRow;
 
@@ -83,8 +89,7 @@ export default defineHandler({
         verdict.code === "ALREADY_RECOVERED"
           ? "이미 복구한 세션입니다."
           : NOT_RECOVERABLE_MESSAGE;
-      sendError(res, "problem", 409, message, verdict.code);
-      return;
+      throw new ProblemError(409, message, verdict.code);
     }
 
     const openMessage = "이 학생에게 진행 중인 세션이 있어 복구할 수 없습니다.";
@@ -96,8 +101,7 @@ export default defineHandler({
       .limit(1);
     if (openError) throw new Error(`미완 세션 조회 실패: ${openError.message}`);
     if ((open ?? []).length > 0) {
-      sendError(res, "problem", 409, openMessage, "SESSION_OPEN");
-      return;
+      throw new ProblemError(409, openMessage, SELFEVAL_OPS_ERROR.SESSION_OPEN);
     }
 
     const { data: activities, error: activityError } = await db
@@ -118,8 +122,11 @@ export default defineHandler({
     if (insertError) {
       // 위 확인과 insert 사이에 학생이 세션을 만든 경우(학생당 미완 1개 부분 유니크).
       if (insertError.code === PG_UNIQUE_VIOLATION) {
-        sendError(res, "problem", 409, openMessage, "SESSION_OPEN");
-        return;
+        throw new ProblemError(
+          409,
+          openMessage,
+          SELFEVAL_OPS_ERROR.SESSION_OPEN,
+        );
       }
       throw new Error(`복구 세션 생성 실패: ${insertError.message}`);
     }
@@ -155,18 +162,13 @@ export default defineHandler({
     if ((marked ?? []).length === 0) {
       // 원본이 그 사이 바뀌어 표시가 안 됐다. 새 세션을 남기면 학생의 미완 세션 자리를 막는다.
       await db.from("selfeval_sessions").delete().eq("id", created.id);
-      sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         409,
         NOT_RECOVERABLE_MESSAGE,
-        "NOT_RECOVERABLE",
+        SELFEVAL_OPS_ERROR.NOT_RECOVERABLE,
       );
-      return;
     }
 
-    res.status(200).json({ newSessionId: created.id });
-  },
-});
-
-export const config = { runtime: "nodejs" };
+    return c.json({ newSessionId: created.id } satisfies SelfevalRecoverResult);
+  })
+  .all("/", methodNotAllowed("POST"));
