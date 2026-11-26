@@ -24,8 +24,6 @@ const TERMS_PAGES: Array<
     showEffectiveDate: true,
   },
   { path: "/terms/student/marketing", code: "student_marketing" },
-  // 스쿨멘토 가입: 서비스 전환 시 위닝에듀로 정보를 옮기는 것에 관한 안내.
-  { path: "/terms/student/db-transfer", code: "student_db_transfer" },
   {
     path: "/terms/student/promotion",
     code: "student_promotion",
@@ -48,6 +46,8 @@ const TERMS_PAGES: Array<
     code: "parent_marketing",
     showEffectiveDate: true,
   },
+  // 스쿨멘토 교사, 기관관리자 이용약관(열람 전용, 동의 화면 없음). 교사 콘솔 마이페이지가 링크한다.
+  { path: "/terms/teacher/service", code: "teacher_service" },
 ];
 
 const termsRoutes: RouteObject[] = TERMS_PAGES.map(({ path, ...props }) => ({
