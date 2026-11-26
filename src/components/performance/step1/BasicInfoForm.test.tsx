@@ -41,4 +41,30 @@ describe("BasicInfoForm 이전 주제", () => {
     expect(topicInputs().map((input) => input.value)).toEqual(["a", "b"]);
     expect(screen.getByLabelText("이전에 한 주제 2")).toHaveValue("b");
   });
+
+  test("이전 주제 추가 버튼을 누르면 입력칸이 하나 늘고 5개가 되면 버튼이 사라진다", () => {
+    render(<BasicInfoForm />);
+
+    for (let count = 1; count < PREVIOUS_TOPIC_MAX_COUNT; count++) {
+      fireEvent.click(screen.getByRole("button", { name: "+ 이전 주제 추가" }));
+      expect(topicInputs()).toHaveLength(count + 1);
+    }
+
+    expect(topicInputs()).toHaveLength(PREVIOUS_TOPIC_MAX_COUNT);
+    expect(
+      screen.queryByRole("button", { name: "+ 이전 주제 추가" }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("첫 칸에는 삭제 버튼이 없고, 추가한 칸의 삭제 버튼은 그 칸만 지운다", () => {
+    render(<BasicInfoForm initialValues={{ previousTopic: "a\nb\nc" }} />);
+
+    expect(
+      screen.queryByRole("button", { name: "이전 주제 1 삭제" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "이전 주제 2 삭제" }));
+
+    expect(topicInputs().map((input) => input.value)).toEqual(["a", "c"]);
+  });
 });

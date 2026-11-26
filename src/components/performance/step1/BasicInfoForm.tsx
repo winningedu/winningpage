@@ -8,6 +8,7 @@ import {
   SUBJECT_GROUPS,
 } from "@/data/performanceCurriculum";
 import {
+  PREVIOUS_TOPIC_MAX_COUNT,
   PREVIOUS_TOPIC_MAX_LENGTH,
   splitPreviousTopics,
 } from "../../../../api/_lib/performance/previous-topics.js";
@@ -318,29 +319,59 @@ export default function BasicInfoForm({
 
       <div className="flex flex-col gap-2">
         {previousTopics.map((topic, index) => (
-          <TextField
-            // 입력칸은 순서만 있는 항목이라 인덱스가 곧 식별자다.
-            // biome-ignore lint/suspicious/noArrayIndexKey: 항목에 고유 id가 없다
-            key={index}
-            label={
-              index === 0
-                ? optionalLabel("같은 과목에서 이전에 한 주제")
-                : undefined
-            }
-            aria-label={index === 0 ? undefined : `이전에 한 주제 ${index + 1}`}
-            name={`previousTopic-${index + 1}`}
-            labelClassName={OPTIONAL_LABEL_CLASS}
-            size="perf"
-            value={topic}
-            onChange={(value) =>
-              setPreviousTopics((prev) =>
-                prev.map((item, i) => (i === index ? value : item)),
-              )
-            }
-            placeholder="예: 항생제 내성, 조건부확률, 소설 속 인물 심리 분석"
-            maxLength={PREVIOUS_TOPIC_MAX_LENGTH}
-          />
+          // 입력칸은 순서만 있는 항목이라 인덱스가 곧 식별자다.
+          // biome-ignore lint/suspicious/noArrayIndexKey: 항목에 고유 id가 없다
+          <div key={index}>
+            <TextField
+              label={
+                index === 0
+                  ? optionalLabel("같은 과목에서 이전에 한 주제")
+                  : undefined
+              }
+              aria-label={
+                index === 0 ? undefined : `이전에 한 주제 ${index + 1}`
+              }
+              name={`previousTopic-${index + 1}`}
+              labelClassName={OPTIONAL_LABEL_CLASS}
+              size="perf"
+              value={topic}
+              onChange={(value) =>
+                setPreviousTopics((prev) =>
+                  prev.map((item, i) => (i === index ? value : item)),
+                )
+              }
+              placeholder="예: 항생제 내성, 조건부확률, 소설 속 인물 심리 분석"
+              maxLength={PREVIOUS_TOPIC_MAX_LENGTH}
+            />
+            {index > 0 && (
+              // TextField 하단 액션 링크와 같은 모양(작은 밑줄 텍스트 버튼). 접근성 이름을
+              // 칸마다 다르게 줘야 해서 TextField의 `actionLabel`을 쓰지 않고 직접 그린다.
+              <div className="mt-2 flex justify-end">
+                <button
+                  type="button"
+                  aria-label={`이전 주제 ${index + 1} 삭제`}
+                  onClick={() =>
+                    setPreviousTopics((prev) =>
+                      prev.filter((_, i) => i !== index),
+                    )
+                  }
+                  className="inline-flex items-center px-1 py-2 -mx-1 -my-2 whitespace-nowrap text-xs font-normal text-ink underline underline-offset-2"
+                >
+                  삭제
+                </button>
+              </div>
+            )}
+          </div>
         ))}
+        {previousTopics.length < PREVIOUS_TOPIC_MAX_COUNT && (
+          <button
+            type="button"
+            onClick={() => setPreviousTopics((prev) => [...prev, ""])}
+            className="self-start text-xs font-normal text-ink underline underline-offset-2"
+          >
+            + 이전 주제 추가
+          </button>
+        )}
       </div>
 
       <TextField
