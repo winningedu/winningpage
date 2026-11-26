@@ -69,9 +69,6 @@
   "api/_routes/admin/growth-reports/[id].ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/home-section-copy/[sectionKey].ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/hq-dashboard/b2c.ts": {
     "legacyHandler": 1
   },
