@@ -4,13 +4,13 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   type CouponRow,
@@ -98,7 +98,7 @@ export default function CouponList() {
             전체 <span className="text-blue-600">{coupons.length}</span>건
           </div>
 
-          <Table className="min-w-285">
+          <AdminTableFrame label="쿠폰 목록" className="min-w-285">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead
@@ -311,7 +311,7 @@ export default function CouponList() {
                 })
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </>

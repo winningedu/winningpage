@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Card as UiCard } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -49,6 +48,7 @@ import {
 } from "@/pages/admin/members/api";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   toastError,
   toastSuccess,
@@ -1229,7 +1229,7 @@ function PayPane({
       </div>
 
       <div className="bg-white shadow-sm">
-        <Table className="min-w-215">
+        <AdminTableFrame label="결제 내역" className="min-w-215">
           <TableHeader>
             <TableRow className="bg-muted hover:bg-transparent">
               <TableHead
@@ -1320,7 +1320,7 @@ function PayPane({
               ))
             )}
           </TableBody>
-        </Table>
+        </AdminTableFrame>
       </div>
     </>
   );
@@ -1401,7 +1401,7 @@ function MessagePane({
       </div>
 
       <div className="bg-white shadow-sm">
-        <Table className="min-w-215">
+        <AdminTableFrame label="발송 이력" className="min-w-215">
           <TableHeader>
             <TableRow className="bg-muted hover:bg-transparent">
               <TableHead
@@ -1476,7 +1476,7 @@ function MessagePane({
               ))
             )}
           </TableBody>
-        </Table>
+        </AdminTableFrame>
       </div>
     </>
   );
