@@ -550,7 +550,7 @@ const SECTION_LABELS: Record<
   "intake" | "daily",
   { today: string; tomorrow: string }
 > = {
-  intake: { today: "[AI 입시조언]", tomorrow: "[다음 계획 제시]" },
+  intake: { today: "[입시조언]", tomorrow: "[다음 계획 제시]" },
   daily: { today: "[오늘의 조언]", tomorrow: "[내일 계획 제시]" },
 };
 

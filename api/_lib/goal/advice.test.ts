@@ -282,13 +282,13 @@ describe("buildAdvicePayload — source별 라벨, origin 전달", () => {
     expect(payload.sections[1]?.label).toBe("[내일 계획 제시]");
   });
 
-  test("source='intake'는 [AI 입시조언]/[다음 계획 제시] 라벨을 쓴다", () => {
+  test("source='intake'는 [입시조언]/[다음 계획 제시] 라벨을 쓴다", () => {
     const input = makeInput({ source: "intake", today: null });
     const result = buildRuleFallback(input);
     const payload = buildAdvicePayload(input, result, "ai");
 
     expect(payload.origin).toBe("ai");
-    expect(payload.sections[0]?.label).toBe("[AI 입시조언]");
+    expect(payload.sections[0]?.label).toBe("[입시조언]");
     expect(payload.sections[1]?.label).toBe("[다음 계획 제시]");
   });
 
