@@ -13,6 +13,7 @@ import {
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));

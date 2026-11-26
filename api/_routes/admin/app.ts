@@ -3,9 +3,13 @@
 
 import { createAdminApp } from "../../_lib/hono/admin.js";
 import { accessLogs } from "./access-logs.js";
+import { aiTelemetry } from "./ai-telemetry.js";
+import { aiTelemetryPricing } from "./ai-telemetry-pricing.js";
 import { coupons } from "./coupons.js";
 import { inviteMember } from "./invite-member.js";
 import { sendMessage } from "./send-message.js";
+import { serviceCreditAdjust } from "./service-credit-adjust.js";
+import { serviceCreditSummary } from "./service-credit-summary.js";
 import { tenantOptions } from "./tenant-options.js";
 import { webAnalytics } from "./web-analytics.js";
 
@@ -15,4 +19,8 @@ export const admin = createAdminApp()
   .route("/send-message", sendMessage)
   .route("/web-analytics", webAnalytics)
   .route("/invite-member", inviteMember)
-  .route("/access-logs", accessLogs);
+  .route("/access-logs", accessLogs)
+  .route("/ai-telemetry", aiTelemetry)
+  .route("/ai-telemetry-pricing", aiTelemetryPricing)
+  .route("/service-credit-adjust", serviceCreditAdjust)
+  .route("/service-credit-summary", serviceCreditSummary);

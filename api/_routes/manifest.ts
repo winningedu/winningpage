@@ -13,8 +13,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/admission/results/bulk.js"),
   "admin/admission/guidelines/bulk": () =>
     import("./admin/admission/guidelines/bulk.js"),
-  "admin/ai-telemetry": () => import("./admin/ai-telemetry.js"),
-  "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
   "admin/learning-diagnosis/questions": () =>
     import("./admin/learning-diagnosis/questions.js"),
   "admin/learning-diagnosis/questions/[id]": () =>
@@ -89,10 +87,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/roles/[id]": () => import("./admin/roles/[id].js"),
   "admin/roles/[id]/permissions": () =>
     import("./admin/roles/[id]/permissions.js"),
-  "admin/service-credit-adjust": () =>
-    import("./admin/service-credit-adjust.js"),
-  "admin/service-credit-summary": () =>
-    import("./admin/service-credit-summary.js"),
   "admin/staff": () => import("./admin/staff.js"),
   "admin/staff/[profileId]": () => import("./admin/staff/[profileId].js"),
   "admin/staff/[profileId]/permissions": () =>

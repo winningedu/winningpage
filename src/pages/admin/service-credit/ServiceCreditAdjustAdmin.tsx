@@ -25,7 +25,7 @@ import {
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { studentSearchQueryOptions } from "@/pages/admin/shared/studentSearch";
 import {
-  type AdjustBody,
+  type AdjustInput,
   postServiceCreditAdjust,
   type ServiceCreditRow,
   type ServiceCreditSummary,
@@ -62,7 +62,7 @@ function buildBody(
   row: ServiceCreditRow,
   profileId: string,
   form: { delta: string; months: string; reason: string },
-): { ok: true; body: AdjustBody } | { ok: false; message: string } {
+): { ok: true; body: AdjustInput } | { ok: false; message: string } {
   const reason = form.reason.trim();
   if (reason.length < REASON_MIN_LENGTH)
     return {
@@ -122,7 +122,7 @@ function AdjustForm({
   const [delta, setDelta] = useState("");
   const [months, setMonths] = useState("");
   const [reason, setReason] = useState("");
-  const [pending, setPending] = useState<AdjustBody | null>(null);
+  const [pending, setPending] = useState<AdjustInput | null>(null);
   const adjust = useMutation({ mutationFn: postServiceCreditAdjust });
   const busy = adjust.isPending;
   const [message, setMessage] = useState("");

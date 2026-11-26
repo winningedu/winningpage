@@ -1,6 +1,7 @@
 // 관리자 AI 텔레메트리 조회(GET /api/admin/ai-telemetry)의 쿼리 파싱 규칙.
 // 날짜는 조회자 시간대의 달력 날짜로 받고, 조회 구간은 [from, to) 로 바꾼다.
 
+import { AI_VIEWS } from "../../../../../shared/ai-telemetry/contract.js";
 import {
   addDaysYmd,
   dayRangeUtc,
@@ -16,7 +17,7 @@ export const AI_SERVICES = [
 ] as const;
 export type AiService = (typeof AI_SERVICES)[number];
 
-export const AI_VIEWS = ["summary", "calls", "citations", "pricing"] as const;
+export { AI_VIEWS };
 export type AiView = (typeof AI_VIEWS)[number];
 
 const DAY_MS = 86_400_000;
