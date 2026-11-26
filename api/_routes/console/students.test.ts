@@ -277,6 +277,21 @@ describe("GET /api/console/students", () => {
     expect(ids(await get({ q: "하린" }))).toEqual(["s2"]);
   });
 
+  test("the Winning site gives a school admin real names without a star and a partial q match", async () => {
+    vi.stubEnv("SITE", "winning");
+    const r = await get();
+
+    expect(ids(r)).toEqual(["s3", "s2", "s1", "s4"]);
+    expect(items(r).map((i) => i.displayName)).toEqual([
+      "박서준",
+      "윤하린",
+      "김하늘",
+      "이도윤",
+    ]);
+    expect(ids(await get({ q: "하린" }))).toEqual(["s2"]);
+    expect(ids(await get({ q: "윤하" }))).toEqual(["s2"]);
+  });
+
   test("tab narrows to students who used that service, and none lists students with no service", async () => {
     expect(ids(await get({ tab: "growth" }))).toEqual(["s1"]);
     expect(ids(await get({ tab: "inquiry" }))).toEqual(["s2"]);
