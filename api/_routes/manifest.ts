@@ -93,7 +93,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/tenants/[id]/service-settings.js"),
   "admin/tenants/student-usage": () =>
     import("./admin/tenants/student-usage.js"),
-  "admin/uploads": () => import("./admin/uploads.js"),
   "admin/uploads/preview": () => import("./admin/uploads/preview.js"),
   "auth/login": () => import("./auth/login.js"),
   "auth/teacher-reset-password": () =>

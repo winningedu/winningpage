@@ -219,9 +219,6 @@
   "api/_routes/admin/tenants/student-usage.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/uploads.ts": {
-    "legacyHandler": 2
-  },
   "api/_routes/admin/uploads/preview.ts": {
     "legacyHandler": 1
   },

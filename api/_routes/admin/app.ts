@@ -26,6 +26,7 @@ import { serviceCreditSummary } from "./service-credit-summary.js";
 import { staff } from "./staff.js";
 import { tenantOptions } from "./tenant-options.js";
 import { tenants } from "./tenants.js";
+import { uploads } from "./uploads.js";
 import { webAnalytics } from "./web-analytics.js";
 
 export const admin = createAdminApp()
@@ -53,4 +54,5 @@ export const admin = createAdminApp()
   .route("/members", members)
   .route("/staff", staff)
   .route("/roles", roles)
-  .route("/tenants", tenants);
+  .route("/tenants", tenants)
+  .route("/uploads", uploads);
