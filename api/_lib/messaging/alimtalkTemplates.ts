@@ -63,8 +63,14 @@ export type AlimtalkTemplate = {
    * 알림톡 실패(카카오 미사용자 등) 시 대체 발송할 SMS 문구.
    * 90바이트를 넘으면 LMS 로 올라가 단가가 3배 이상이라 짧게 둔다.
    * 리포트처럼 본문이 긴 건 "링크를 보라"로 축약한다.
+   * 없으면 failover 없이 알림톡만 보낸다.
    */
-  smsFallback: (vars: Record<string, string>) => string;
+  smsFallback?: (vars: Record<string, string>) => string;
+  /**
+   * 발송 로그에 남기면 안 되는 변수 이름(임시 비밀번호 등). 로그와 meta 에는 (비공개)로 남는다.
+   * 이런 템플릿은 SMS 대체 문자를 두지 않는다(문자로 비밀값이 나가지 않게).
+   */
+  secretVars?: string[];
   /** 웹링크 버튼(없으면 생략). */
   button?: (vars: Record<string, string>) => AlimtalkButton;
 };
