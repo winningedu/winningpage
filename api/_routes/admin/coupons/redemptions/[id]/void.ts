@@ -6,8 +6,8 @@
 // 권한: 메뉴 coupons edit(POST 기본).
 
 import { z } from "zod";
+import { positiveIntId } from "../../../../../../shared/http/params.js";
 import { sendNotFound } from "../../../../../_lib/coupon/notFound.js";
-import { positiveIntPath } from "../../../../../_lib/coupon/pathId.js";
 import {
   sendRpcError,
   VOID_ERRORS,
@@ -27,7 +27,7 @@ export default defineHandler({
   audit: { action: "update" },
   unhandledMessage: "쿠폰 사용 이력을 취소하지 못했어요.",
   logLabel: "[admin/coupons/redemptions/[id]/void]",
-  query: z.object({ id: positiveIntPath }),
+  query: z.object({ id: positiveIntId }),
   body: z.object({ reason: z.string().optional() }),
   handler: async (req, res, ctx) => {
     const { id: redemptionId } = ctx.query;

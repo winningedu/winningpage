@@ -1,8 +1,7 @@
 /**
  * 어드민 메뉴 권한 위에 얹는 규칙 (순수 함수, React 없음)
  *
- * 화면(src/lib/adminPermissions.ts)과 서버(api/_lib/handler.ts)가 같은 규칙을 쓰도록 여기 둔다.
- * api/ 도 상대 경로로 import 한다. `@/` 별칭을 쓰지 않는다.
+ * 화면(src/lib/adminPermissions.ts)과 서버(api/_lib/adminPermission.ts)가 같은 규칙을 쓰도록 shared/ 에 둔다.
  */
 
 /**

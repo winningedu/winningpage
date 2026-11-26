@@ -13,6 +13,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { z } from "zod";
+import type { AdminMenuKey } from "../../shared/admin-permission/menu.js";
 import {
   type AdminAuditAction,
   isAuditableMethod,
@@ -204,7 +205,8 @@ export interface DefineHandlerOptions<
    * level 생략 시 GET, HEAD 는 view, 나머지는 edit.
    */
   permission?: {
-    key: string | ((req: VercelRequest) => string);
+    /** 리터럴은 메뉴 키 목록 안에서만. 키 함수는 요청 값에서 만들므로 string 을 돌려준다(모르는 키는 권한 판정에서 403). */
+    key: AdminMenuKey | ((req: VercelRequest) => string);
     level?: AdminLevel;
   };
   /**

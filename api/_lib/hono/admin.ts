@@ -10,6 +10,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { type Context, type ErrorHandler, Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
+import type { AdminMenuKey } from "../../../shared/admin-permission/menu.js";
 import { rawRouteKey } from "../../_routes/dispatch.js";
 import {
   type AdminAuditAction,
@@ -205,7 +206,8 @@ interface RouteOptions {
 export interface AdminRouteOptions extends RouteOptions {
   /** 메뉴 권한. key 는 메뉴 키이거나 요청에서 뽑는 함수다(던진 RouteParamError 는 400). level 생략 시 GET, HEAD 는 view, 나머지는 edit. */
   permission: {
-    key: string | ((c: Context<AdminEnv>) => string);
+    /** 리터럴은 메뉴 키 목록 안에서만. 키 함수는 요청 값에서 만들므로 string 을 돌려준다(모르는 키는 권한 판정에서 403). */
+    key: AdminMenuKey | ((c: Context<AdminEnv>) => string);
     level?: AdminLevel;
   };
   /** false 면 자동 감사 행을 끈다(라우트가 직접 남기는 경우). { action } 은 메서드 기본값을 바꾼다. */

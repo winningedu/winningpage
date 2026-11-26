@@ -9,17 +9,18 @@
 //   QA 계정 쓰기 차단(resolveAdmin)이 이 판정보다 먼저 돈다.
 //
 // 판정은 화면과 같다: 최고 관리자 전용 메뉴는 fn_is_super_admin, 별칭 메뉴는 사이트 플래그,
-// 나머지는 fn_admin_effective_permissions(src/lib/admin-permission/sections.ts 규칙 공유).
+// 나머지는 fn_admin_effective_permissions(shared/admin-permission/sections.ts 규칙 공유).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { SITES } from "../../src/config/sites.js";
+import type { AdminLevel } from "../../shared/admin-permission/menu.js";
 import {
   isSuperOnlySection,
   permissionKeyFor,
-} from "../../src/lib/admin-permission/sections.js";
+} from "../../shared/admin-permission/sections.js";
+import { SITES } from "../../src/config/sites.js";
 import { getSiteKey } from "./site.js";
 
-export type AdminLevel = "view" | "edit";
+export type { AdminLevel };
 
 /** 메뉴 권한 없음. defineHandler 가 403 FORBIDDEN 으로 바꾼다. */
 export class SectionPermissionDeniedError extends Error {

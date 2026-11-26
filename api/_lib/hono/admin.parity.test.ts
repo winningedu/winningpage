@@ -58,7 +58,7 @@ function oldRoute(variant: Variant, method: "GET" | "POST") {
               return "coupons";
             },
           }
-        : { key: "coupons" },
+        : { key: "coupons" as const },
     ...(variant === "auditUpdate"
       ? { audit: { action: "update" as const } }
       : {}),
@@ -90,7 +90,7 @@ function newApp(variant: Variant) {
               return "coupons";
             },
           }
-        : { key: "coupons" },
+        : { key: "coupons" as const },
     ...(variant === "auditUpdate"
       ? { audit: { action: "update" as const } }
       : {}),

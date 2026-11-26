@@ -18,7 +18,7 @@ import { validate } from "./validate.js";
 
 const AUTH = { authorization: "Bearer admin-token" };
 const OPTIONS = {
-  permission: { key: "coupons" },
+  permission: { key: "coupons" as const },
   unhandledMessage: "데모를 처리하지 못했어요.",
   logLabel: "[admin/demo]",
 };
@@ -174,6 +174,22 @@ describe("요청 로그", () => {
       method: "GET",
       status: 404,
       userId: null,
+    });
+  });
+});
+
+describe("메뉴 키 타입", () => {
+  test("목록에 없는 리터럴 키는 컴파일 오류다(키 함수는 string 을 돌려도 된다)", () => {
+    admin({
+      // @ts-expect-error 메뉴 키 목록에 없는 키
+      permission: { key: "nope" },
+      unhandledMessage: "x",
+      logLabel: "[x]",
+    });
+    admin({
+      permission: { key: (c) => String(c.req.param("key")) },
+      unhandledMessage: "x",
+      logLabel: "[x]",
     });
   });
 });
