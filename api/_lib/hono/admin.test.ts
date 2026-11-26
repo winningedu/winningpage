@@ -51,6 +51,18 @@ const app = createRootApp().route(
       (c) => c.json(c.req.valid("json")),
     )
     .all("/api/admin/demo", methodNotAllowed("GET", "POST"))
+    // 본문 값으로 메뉴 키를 정하는 라우트: 키 함수가 본문을 읽어도 뒤의 validate 가 같은 본문을 다시 읽는다.
+    .post(
+      "/api/admin/demo/body-key",
+      admin({
+        ...OPTIONS,
+        permission: {
+          key: async (c) => String((await c.req.json()).section),
+        },
+      }),
+      validate("json", z.object({ section: z.string() })),
+      (c) => c.json(c.req.valid("json")),
+    )
     .post(
       "/api/admin/me",
       user({
@@ -228,6 +240,26 @@ describe("요청 로그", () => {
       status: 404,
       userId: null,
     });
+  });
+});
+
+describe("비동기 메뉴 키 함수", () => {
+  const post = (section: string) =>
+    app.request("/api/admin/demo/body-key", {
+      method: "POST",
+      headers: { ...AUTH, "content-type": "application/json" },
+      body: JSON.stringify({ section }),
+    });
+
+  test("본문을 읽어 정한 키로 권한을 보고, 같은 본문을 뒤 검증이 다시 읽는다", async () => {
+    const ok = await post("coupons");
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ section: "coupons" });
+  });
+
+  test("권한이 없는 키는 403 이다", async () => {
+    const denied = await post("members");
+    expect(denied.status).toBe(403);
   });
 });
 
