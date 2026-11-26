@@ -1,5 +1,5 @@
-// Hono 앱과 미들웨어의 Env 타입과 팩토리. 인증 모드마다 Env 하나와 팩토리 하나를 둔다(지금은 관리자).
-// AdminEnv 는 DB 클라이언트를 담아 서버 전용이다. 브라우저와 나누는 것은 shared/ 의 요청, 응답 스키마다.
+// Hono 앱과 미들웨어의 Env 타입과 팩토리. 인증 모드마다 Env 하나와 팩토리 하나를 둔다(관리자, 로그인 사용자).
+// AdminEnv, UserEnv 는 DB 클라이언트를 담아 서버 전용이다. 브라우저와 나누는 것은 shared/ 의 요청, 응답 스키마다.
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createFactory } from "hono/factory";
@@ -39,8 +39,20 @@ export type AdminEnv = {
   };
 };
 
+/** 로그인한 사용자 라우트(user() 미들웨어 뒤). 인증을 통과한 핸들러만 읽으므로 user, token 은 undefined 가 아니다. */
+export type UserEnv = {
+  Variables: BaseVariables & {
+    user: User;
+    token: string;
+    supabaseAdmin: SupabaseClient;
+    /** X-Time-Zone 헤더가 있고 유효할 때만 있다. */
+    timeZone: string | undefined;
+  };
+};
+
 // 끝 슬래시는 dispatch 처럼 같은 라우트로 본다.
 const defaultAppOptions = { strict: false };
 
 export const baseFactory = createFactory<BaseEnv>({ defaultAppOptions });
 export const adminFactory = createFactory<AdminEnv>({ defaultAppOptions });
+export const userFactory = createFactory<UserEnv>({ defaultAppOptions });

@@ -55,7 +55,7 @@ export const createAdminApp = () => adminFactory.createApp().use(adminAudit);
 export const userClient = (c: Context) =>
   createSupabaseUserClient(getBearerToken({ headers: nodeHeaders(c) }));
 
-interface RouteOptions {
+export interface RouteOptions {
   /** 미처리 예외(500) 응답 문구. 라우트마다 다르다. */
   unhandledMessage: string;
   /** console.error 라벨(응답 바디에는 영향 없음). */
@@ -98,7 +98,7 @@ export function isAuthMiddleware(handler: unknown): boolean {
   return authMiddlewares.has(handler as MiddlewareHandler);
 }
 
-function registered<T extends MiddlewareHandler>(middleware: T): T {
+export function registered<T extends MiddlewareHandler>(middleware: T): T {
   authMiddlewares.add(middleware);
   return middleware;
 }
