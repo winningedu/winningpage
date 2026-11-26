@@ -262,7 +262,7 @@ function HeroSection({ onStart }: { onStart: StartClickHandler }) {
       />
 
       <div className="relative z-10 mx-auto flex w-full max-w-content flex-col items-center px-5 text-center sm:px-8">
-        <p className={HERO_EYEBROW_CLASS}>학습진단 서비스</p>
+        <p className={HERO_EYEBROW_CLASS}>학습진단</p>
 
         <h1 className={`mt-6 ${HERO_HEADLINE_CLASS}`}>
           학생부 업로드 없이 나에게 맞는 학습역량 및 학교생활,{" "}

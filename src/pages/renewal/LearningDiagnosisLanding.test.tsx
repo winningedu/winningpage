@@ -104,7 +104,7 @@ describe("LearningDiagnosisLanding 히어로 16개 영역 리포트", () => {
   it("새 히어로 문구와 NEW 배지, 안내 문구를 보여 준다", () => {
     renderPage();
     const hero = screen.getByRole("heading", { level: 1 }).closest("section")!;
-    expect(within(hero).getByText("학습진단 서비스")).toBeInTheDocument();
+    expect(within(hero).getByText("학습진단")).toBeInTheDocument();
     expect(
       within(hero).getByText("학습진단으로 나의 강점과 약점을 찾아드려요"),
     ).toBeInTheDocument();
