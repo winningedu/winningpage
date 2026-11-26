@@ -223,6 +223,35 @@ ${v(vars, "학생이름")} 학생
       linkPc: `${siteWww()}/mypage/children/${v(vars, "학생ID")}/growth/${v(vars, "리포트ID")}`,
     }),
   },
+
+  /**
+   * 선생님 계정 안내(원부 5절). 계정 발급과 임시 비밀번호 재발급에 같이 쓴다. 수신자는 선생님 본인.
+   * 임시 비밀번호가 본문에 들어가므로 로그에는 가리고(secretVars), SMS 대체 문자는 두지 않는다.
+   * 위닝 승인 제출본은 UO_3127, 스쿨멘토는 같은 본문에서 브랜드와 도메인만 바꾼다.
+   */
+  teacherAccount: {
+    codeEnv: "ALIGO_TPL_TEACHER_ACCOUNT",
+    subject: "계정 정보 안내",
+    secretVars: ["임시비밀번호"],
+    build: (vars) => `안녕하세요, ${v(vars, "이름")}님.
+${siteBrand()} ${v(vars, "계정종류")} 계정 정보를 안내드립니다.
+
+■ 소속: ${v(vars, "소속")}
+■ 아이디: ${v(vars, "아이디")}
+■ 임시 비밀번호: ${v(vars, "임시비밀번호")}
+
+아래 버튼을 눌러 로그인한 뒤, 처음 로그인할 때 비밀번호를 새로 설정해 주세요.
+
+※ 임시 비밀번호는 다른 사람에게 알려 주지 마세요.
+※ 요청하지 않은 안내라면 소속 기관 관리자에게 문의해 주세요.`,
+    button: () => ({
+      name: "선생님 화면 바로가기",
+      linkType: "WL",
+      linkTypeName: "웹링크",
+      linkMo: `${siteWww()}/teacher`,
+      linkPc: `${siteWww()}/teacher`,
+    }),
+  },
 } satisfies Record<string, AlimtalkTemplate>;
 
 export type AlimtalkTemplateKey = keyof typeof templates;
