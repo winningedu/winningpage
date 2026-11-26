@@ -442,12 +442,12 @@ insert into public.app_settings (key, value) values ('signup_enabled', 'true'::j
 
 select pg_temp.expect_msg('이용약관 미동의', $$select pg_temp.go(3, '{"agree_service": false}')$$, 'P0001', 'terms_service_required');
 select pg_temp.expect_msg('개인정보 미동의', $$select pg_temp.go(4, '{"agree_privacy": false}')$$, 'P0001', 'privacy_required');
-select pg_temp.expect_ok('선택 개인정보(4-2) 동의 가입', $$select pg_temp.go(5, '{"agree_privacy_additional": true}')$$);
+select pg_temp.expect_ok('선택 개인정보(4-2) 동의 가입', $$select pg_temp.go(88, '{"agree_privacy_additional": true}')$$);
 select pg_temp.expect_text('4-2 동의는 privacy_additional 기록과 profiles.privacy_optional_agreed 에 남는다',
   (select pr.privacy_optional_agreed || ':' || a.agreed from public.profiles pr
      join public.user_term_agreements a on a.user_id = pr.id
      join public.terms t on t.id = a.term_id and t.code = 'privacy_additional'
-    where pr.email = 'go5@example.com'),
+    where pr.email = 'go88@example.com'),
   'true:true');
 select pg_temp.expect_msg('이름 없음', $$select pg_temp.go(6, '{"name": "  "}')$$, 'P0001', 'name_required');
 select pg_temp.expect_msg('이메일 인증을 마치지 않은 계정은 email_not_verified', $$
