@@ -67,4 +67,40 @@ describe("BasicInfoForm 이전 주제", () => {
 
     expect(topicInputs().map((input) => input.value)).toEqual(["a", "c"]);
   });
+
+  test("제출하면 비지 않은 칸을 다듬어 줄바꿈으로 이어 previousTopic 하나로 보낸다", () => {
+    const onSubmit = vi.fn();
+    const { container } = render(<BasicInfoForm onSubmit={onSubmit} />);
+    const group = SUBJECT_GROUPS[0] as string;
+    const subject = getSubjectOptions(group)[0] as string;
+    const select = (name: string, value: string) =>
+      fireEvent.change(
+        container.querySelector(`select[name="${name}"]`) as HTMLSelectElement,
+        { target: { value } },
+      );
+
+    select("gradeLabel", "고1");
+    select("semester", "1학기");
+    select("subjectGroup", group);
+    select("subject", subject);
+    fireEvent.change(screen.getByLabelText(/희망 진로/), {
+      target: { value: "의학" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "+ 이전 주제 추가" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ 이전 주제 추가" }));
+    fireEvent.change(screen.getByLabelText(FIRST_LABEL), {
+      target: { value: " a " },
+    });
+    fireEvent.change(screen.getByLabelText("이전에 한 주제 3"), {
+      target: { value: "c" },
+    });
+    fireEvent.submit(container.querySelector("form") as HTMLFormElement);
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
+      subject,
+      previousTopic: "a\nc",
+    });
+  });
 });

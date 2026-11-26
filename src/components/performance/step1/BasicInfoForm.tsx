@@ -8,6 +8,7 @@ import {
   SUBJECT_GROUPS,
 } from "@/data/performanceCurriculum";
 import {
+  joinPreviousTopics,
   PREVIOUS_TOPIC_MAX_COUNT,
   PREVIOUS_TOPIC_MAX_LENGTH,
   splitPreviousTopics,
@@ -237,7 +238,7 @@ export default function BasicInfoForm({
       semester: values.semester,
       subjectGroup: values.subjectGroup,
       subject: isSubjectCustom ? values.customSubject.trim() : values.subject,
-      previousTopic: previousTopics.map((topic) => topic.trim()).join("\n"),
+      previousTopic: joinPreviousTopics(previousTopics),
       careerGoal: values.careerGoal.trim(),
     });
   }
