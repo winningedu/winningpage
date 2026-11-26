@@ -65,9 +65,9 @@ interface RouteOptions {
 }
 
 export interface AdminRouteOptions extends RouteOptions {
-  /** 메뉴 권한. key 는 메뉴 키이거나 요청에서 뽑는 함수다(던진 RouteParamError 는 400). level 생략 시 GET, HEAD 는 view, 나머지는 edit. */
+  /** 메뉴 권한. key 는 메뉴 키이거나 요청에서 뽑는 함수다(본문을 읽어야 하면 async 도 된다. 던진 RouteParamError 는 400). level 생략 시 GET, HEAD 는 view, 나머지는 edit. */
   permission: {
-    /** 리터럴은 메뉴 키 목록 안에서만. 키 함수는 요청 값에서 만들므로 string 을 돌려준다(모르는 키는 권한 판정에서 403). 본문을 읽어야 하면 Promise 로 돌려준다. */
+    /** 리터럴은 메뉴 키 목록 안에서만. 키 함수는 요청 값에서 만들므로 string 을 돌려준다(모르는 키는 권한 판정에서 403). */
     key: AdminMenuKey | ((c: Context<AdminEnv>) => string | Promise<string>);
     level?: AdminLevel;
   };
