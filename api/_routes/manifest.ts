@@ -101,7 +101,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/staff/[profileId]/permissions": () =>
     import("./admin/staff/[profileId]/permissions.js"),
   "admin/students/search": () => import("./admin/students/search.js"),
-  "admin/tenant-options": () => import("./admin/tenant-options.js"),
   "admin/tenants": () => import("./admin/tenants.js"),
   "admin/tenants/[id]": () => import("./admin/tenants/[id].js"),
   "admin/tenants/member-purge": () => import("./admin/tenants/member-purge.js"),
