@@ -16,18 +16,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/admission/guidelines/bulk.js"),
   "admin/ai-telemetry": () => import("./admin/ai-telemetry.js"),
   "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
-  "admin/learning-diagnosis/questions": () =>
-    import("./admin/learning-diagnosis/questions.js"),
-  "admin/learning-diagnosis/questions/[id]": () =>
-    import("./admin/learning-diagnosis/questions/[id].js"),
-  "admin/learning-diagnosis/options": () =>
-    import("./admin/learning-diagnosis/options.js"),
-  "admin/learning-diagnosis/options/[id]": () =>
-    import("./admin/learning-diagnosis/options/[id].js"),
-  "admin/learning-diagnosis/programs": () =>
-    import("./admin/learning-diagnosis/programs.js"),
-  "admin/learning-diagnosis/programs/[id]": () =>
-    import("./admin/learning-diagnosis/programs/[id].js"),
   "admin/mentor-applications": () => import("./admin/mentor-applications.js"),
   "admin/mentor-applications/[id]": () =>
     import("./admin/mentor-applications/[id].js"),

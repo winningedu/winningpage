@@ -412,36 +412,6 @@ describe("학습진단, 멘토 신청 경로", () => {
   };
 
   test.each([
-    [
-      "/api/admin/learning-diagnosis/questions",
-      "admin/learning-diagnosis/questions",
-      {},
-    ],
-    [
-      `/api/admin/learning-diagnosis/questions/${ID}`,
-      "admin/learning-diagnosis/questions/[id]",
-      { id: ID },
-    ],
-    [
-      "/api/admin/learning-diagnosis/options",
-      "admin/learning-diagnosis/options",
-      {},
-    ],
-    [
-      `/api/admin/learning-diagnosis/options/${ID}`,
-      "admin/learning-diagnosis/options/[id]",
-      { id: ID },
-    ],
-    [
-      "/api/admin/learning-diagnosis/programs",
-      "admin/learning-diagnosis/programs",
-      {},
-    ],
-    [
-      `/api/admin/learning-diagnosis/programs/${ID}`,
-      "admin/learning-diagnosis/programs/[id]",
-      { id: ID },
-    ],
     ["/api/admin/mentor-applications", "admin/mentor-applications", {}],
     [
       `/api/admin/mentor-applications/${ID}`,

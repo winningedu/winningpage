@@ -99,24 +99,6 @@
   "api/_routes/admin/knowledge-search.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/learning-diagnosis/options.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/learning-diagnosis/options/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/learning-diagnosis/programs.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/learning-diagnosis/programs/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/learning-diagnosis/questions.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/learning-diagnosis/questions/[id].ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/me/activate.ts": {
     "legacyHandler": 1
   },

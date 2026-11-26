@@ -23,6 +23,7 @@ export const option = {
   id: "o1",
   question_id: "q1",
   label: "수행평가",
+  option_text: "수행평가",
   program_ids: ["p1"],
   is_active: true,
   sort_order: 1,

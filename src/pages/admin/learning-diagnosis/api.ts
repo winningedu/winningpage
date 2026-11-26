@@ -1,49 +1,26 @@
-// 학습진단 화면의 서버 호출. 응답 모양은 zod 로 검증하고, 조회는 react-query 키로 묶는다.
+// 학습진단 화면의 서버 호출. 응답 모양은 서버와 같은 계약(shared/learning-diagnosis/contract.ts)의 zod 로 검증하고, 조회는 react-query 키로 묶는다.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { z } from "zod";
 import { api } from "@/lib/http/client";
 import { toastError } from "@/pages/admin/shared/adminToast";
+import {
+  type OptionCreateInput,
+  type OptionPatchInput,
+  type OptionRow,
+  optionSchema,
+  type ProgramInput,
+  type ProgramRow,
+  programSchema,
+  type QuestionInput,
+  type QuestionRow,
+  questionSchema,
+} from "../../../../shared/learning-diagnosis/contract.js";
+
+export type { OptionRow, ProgramRow, QuestionRow };
 
 const BASE = "admin/learning-diagnosis";
-
-// 쓰는 컬럼만 명시하고 나머지는 통과시킨다. 컬럼 대부분이 nullable 이라 화면이 읽을 때 좁힌다.
-const questionSchema = z.looseObject({
-  id: z.string(),
-  title: z.string(),
-  description: z.string().nullable(),
-  input_type: z.string(),
-  is_required: z.boolean().nullable(),
-  is_active: z.boolean().nullable(),
-  sort_order: z.number().nullable(),
-});
-export type QuestionRow = z.infer<typeof questionSchema>;
-
-const optionSchema = z.looseObject({
-  id: z.string(),
-  question_id: z.string().nullable(),
-  label: z.string().nullable(),
-  program_ids: z.unknown(),
-  is_active: z.boolean().nullable(),
-  sort_order: z.number().nullable(),
-});
-export type OptionRow = z.infer<typeof optionSchema>;
-
-const programSchema = z.looseObject({
-  id: z.string(),
-  title: z.string(),
-  badge: z.string().nullable(),
-  description: z.string().nullable(),
-  primary_button_text: z.string().nullable(),
-  primary_button_link: z.string().nullable(),
-  secondary_button_text: z.string().nullable(),
-  secondary_button_link: z.string().nullable(),
-  icon: z.string().nullable(),
-  is_active: z.boolean().nullable(),
-  sort_order: z.number().nullable(),
-});
-export type ProgramRow = z.infer<typeof programSchema>;
 
 const keys = {
   all: ["admin", "learning-diagnosis"] as const,
@@ -74,8 +51,12 @@ export function useDiagnosisLists() {
 }
 
 export type DiagnosisWrite =
-  | { method: "post"; path: string; json: unknown }
-  | { method: "patch"; path: string; json: unknown }
+  | { method: "post"; path: "questions"; json: QuestionInput }
+  | { method: "patch"; path: `questions/${string}`; json: QuestionInput }
+  | { method: "post"; path: "options"; json: OptionCreateInput }
+  | { method: "patch"; path: `options/${string}`; json: OptionPatchInput }
+  | { method: "post"; path: "programs"; json: ProgramInput }
+  | { method: "patch"; path: `programs/${string}`; json: ProgramInput }
   | { method: "delete"; path: string };
 
 /** 등록, 수정, 삭제 한 가지로 모은 쓰기. 끝나면 세 목록을 다시 받는다. */
