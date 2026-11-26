@@ -7,8 +7,16 @@
 //   반영한 행은 embedding_status 를 pending 으로 돌려 다음 backfill 이 다시 태우게 한다.
 //   search_text 는 건드리지 않는다. 임베딩 단계가 새로 조립해 덮는다.
 
+import {
+  BULK_REQUIRED_FIELDS,
+  BULK_WRITABLE_FIELDS,
+  MAX_BULK_ROWS,
+} from "../../../shared/knowledge/contract.js";
 import type { Database } from "../../../src/types/database.types.js";
 import { type BulkKnowledgeType, isBulkKnowledgeType } from "./dedupe.js";
+
+// 한도와 필드 목록은 shared/knowledge/contract.ts 가 정하고 여기서 다시 내보낸다(src 가 이 파일에서 읽는다).
+export { BULK_REQUIRED_FIELDS, BULK_WRITABLE_FIELDS, MAX_BULK_ROWS };
 
 type KnowledgeColumn =
   keyof Database["public"]["Tables"]["winning_assessment_knowledge_items"]["Row"];
@@ -45,31 +53,7 @@ function unknownKeys(source: Record<string, unknown>): string[] {
   );
 }
 
-/** 요청 한 번에 반영하는 신규와 수정 합계 상한. 클라이언트가 이 크기로 나눠 보낸다. */
-export const MAX_BULK_ROWS = 500;
-
-/** 엑셀에서 받아들이는 컬럼. 테이블 컬럼이지만 이 밖인 키(임베딩 등)는 조용히 버리고, 컬럼이 아닌 키는 400 이다. */
-export const BULK_WRITABLE_FIELDS = [
-  "is_active",
-  "grade",
-  "subject",
-  "career_field",
-  "title",
-  "content",
-  "source",
-  "source_link",
-  "keywords",
-  "memo",
-] as const;
 type WritableField = (typeof BULK_WRITABLE_FIELDS)[number];
-
-/** DB 에서 not null 인 본문 컬럼. 신규는 전부 있어야 하고, 수정은 보낸 값이 비면 안 된다. */
-export const BULK_REQUIRED_FIELDS = [
-  "grade",
-  "subject",
-  "title",
-  "content",
-] as const;
 
 function missingRequired(row: BulkRow, mode: "insert" | "update"): string[] {
   return BULK_REQUIRED_FIELDS.filter((field) => {

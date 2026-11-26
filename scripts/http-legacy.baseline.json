@@ -48,12 +48,6 @@
   "api/_routes/admin/admission/results/rows.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/growth-grant.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/growth-recover.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/growth-reports.ts": {
     "legacyHandler": 1
   },
@@ -81,22 +75,10 @@
   "api/_routes/admin/hq-dashboard/usage.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/inquiry-grant.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/inquiry-recover.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/inquiry-sessions.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/inquiry-sessions/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-bulk.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-dedupe.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/knowledge-eval.ts": {
@@ -109,9 +91,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/knowledge-items/titles.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-search.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/learning-diagnosis/options.ts": {
@@ -208,12 +187,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/sections/[key]/export.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/selfeval-grant.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/selfeval-recover.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/selfeval-sessions.ts": {
