@@ -6,13 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { ActionButton } from "@/pages/admin/shared/formFields";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
@@ -135,7 +135,7 @@ function MemberList({ config }: AdminMembersAdminProps) {
         </div>
       ) : (
         <div className="bg-white shadow-sm">
-          <Table className="min-w-225">
+          <AdminTableFrame label="직원 목록" className="min-w-225">
             <TableHeader>
               <TableRow className="bg-muted hover:bg-transparent">
                 {[
@@ -146,7 +146,10 @@ function MemberList({ config }: AdminMembersAdminProps) {
                   ["권한 묶음", ""],
                   ["상태", ""],
                   ["가입일", ""],
-                  ["관리", "w-24"],
+                  [
+                    "관리",
+                    "sticky right-0 w-24 border-l border-gray-200 bg-muted",
+                  ],
                 ].map(([label, width]) => (
                   <TableHead
                     key={label}
@@ -188,7 +191,7 @@ function MemberList({ config }: AdminMembersAdminProps) {
                   <TableCell className="px-4 py-3">
                     {formatDate(row.joined_at)}
                   </TableCell>
-                  <TableCell className="px-4 py-3">
+                  <TableCell className="sticky right-0 border-l border-gray-100 bg-white px-4 py-3">
                     <Button
                       type="button"
                       variant="outline"
@@ -213,7 +216,7 @@ function MemberList({ config }: AdminMembersAdminProps) {
                 </TableRow>
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </div>

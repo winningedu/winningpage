@@ -454,6 +454,23 @@ describe("GoalStudentsAdmin 목록", () => {
   });
 });
 
+describe("GoalStudentsAdmin 표 배치", () => {
+  it("학생 목록 표는 이름 있는 스크롤 영역이고 관리 열은 오른쪽에 고정된다", async () => {
+    holder.list = { items: [row("s1")], total: 1, searchTruncated: false };
+    renderRoutes("/admin/goalStudents");
+
+    const region = await screen.findByRole("region", { name: "학생 목록" });
+    expect(region).toHaveAttribute("tabindex", "0");
+    const header = screen.getByRole("columnheader", { name: "관리" });
+    const cell = (
+      await screen.findByRole("button", { name: "상세 보기" })
+    ).closest("td") as HTMLElement;
+    for (const el of [header, cell]) {
+      expect(el).toHaveClass("sticky", "right-0");
+    }
+  });
+});
+
 describe("GoalStudentsAdmin 라우트", () => {
   it("상세 보기를 누르면 /admin/goalStudents/:id 로 가고 목록 파라미터를 들고 간다", async () => {
     holder.list = { items: [row("s1")], total: 25, searchTruncated: false };

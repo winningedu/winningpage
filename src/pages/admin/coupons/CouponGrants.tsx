@@ -5,13 +5,13 @@ import { useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { toastError, toastSuccess } from "@/pages/admin/shared/adminToast";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
@@ -275,7 +275,7 @@ export default function CouponGrants() {
             전체 <span className="text-blue-600">{grantRows.length}</span>건
           </div>
 
-          <Table className="min-w-250">
+          <AdminTableFrame label="발급 목록" className="min-w-250">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead
@@ -302,7 +302,7 @@ export default function CouponGrants() {
                 ))}
                 <TableHead
                   scope="col"
-                  className="w-24 px-3 py-3 text-center font-semibold whitespace-normal"
+                  className="sticky right-0 border-l border-gray-200 bg-white w-24 px-3 py-3 text-center font-semibold whitespace-normal"
                 >
                   관리
                 </TableHead>
@@ -360,7 +360,7 @@ export default function CouponGrants() {
                         {row.revoke_reason || "-"}
                       </TableCell>
 
-                      <TableCell className="px-3 py-3 whitespace-normal">
+                      <TableCell className="sticky right-0 border-l border-gray-100 bg-white px-3 py-3 whitespace-normal">
                         {revoked ? (
                           // 회수된 행은 사라지지 않는다(원장). 다시 회수할 수도
                           // 없다, 되돌리려면 "다시 발급"(새 행)이다.
@@ -427,7 +427,7 @@ export default function CouponGrants() {
                 })
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </>
