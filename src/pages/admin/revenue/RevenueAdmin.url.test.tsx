@@ -27,7 +27,7 @@ import { ApiError } from "@/lib/http/client";
 import RevenueAdmin from "./RevenueAdmin";
 
 const item = (id: string, service: string, name: string) => ({
-  order_item_id: id,
+  order_item_id: Number(id),
   order_id: `o-${id}`,
   paid_at: "2026-11-02T03:00:00Z",
   payer_name: name,

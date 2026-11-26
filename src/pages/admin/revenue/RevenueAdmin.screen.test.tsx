@@ -13,7 +13,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, expect, test, vi } from "vitest";
 
 const row = (id: string, service: string, name: string) => ({
-  order_item_id: id,
+  order_item_id: Number(id),
   order_id: `o-${id}`,
   paid_at: "2026-11-02T03:00:00Z",
   payer_name: name,

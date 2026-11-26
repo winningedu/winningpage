@@ -153,9 +153,6 @@
   "api/_routes/admin/premium-book/pages/[id].ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/revenue.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/revenue/pending.ts": {
     "legacyHandler": 1
   },

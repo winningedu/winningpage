@@ -15,6 +15,7 @@ import { knowledgeBulk } from "./knowledge-bulk.js";
 import { knowledgeDedupe } from "./knowledge-dedupe.js";
 import { knowledgeSearch } from "./knowledge-search.js";
 import { mentorApplications } from "./mentor-applications.js";
+import { revenue } from "./revenue.js";
 import { selfevalGrant } from "./selfeval-grant.js";
 import { selfevalRecover } from "./selfeval-recover.js";
 import { sendMessage } from "./send-message.js";
@@ -43,4 +44,5 @@ export const admin = createAdminApp()
   .route("/knowledge-bulk", knowledgeBulk)
   .route("/knowledge-dedupe", knowledgeDedupe)
   .route("/knowledge-search", knowledgeSearch)
-  .route("/mentor-applications", mentorApplications);
+  .route("/mentor-applications", mentorApplications)
+  .route("/revenue", revenue);

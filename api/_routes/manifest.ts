@@ -72,7 +72,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/premium-book/pages": () => import("./admin/premium-book/pages.js"),
   "admin/premium-book/pages/[id]": () =>
     import("./admin/premium-book/pages/[id].js"),
-  "admin/revenue": () => import("./admin/revenue.js"),
   "admin/revenue/pending": () => import("./admin/revenue/pending.js"),
   "admin/revenue/services": () => import("./admin/revenue/services.js"),
   "admin/roles": () => import("./admin/roles.js"),
