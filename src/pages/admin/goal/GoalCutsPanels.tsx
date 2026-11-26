@@ -15,12 +15,12 @@ import {
 } from "@/lib/goal/goalCutBackfill";
 import { ApiError } from "@/lib/http/client";
 import { withDedupedKeys } from "@/lib/reactKeys";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   AdminChunkError,
   reportAdminError,
   withChunkRows,
 } from "@/pages/admin/shared/adminErrors";
-import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
 import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { pad2, triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";

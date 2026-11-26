@@ -20,11 +20,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { site } from "@/config/site";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   AdminApiError,
   reportAdminError,
 } from "@/pages/admin/shared/adminErrors";
-import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import {
   ActionButton,
