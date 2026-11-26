@@ -47,7 +47,6 @@ export function sendError(
   }
 }
 
-// code 없는 호출은 500 만 INTERNAL_ERROR 로 받는다. 나머지는 호출부 실수이므로 던진다.
 function sendProblem(
   res: VercelResponse,
   status: number,
@@ -55,25 +54,44 @@ function sendProblem(
   code: string | undefined,
   extra: Record<string, unknown> | undefined,
 ): void {
+  const requestId = res.req?.headers["x-vercel-id"];
+  const body = problemBody(
+    status,
+    message,
+    code,
+    extra,
+    typeof requestId === "string" ? requestId : undefined,
+  );
+  // res.json 은 Content-Type 을 덮어쓸 수 있어 end 로 직접 쓴다.
+  res.setHeader("Content-Type", PROBLEM_CONTENT_TYPE);
+  res.status(status).end(body);
+}
+
+/**
+ * RFC 9457 problem 바디 문자열. sendError(..., "problem") 와 Hono 쪽(api/_lib/hono/problem.ts)이 같이 쓴다(키 순서까지 같게).
+ * code 없는 호출은 500 만 INTERNAL_ERROR 로 받는다. 나머지는 호출부 실수이므로 던진다.
+ */
+export function problemBody(
+  status: number,
+  message: string,
+  code?: string,
+  extra?: Record<string, unknown>,
+  requestId?: string,
+): string {
   if (!code && status !== 500) {
     throw new Error(
       `sendError: problem shape 는 code 가 필요합니다 (${status}).`,
     );
   }
-  const requestId = res.req?.headers["x-vercel-id"];
-  // res.json 은 Content-Type 을 덮어쓸 수 있어 end 로 직접 쓴다.
-  res.setHeader("Content-Type", PROBLEM_CONTENT_TYPE);
   // 표준 멤버는 extra 로 덮을 수 없다(instance 가 없는 경우 포함).
   const { instance: _instance, ...members } = extra || {};
-  res.status(status).end(
-    JSON.stringify({
-      ...members,
-      type: "about:blank",
-      title: STATUS_CODES[status],
-      status,
-      detail: message,
-      ...(typeof requestId === "string" ? { instance: requestId } : {}),
-      code: code || "INTERNAL_ERROR",
-    }),
-  );
+  return JSON.stringify({
+    ...members,
+    type: "about:blank",
+    title: STATUS_CODES[status],
+    status,
+    detail: message,
+    ...(requestId !== undefined ? { instance: requestId } : {}),
+    code: code || "INTERNAL_ERROR",
+  });
 }

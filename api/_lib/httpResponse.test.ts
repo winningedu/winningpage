@@ -2,7 +2,7 @@
 
 import type { VercelResponse } from "@vercel/node";
 import { describe, expect, test } from "vitest";
-import { sendError } from "./httpResponse.js";
+import { problemBody, sendError } from "./httpResponse.js";
 
 interface Captured {
   status: number;
@@ -139,5 +139,41 @@ describe("sendError problem shape", () => {
   test("code 가 없는 500 외 상태는 프로그래밍 오류로 던진다", () => {
     const { res } = fakeRes();
     expect(() => sendError(res, "problem", 400, "x")).toThrow();
+  });
+});
+
+describe("problemBody", () => {
+  test("sendError problem 이 쓰는 바디와 글자까지 같다", () => {
+    const cases: [
+      number,
+      string,
+      string | undefined,
+      Record<string, unknown> | undefined,
+    ][] = [
+      [403, "권한이 없어요.", "FORBIDDEN", undefined],
+      [400, "d", "C", { errors: [{ path: "a", message: "m" }], instance: "x" }],
+      [500, "서버 오류", undefined, undefined],
+    ];
+    for (const [status, message, code, extra] of cases) {
+      const { res, out } = fakeRes({ "x-vercel-id": "icn1::abc" });
+      sendError(res, "problem", status, message, code, extra);
+      expect(problemBody(status, message, code, extra, "icn1::abc")).toBe(
+        out.raw,
+      );
+    }
+  });
+
+  test("요청 id 가 없으면 instance 를 싣지 않는다", () => {
+    expect(JSON.parse(problemBody(404, "없어요.", "NOT_FOUND"))).toEqual({
+      type: "about:blank",
+      title: "Not Found",
+      status: 404,
+      detail: "없어요.",
+      code: "NOT_FOUND",
+    });
+  });
+
+  test("500 이 아닌데 code 가 없으면 던진다", () => {
+    expect(() => problemBody(400, "x", undefined)).toThrow();
   });
 });
