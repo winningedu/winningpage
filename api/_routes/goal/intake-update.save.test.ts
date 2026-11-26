@@ -6,7 +6,11 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Row = Record<string, unknown>;
-type Call = { op: "upsert" | "update"; values: Row; filters: [string, unknown][] };
+type Call = {
+  op: "upsert" | "update";
+  values: Row;
+  filters: [string, unknown][];
+};
 
 const NOT_NULL_NO_DEFAULT = ["profile_id", "school_type", "grade"];
 
