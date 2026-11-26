@@ -68,6 +68,8 @@
   --color-gold-text: #9a6a00;
   --color-taupe: #7c6c4d;
   --color-navy-ink: #0b2a5b;
+  /* 학습진단 결과리포트 강조색(번호 탭, NEW 배지, 강조 문구). 고객사 시안 기준. */
+  --color-report-orange: #c2501a;
 
   --color-ink: #525252;
   --color-ink-header: #4d4d4d;

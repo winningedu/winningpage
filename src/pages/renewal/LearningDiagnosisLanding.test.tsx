@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import LearningDiagnosisLanding from "./LearningDiagnosisLanding";
 
 function renderPage() {
@@ -46,7 +46,7 @@ describe("LearningDiagnosisLanding 히어로", () => {
   it("CTA 버튼과 리포트 이미지 쌍은 가로 flex 래퍼를 공유하지 않는다", () => {
     renderPage();
     const cta = screen.getByRole("link", { name: "지금 시작하기" });
-    const image = screen.getByAltText("학습진단 리포트 1페이지 미리보기");
+    const image = screen.getByRole("img", { name: /16개 영역 리포트/ });
     const shared = cta.parentElement;
     expect(shared).not.toBeNull();
     expect(shared!.contains(image)).toBe(true);
@@ -81,5 +81,102 @@ describe("LearningDiagnosisLanding 섹션 간격", () => {
       .closest("section");
     expect(section).toHaveClass("md:pt-33.5");
     expect(section?.className).not.toMatch(/md:pt-(60|62\.5)/);
+  });
+});
+
+function stubReducedMotion(reduce: boolean) {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockImplementation((query: string) => ({
+      matches: reduce && query.includes("prefers-reduced-motion"),
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+  );
+}
+
+describe("LearningDiagnosisLanding 히어로 16개 영역 리포트", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("새 히어로 문구와 NEW 배지, 안내 문구를 보여 준다", () => {
+    renderPage();
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section")!;
+    expect(within(hero).getByText("학습진단 서비스")).toBeInTheDocument();
+    expect(
+      within(hero).getByText("학습진단으로 나의 강점과 약점을 찾아드려요"),
+    ).toBeInTheDocument();
+    const emphasis = within(hero).getByText("16가지 분석 결과");
+    expect(emphasis.tagName).toBe("STRONG");
+    expect(emphasis.parentElement).toHaveTextContent(
+      "목표대학 입결 비교, MBTI 학습궁합 등 16가지 분석 결과를 한 권의 리포트로 받아보세요",
+    );
+    expect(within(hero).getByText("NEW")).toBeInTheDocument();
+    expect(
+      within(hero).getByText("16개 영역의 전문리포트로 업그레이드되었어요"),
+    ).toBeInTheDocument();
+    expect(
+      within(hero).getByText(
+        "회원가입만 해도 전문리포트를 우선 받아볼 수 있어요",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("리포트 페이지 16장을 장식 이미지로 펼쳐 둔다", () => {
+    renderPage();
+    const fan = screen.getByRole("img", { name: /16개 영역 리포트/ });
+    const pages = fan.querySelectorAll("img");
+    expect(pages).toHaveLength(16);
+    for (const page of pages) expect(page).toHaveAttribute("alt", "");
+    expect(fan).toHaveTextContent("01");
+    expect(fan).toHaveTextContent("16");
+  });
+
+  it("동작 줄이기 설정이면 처음부터 펼친 상태로 그린다", () => {
+    stubReducedMotion(true);
+    renderPage();
+    expect(
+      screen.getByRole("img", { name: /16개 영역 리포트/ }),
+    ).toHaveAttribute("data-fan", "spread");
+  });
+
+  it("동작 줄이기 설정이 아니면 겹친 상태에서 시작한다", () => {
+    stubReducedMotion(false);
+    renderPage();
+    expect(
+      screen.getByRole("img", { name: /16개 영역 리포트/ }),
+    ).toHaveAttribute("data-fan", "stacked");
+  });
+});
+
+describe("LearningDiagnosisLanding 결과리포트 목차", () => {
+  it("16개 항목을 순서대로 보여 주고 핵심 표시는 01, 04, 07, 08, 11에만 단다", () => {
+    renderPage();
+    const section = screen
+      .getByRole("heading", {
+        name: "학습진단 결과리포트에는 이런 내용이 담겨요",
+      })
+      .closest("section")!;
+    expect(section).toHaveTextContent(
+      "학습 상태부터 4주 실행 플랜까지 한 권으로",
+    );
+    const items = within(section).getAllByRole("listitem");
+    expect(items).toHaveLength(16);
+    expect(items[0]).toHaveTextContent(
+      "01진단 요약종합 점수와 핵심 3가지를 한눈에",
+    );
+    expect(items[15]).toHaveTextContent(
+      "16추천 서비스와 다음 단계결과에 맞는 서비스, 재진단 안내",
+    );
+    const starred = items
+      .map((item, index) =>
+        within(item).queryByRole("img", { name: "핵심 분석" })
+          ? index + 1
+          : null,
+      )
+      .filter((n) => n !== null);
+    expect(starred).toEqual([1, 4, 7, 8, 11]);
   });
 });
