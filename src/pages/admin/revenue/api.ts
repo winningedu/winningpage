@@ -5,7 +5,7 @@ import { z } from "zod";
 import { api } from "@/lib/http/client";
 
 const revenueRowSchema = z.object({
-  order_item_id: z.string(),
+  order_item_id: z.number(),
   order_id: z.string(),
   paid_at: z.string().nullable(),
   payer_name: z.string().nullable(),
