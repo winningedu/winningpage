@@ -84,6 +84,21 @@ describe("Page03Grades", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the excluded subjects note under the table when present", () => {
+    if (p3.subjects.kind !== "table") throw new Error("fixture has a table");
+    render(
+      <Page03Grades
+        page={{
+          ...p3,
+          subjects: { ...p3.subjects, excludedNote: "제외 과목 안내" },
+        }}
+        tocTitle="성적 진단"
+      />,
+    );
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("제외 과목 안내")).toBeInTheDocument();
+  });
+
   it("skip note replaces the table and absent bars draw nothing", () => {
     const { bars: _bars, ...rest } = p3;
     render(

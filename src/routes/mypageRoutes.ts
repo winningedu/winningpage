@@ -5,6 +5,7 @@ import MyPage from "@/pages/MyPage";
 import ChildDiagnosisReport from "@/pages/mypage/ChildDiagnosisReport";
 import ChildDiagnosisReports from "@/pages/mypage/ChildDiagnosisReports";
 import ChildReport from "@/pages/mypage/ChildReport";
+import MyDiagnosisReports from "@/pages/mypage/MyDiagnosisReports";
 
 const mypageRoutes: RouteObject[] = [
   // 마이페이지 리뉴얼(Figma 3762:18713 학생/멘토, 3762:20390 학부모) — 공통
@@ -14,6 +15,15 @@ const mypageRoutes: RouteObject[] = [
   // useMyPageProfile이 세션을 조회해 없으면 /login으로 보낸다(비 ?redirect= 방식,
   // 기존 동작 그대로 유지).
   { path: "/mypage", Component: MyPage },
+
+  // 학생 본인의 학습진단 리포트 회차 목록(QA 2026-11-26 6-1). 회차 상세는 기존
+  // /learning-diagnosis/report/:attemptId 를 그대로 연다.
+  {
+    path: "/mypage/report/diagnosis",
+    Component: MyDiagnosisReports,
+    middleware: [requireAuthMiddleware],
+    HydrateFallback: AuthCheckingFallback,
+  },
 
   // 학부모가 자녀의 성장 리포트를 여는 뷰어. 본문(GrowthReportBody)은 학생
   // 뷰와 공유하지만 셸은 다르다 — 목표관리 앱 셸(GoalAppLayout, 사이드바)이

@@ -1,8 +1,15 @@
 // 1p 요약 (22 r9-r27).
 
 import { AREAS, P1_CODES } from "../codes.js";
-import { copy, copyCell, fill, numbersIn, reportCell } from "../copy.js";
-import { OPTIONS } from "../options.js";
+import {
+  copy,
+  copyCell,
+  fill,
+  MIDDLE_AVERAGE_LABEL,
+  numbersIn,
+  reportCell,
+} from "../copy.js";
+import { OPTIONS, trackOf } from "../options.js";
 import { dateOfDay, formatDue, WEEKS } from "../plan.js";
 import type { Engine } from "../report.js";
 import { TARGET_SCORE } from "../scoring.js";
@@ -48,9 +55,11 @@ export const schoolLabel = (answers: DiagnosisV3Answers) => {
   return text;
 };
 
-/** 6번 average with the 4번 grade system (22 r14, r40). */
+/** 6번 average with the 4번 grade system (22 r14, r40); M3 6번 is the 원점수 average. */
 export const gpaText = (answers: DiagnosisV3Answers) =>
-  String(answers.q6) + " (" + label(OPTIONS.q4, answers.q4) + ")";
+  trackOf(answers.q1) === "M3"
+    ? String(answers.q6) + "점 (" + MIDDLE_AVERAGE_LABEL + ")"
+    : String(answers.q6) + " (" + label(OPTIONS.q4, answers.q4) + ")";
 
 /** 7번 option, 7-1 subject and 7-2 direction; 「미입력」 when 7번 is unanswered (22 r15, r42). */
 export const trendText = (answers: DiagnosisV3Answers) => {

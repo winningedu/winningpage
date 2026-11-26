@@ -48,6 +48,18 @@ describe("ScheduleInput 행 오류", () => {
     ).not.toHaveAttribute("aria-invalid");
   });
 
+  it("날짜와 과목 입력은 데스크톱에서도 text-xl 을 유지한다(QA 2026-11-26 6-2)", () => {
+    renderRows([{ kind: "PERF", date: "2026-12-20", subject: "" }]);
+    for (const name of [
+      `${SCHEDULE_FIELD_LABELS.date} 1`,
+      `${SCHEDULE_FIELD_LABELS.subject} 1`,
+    ]) {
+      const input = screen.getByLabelText(name);
+      expect(input).toHaveClass("md:text-xl");
+      expect(input).not.toHaveClass("md:text-sm");
+    }
+  });
+
   it("올바른 행에는 오류 문구가 없다", () => {
     renderRows([{ kind: "PERF", date: "2026-12-20", subject: "" }]);
     expect(screen.queryByText(/골라 주세요/)).toBeNull();

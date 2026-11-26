@@ -41,7 +41,7 @@ const INCOMPLETE_ROW_MESSAGE = (() => {
 const EMPTY_ROW: ScheduleRow = { kind: "", date: "", subject: "" };
 
 const fieldClass =
-  "h-17 rounded-perf-modal border-line bg-white px-5 text-xl text-ink-title";
+  "h-17 rounded-perf-modal border-line bg-white px-5 text-xl text-ink-title md:text-xl";
 
 /**
  * q13 schedule input: up to maxEvents dated events (13 F24) or one of the
