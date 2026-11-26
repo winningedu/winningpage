@@ -71,8 +71,8 @@ export interface SchoolSignupBody {
   identityRequestId?: string;
   agreeService: boolean;
   agreePrivacy: boolean;
-  agreeDbTransfer: boolean;
   agreeMarketing: boolean;
+  agreePrivacyAdditional: boolean;
 }
 
 export type SchoolSignupResult =

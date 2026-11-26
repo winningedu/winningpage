@@ -1,7 +1,9 @@
 // W18 마이페이지(스펙 4절). 내 정보를 읽기 전용 행으로 보여 주고 비밀번호 변경 창을 연다.
 
 import { useState } from "react";
+import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
+import { site } from "@/config/site";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import { classLabel, sortClasses } from "./classLabel";
 import PageHeader from "./PageHeader";
@@ -58,6 +60,14 @@ export default function MyPage() {
             비밀번호 변경
           </Button>
         </div>
+        {site.features.teacherTerms && (
+          <Link
+            to="/terms/teacher/service"
+            className="self-start text-app-label text-ink-sub underline underline-offset-2"
+          >
+            교사, 기관관리자 이용약관
+          </Link>
+        )}
       </div>
       <ChangePasswordDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </>
