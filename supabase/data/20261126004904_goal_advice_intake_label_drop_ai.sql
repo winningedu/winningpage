@@ -20,3 +20,8 @@ update public.goal_advice_cache
 set payload = jsonb_set(payload, '{sections,0,label}', to_jsonb('[입시조언]'::text))
 where source = 'intake'
   and payload->'sections'->0->>'label' = '[AI 입시조언]';
+
+-- 실행 기록
+-- 2026-11-26 dev(gjowqdiopinhixfivnkx): 실행 후 old_label 0, new_label 6, 재실행 무변화(실행 전 건수는 출력이 잘려 기록 못 함)
+-- 2026-11-26 Winning prod(ykrpjcsubmbenfcnwlzd): 전 old 5 / new 0, 후 old 0 / new 5, 재실행 무변화
+-- 2026-11-26 Schoolmentor prod(aalujumpwlnwlemnqrus): 전 old 1 / new 0, 후 old 0 / new 1, 재실행 무변화
