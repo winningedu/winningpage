@@ -42,8 +42,8 @@ export default function CitationsTab({ items }: { items: CitationItem[] }) {
             <Th>자료명</Th>
             <Th>유형</Th>
             <Th>활성</Th>
-            <Th>적중 횟수</Th>
-            <Th>인용 횟수</Th>
+            <Th className="text-right">적중 횟수</Th>
+            <Th className="text-right">인용 횟수</Th>
             <Th>마지막 적중</Th>
             <Th>마지막 인용</Th>
           </TableRow>
@@ -69,8 +69,12 @@ export default function CitationsTab({ items }: { items: CitationItem[] }) {
                 </TableCell>
                 <TableCell>{row.knowledgeType}</TableCell>
                 <TableCell>{row.isActive ? "활성" : "비활성"}</TableCell>
-                <TableCell>{formatInt(row.hitCount)}</TableCell>
-                <TableCell>{formatInt(row.citedCount)}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {formatInt(row.hitCount)}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {formatInt(row.citedCount)}
+                </TableCell>
                 <TableCell>{formatDate(row.lastHitAt)}</TableCell>
                 <TableCell>{formatDate(row.lastCitedAt)}</TableCell>
               </TableRow>

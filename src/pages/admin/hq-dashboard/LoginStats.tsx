@@ -139,7 +139,7 @@ export default function LoginStats({ data }: { data: LoginStatsResponse }) {
               <TableRow className="hover:bg-transparent">
                 <TableHead>기간</TableHead>
                 <TableHead>출처</TableHead>
-                <TableHead>이용자</TableHead>
+                <TableHead className="text-right">이용자</TableHead>
                 <TableHead>유형별</TableHead>
               </TableRow>
             </TableHeader>
@@ -150,7 +150,9 @@ export default function LoginStats({ data }: { data: LoginStatsResponse }) {
                   <TableCell>
                     <SourceBadge source={row.source} />
                   </TableCell>
-                  <TableCell>{row.members.toLocaleString()}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {row.members.toLocaleString()}
+                  </TableCell>
                   <TableCell>{formatByMemberType(row.byMemberType)}</TableCell>
                 </TableRow>
               ))}
