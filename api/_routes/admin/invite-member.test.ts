@@ -3,7 +3,11 @@
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
+  inviteResultSchema,
+  needsConfirmExtraSchema,
+} from "../../../shared/invite-member/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
+import {
   createFakeAdmin,
   createKitState,
   type KitState,
@@ -18,7 +22,11 @@ vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import inviteMember from "./invite-member.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/invite-member" };
+const call = (body: unknown, method = "POST") =>
+  callRoute(route, { method, body });
 
 const INVITED = "target@b.co";
 const BODY = { email: INVITED, name: "새 관리자", roleId: "role-1" };
@@ -80,7 +88,7 @@ describe("admin/invite-member 기존 계정 찾기", () => {
   test("auth 이메일이 확인된 계정을 고르고 profiles.email 복사본은 고르지 않는다", async () => {
     authUser("2026-11-01T00:00:00Z");
 
-    const r = await callHandler(inviteMember, BODY);
+    const r = await call(BODY);
 
     expect(r.status).toBe(409);
     expect(r.body).toMatchObject({
@@ -98,7 +106,7 @@ describe("admin/invite-member 기존 계정 찾기", () => {
       error: null,
     });
 
-    const r = await callHandler(inviteMember, BODY);
+    const r = await call(BODY);
 
     expect(r.status).toBe(200);
     expect(invite).toHaveBeenCalledWith(INVITED, expect.anything());
@@ -110,7 +118,7 @@ describe("admin/invite-member 기존 계정 찾기", () => {
   test("이메일 확인 전인 auth 계정은 고르지 않는다", async () => {
     authUser(null);
 
-    const r = await callHandler(inviteMember, BODY);
+    const r = await call(BODY);
 
     expect(r.status).toBe(200);
     expect(invite).toHaveBeenCalledWith(INVITED, expect.anything());
@@ -134,7 +142,7 @@ describe("admin/invite-member 실패 응답 detail", () => {
   test("초대 메일 발송이 실패해도 detail 에 Supabase 원문을 싣지 않는다", async () => {
     invite.mockResolvedValue({ data: { user: null }, error: { message: RAW } });
 
-    const r = await callHandler(inviteMember, BODY);
+    const r = await call(BODY);
 
     expect(r.status).toBe(500);
     expect(JSON.stringify(r.body)).not.toContain("홍길동");
@@ -149,7 +157,7 @@ describe("admin/invite-member 실패 응답 detail", () => {
   test("프로필 생성이 실패해도 detail 에 DB 원문을 싣지 않는다", async () => {
     kit.state.insertErrors.profiles = { message: RAW };
 
-    const r = await callHandler(inviteMember, BODY);
+    const r = await call(BODY);
 
     expect(r.status).toBe(500);
     expect(JSON.stringify(r.body)).not.toContain("홍길동");
@@ -162,7 +170,7 @@ describe("admin/invite-member 실패 응답 detail", () => {
   test("관리자 등록이 실패해도 detail 에 DB 원문을 싣지 않는다", async () => {
     kit.state.insertErrors.admin_members = { message: RAW };
 
-    const r = await callHandler(inviteMember, BODY);
+    const r = await call(BODY);
 
     expect(r.status).toBe(500);
     expect(JSON.stringify(r.body)).not.toContain("홍길동");
@@ -186,7 +194,7 @@ describe("admin/invite-member 권한과 입력", () => {
   test("최고 관리자가 아니면 403 이고 초대하지 않는다", async () => {
     superAdmin(false);
 
-    const r = await callHandler(inviteMember, BODY);
+    const r = await call(BODY);
 
     expect(r.status).toBe(403);
     expect(r.body).toMatchObject({ code: "FORBIDDEN" });
@@ -197,7 +205,7 @@ describe("admin/invite-member 권한과 입력", () => {
   test("QA 관리자는 403 QA_ACCOUNT_READ_ONLY 이고 초대하지 않는다", async () => {
     kit.state.rows.qa_accounts = () => ({ profile_id: "hq-1" });
 
-    const r = await callHandler(inviteMember, BODY);
+    const r = await call(BODY);
 
     expect(r.status).toBe(403);
     expect(r.body).toMatchObject({ code: "QA_ACCOUNT_READ_ONLY" });
@@ -228,7 +236,7 @@ describe("admin/invite-member 권한과 입력", () => {
   ])(
     "%s 오류는 옛 문구의 400 VALIDATION_FAILED 이다",
     async (_label, body, path, message) => {
-      const r = await callHandler(inviteMember, body);
+      const r = await call(body);
 
       expect(r.status).toBe(400);
       expect(r.body).toMatchObject({
@@ -240,8 +248,17 @@ describe("admin/invite-member 권한과 입력", () => {
     },
   );
 
+  test("POST 이외의 메서드는 405 이고 Allow 가 POST 다", async () => {
+    const r = await call(undefined, "GET");
+
+    expect(r.status).toBe(405);
+    expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
+    expect(r.headers.allow).toBe("POST");
+    expect(invite).not.toHaveBeenCalled();
+  });
+
   test("모르는 키는 400 이다", async () => {
-    const r = await callHandler(inviteMember, { ...BODY, invitedBy: "x" });
+    const r = await call({ ...BODY, invitedBy: "x" });
 
     expect(r.status).toBe(400);
     expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
@@ -249,18 +266,20 @@ describe("admin/invite-member 권한과 입력", () => {
   });
 
   test("새 계정은 메일을 보내고 ok 없는 응답을 준다. 이메일은 소문자로, invited_by 는 호출한 관리자", async () => {
-    const r = await callHandler(inviteMember, {
+    const r = await call({
       ...BODY,
       email: "  Target@B.co ",
       department: " 운영팀 ",
     });
 
     expect(r.status).toBe(200);
+    expect(r.headers["cache-control"]).toBe("no-store");
     expect(r.body).toEqual({
       profileId: "new-1",
       resent: false,
       emailed: true,
     });
+    expect(inviteResultSchema.safeParse(r.body).success).toBe(true);
     expect(invite).toHaveBeenCalledWith(INVITED, expect.anything());
     const member = kit.state.upserts.find((u) => u.table === "admin_members");
     expect(member?.onConflict).toBe("profile_id");
@@ -288,7 +307,7 @@ describe("admin/invite-member 권한과 입력", () => {
     });
 
     test("확인 없이는 409 NEEDS_CONFIRM 이고 회원 유형과 이름을 알려 준다", async () => {
-      const r = await callHandler(inviteMember, BODY);
+      const r = await call(BODY);
 
       expect(r.status).toBe(409);
       expect(r.body).toMatchObject({
@@ -298,11 +317,12 @@ describe("admin/invite-member 권한과 입력", () => {
         existingMemberType: "student",
         existingName: REAL.name,
       });
+      expect(needsConfirmExtraSchema.safeParse(r.body).success).toBe(true);
       expect(writes()).toEqual([]);
     });
 
     test("confirmExisting 이면 메일 없이 관리자로 올린다", async () => {
-      const r = await callHandler(inviteMember, {
+      const r = await call({
         ...BODY,
         confirmExisting: true,
       });

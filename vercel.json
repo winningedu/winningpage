@@ -2,7 +2,7 @@
   "regions": ["icn1"],
   "rewrites": [
     {
-      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/(?:coupons(?:/.*)?|tenant-options/?|send-message/?|web-analytics/?))",
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/(?:coupons(?:/.*)?|tenant-options/?|send-message/?|web-analytics/?|invite-member/?))",
       "destination": "/api/app"
     },
     {
