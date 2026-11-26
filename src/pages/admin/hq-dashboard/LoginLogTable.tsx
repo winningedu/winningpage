@@ -1,5 +1,4 @@
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -8,6 +7,7 @@ import {
 } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/time/format";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import type { LoginLogResponse } from "./api";
 import { memberTypeLabel } from "./labels";
 
@@ -32,7 +32,7 @@ export default function LoginLogTable({
           이름은 회원 관리 보기 권한이 있는 관리자에게만 보입니다.
         </p>
       )}
-      <Table aria-label="로그인 기록">
+      <AdminTableFrame label="로그인 기록" aria-label="로그인 기록">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead>날짜</TableHead>
@@ -64,7 +64,7 @@ export default function LoginLogTable({
             ))
           )}
         </TableBody>
-      </Table>
+      </AdminTableFrame>
       <AdminPagination
         page={data.page}
         totalPages={totalPages}

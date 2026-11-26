@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import type { CallItem, CallsPage } from "./api";
 import CallDetailDialog from "./CallDetailDialog";
 import {
@@ -37,7 +38,7 @@ export default function CallsTab({
       <div className="mb-4 text-sm text-muted-foreground">
         전체 <span className="text-primary">{data.total}</span>건
       </div>
-      <Table className="min-w-[80rem]">
+      <AdminTableFrame label="호출 기록" className="min-w-[80rem]">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <Th>시각</Th>
@@ -129,7 +130,7 @@ export default function CallsTab({
             ))
           )}
         </TableBody>
-      </Table>
+      </AdminTableFrame>
 
       <AdminPagination
         page={page}

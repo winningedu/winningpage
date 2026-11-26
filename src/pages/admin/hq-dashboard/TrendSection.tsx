@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { fetchHqTrends } from "./api";
 import ErrorBox from "./ErrorBox";
@@ -94,7 +95,10 @@ export default function TrendSection() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <Table aria-label="기간별 가입과 결제">
+            <AdminTableFrame
+              label="기간별 가입과 결제"
+              aria-label="기간별 가입과 결제"
+            >
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>기간</TableHead>
@@ -119,7 +123,7 @@ export default function TrendSection() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </AdminTableFrame>
           </CardContent>
         </Card>
       ) : (

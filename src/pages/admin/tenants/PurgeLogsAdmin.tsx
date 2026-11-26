@@ -2,7 +2,6 @@ import { Download } from "lucide-react";
 import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -10,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ApiError } from "@/lib/http/client";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { downloadCsv, formatValue } from "@/pages/admin/shared/csvExport";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { type PurgeLogEntry, usePurgeLogs } from "./purgeQueries";
@@ -95,7 +95,10 @@ export default function PurgeLogsAdmin() {
         />
       ) : (
         <div className="bg-white p-6 shadow-sm">
-          <Table className="min-w-[55rem] border-collapse">
+          <AdminTableFrame
+            label="삭제 로그"
+            className="min-w-[55rem] border-collapse"
+          >
             <TableHeader>
               <TableRow className="border-y border-gray-300 hover:bg-transparent">
                 {CSV_COLUMNS.map((column) => (
@@ -173,7 +176,7 @@ export default function PurgeLogsAdmin() {
                 ))
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </div>

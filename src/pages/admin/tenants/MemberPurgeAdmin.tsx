@@ -18,7 +18,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -28,6 +27,7 @@ import {
 import { useAuth } from "@/context/AuthProvider";
 import { adminPermissionsQueryOptions } from "@/lib/adminPermissions";
 import { ApiError } from "@/lib/http/client";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   ActionButton,
   Field,
@@ -299,7 +299,10 @@ function PurgePanel({
               삭제 실행
             </ActionButton>
           </div>
-          <Table className="min-w-[40rem] border-collapse">
+          <AdminTableFrame
+            label="삭제 대상 미리보기"
+            className="min-w-[40rem] border-collapse"
+          >
             <TableHeader>
               <TableRow className="border-y border-gray-300 hover:bg-transparent">
                 <TableHead
@@ -371,7 +374,7 @@ function PurgePanel({
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </>

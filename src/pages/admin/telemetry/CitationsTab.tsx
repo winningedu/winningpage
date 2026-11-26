@@ -6,6 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { ActionButton } from "@/pages/admin/shared/formFields";
 import type { CitationItem } from "./api";
 import { formatDate, formatInt } from "./format";
@@ -36,7 +37,7 @@ export default function CitationsTab({ items }: { items: CitationItem[] }) {
           {order === "asc" ? "인용 적은 순" : "인용 많은 순"}
         </ActionButton>
       </div>
-      <Table>
+      <AdminTableFrame label="자료별 인용">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <Th>자료명</Th>
@@ -81,7 +82,7 @@ export default function CitationsTab({ items }: { items: CitationItem[] }) {
             ))
           )}
         </TableBody>
-      </Table>
+      </AdminTableFrame>
     </div>
   );
 }

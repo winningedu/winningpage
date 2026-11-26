@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDate } from "@/lib/time/format";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import type { LoginSource, LoginStatsResponse } from "./api";
 import { formatByMemberType, SOURCE_LABEL } from "./labels";
 
@@ -134,7 +135,7 @@ export default function LoginStats({ data }: { data: LoginStatsResponse }) {
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <Table aria-label="기간별 이용자">
+          <AdminTableFrame label="기간별 이용자" aria-label="기간별 이용자">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>기간</TableHead>
@@ -157,7 +158,7 @@ export default function LoginStats({ data }: { data: LoginStatsResponse }) {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </CardContent>
       </Card>
     </div>

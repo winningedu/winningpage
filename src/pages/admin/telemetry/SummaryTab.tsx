@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import type { SummaryItem, SummaryResponse } from "./api";
 import {
   formatInt,
@@ -182,7 +183,7 @@ export default function SummaryTab({ data }: { data: SummaryResponse }) {
           </div>
 
           <div className="mt-6">
-            <Table>
+            <AdminTableFrame label="일별 서비스 요약">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <Th>일</Th>
@@ -241,7 +242,7 @@ export default function SummaryTab({ data }: { data: SummaryResponse }) {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </AdminTableFrame>
           </div>
         </div>
       )}
