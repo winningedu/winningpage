@@ -83,7 +83,7 @@ export function NumberField({
         const raw = event.target.value;
         if (raw === "" || rule.pattern.test(raw)) onChange(raw);
       }}
-      className="h-17 w-full max-w-50 rounded-lg border-line bg-white text-center text-xl text-ink-title"
+      className="h-17 w-full max-w-50 rounded-lg border-line bg-white text-center text-xl text-ink-title md:text-xl"
     />
   );
 }
