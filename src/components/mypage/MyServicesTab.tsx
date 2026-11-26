@@ -8,8 +8,8 @@ import {
   type DiagnosisAccessResult,
 } from "@/lib/diagnosisAccess";
 import {
-  type DiagnosisReportRow,
-  fetchLatestDiagnosisReport,
+  type DiagnosisReportListItem,
+  listDiagnosisReports,
 } from "@/lib/diagnosisReportQueries";
 import {
   SURVEY_FIRST_STEP_PATH,
@@ -54,7 +54,7 @@ import ServiceCard from "./ServiceCard";
  * diagnosis_reports(attempt_id·profile_id·diagnosed_at·payload)에 결과가
  * 영속 저장되면서, 무료 진단만 이용한 학생은 카드 자체가 아예 없어 결과
  * 리포트로 돌아갈 진입점이 없는 문제가 생겼다. 그래서 이 컴포넌트는 로그인
- * 학생의 diagnosis_reports 최신 행을 별도로 조회해(latestDiagnosisReport,
+ * 학생의 diagnosis_reports 목록을 별도로 조회해(diagnosisReports, 최신순.
  * 유료 완료 카드의 "결과 리포트 보기" 링크와 같은 조회를 공유한다) grant
  * 기반 diagnose 카드가 이미 없을 때만 카드 1장을 합성한다(buildFreeDiagnosisCard).
  * grant 기반 diagnose 카드가 있으면(유료 이용 이력) 중복 없이 그 카드만 쓴다.
@@ -388,10 +388,19 @@ const DIAGNOSIS_RETAKE_BLOCKED_REASON =
 const DIAGNOSIS_REPORT_UNAVAILABLE_REASON =
   "리포트를 준비하고 있습니다. 잠시 후 다시 확인해 주세요.";
 
+// "결과 리포트 보기" 대상(QA 2026-11-26 6-1): 1건이면 그 리포트, 2건 이상이면 학생
+// 본인 목록(/mypage/report/diagnosis), 없으면 null.
+function reportHrefOf(reports: DiagnosisReportListItem[]): string | null {
+  const [only] = reports;
+  if (!only) return null;
+  if (reports.length > 1) return "/mypage/report/diagnosis";
+  return `/learning-diagnosis/report/${only.attempt_id}`;
+}
+
 function toViewModel(
   agg: AggregatedService,
   diagnosisAccess: DiagnosisAccessResult | null,
-  latestDiagnosisAttemptId: string | null,
+  diagnosisReportHref: string | null,
   onOpenValidityDetail: (agg: AggregatedService) => void,
 ): ServiceCardViewModel {
   const {
@@ -455,13 +464,13 @@ function toViewModel(
   let actions: ServiceCardAction[];
   if (isOngoing && category === "diagnosis") {
     // 소진 전에는 "이용중"이고 할 일은 검사다. 회차권으로 이미 받은 리포트가
-    // 있으면(latestDiagnosisAttemptId) 지난 결과를 열 수 있게 함께 보여 준다.
-    actions = latestDiagnosisAttemptId
+    // 있으면(diagnosisReportHref) 지난 결과를 열 수 있게 함께 보여 준다.
+    actions = diagnosisReportHref
       ? [
           {
             kind: "outline-solid",
             label: "결과 리포트 보기",
-            href: `/learning-diagnosis/report/${latestDiagnosisAttemptId}`,
+            href: diagnosisReportHref,
           },
           { kind: "solid", label: "검사하기", href: SURVEY_FIRST_STEP_PATH },
         ]
@@ -474,14 +483,14 @@ function toViewModel(
     // 게이트(diagnosisAccess, fail-open).
     const retakeBlocked = diagnosisAccess !== null && !diagnosisAccess.allowed;
     // B4-c — 리포트 보기는 이제 정적 SURVEY_REPORT_PATH(세션 경로, 다른 탭·기기에서는
-    // 설문으로 튕기는 버그가 있었다)가 아니라 diagnosis_reports 최신 attemptId로 연다.
+    // 설문으로 튕기는 버그가 있었다)가 아니라 diagnosis_reports 로 연다(reportHrefOf).
     // 아직 조회 전이거나 결측이면 disabled(기존 disabled 패턴, 위 재검사 게이트와 동일).
     actions = [
-      latestDiagnosisAttemptId
+      diagnosisReportHref
         ? {
             kind: "outline-solid",
             label: "결과 리포트 보기",
-            href: `/learning-diagnosis/report/${latestDiagnosisAttemptId}`,
+            href: diagnosisReportHref,
           }
         : {
             kind: "outline-solid",
@@ -543,7 +552,8 @@ function toViewModel(
 // 상태 배지 "무료 1회"는 이 카드가 유료 완료 카드("이용완료")와 다르다는 걸
 // 알려주려는 추정 문구다(시안 근거 없음).
 function buildFreeDiagnosisCard(
-  report: Pick<DiagnosisReportRow, "attempt_id" | "diagnosed_at">,
+  report: DiagnosisReportListItem,
+  reportHref: string,
   diagnosisAccess: DiagnosisAccessResult | null,
 ): ServiceCardViewModel {
   const diagnosedAt = new Date(report.diagnosed_at);
@@ -561,7 +571,7 @@ function buildFreeDiagnosisCard(
       {
         kind: "outline-solid",
         label: "결과 리포트 보기",
-        href: `/learning-diagnosis/report/${report.attempt_id}`,
+        href: reportHref,
       },
       retakeBlocked
         ? {
@@ -755,20 +765,21 @@ export default function MyServicesTab() {
     };
   }, []);
 
-  // 본인의 가장 최근 diagnosis_reports 행 — 유료 완료 diagnose 카드의 "결과
-  // 리포트 보기" 링크 대상이자, 무료 진단 전용 합성 카드(buildFreeDiagnosisCard)의
-  // 데이터 원천이다(같은 조회를 두 용도가 공유한다). null은 조회 전 또는
-  // 결측 둘 다를 뜻한다 — reportLoaded로 조회 완료 여부를 따로 구분한다.
-  const [latestDiagnosisReport, setLatestDiagnosisReport] =
-    useState<DiagnosisReportRow | null>(null);
+  // 본인의 diagnosis_reports 목록(최신순). diagnose 카드의 "결과 리포트 보기" 링크
+  // 대상(reportHrefOf)이자, 무료 진단 전용 합성 카드(buildFreeDiagnosisCard)의
+  // 데이터 원천이다(같은 조회를 두 용도가 공유한다). reportLoaded로 조회 완료
+  // 여부를 따로 구분한다.
+  const [diagnosisReports, setDiagnosisReports] = useState<
+    DiagnosisReportListItem[]
+  >([]);
   const [reportLoaded, setReportLoaded] = useState(false);
 
   useEffect(() => {
     let alive = true;
     if (!userId) return undefined;
-    fetchLatestDiagnosisReport(userId).then((row) => {
+    listDiagnosisReports(userId).then((rows) => {
       if (alive) {
-        setLatestDiagnosisReport(row);
+        setDiagnosisReports(rows);
         setReportLoaded(true);
       }
     });
@@ -840,9 +851,15 @@ export default function MyServicesTab() {
   const hasDiagnoseGrantCard = grants.some(
     (grant) => grant.program_key === "diagnose",
   );
+  const latestDiagnosisReport = diagnosisReports[0];
+  const diagnosisReportHref = reportHrefOf(diagnosisReports);
   const freeDiagnosisCard =
-    latestDiagnosisReport && !hasDiagnoseGrantCard
-      ? buildFreeDiagnosisCard(latestDiagnosisReport, diagnosisAccess)
+    latestDiagnosisReport && diagnosisReportHref && !hasDiagnoseGrantCard
+      ? buildFreeDiagnosisCard(
+          latestDiagnosisReport,
+          diagnosisReportHref,
+          diagnosisAccess,
+        )
       : null;
 
   if (!grants.length && !freeDiagnosisCard) {
@@ -851,12 +868,7 @@ export default function MyServicesTab() {
 
   const parsedGrants = grants.map((grant) => parseGrant(grant, usedByGrant));
   const cards = aggregateByProgramKey(parsedGrants).map((agg) =>
-    toViewModel(
-      agg,
-      diagnosisAccess,
-      latestDiagnosisReport?.attempt_id ?? null,
-      setDetailService,
-    ),
+    toViewModel(agg, diagnosisAccess, diagnosisReportHref, setDetailService),
   );
   if (freeDiagnosisCard) {
     // 기존 카드들 뒤에 둔다 — "완료된 서비스" 섹션의 마지막 카드가 된다.
