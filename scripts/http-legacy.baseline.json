@@ -201,12 +201,6 @@
   "api/_routes/admin/selfeval-recover.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/selfeval-sessions.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/selfeval-sessions/[id].ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/send-message.ts": {
     "legacyHandler": 1
   },

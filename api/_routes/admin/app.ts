@@ -8,6 +8,7 @@ import { homeSectionCopy } from "./home-section-copy.js";
 import { inquirySessions } from "./inquiry-sessions.js";
 import { knowledgeEval } from "./knowledge-eval.js";
 import { knowledgeItems } from "./knowledge-items.js";
+import { selfevalSessions } from "./selfeval-sessions.js";
 
 export const admin = createAdminApp()
   .route("/coupons", coupons)
@@ -15,4 +16,5 @@ export const admin = createAdminApp()
   .route("/home-section-copy", homeSectionCopy)
   .route("/inquiry-sessions", inquirySessions)
   .route("/knowledge-eval", knowledgeEval)
-  .route("/knowledge-items", knowledgeItems);
+  .route("/knowledge-items", knowledgeItems)
+  .route("/selfeval-sessions", selfevalSessions);
