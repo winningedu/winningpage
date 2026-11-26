@@ -3,7 +3,7 @@
 // 학생 가입 연결 미리보기(W14, 교 #119, 결정 6). 학생 한 명의 이름, 학년, 그룹, 반, 번호로 가입 결과를 시험한다.
 // 결과 세 가지: already_signed_up(같은 반에 같은 이름), number_taken(그 번호를 다른 학생이 씀, 가린 이름을 함께),
 // ok(정상 연결). 가입 화면에 없는 학급이면 no_class. 담임 이름을 함께 준다. 읽기만 한다.
-// 권한: 학교 관리자 또는 본사 대행. 다른 학생 이름은 가려서 보낸다(결정 8, 30).
+// 권한: 학교 관리자 또는 본사 대행. 다른 학생 이름은 스쿨멘토에서는 가려서, 위닝에서는 실명으로 보낸다(결정 8, 30).
 
 import { normalizeClassName } from "../../../_lib/console/className.js";
 import {
@@ -12,7 +12,10 @@ import {
   loadTenant,
   readAll,
 } from "../../../_lib/console/directory.js";
-import { maskName } from "../../../_lib/console/maskName.js";
+import {
+  consoleMaskName,
+  consoleNamesMasked,
+} from "../../../_lib/console/maskName.js";
 import { defineHandler } from "../../../_lib/handler.js";
 import { sendError } from "../../../_lib/httpResponse.js";
 
@@ -110,7 +113,8 @@ export default defineHandler({
       res.status(200).json({
         result: "number_taken",
         homeroomName,
-        holderName: `${maskName(holder)}${sameName ? "*" : ""}`,
+        // 끝 별표는 가린 이름끼리 구분하는 표시라 실명을 보이는 사이트에는 붙이지 않는다.
+        holderName: `${consoleMaskName(holder)}${sameName && consoleNamesMasked() ? "*" : ""}`,
       });
       return;
     }

@@ -1,12 +1,20 @@
 // 학년도 넘기기 미리보기 규칙 검증(W11 ③). 붙여넣은 명단을 현재 학생과 맞추고 줄마다 결과를 정한다.
 
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   evaluateRolloverPreview,
   isGradeCell,
   type PreviewStudent,
   parseRolloverText,
 } from "./rolloverPreview.js";
+
+// 가림은 사이트가 정한다. 가린 이름 검증은 스쿨멘토로 고정한다.
+beforeEach(() => {
+  vi.stubEnv("SITE", "schoolmentor");
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("parseRolloverText", () => {
   test("reads tab separated rows, skips blank lines and the header, and keeps the original line numbers", () => {
@@ -165,6 +173,20 @@ describe("evaluateRolloverPreview", () => {
       displayName: "김*늘*",
     });
     expect(unresolved.applyRows).toEqual([]);
+  });
+
+  test("the Winning site shows real names without a trailing star", () => {
+    vi.stubEnv("SITE", "winning");
+    const twinA = student({ studentId: "t1", name: "김하늘", className: "4" });
+    const twinB = student({ studentId: "t2", name: "김하늘", className: "5" });
+
+    const unresolved = run("김하늘,,,,,고2,,3,8", [twinA, twinB]);
+    expect(unresolved.rows[0]).toMatchObject({
+      result: "same_name",
+      displayName: "김하늘",
+    });
+    const missing = run("박서준,고1,,4,7,고2,,3,8", []);
+    expect(missing.rows[0]).toMatchObject({ displayName: "박서준" });
   });
 
   test("a student in a graduating grade is graduating and has no target", () => {

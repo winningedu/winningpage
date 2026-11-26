@@ -7,7 +7,7 @@ import type { VercelResponse } from "@vercel/node";
 import { type ErrorShape, sendError } from "../httpResponse.js";
 import { QA_ACCOUNT_MESSAGE } from "../qaAccount.js";
 import type { ConsoleActor } from "./actor.js";
-import { maskName } from "./maskName.js";
+import { consoleMaskName } from "./maskName.js";
 
 interface Mapped {
   status: number;
@@ -174,7 +174,7 @@ export function sendEnrollmentRpcError(
           occupant: {
             ...occupant.slot,
             displayName:
-              holder && occupant.maskName ? maskName(holder) : holder,
+              holder && occupant.maskName ? consoleMaskName(holder) : holder,
           },
         }
       : undefined;

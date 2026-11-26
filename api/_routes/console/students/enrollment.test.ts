@@ -2,7 +2,7 @@
 // 관리자 클라이언트는 createSupabaseAdmin 모킹으로 바꿔 끼우고, 조회는 eq/in 필터를 실제로 적용하는 메모리 표로 흉내 낸다.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 type Row = Record<string, unknown>;
 
@@ -21,7 +21,8 @@ const state = vi.hoisted(() => ({
   inserts: [] as { table: string; row: Row }[],
 }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../_lib/supabaseAdmin.js")>()),
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => ({
     auth: {
@@ -131,7 +132,13 @@ function updateCall() {
   return state.rpcCalls.find((c) => c.name === "fn_enrollment_update");
 }
 
+// 이름 가림은 사이트가 정한다. 가린 이름을 검증하는 이 파일은 스쿨멘토로 고정한다.
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 beforeEach(() => {
+  vi.stubEnv("SITE", "schoolmentor");
   state.actor = HOMEROOM;
   state.tables = {
     tenants: [{ id: "tenant-1", school_year: 2026 }],

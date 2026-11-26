@@ -16,7 +16,12 @@ export function maskName(name: string): string {
  * SITE 가 없으면 getSiteKey 가 던진다(폴백 없음).
  */
 export function consoleMaskName(name: string): string {
-  return getSiteKey() === "schoolmentor" ? maskName(name) : name;
+  return consoleNamesMasked() ? maskName(name) : name;
+}
+
+/** 이 사이트의 콘솔이 이름을 가리는가. 가린 이름끼리 구분하는 끝 별표를 붙일지 정할 때 쓴다. */
+export function consoleNamesMasked(): boolean {
+  return getSiteKey() === "schoolmentor";
 }
 
 /**
