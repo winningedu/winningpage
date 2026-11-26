@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import type { SummaryItem, SummaryResponse } from "./api";
 import {
   formatInt,
@@ -182,22 +183,22 @@ export default function SummaryTab({ data }: { data: SummaryResponse }) {
           </div>
 
           <div className="mt-6">
-            <Table>
+            <AdminTableFrame label="일별 서비스 요약">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <Th>일</Th>
                   <Th>서비스</Th>
-                  <Th>호출</Th>
-                  <Th>실패율</Th>
-                  <Th>재요청률</Th>
-                  <Th>prompt</Th>
-                  <Th>output</Th>
-                  <Th>cached</Th>
-                  <Th>thoughts</Th>
-                  <Th>캐시 비율</Th>
-                  <Th>p50 ms</Th>
-                  <Th>p95 ms</Th>
-                  <Th>금액 USD</Th>
+                  <Th className="text-right">호출</Th>
+                  <Th className="text-right">실패율</Th>
+                  <Th className="text-right">재요청률</Th>
+                  <Th className="text-right">prompt</Th>
+                  <Th className="text-right">output</Th>
+                  <Th className="text-right">cached</Th>
+                  <Th className="text-right">thoughts</Th>
+                  <Th className="text-right">캐시 비율</Th>
+                  <Th className="text-right">p50 ms</Th>
+                  <Th className="text-right">p95 ms</Th>
+                  <Th className="text-right">금액 USD</Th>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -205,21 +206,43 @@ export default function SummaryTab({ data }: { data: SummaryResponse }) {
                   <TableRow key={`${row.day}-${row.service}`}>
                     <TableCell>{row.day}</TableCell>
                     <TableCell>{serviceLabel(row.service)}</TableCell>
-                    <TableCell>{formatInt(row.calls)}</TableCell>
-                    <TableCell>{formatPercent(row.failureRate)}</TableCell>
-                    <TableCell>{formatPercent(row.retryRate)}</TableCell>
-                    <TableCell>{formatInt(row.promptTokens)}</TableCell>
-                    <TableCell>{formatInt(row.outputTokens)}</TableCell>
-                    <TableCell>{formatInt(row.cachedTokens)}</TableCell>
-                    <TableCell>{formatInt(row.thoughtsTokens)}</TableCell>
-                    <TableCell>{formatPercent(row.cachedRatio)}</TableCell>
-                    <TableCell>{formatMs(row.p50Ms)}</TableCell>
-                    <TableCell>{formatMs(row.p95Ms)}</TableCell>
-                    <TableCell>{formatUsd(row.costUsd)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatInt(row.calls)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatPercent(row.failureRate)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatPercent(row.retryRate)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatInt(row.promptTokens)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatInt(row.outputTokens)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatInt(row.cachedTokens)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatInt(row.thoughtsTokens)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatPercent(row.cachedRatio)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatMs(row.p50Ms)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatMs(row.p95Ms)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatUsd(row.costUsd)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </AdminTableFrame>
           </div>
         </div>
       )}

@@ -165,3 +165,62 @@ describe("AdminTable 행 버튼 접근성 이름", () => {
     expect(onDelete).toHaveBeenCalledWith(rows[0]);
   });
 });
+
+describe("AdminTable 가독성", () => {
+  const TYPED = {
+    title: "결제 내역",
+    table: "t",
+    order: "id",
+    columns: [
+      { key: "amount", label: "금액", type: "money" },
+      { key: "created_at", label: "등록일시", type: "datetime" },
+    ],
+    fields: [],
+  };
+
+  function renderTyped() {
+    return render(
+      <AdminTable
+        config={TYPED as never}
+        rows={[{ id: "r1", amount: 12000, created_at: "2026-11-26T01:02:03Z" }]}
+        page={1}
+        setPage={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+  }
+
+  test("표 스크롤 영역이 config.title 이름의 region 이다", () => {
+    renderTyped();
+    expect(screen.getByRole("region", { name: "결제 내역" })).toBeTruthy();
+  });
+
+  test("관리 열(머리글과 셀)은 오른쪽에 고정된다", () => {
+    renderTyped();
+    const header = screen.getByRole("columnheader", { name: "관리" });
+    const cell = screen
+      .getByRole("button", { name: "수정" })
+      .closest("td") as HTMLElement;
+    for (const el of [header, cell]) {
+      expect(el.classList.contains("sticky")).toBe(true);
+      expect(el.classList.contains("right-0")).toBe(true);
+    }
+  });
+
+  test("금액 열은 머리글과 셀 모두 오른쪽 정렬 고정폭 숫자다", () => {
+    renderTyped();
+    const header = screen.getByRole("columnheader", { name: "금액" });
+    const cell = screen.getByRole("cell", { name: /12,000/ });
+    for (const el of [header, cell]) {
+      expect(el.classList.contains("text-right")).toBe(true);
+      expect(el.classList.contains("tabular-nums")).toBe(true);
+    }
+  });
+
+  test("일시 열 셀은 줄바꿈하지 않는다", () => {
+    renderTyped();
+    const cell = screen.getByRole("cell", { name: /2026/ });
+    expect(cell.classList.contains("whitespace-nowrap")).toBe(true);
+  });
+});

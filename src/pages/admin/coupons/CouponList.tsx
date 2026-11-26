@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   type CouponRow,
@@ -98,7 +99,7 @@ export default function CouponList() {
             전체 <span className="text-blue-600">{coupons.length}</span>건
           </div>
 
-          <Table className="min-w-285">
+          <AdminTableFrame label="쿠폰 목록" className="min-w-285">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead
@@ -125,7 +126,11 @@ export default function CouponList() {
                   <TableHead
                     scope="col"
                     key={key}
-                    className="px-3 py-3 text-left font-semibold whitespace-normal"
+                    className={`px-3 py-3 font-semibold whitespace-normal ${
+                      key === "discount_amount" || key === "min_amount"
+                        ? "text-right"
+                        : "text-left"
+                    }`}
                   >
                     <FieldName k={key} />
                   </TableHead>
@@ -202,10 +207,10 @@ export default function CouponList() {
                             ? "선물"
                             : "할인"}
                       </TableCell>
-                      <TableCell className="px-3 py-3 whitespace-normal">
+                      <TableCell className="px-3 py-3 text-right whitespace-nowrap tabular-nums">
                         {moneyText(row.discount_amount)}
                       </TableCell>
-                      <TableCell className="px-3 py-3 whitespace-normal">
+                      <TableCell className="px-3 py-3 text-right whitespace-nowrap tabular-nums">
                         {moneyText(row.min_amount)}
                       </TableCell>
                       <TableCell className="px-3 py-3 whitespace-normal">
@@ -311,7 +316,7 @@ export default function CouponList() {
                 })
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </>

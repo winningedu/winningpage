@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { ActionButton } from "@/pages/admin/shared/formFields";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
@@ -74,7 +74,7 @@ export default function QueriesTab({
       {list.isPending ? (
         <AdminTableSkeleton columns={7} label="문제집을 불러오는 중" />
       ) : (
-        <Table>
+        <AdminTableFrame label="문제집">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <Th>학년</Th>
@@ -139,7 +139,7 @@ export default function QueriesTab({
               ))
             )}
           </TableBody>
-        </Table>
+        </AdminTableFrame>
       )}
       {editing !== null && (
         <QueryDialog

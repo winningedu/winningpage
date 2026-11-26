@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import type { SummaryItem, SummaryResponse } from "./api";
 import SummaryTab from "./SummaryTab";
@@ -60,4 +61,41 @@ describe("SummaryTab", () => {
       expect(header.getAttribute("scope")).toBe("col");
     }
   });
+});
+
+function expectNumericColumn(table: HTMLElement, name: string) {
+  const headers = within(table).getAllByRole("columnheader");
+  const index = headers.findIndex((h) =>
+    h.textContent?.trim().startsWith(name),
+  );
+  expect(index, name).toBeGreaterThanOrEqual(0);
+  expect(headers[index]).toHaveClass("text-right");
+  const cells = within(table)
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => row.querySelectorAll("td")[index]);
+  expect(cells.length).toBeGreaterThan(0);
+  for (const cell of cells) {
+    expect(cell).toHaveClass("text-right", "tabular-nums");
+  }
+}
+
+test("일별 표의 숫자 열은 머리글과 셀 모두 오른쪽 정렬, 셀은 고정폭 숫자다", () => {
+  render(<SummaryTab data={data([base])} />);
+  const table = screen.getByRole("table");
+  for (const name of [
+    "호출",
+    "실패율",
+    "재요청률",
+    "prompt",
+    "output",
+    "cached",
+    "thoughts",
+    "캐시 비율",
+    "p50 ms",
+    "p95 ms",
+    "금액 USD",
+  ]) {
+    expectNumericColumn(table, name);
+  }
 });

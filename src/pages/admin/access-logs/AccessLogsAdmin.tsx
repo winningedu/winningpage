@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -11,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ApiError } from "@/lib/http/client";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { formatValue } from "@/pages/admin/shared/csvExport";
 import {
   ActionButton,
@@ -151,7 +151,10 @@ export default function AccessLogsAdmin() {
           label="접근 로그를 불러오는 중입니다."
         />
       ) : (
-        <Table className="min-w-[72rem] border-collapse">
+        <AdminTableFrame
+          label="개인정보 접근 로그"
+          className="min-w-[72rem] border-collapse"
+        >
           <TableHeader>
             <TableRow className="border-y border-gray-300 hover:bg-transparent">
               {COLUMNS.map((name) => (
@@ -213,7 +216,7 @@ export default function AccessLogsAdmin() {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+        </AdminTableFrame>
       )}
       {data?.items.length === 0 && (
         <p className="py-12 text-center text-sm text-muted-foreground">

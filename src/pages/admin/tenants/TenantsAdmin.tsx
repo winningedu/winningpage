@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -21,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { site } from "@/config/site";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   AdminApiError,
   reportAdminError,
@@ -378,7 +378,10 @@ function TenantList({ config }: TenantsAdminProps) {
             전체 <span className="text-blue-600">{filteredRows.length}</span>건
           </div>
 
-          <Table className="min-w-[45rem] border-collapse">
+          <AdminTableFrame
+            label={config.title}
+            className="min-w-[45rem] border-collapse"
+          >
             <TableHeader>
               <TableRow className="border-y border-gray-300 hover:bg-transparent">
                 <TableHead scope="col" className={`${HEAD} w-14`}>
@@ -507,7 +510,7 @@ function TenantList({ config }: TenantsAdminProps) {
                 ))
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </div>

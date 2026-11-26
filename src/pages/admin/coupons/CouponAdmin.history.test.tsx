@@ -248,3 +248,17 @@ test("무효화하면 이력이 스켈레톤을 거쳐 새로 받은 행으로 �
   release();
   expect(await screen.findByText("오발급")).toBeVisible();
 });
+
+test("사용 이력 표는 이름 있는 스크롤 영역이고 관리 열은 오른쪽에 고정된다", async () => {
+  renderCoupons("/admin/coupons/c1/history");
+
+  const region = await screen.findByRole("region", { name: "사용 이력" });
+  expect(region).toHaveAttribute("tabindex", "0");
+  const header = screen.getByRole("columnheader", { name: "관리" });
+  const cell = screen
+    .getByRole("button", { name: "무효화" })
+    .closest("td") as HTMLElement;
+  for (const el of [header, cell]) {
+    expect(el).toHaveClass("sticky", "right-0");
+  }
+});

@@ -3,6 +3,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 
 const state = vi.hoisted(() => ({ hqTenantAdmin: true }));
 
@@ -18,10 +19,18 @@ vi.mock("@/config/site", () => ({
 
 import { AdminTopbar } from "./AdminTopbar";
 
+function SidebarState() {
+  const { state } = useSidebar();
+  return <output data-testid="sidebar-state">{state}</output>;
+}
+
 function renderTopbar(onLogout: () => void = () => {}) {
   return render(
     <MemoryRouter>
-      <AdminTopbar onLogout={onLogout} />
+      <SidebarProvider>
+        <AdminTopbar onLogout={onLogout} />
+        <SidebarState />
+      </SidebarProvider>
     </MemoryRouter>,
   );
 }
@@ -51,6 +60,21 @@ describe("AdminTopbar", () => {
     ).toBeNull();
     expect(screen.getByRole("link", { name: "메인으로 이동" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "로그아웃" })).toBeTruthy();
+  });
+
+  test("사이드바 접기/펼치기 버튼이 있고 누를 때마다 사이드바 상태가 바뀐다", () => {
+    renderTopbar();
+
+    const trigger = screen.getByRole("button", {
+      name: "사이드바 접기/펼치기",
+    });
+    expect(screen.getByTestId("sidebar-state").textContent).toBe("expanded");
+
+    fireEvent.click(trigger);
+    expect(screen.getByTestId("sidebar-state").textContent).toBe("collapsed");
+
+    fireEvent.click(trigger);
+    expect(screen.getByTestId("sidebar-state").textContent).toBe("expanded");
   });
 
   test("로그아웃은 버튼이고 누르면 전달받은 onLogout 을 부른다", () => {

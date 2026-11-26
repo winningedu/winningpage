@@ -184,3 +184,23 @@ describe("AdminRolesAdmin 삭제", () => {
     });
   });
 });
+
+describe("AdminRolesAdmin 표 배치", () => {
+  test("권한 묶음 표는 이름 있는 스크롤 영역이고 관리 열은 오른쪽에 고정된다", async () => {
+    mockRoles([role({})]);
+    renderRoles();
+    await screen.findByText("운영팀");
+
+    const region = await screen.findByRole("region", {
+      name: "권한 묶음 목록",
+    });
+    expect(region).toHaveAttribute("tabindex", "0");
+    const header = screen.getByRole("columnheader", { name: "관리" });
+    const cell = screen
+      .getByRole("button", { name: "수정" })
+      .closest("td") as HTMLElement;
+    for (const el of [header, cell]) {
+      expect(el).toHaveClass("sticky", "right-0");
+    }
+  });
+});

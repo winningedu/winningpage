@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import type { CallItem } from "./api";
 import CallsTab from "./CallsTab";
@@ -102,4 +103,36 @@ describe("CallsTab", () => {
         .disabled,
     ).toBe(true);
   });
+});
+
+function expectNumericColumn(table: HTMLElement, name: string) {
+  const headers = within(table).getAllByRole("columnheader");
+  const index = headers.findIndex((h) =>
+    h.textContent?.trim().startsWith(name),
+  );
+  expect(index, name).toBeGreaterThanOrEqual(0);
+  expect(headers[index]).toHaveClass("text-right");
+  const cells = within(table)
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => row.querySelectorAll("td")[index]);
+  expect(cells.length).toBeGreaterThan(0);
+  for (const cell of cells) {
+    expect(cell).toHaveClass("text-right", "tabular-nums");
+  }
+}
+
+test("호출 표의 숫자 열은 머리글과 셀 모두 오른쪽 정렬, 셀은 고정폭 숫자다", () => {
+  renderTab();
+  const table = screen.getByRole("table");
+  for (const name of [
+    "시도",
+    "전송 시도",
+    "prompt",
+    "output",
+    "cached",
+    "지연 ms",
+  ]) {
+    expectNumericColumn(table, name);
+  }
 });
