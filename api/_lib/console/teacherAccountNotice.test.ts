@@ -191,7 +191,21 @@ describe("임시 비밀번호 재발급 뒤 안내 발송", () => {
     expect(result.send.status).toBe("sent");
   });
 
-  test("발송을 연결했으므로 기본값은 마지막 발송이 실패일 때만 재발급한다", async () => {
+  test("발송 기록이 없어도 재발급하고 새 임시 비밀번호로 안내를 보낸다", async () => {
+    kit.state.rows.alimtalk_send_logs = () => [];
+
+    const result = await reissueTeacherAccount(ctx(), "teacher-1");
+
+    expect(result.status).toBe("reissued");
+    if (result.status !== "reissued") return;
+    expect(mocks.sendAndLog).toHaveBeenCalledTimes(1);
+    expect(mocks.sendAndLog.mock.calls[0]?.[0].variables.임시비밀번호).toBe(
+      result.tempPassword,
+    );
+    expect(result.send).toEqual({ status: "sent", logId: 7 });
+  });
+
+  test("발송을 연결했으므로 기본값은 마지막 발송이 성공이면 재발급하지 않는다", async () => {
     kit.state.rows.alimtalk_send_logs = () => [{ status: "sent" }];
     expect((await reissueTeacherAccount(ctx(), "teacher-1")).status).toBe(
       "send_not_failed",
