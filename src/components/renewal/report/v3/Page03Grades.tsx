@@ -90,6 +90,11 @@ export default function Page03Grades({ page, tocTitle }: Page03GradesProps) {
             <p className="text-xs text-ink-sub">
               <CopyText text={subjects.note} />
             </p>
+            {subjects.excludedNote && (
+              <p className="text-xs text-ink-sub">
+                <CopyText text={subjects.excludedNote} />
+              </p>
+            )}
           </>
         ) : (
           <p>

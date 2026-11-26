@@ -102,6 +102,17 @@ const middleGrades = (answers: DiagnosisV3Answers): Grades =>
     }),
   );
 
+/** M3 subjects with a 원점수 that table 10 lacks (under 26), dropped by middleGrades. */
+export const belowTableSubjects = (
+  answers: DiagnosisV3Answers,
+): MiddleSubjectCode[] =>
+  trackOf(answers.q1) === "M3"
+    ? MIDDLE_SUBJECT_CODES.filter((s) => {
+        const score = answers.q6s?.[s];
+        return score !== undefined && middleToNine(score) === null;
+      })
+    : [];
+
 export function judgeSubjects(
   answers: DiagnosisV3Answers,
 ): DiagnosisV3Scores["subjects"] {
