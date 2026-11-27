@@ -9,8 +9,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { problemSchema } from "@/lib/http/problem";
 import { cn } from "@/lib/utils";
+import { problemSchema } from "../../../../shared/http/problem.js";
 import { consoleRequest, errorCode, errorMessage } from "../api";
 import Chip from "../Chip";
 import {
