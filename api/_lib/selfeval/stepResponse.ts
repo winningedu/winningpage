@@ -2,6 +2,7 @@
 // 응답 코드 표는 runModelStep.outcomeToHttp 에 있고, 여기서는 그것을 HTTP 로 내보낸다.
 
 import type { VercelResponse } from "@vercel/node";
+import { ProblemError } from "../hono/problem.js";
 import { sendError } from "../httpResponse.js";
 import type { SessionRow } from "./rows.js";
 import {
@@ -34,6 +35,33 @@ export function sendOutcome<T>(
     ok: false,
     ...http.extra,
   });
+}
+
+/**
+ * Hono 라우트용 sendOutcome. 성공이면 본문(okBody, 모델 단계는 attempts 와 softIssues 를 더함)을 돌려주고,
+ * 그 밖은 같은 상태, 코드, 문구, 확장 멤버의 ProblemError 를 던진다. ok 필드는 싣지 않는다.
+ */
+export function outcomeBody<T, B extends Record<string, unknown>>(
+  outcome: Outcome<T> | SimpleOutcome<T>,
+  okBody: (result: T) => B,
+): B {
+  if (outcome.kind === "done") return okBody(outcome.result);
+  const http = outcomeToHttp(outcome);
+  if (outcome.kind === "ok") {
+    return { ...okBody(outcome.result), ...http.extra };
+  }
+  throw new ProblemError(http.status, http.message, http.code, http.extra);
+}
+
+/** Hono 라우트용 checkSessionOpen. 거절이면 409 ProblemError 를 던진다. */
+export function assertSessionOpen(
+  session: Pick<SessionRow, "status">,
+  allowCompleted: boolean,
+): void {
+  const closed = checkSessionOpen(session, allowCompleted);
+  if (closed !== null) {
+    throw new ProblemError(closed.status, closed.message, closed.code);
+  }
 }
 
 /** 단계 조작을 받을 수 있는 세션인가. 거절이면 응답 정보를, 통과면 null 을 돌려준다. */

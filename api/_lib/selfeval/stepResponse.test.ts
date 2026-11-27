@@ -12,7 +12,13 @@ vi.mock("../httpResponse.js", () => ({
 }));
 
 import type { SessionRow } from "./rows.js";
-import { checkSessionOpen, sendOutcome } from "./stepResponse.js";
+import { ProblemError } from "../hono/problem.js";
+import {
+  assertSessionOpen,
+  checkSessionOpen,
+  outcomeBody,
+  sendOutcome,
+} from "./stepResponse.js";
 
 function fakeRes() {
   const sent: { status?: number; body?: unknown } = {};
@@ -100,5 +106,76 @@ describe("checkSessionOpen", () => {
 
   it("완료 허용이면 completed 는 통과한다", () => {
     expect(checkSessionOpen(row("completed"), true)).toBeNull();
+  });
+});
+
+describe("outcomeBody (Hono)", () => {
+  const thrown = (fn: () => unknown) => {
+    try {
+      fn();
+    } catch (e) {
+      return e;
+    }
+    throw new Error("던지지 않았다");
+  };
+
+  it("모델 단계 성공은 ok 없이 본문에 attempts 와 softIssues 를 덧붙인다", () => {
+    expect(
+      outcomeBody(
+        { kind: "ok", result: { x: 1 }, attempts: 2, softIssues: [] },
+        (r) => ({ value: r.x }),
+      ),
+    ).toEqual({ value: 1, attempts: 2, softIssues: [] });
+  });
+
+  it("모델을 부르지 않는 성공(done)은 본문만 돌려준다", () => {
+    expect(
+      outcomeBody({ kind: "done", result: { x: 1 } }, (r) => ({ value: r.x })),
+    ).toEqual({ value: 1 });
+  });
+
+  it("거절은 상태, 코드, 문구, 확장 멤버를 실은 ProblemError 로 던진다", () => {
+    const error = thrown(() =>
+      outcomeBody({ kind: "order", currentStep: 2 }, () => ({})),
+    );
+    expect(error).toBeInstanceOf(ProblemError);
+    expect(error).toMatchObject({
+      status: 409,
+      code: "STEP_ORDER",
+      message: "앞 단계가 아직 끝나지 않았어요.",
+      extra: { currentStep: 2 },
+    });
+  });
+
+  it("실패의 reversed, terminal, attempts, issues 가 확장 멤버로 실린다", () => {
+    const error = thrown(() =>
+      outcomeBody(
+        {
+          kind: "failure",
+          failure: "validation",
+          issues: [],
+          attempts: 10,
+          terminal: true,
+          reversed: true,
+        },
+        () => ({}),
+      ),
+    );
+    expect(error).toMatchObject({
+      status: 422,
+      extra: { attempts: 10, issues: [], terminal: true, reversed: true },
+    });
+  });
+});
+
+describe("assertSessionOpen (Hono)", () => {
+  const row = (status: SessionRow["status"]) => ({ status }) as SessionRow;
+
+  it("열린 세션은 통과하고 닫힌 세션은 409 SESSION_NOT_OPEN 을 던진다", () => {
+    expect(() => assertSessionOpen(row("in_progress"), false)).not.toThrow();
+    expect(() => assertSessionOpen(row("completed"), true)).not.toThrow();
+    expect(() => assertSessionOpen(row("completed"), false)).toThrow(
+      expect.objectContaining({ status: 409, code: "SESSION_NOT_OPEN" }),
+    );
   });
 });
