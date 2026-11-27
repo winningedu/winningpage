@@ -1,5 +1,5 @@
 // /api/admin/roles 루트 경로. 관리자 앱(api/_routes/admin/app.ts)이 .route("/roles", roles) 로 붙인다.
-// 하위 경로(/:id 와 그 아래)는 아직 라우터가 받는다.
+// 하위 경로(/:id 와 그 아래)는 roles-detail.ts 가 같은 /roles 에 붙어 받는다.
 //
 // GET, POST /api/admin/roles
 //

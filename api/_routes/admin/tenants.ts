@@ -1,5 +1,5 @@
 // /api/admin/tenants 루트 경로. 관리자 앱(api/_routes/admin/app.ts)이 .route("/tenants", tenants) 로 붙인다.
-// 하위 경로(/:id, member-purge 등)는 아직 라우터가 받는다.
+// 하위 경로(/:id, member-purge 등)는 tenants-purge.ts, tenants-school-admins.ts, tenants-students.ts, tenants-detail.ts 가 같은 /tenants 에 붙어 받는다.
 //
 // GET  /api/admin/tenants
 // POST /api/admin/tenants  { name, region, org_type, tier }
