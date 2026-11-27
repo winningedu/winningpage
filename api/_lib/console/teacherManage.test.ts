@@ -68,13 +68,13 @@ describe("reissueTeacherAccount send rule", () => {
     ).toBe("send_not_failed");
   });
 
-  test("알림톡을 연결한 뒤 발송 기록이 없으면 실패한 발송이 아니므로 거부한다", async () => {
+  test("알림톡을 연결한 뒤에도 발송 기록이 없으면 재발송할 수 있다(2026-11-27 결정)", async () => {
     kit.state.rows.alimtalk_send_logs = () => [];
 
     const result = await reissueTeacherAccount(ctx(), "teacher-1", {
       sendLogWired: true,
     });
 
-    expect(result.status).toBe("send_not_failed");
+    expect(result.status).toBe("reissued");
   });
 });
