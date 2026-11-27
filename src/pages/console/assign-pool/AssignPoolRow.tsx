@@ -1,5 +1,7 @@
 // W12 미배정 학생 한 줄. 학년그룹, 그룹, 반, 번호를 정해 배치한다. 반은 학년그룹을 고른 뒤에만 열린다(교 #151).
 // 배치 실패는 이 줄 이름 아래에만 보이고 다른 줄은 그대로 쓴다. 그룹은 반 선택지를 거르는 용도이고 서버에는 반만 보낸다.
+// 확인 필요 학생(명단과 다른 반으로 가입)은 표시와 가입 때 적은 반을 보이고, 확인 버튼으로 그 반을 그대로 인정하거나
+// 배치로 반을 바꾼다. 담임은 담당 반 학생만 확인, 배치한다(canConfirm).
 
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
@@ -8,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { problemSchema } from "../../../../shared/http/problem.js";
 import { consoleRequest, errorCode, errorMessage } from "../api";
+import Chip from "../Chip";
 import {
   CONFLICT_MESSAGE,
   NUMBER_INVALID_MESSAGE,
@@ -17,6 +21,7 @@ import {
 } from "../enrollmentEdit";
 import NameCell from "../NameCell";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
+import { slotLabel } from "../slotLabel";
 import { useToast } from "../Toast";
 import {
   type ClassOption,
@@ -29,6 +34,7 @@ import { CONSOLE_LIST_KEY } from "../usePagedList";
 import type { PoolStudent } from "./types";
 
 const ALREADY_ASSIGNED_MESSAGE = "이미 반이 정해져 있어요.";
+const NOT_OWN_CLASS_MESSAGE = "담당 반 학생만 확인하고 배치할 수 있어요";
 
 function CellSelect({
   label,
@@ -98,6 +104,7 @@ export default function AssignPoolRow({
   const [message, setMessage] = useState<string | null>(null);
 
   const target = classes.find((c) => c.id === classId);
+  const locked = student.needsConfirm && !student.canConfirm;
   const refetch = () =>
     void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
 
@@ -141,6 +148,37 @@ export default function AssignPoolRow({
         setMessage(ALREADY_ASSIGNED_MESSAGE);
         refetch();
       } else setMessage(errorMessage(res.body) ?? SAVE_FAILED_MESSAGE);
+    } catch {
+      setMessage(SAVE_FAILED_MESSAGE);
+    }
+    setSaving(false);
+  };
+
+  const confirm = async () => {
+    setMessage(null);
+    setSaving(true);
+    try {
+      const res = await consoleRequest("/api/console/assign-pool", {
+        method: "POST",
+        body: {
+          studentId: student.studentId,
+          expectedVersion: student.enrollmentVersion,
+        },
+      });
+      if (res.status === 200) {
+        toast.show({
+          tone: "Success",
+          message: `${student.name} 학생의 반을 확인했어요`,
+        });
+        refetch();
+        return;
+      }
+      const problem = problemSchema.safeParse(res.body);
+      if (problem.success && problem.data.code === "VERSION_CONFLICT") {
+        setMessage(CONFLICT_MESSAGE);
+        refetch();
+      } else
+        setMessage(problem.success ? problem.data.detail : SAVE_FAILED_MESSAGE);
     } catch {
       setMessage(SAVE_FAILED_MESSAGE);
     }
@@ -214,7 +252,7 @@ export default function AssignPoolRow({
   const assignButton = (
     <Button
       type="button"
-      disabled={grade === "" || classId === "" || saving}
+      disabled={grade === "" || classId === "" || saving || locked}
       onClick={() => void assign()}
       className={cn(
         "rounded-lg text-app-label font-semibold disabled:opacity-40",
@@ -224,10 +262,42 @@ export default function AssignPoolRow({
       배치
     </Button>
   );
+  const confirmButton = student.needsConfirm && (
+    <Button
+      type="button"
+      variant="outline"
+      disabled={saving || locked}
+      onClick={(e) => {
+        e.stopPropagation();
+        void confirm();
+      }}
+      className={cn(
+        "rounded-lg text-app-label font-semibold disabled:opacity-40",
+        mobile ? "h-11 w-full" : "h-8 px-3",
+      )}
+    >
+      확인
+    </Button>
+  );
   const error = message && (
     <span className="text-app-caption font-medium text-ink-danger">
       {message}
     </span>
+  );
+  const confirmInfo = student.needsConfirm && (
+    <div className="flex flex-col gap-1">
+      <span className="w-fit">
+        <Chip tone="Caution">확인 필요</Chip>
+      </span>
+      <span className="text-app-caption text-ink-sub">
+        {`가입 때 적은 반: ${slotLabel(student, gradeLabel)}`}
+      </span>
+      {locked && (
+        <span className="text-app-caption text-ink-sub">
+          {NOT_OWN_CLASS_MESSAGE}
+        </span>
+      )}
+    </div>
   );
 
   if (mobile) {
@@ -253,12 +323,14 @@ export default function AssignPoolRow({
             <NameCell name={student.name} />
             <span className="text-app-caption text-ink-sub">{`동명 재학생 ${student.sameNameCount}명`}</span>
           </button>
+          {confirmInfo}
           {error}
         </div>
         {field("학년", gradeSelect)}
         {field("그룹", groupSelect)}
         {field("반", classSelect)}
         {field("번호", numberInput)}
+        {confirmButton}
         {assignButton}
       </li>
     );
@@ -271,6 +343,7 @@ export default function AssignPoolRow({
       <TableCell>
         <div className="flex flex-col gap-1">
           <NameCell name={student.name} />
+          {confirmInfo}
           {error}
         </div>
       </TableCell>
@@ -279,7 +352,12 @@ export default function AssignPoolRow({
       <TableCell>{groupSelect}</TableCell>
       <TableCell>{classSelect}</TableCell>
       <TableCell>{numberInput}</TableCell>
-      <TableCell className="text-right">{assignButton}</TableCell>
+      <TableCell className="text-right">
+        <div className="flex justify-end gap-2">
+          {confirmButton}
+          {assignButton}
+        </div>
+      </TableCell>
     </TableRow>
   );
 }
