@@ -15,6 +15,12 @@
 import type { Options } from "ky";
 import type { z } from "zod";
 import {
+  type AdviceBodyInput,
+  adviceGetResponse,
+  advicePostResponse,
+  type GoalAdvicePayload,
+} from "../../shared/goal/advice.js";
+import {
   type PlanTaskCreateInput,
   type PlanTasksQueryInput,
   type PlanTaskUpdateInput,
@@ -1611,24 +1617,6 @@ export async function fetchGoalReport(
 // 내일 계획(daily). 응답 shape은 api/_lib/goal/advice.ts AdvicePayload와 같다.
 // ---------------------------------------------------------------------------
 
-export interface GoalAdviceSection {
-  label: string;
-  body: string;
-}
-
-export interface GoalMajorTip {
-  department: string;
-  text: string;
-}
-
-export interface GoalAdvicePayload {
-  source: "intake" | "daily";
-  origin: "ai" | "rule";
-  probabilitySummary: string;
-  sections: GoalAdviceSection[];
-  majorTips: GoalMajorTip[];
-}
-
 export type FetchGoalAdviceResult =
   | { kind: "no-session" }
   | NotAllowed
@@ -1650,9 +1638,11 @@ export async function fetchGoalAdvice(): Promise<FetchGoalAdviceResult> {
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/advice", {
-      method: "GET",
-    });
+    response = await goalRequest(
+      "goal/advice",
+      { method: "GET" },
+      adviceGetResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/advice 호출 오류:", error);
     return { kind: "error" };
@@ -1705,10 +1695,12 @@ export async function generateGoalAdvice(
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/advice", {
-      method: "POST",
-      json: { source },
-    });
+    const json: AdviceBodyInput = { source };
+    response = await goalRequest(
+      "goal/advice",
+      { method: "POST", json },
+      advicePostResponse,
+    );
   } catch (error) {
     console.error("[goalApi] POST /api/goal/advice 호출 오류:", error);
     return { kind: "error" };
@@ -1717,7 +1709,7 @@ export async function generateGoalAdvice(
   const result = response.body;
 
   if (response.status === 200) {
-    return { kind: "success", advice: result as GoalAdvicePayload };
+    return { kind: "success", advice: result };
   }
 
   if (response.status === 401) return { kind: "no-session" };

@@ -3,6 +3,7 @@
 // 비어 있을 때 intake 조언을 즉석 생성해 캐시하는지 고정한다. Gemini(callText)는 실패시켜
 // 규칙 기반 폴백 경로로 돌린다.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { adviceGetResponse } from "../../../shared/goal/advice.js";
 import { callGoal } from "../../_lib/goal/route.testkit.js";
 
 vi.mock("../../_lib/httpAuth.js", () => ({
@@ -93,6 +94,8 @@ describe("GET /api/goal/advice", () => {
         origin: "rule",
       });
       expect(body).not.toHaveProperty("ok");
+      // 규칙 폴백이 만든 본문이 계약 스키마로 읽힌다.
+      expect(adviceGetResponse.parse(body)).toMatchObject({ daily: null });
       expect(body.intake).not.toBeNull();
       expect(body.daily).toBeNull();
       expect(body.intakeFor).toBe(localDay);
