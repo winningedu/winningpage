@@ -31,6 +31,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
@@ -85,6 +86,7 @@ export default function GrowthReportsAdmin({ config }: Props) {
 }
 
 function GrowthReportsScreen({ config }: Props) {
+  const canEdit = useCanEditSection();
   const { id } = useParams();
   const navigate = useNavigate();
   const { search } = useLocation();
@@ -164,9 +166,11 @@ function GrowthReportsScreen({ config }: Props) {
             </div>
             <ActionButton type="submit">조회</ActionButton>
           </form>
-          <ActionButton onClick={() => setGrantOpen(true)}>
-            이용권 부여
-          </ActionButton>
+          {canEdit && (
+            <ActionButton onClick={() => setGrantOpen(true)}>
+              이용권 부여
+            </ActionButton>
+          )}
         </div>
         <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
@@ -316,6 +320,7 @@ function ReportDetailDialog({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { search } = useLocation();
+  const canEdit = useCanEditSection();
   const [confirming, setConfirming] = useState(false);
   const recover = useMutation({
     mutationFn: postGrowthRecover,
@@ -400,7 +405,8 @@ function ReportDetailDialog({
               </div>
             )}
 
-            {canRecover(row) &&
+            {canEdit &&
+              canRecover(row) &&
               (confirming ? (
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <span>새 회차를 만들어 복구합니다. 진행할까요?</span>
