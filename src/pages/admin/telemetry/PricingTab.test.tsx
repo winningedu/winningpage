@@ -64,6 +64,28 @@ describe("PricingTab", () => {
     expect(screen.queryByRole("button", { name: /^삭제/ })).toBeNull();
   });
 
+  test("view 권한이면 단가 입력칸이 읽기 전용이고 edit 권한이면 입력할 수 있다", () => {
+    const initial = {
+      pricing: {
+        "gemini-x": {
+          input_usd_per_1m: 1,
+          output_usd_per_1m: 2,
+          cached_input_usd_per_1m: 0.5,
+        },
+      },
+      updatedAt: null,
+    };
+    const view = renderTab(<PricingTab initial={initial} />, false);
+    for (const box of screen.getAllByRole("textbox")) {
+      expect(box).toHaveAttribute("readonly");
+    }
+    view.unmount();
+    renderTab(<PricingTab initial={initial} />, true);
+    for (const box of screen.getAllByRole("textbox")) {
+      expect(box).not.toHaveAttribute("readonly");
+    }
+  });
+
   test("edit 권한이면 행 추가, 삭제, 저장 버튼이 보인다", () => {
     renderTab(<PricingTab initial={{ pricing: {}, updatedAt: null }} />, true);
 
