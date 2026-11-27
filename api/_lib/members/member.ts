@@ -1,9 +1,9 @@
 // 회원 라우트 공통. 회원 한 명을 읽고 소속 이름을 얹는 일과, 없을 때의 404 응답.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { VercelResponse } from "@vercel/node";
+import { PROBLEM_CODE } from "../../../shared/http/codes.js";
 import { hasSectionPermission } from "../adminPermission.js";
-import { sendError } from "../httpResponse.js";
+import { ProblemError } from "../hono/problem.js";
 
 export type MemberRow = Record<string, unknown> & { tenant_id?: string | null };
 
@@ -22,11 +22,11 @@ export function canViewTenantNames(
  * profiles 한 행에 소속 이름(tenants.name, 소속이 없거나 못 찾으면 빈 문자열)을 얹는다.
  * tenants 보기 권한이 없으면 tenants 를 읽지 않고 null 이다(tenant_id 는 profiles 열이라 그대로 둔다).
  */
-export async function withTenantName(
+export async function withTenantName<T extends MemberRow>(
   admin: SupabaseClient,
-  profile: MemberRow,
+  profile: T,
   canViewTenants: boolean,
-): Promise<MemberRow> {
+): Promise<T & { tenant_name: string | null }> {
   if (!canViewTenants) return { ...profile, tenant_name: null };
   if (!profile.tenant_id) return { ...profile, tenant_name: "" };
   const { data, error } = await admin
@@ -38,25 +38,20 @@ export async function withTenantName(
   return { ...profile, tenant_name: data?.name ?? "" };
 }
 
-/** 회원이 있는지 확인하고 id 와 member_type 만 돌려준다. 없으면 404 를 보내고 null. */
+/** 회원이 있는지 확인하고 id 와 member_type 만 돌려준다. 없으면 404 NOT_FOUND 를 던진다. */
 export async function findMemberStub(
   admin: SupabaseClient,
-  res: VercelResponse,
   id: string,
-): Promise<{ id: string; member_type: string | null } | null> {
+): Promise<{ id: string; member_type: string | null }> {
   const { data, error } = await admin
     .from("profiles")
     .select("id, member_type")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error("profile read failed");
-  if (!data) {
-    sendMemberNotFound(res);
-    return null;
-  }
+  if (!data) throw memberNotFound();
   return data;
 }
 
-export function sendMemberNotFound(res: VercelResponse): void {
-  sendError(res, "problem", 404, "회원을 찾을 수 없습니다.", "NOT_FOUND");
-}
+export const memberNotFound = () =>
+  new ProblemError(404, "회원을 찾을 수 없습니다.", PROBLEM_CODE.NOT_FOUND);

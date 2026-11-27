@@ -8,73 +8,18 @@ import {
   memberRowSchema,
   membersListSchema,
 } from "../../../../shared/members/contract.js";
-
-const text = z.string().nullish();
-const linksSchema = z.object({
-  items: z.array(
-    z.object({
-      linkId: z.string(),
-      status: z.string(),
-      profile: z
-        .object({
-          id: z.string(),
-          name: text,
-          email: text,
-          phone: text,
-        })
-        .nullable(),
-    }),
-  ),
-});
-
-const servicesSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.string(),
-      program_key: z.string(),
-      payment_status: text,
-      access_status: text,
-      paid_amount: z.number().nullish(),
-      starts_at: text,
-      expires_at: text,
-      access_started_at: text,
-      access_expires_at: text,
-    }),
-  ),
-});
-
-const ordersSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.string(),
-      student_profile_id: text,
-      parent_profile_id: text,
-      status: text,
-      order_name: text,
-      amount: z.number().nullish(),
-      list_amount: z.number().nullish(),
-      discount_amount: z.number().nullish(),
-      method: text,
-      paid_at: text,
-      created_at: text,
-    }),
-  ),
-});
-
-const messagesSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.number(),
-      template_key: z.string(),
-      channel: z.string(),
-      subject: text,
-      message: z.string(),
-      status: z.string(),
-      provider_message: text,
-      sent_at: z.string(),
-    }),
-  ),
-});
+import {
+  type MemberLinks,
+  type MemberMessages,
+  type MemberOrders,
+  type MemberPatchBody,
+  type MemberServices,
+  type MemberTenantBody,
+  memberLinksSchema,
+  memberMessagesSchema,
+  memberOrdersSchema,
+  memberServicesSchema,
+} from "../../../../shared/members/detail.js";
 
 const sentSchema = z.looseObject({ channel: z.string() });
 
@@ -90,10 +35,10 @@ const tenantOptionsSchema = z.object({
 });
 
 export type ProfileRow = MemberRow;
-export type LinkedPerson = z.infer<typeof linksSchema>["items"][number];
-export type ProgramAccessRow = z.infer<typeof servicesSchema>["items"][number];
-export type OrderRow = z.infer<typeof ordersSchema>["items"][number];
-export type MessageLogRow = z.infer<typeof messagesSchema>["items"][number];
+export type LinkedPerson = MemberLinks["items"][number];
+export type ProgramAccessRow = MemberServices["items"][number];
+export type OrderRow = MemberOrders["items"][number];
+export type MessageLogRow = MemberMessages["items"][number];
 export type TenantOption = z.infer<typeof tenantOptionsSchema>["items"][number];
 
 export const memberKeys = {
@@ -117,28 +62,28 @@ export const fetchMember = (id: string, signal?: AbortSignal) =>
   api.get(one(id), opts(signal)).json(memberRowSchema);
 
 export const fetchMemberLinks = (id: string, signal?: AbortSignal) =>
-  api.get(`${one(id)}/links`, opts(signal)).json(linksSchema);
+  api.get(`${one(id)}/links`, opts(signal)).json(memberLinksSchema);
 
 export const fetchMemberServices = (id: string, signal?: AbortSignal) =>
-  api.get(`${one(id)}/services`, opts(signal)).json(servicesSchema);
+  api.get(`${one(id)}/services`, opts(signal)).json(memberServicesSchema);
 
 export const fetchMemberOrders = (id: string, signal?: AbortSignal) =>
-  api.get(`${one(id)}/orders`, opts(signal)).json(ordersSchema);
+  api.get(`${one(id)}/orders`, opts(signal)).json(memberOrdersSchema);
 
 export const fetchMemberMessages = (id: string, signal?: AbortSignal) =>
-  api.get(`${one(id)}/messages`, opts(signal)).json(messagesSchema);
+  api.get(`${one(id)}/messages`, opts(signal)).json(memberMessagesSchema);
 
 export const fetchTenantOptions = (signal?: AbortSignal) =>
   api.get("admin/tenant-options", opts(signal)).json(tenantOptionsSchema);
 
 // 회원구분과 학부모 핸드폰은 한 번에 한 필드만 보낸다.
-export const patchMember = (
-  id: string,
-  body: { member_category: string | null } | { guardian_phone: string | null },
-) => api.patch(one(id), { json: body }).json(memberRowSchema);
+export const patchMember = (id: string, body: MemberPatchBody) =>
+  api.patch(one(id), { json: body }).json(memberRowSchema);
 
-export const putMemberTenant = (id: string, tenantId: string | null) =>
-  api.put(`${one(id)}/tenant`, { json: { tenantId } }).json(memberRowSchema);
+export const putMemberTenant = (
+  id: string,
+  tenantId: MemberTenantBody["tenantId"],
+) => api.put(`${one(id)}/tenant`, { json: { tenantId } }).json(memberRowSchema);
 
 // phone 은 보내지 않는다. 마스킹 상태면 화면이 원문을 모르므로 서버가 profileId 로 읽는다.
 export const sendMemberMessage = (profileId: string, text: string) =>
