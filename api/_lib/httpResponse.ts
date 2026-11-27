@@ -16,9 +16,15 @@
 
 import { STATUS_CODES } from "node:http";
 import type { VercelResponse } from "@vercel/node";
-import { PROBLEM_CONTENT_TYPE } from "../../src/lib/http/problem.js";
+import { PROBLEM_CONTENT_TYPE } from "../../shared/http/problem.js";
 
 export type ErrorShape = "detail" | "okDetail" | "error" | "coded" | "problem";
+
+// defineHandler 와 Hono 미들웨어(api/_lib/hono/)가 같이 쓰는 응답 문구. 화면 문구(src/ 의 copy)와는 따로다.
+export const AUTH_REQUIRED_MESSAGE = "로그인이 필요합니다.";
+export const VALIDATION_FAILED_MESSAGE = "요청 값이 올바르지 않아요.";
+// dev 원본 약 20파일이 개별 try/catch 로 냈던 문구. 실제 예외 메시지(SUPABASE_CONFIG_ERROR_MESSAGE)는 개발자용 원인이고 이건 클라이언트용 안내문이다.
+export const CONFIG_ERROR_RESPONSE_MESSAGE = "서버 설정이 올바르지 않습니다.";
 
 export function sendError(
   res: VercelResponse,
@@ -47,7 +53,6 @@ export function sendError(
   }
 }
 
-// code 없는 호출은 500 만 INTERNAL_ERROR 로 받는다. 나머지는 호출부 실수이므로 던진다.
 function sendProblem(
   res: VercelResponse,
   status: number,
@@ -55,25 +60,44 @@ function sendProblem(
   code: string | undefined,
   extra: Record<string, unknown> | undefined,
 ): void {
+  const requestId = res.req?.headers["x-vercel-id"];
+  const body = problemBody(
+    status,
+    message,
+    code,
+    extra,
+    typeof requestId === "string" ? requestId : undefined,
+  );
+  // res.json 은 Content-Type 을 덮어쓸 수 있어 end 로 직접 쓴다.
+  res.setHeader("Content-Type", PROBLEM_CONTENT_TYPE);
+  res.status(status).end(body);
+}
+
+/**
+ * RFC 9457 problem 바디 문자열. sendError(..., "problem") 와 Hono 쪽(api/_lib/hono/problem.ts)이 같이 쓴다(키 순서까지 같게).
+ * code 없는 호출은 500 만 INTERNAL_ERROR 로 받는다. 나머지는 호출부 실수이므로 던진다.
+ */
+export function problemBody(
+  status: number,
+  message: string,
+  code?: string,
+  extra?: Record<string, unknown>,
+  requestId?: string,
+): string {
   if (!code && status !== 500) {
     throw new Error(
       `sendError: problem shape 는 code 가 필요합니다 (${status}).`,
     );
   }
-  const requestId = res.req?.headers["x-vercel-id"];
-  // res.json 은 Content-Type 을 덮어쓸 수 있어 end 로 직접 쓴다.
-  res.setHeader("Content-Type", PROBLEM_CONTENT_TYPE);
   // 표준 멤버는 extra 로 덮을 수 없다(instance 가 없는 경우 포함).
   const { instance: _instance, ...members } = extra || {};
-  res.status(status).end(
-    JSON.stringify({
-      ...members,
-      type: "about:blank",
-      title: STATUS_CODES[status],
-      status,
-      detail: message,
-      ...(typeof requestId === "string" ? { instance: requestId } : {}),
-      code: code || "INTERNAL_ERROR",
-    }),
-  );
+  return JSON.stringify({
+    ...members,
+    type: "about:blank",
+    title: STATUS_CODES[status],
+    status,
+    detail: message,
+    ...(requestId !== undefined ? { instance: requestId } : {}),
+    code: code || "INTERNAL_ERROR",
+  });
 }

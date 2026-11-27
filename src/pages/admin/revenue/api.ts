@@ -1,41 +1,20 @@
 // 매출 및 결제 화면의 데이터 호출. 브라우저에서 supabase 를 직접 읽지 않고 /api/admin/revenue 로만 읽는다.
 
 import { queryOptions } from "@tanstack/react-query";
-import { z } from "zod";
 import { api } from "@/lib/http/client";
+import {
+  type RevenueQueryInput,
+  type RevenueRow,
+  revenueResponseSchema,
+} from "../../../../shared/revenue/contract.js";
+import { revenuePendingSchema } from "../../../../shared/revenue/pending.js";
+import {
+  type RevenueServiceTab,
+  revenueServicesSchema,
+} from "../../../../shared/revenue/services.js";
 
-const revenueRowSchema = z.object({
-  order_item_id: z.number(),
-  order_id: z.string(),
-  paid_at: z.string().nullable(),
-  payer_name: z.string().nullable(),
-  payer_email: z.string().nullable(),
-  student_name: z.string().nullable(),
-  service_key: z.string().nullable(),
-  item_name: z.string().nullable(),
-  list_amount: z.number().nullable(),
-  discount_amount: z.number().nullable(),
-  paid_amount: z.number().nullable(),
-  refunded_amount: z.number().nullable(),
-  revenue_status: z.string(),
-  net_amount: z.number().nullable(),
-});
-
-const revenueResponseSchema = z.object({ items: z.array(revenueRowSchema) });
-
-const serviceTabsResponseSchema = z.object({
-  items: z.array(z.object({ key: z.string(), label: z.string() })),
-});
-
-const pendingSchema = z.object({
-  approvalWaiting: z.number(),
-  processWaiting: z.number(),
-});
-
-export type RevenueRow = z.infer<typeof revenueRowSchema>;
-export type ServiceTab = z.infer<
-  typeof serviceTabsResponseSchema
->["items"][number];
+export type { RevenueRow };
+export type ServiceTab = RevenueServiceTab;
 
 const revenueKey = ["admin", "revenue"] as const;
 export const revenueRowsKey = [...revenueKey, "rows"] as const;
@@ -49,7 +28,10 @@ export function revenueRowsQuery(from: string, to: string) {
     queryFn: async ({ signal }) =>
       (
         await api
-          .get("admin/revenue", { searchParams: { from, to }, signal })
+          .get("admin/revenue", {
+            searchParams: { from, to } satisfies RevenueQueryInput,
+            signal,
+          })
           .json(revenueResponseSchema)
       ).items,
   });
@@ -61,12 +43,12 @@ export const revenueServicesQuery = queryOptions({
     (
       await api
         .get("admin/revenue/services", { signal })
-        .json(serviceTabsResponseSchema)
+        .json(revenueServicesSchema)
     ).items,
 });
 
 export const revenuePendingQuery = queryOptions({
   queryKey: [...revenueKey, "pending"],
   queryFn: ({ signal }) =>
-    api.get("admin/revenue/pending", { signal }).json(pendingSchema),
+    api.get("admin/revenue/pending", { signal }).json(revenuePendingSchema),
 });

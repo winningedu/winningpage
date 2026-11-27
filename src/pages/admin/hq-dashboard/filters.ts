@@ -10,10 +10,15 @@ export const LOGIN_PARAM = {
   page: "loginPage",
 } as const;
 
-export const GRAINS = ["day", "week", "month"] as const;
-export const MAU_MODES = ["calendar", "rolling30"] as const;
-export type Grain = (typeof GRAINS)[number];
-export type MauMode = (typeof MAU_MODES)[number];
+import {
+  GRAINS,
+  type Grain,
+  MAU_MODES,
+  type MauMode,
+} from "../../../../shared/hq-dashboard/contract.js";
+
+export type { Grain, MauMode };
+export { GRAINS, MAU_MODES };
 
 export interface LoginFilters {
   from: string;

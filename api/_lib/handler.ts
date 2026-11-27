@@ -13,12 +13,19 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { z } from "zod";
+import type { AdminMenuKey } from "../../shared/admin-permission/menu.js";
+import { PROBLEM_CODE } from "../../shared/http/codes.js";
+import { zodIssuesToErrors } from "../../shared/http/problem.js";
 import {
   type AdminAuditAction,
   isAuditableMethod,
   scheduleAdminAudit,
 } from "./accessLog/adminWrite.js";
-import { resolveAdmin, resolveWinningAdmin } from "./adminAuth.js";
+import {
+  adminProblemCode,
+  resolveAdmin,
+  resolveWinningAdmin,
+} from "./adminAuth.js";
 import {
   type AdminLevel,
   assertSectionPermission,
@@ -28,19 +35,20 @@ import { type ConsoleActor, resolveConsoleActor } from "./console/actor.js";
 import { isAuthorizedCron } from "./cronAuth.js";
 import { resolveUser } from "./httpAuth.js";
 import { assertMethod } from "./httpMethod.js";
-import { type ErrorShape, sendError } from "./httpResponse.js";
-import { QaBlockedError, sendQaBlocked } from "./qaAccount.js";
+import {
+  AUTH_REQUIRED_MESSAGE,
+  CONFIG_ERROR_RESPONSE_MESSAGE,
+  type ErrorShape,
+  sendError,
+  VALIDATION_FAILED_MESSAGE,
+} from "./httpResponse.js";
+import { isReadMethod, QaBlockedError, sendQaBlocked } from "./qaAccount.js";
 import { createSupabaseAdmin, isSupabaseConfigError } from "./supabaseAdmin.js";
 import {
   InvalidTimeZoneError,
   readTimeZone,
   TimeZoneRequiredError,
 } from "./timeZone.js";
-
-// dev 원본 ~20파일이 개별 `try { createSupabaseAdmin() } catch { ... }`로 냈던
-// 문구. 실제 예외 메시지(SUPABASE_CONFIG_ERROR_MESSAGE)와는 다르다 — 저건
-// 개발자용 원인, 이건 클라이언트용 안내문이다.
-const CONFIG_ERROR_RESPONSE_MESSAGE = "서버 설정이 올바르지 않습니다.";
 
 export type AuthMode =
   | "none"
@@ -89,23 +97,20 @@ export function requireUserId(ctx: HandlerCtx): string {
 // 코드베이스 전역에서 이미 통일돼 있던 문구(변경 없이 그대로 채택) —
 // api/performance/*.ts, api/_routes/check-service-access.ts, api/diagnosis/*.ts 등
 // auth:user 401 전부가 이 문구/코드를 쓴다.
-const AUTH_REQUIRED_MESSAGE = "로그인이 필요합니다.";
-const AUTH_REQUIRED_CODE = "UNAUTHENTICATED";
+const AUTH_REQUIRED_CODE = PROBLEM_CODE.UNAUTHENTICATED;
 
-const METHOD_NOT_ALLOWED_CODE = "METHOD_NOT_ALLOWED";
-const FORBIDDEN_CODE = "FORBIDDEN";
+const METHOD_NOT_ALLOWED_CODE = PROBLEM_CODE.METHOD_NOT_ALLOWED;
+const FORBIDDEN_CODE = PROBLEM_CODE.FORBIDDEN;
 
-const VALIDATION_FAILED_CODE = "VALIDATION_FAILED";
-const VALIDATION_FAILED_MESSAGE = "요청 값이 올바르지 않아요.";
+const VALIDATION_FAILED_CODE = PROBLEM_CODE.VALIDATION_FAILED;
 
-const INVALID_TIME_ZONE_CODE = "INVALID_TIME_ZONE";
-const TIME_ZONE_REQUIRED_CODE = "TIME_ZONE_REQUIRED";
+const INVALID_TIME_ZONE_CODE = PROBLEM_CODE.INVALID_TIME_ZONE;
+const TIME_ZONE_REQUIRED_CODE = PROBLEM_CODE.TIME_ZONE_REQUIRED;
 
 const NOT_CONSOLE_MESSAGE = "선생님 화면 권한이 없습니다.";
 const MUST_CHANGE_PASSWORD_MESSAGE = "임시 비밀번호를 먼저 변경해 주세요.";
 const NOT_SCHOOL_ADMIN_MESSAGE = "전체 관리자만 사용할 수 있습니다.";
 const READ_ONLY_PROXY_MESSAGE = "읽기 전용 대행 중에는 바꿀 수 없습니다.";
-const READ_ONLY_METHODS = new Set(["GET", "HEAD"]);
 
 // api/performance/cleanup-attachments.ts, embed-session-vectors.ts 기준.
 const CRON_REQUIRED_MESSAGE = "인증이 필요합니다.";
@@ -117,10 +122,7 @@ function adminFailureCode(
   shape: ErrorShape,
   status: number,
 ): string | undefined {
-  if (shape !== "problem") return undefined;
-  if (status === 401) return AUTH_REQUIRED_CODE;
-  if (status === 403) return FORBIDDEN_CODE;
-  return undefined;
+  return shape === "problem" ? adminProblemCode(status) : undefined;
 }
 
 type ZodSchema = z.ZodType;
@@ -204,7 +206,8 @@ export interface DefineHandlerOptions<
    * level 생략 시 GET, HEAD 는 view, 나머지는 edit.
    */
   permission?: {
-    key: string | ((req: VercelRequest) => string);
+    /** 리터럴은 메뉴 키 목록 안에서만. 키 함수는 요청 값에서 만들므로 string 을 돌려준다(모르는 키는 권한 판정에서 403). */
+    key: AdminMenuKey | ((req: VercelRequest) => string);
     level?: AdminLevel;
   };
   /**
@@ -247,14 +250,7 @@ export function parseOrReject(
 ): { value: unknown } | null {
   const parsed = schema.safeParse(input);
   if (parsed.success) return { value: parsed.data };
-  sendValidationFailed(
-    res,
-    shape,
-    parsed.error.issues.map((issue) => ({
-      path: issue.path.map(String).join("."),
-      message: issue.message,
-    })),
-  );
+  sendValidationFailed(res, shape, zodIssuesToErrors(parsed.error.issues));
   return null;
 }
 
@@ -400,7 +396,7 @@ export function defineHandler<
           if (
             actor.readOnly &&
             !opts.allowReadOnlyProxy &&
-            !READ_ONLY_METHODS.has(req.method ?? "")
+            !isReadMethod(req.method)
           ) {
             sendError(
               res,
@@ -450,8 +446,7 @@ export function defineHandler<
             ctx.supabaseAdmin,
             admin.userId,
             requestedKey,
-            level ??
-              (READ_ONLY_METHODS.has(req.method ?? "") ? "view" : "edit"),
+            level ?? (isReadMethod(req.method) ? "view" : "edit"),
           );
         }
       } else if (opts.auth === "winningAdmin") {

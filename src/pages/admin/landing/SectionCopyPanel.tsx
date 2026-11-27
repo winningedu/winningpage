@@ -6,6 +6,11 @@ import { Input } from "@/components/ui/input";
 import { ApiError, api } from "@/lib/http/client";
 import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import {
+  type SectionCopy,
+  type SectionCopyInput,
+  sectionCopy,
+} from "../../../../shared/home-section-copy/contract.js";
 
 // 랜딩에서 라벨(eyebrow)을 그리는 섹션만 라벨 입력창을 보인다.
 const SECTIONS_WITH_EYEBROW: SectionKey[] = ["services", "mentor"];
@@ -13,13 +18,6 @@ const SECTIONS_WITH_EYEBROW: SectionKey[] = ["services", "mentor"];
 const INPUT_CLASS = "h-9 w-full";
 
 type Status = { kind: "ok" | "error"; message: string } | null;
-
-type SectionCopy = {
-  section_key: string;
-  eyebrow: string | null;
-  title_main: string;
-  title_sub: string | null;
-};
 
 const copyQueryKey = (sectionKey: SectionKey) =>
   ["admin", "home-section-copy", sectionKey] as const;
@@ -37,7 +35,7 @@ export default function SectionCopyPanel({
       try {
         return await api
           .get(`admin/home-section-copy/${sectionKey}`, { signal })
-          .json<SectionCopy>();
+          .json(sectionCopy);
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) return null;
         throw error;
@@ -75,14 +73,14 @@ function SectionCopyForm({
   const [status, setStatus] = useState<Status>(null);
   const hasEyebrow = SECTIONS_WITH_EYEBROW.includes(sectionKey);
   const queryClient = useQueryClient();
-  // view 권한이면 저장 버튼을 그리지 않는다.
+  // view 권한이면 저장 버튼을 그리지 않고 입력창도 읽기 전용으로 둔다.
   const canEdit = useCanEditSection();
 
   const save = useMutation({
-    mutationFn: (json: Omit<SectionCopy, "section_key">) =>
+    mutationFn: (json: SectionCopyInput) =>
       api
         .put(`admin/home-section-copy/${sectionKey}`, { json })
-        .json<SectionCopy>(),
+        .json(sectionCopy),
     onSuccess: (row) => {
       queryClient.setQueryData(copyQueryKey(sectionKey), row);
       setStatus({ kind: "ok", message: "저장했습니다." });
@@ -124,6 +122,7 @@ function SectionCopyForm({
             className={INPUT_CLASS}
             value={eyebrow}
             onChange={(e) => setEyebrow(e.target.value)}
+            readOnly={!canEdit}
           />
         </label>
       )}
@@ -134,6 +133,7 @@ function SectionCopyForm({
           className={INPUT_CLASS}
           value={titleMain}
           onChange={(e) => setTitleMain(e.target.value)}
+          readOnly={!canEdit}
         />
       </label>
       <label htmlFor={titleSubId} className="block">
@@ -143,6 +143,7 @@ function SectionCopyForm({
           className={INPUT_CLASS}
           value={titleSub}
           onChange={(e) => setTitleSub(e.target.value)}
+          readOnly={!canEdit}
         />
       </label>
       <div className="flex items-center gap-3">

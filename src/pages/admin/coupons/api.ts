@@ -1,48 +1,27 @@
-// 쿠폰 화면의 서버 호출. 응답 모양은 zod 로 검증하고, 조회는 react-query 키로 묶는다.
+// 쿠폰 화면의 서버 호출. 요청 타입과 응답 스키마는 서버와 같은 계약(shared/coupon/contract.ts)을 쓰고, 조회는 react-query 키로 묶는다.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { z } from "zod";
 import { ApiError, api } from "@/lib/http/client";
 import { toastError } from "@/pages/admin/shared/adminToast";
+import {
+  type CouponSaveInput,
+  couponListSchema,
+  couponMutationResultSchema,
+  couponSchema,
+  grantListSchema,
+  type ReasonInput,
+  redemptionListSchema,
+  userSearchSchema,
+} from "../../../../shared/coupon/contract.js";
 import { ADMIN_LOAD_ERROR_TEXT, ADMIN_UNKNOWN_ERROR_TEXT, TITLE } from "./copy";
 
-// 쓰는 컬럼만 명시하고 나머지는 통과시킨다.
-export const couponSchema = z.looseObject({
-  id: z.string(),
-  slug: z.string(),
-  code: z.string().nullable(),
-  title: z.string(),
-  discount_amount: z.number(),
-  min_amount: z.number(),
-  valid_until: z.string().nullable(),
-  max_uses_per_user: z.number().nullable(),
-  max_redemptions: z.number().nullable(),
-  stackable: z.boolean(),
-  grant_type: z.string(),
-  grant_on_signup: z.boolean(),
-  is_active: z.boolean(),
-  // 단체 쿠폰 축. NULL 이면 소속 제한 없음.
-  tenant_id: z.string().nullable(),
-  created_at: z.string().optional(),
-});
-export type CouponRow = z.infer<typeof couponSchema>;
-
-const couponListSchema = z.object({
-  items: z.array(couponSchema),
-  // 아래 셋은 부가 조회라 서버에서 실패하면 null 이다. 화면은 그 부분만 비운다.
-  redemptionStats: z
-    .object({
-      byCoupon: z.record(
-        z.string(),
-        z.object({ active: z.number(), total: z.number() }),
-      ),
-      truncated: z.boolean(),
-    })
-    .nullable(),
-  grantedCouponIds: z.array(z.string()).nullable(),
-  tenants: z.array(z.object({ id: z.string(), name: z.string() })).nullable(),
-});
+export type {
+  CouponRow,
+  FoundUser,
+  GrantRow,
+  RedemptionRow,
+} from "../../../../shared/coupon/contract.js";
 
 export const couponKeys = {
   all: ["admin", "coupons"] as const,
@@ -54,70 +33,6 @@ export const couponKeys = {
     [...couponKeys.all, "grants", couponId] as const,
   userSearch: (q: string) => [...couponKeys.all, "user-search", q] as const,
 };
-
-// 사용자 이름은 서버가 profiles 에서 붙인다. 조회에 실패했거나 게스트 결제면 null 이다.
-const userSummarySchema = z
-  .object({ name: z.string().nullable(), email: z.string().nullable() })
-  .nullable();
-
-const redemptionSchema = z.looseObject({
-  id: z.number(),
-  coupon_id: z.string(),
-  order_id: z.string().nullish(),
-  user_id: z.string().nullable(),
-  discount_amount: z.number(),
-  created_at: z.string(),
-  voided_at: z.string().nullable(),
-  void_reason: z.string().nullish(),
-  user: userSummarySchema,
-});
-export type RedemptionRow = z.infer<typeof redemptionSchema>;
-
-const redemptionListSchema = z.object({ items: z.array(redemptionSchema) });
-
-const grantSchema = z.looseObject({
-  id: z.number(),
-  coupon_id: z.string(),
-  user_id: z.string(),
-  granted_at: z.string(),
-  granted_by: z.string(),
-  // 발급분 자체의 사용 기한. NULL 이면 무기한.
-  valid_until: z.string().nullable(),
-  revoked_at: z.string().nullable(),
-  revoke_reason: z.string().nullish(),
-  user: userSummarySchema,
-});
-export type GrantRow = z.infer<typeof grantSchema>;
-
-const grantListSchema = z.object({ items: z.array(grantSchema) });
-
-const userSearchSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string().nullable(),
-      email: z.string().nullable(),
-    }),
-  ),
-});
-export type FoundUser = z.infer<typeof userSearchSchema>["items"][number];
-
-// 서버 CouponPayload 와 같은 모양. 검사는 화면(validateForm)과 서버 zod 가 각자 한다.
-export interface CouponPayload {
-  slug: string;
-  code: string | null;
-  tenant_id: string | null;
-  title: string;
-  discount_amount: number;
-  min_amount: number;
-  is_active: boolean;
-  stackable: boolean;
-  grant_type: string;
-  grant_on_signup: boolean;
-  valid_until: string | null;
-  max_uses_per_user: number | null;
-  max_redemptions: number | null;
-}
 
 export function useCouponList() {
   return useQuery({
@@ -166,9 +81,11 @@ export function useVoidRedemption(couponId: string) {
     }) =>
       api
         .post(`admin/coupons/redemptions/${redemptionId}/void`, {
-          json: reason.trim() ? { reason: reason.trim() } : {},
+          json: (reason.trim()
+            ? { reason: reason.trim() }
+            : {}) satisfies ReasonInput,
         })
-        .json(z.looseObject({})),
+        .json(couponMutationResultSchema),
     // 내가 무효화했으니 이력과 목록의 사용 건수를 비우고 스켈레톤 뒤에 새로 받는다.
     onSuccess: () =>
       Promise.all([
@@ -217,7 +134,7 @@ export function useGrantCoupon(couponId: string) {
         .post(`admin/coupons/${encodeURIComponent(couponId)}/grants`, {
           json: { userId },
         })
-        .json(z.looseObject({})),
+        .json(couponMutationResultSchema),
     onSuccess: () =>
       queryClient.resetQueries({ queryKey: couponKeys.grants(couponId) }),
   });
@@ -230,9 +147,11 @@ export function useRevokeGrant(couponId: string) {
     mutationFn: ({ grantId, reason }: { grantId: number; reason: string }) =>
       api
         .post(`admin/coupons/grants/${grantId}/revoke`, {
-          json: reason.trim() ? { reason: reason.trim() } : {},
+          json: (reason.trim()
+            ? { reason: reason.trim() }
+            : {}) satisfies ReasonInput,
         })
-        .json(z.looseObject({})),
+        .json(couponMutationResultSchema),
     onSuccess: () =>
       queryClient.resetQueries({ queryKey: couponKeys.grants(couponId) }),
   });
@@ -242,7 +161,7 @@ export function useRevokeGrant(couponId: string) {
 export function useSaveCoupon(id: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: CouponPayload) =>
+    mutationFn: (payload: CouponSaveInput) =>
       id === undefined
         ? api.post("admin/coupons", { json: payload }).json(couponSchema)
         : api

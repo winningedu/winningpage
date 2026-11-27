@@ -20,7 +20,9 @@ export class TimeZoneRequiredError extends Error {
 }
 
 /** 없으면 undefined, 있으면 유효한 이름만 돌려주고 그 밖은 InvalidTimeZoneError. */
-export function readTimeZone(req: VercelRequest): string | undefined {
+export function readTimeZone(
+  req: Pick<VercelRequest, "headers">,
+): string | undefined {
   const raw = req.headers["x-time-zone"];
   if (raw === undefined) return undefined;
   if (!isValidTimeZone(raw)) throw new InvalidTimeZoneError();

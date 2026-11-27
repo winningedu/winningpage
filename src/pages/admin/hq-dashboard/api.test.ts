@@ -81,6 +81,7 @@ const FIXTURES = {
     to: "2026-11-22",
     grain: "day",
     mauMode: "calendar",
+    scope: "all",
     includeInternal: false,
     firstMeasuredAt: null,
     series: [BUCKET],

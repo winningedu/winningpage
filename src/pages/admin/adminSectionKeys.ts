@@ -4,84 +4,12 @@
 // 무게를 초기 번들에서 받게 된다 — Admin이 lazy(() => import("./pages/Admin"))로
 // 분리돼 있는 이유와 같은 제약이라, 여기서는 문자열 키만 별도로 들고 있는다.
 // CONFIGS와의 어긋남은 Admin.tsx 모듈 스코프의 dev 전용 검증(assertAdminSectionKeysInSync)이 잡는다.
-export const ADMIN_SECTION_KEYS = [
-  // 통계
-  "hqDashboard",
-  "webAnalytics",
-  // 메인화면 관리
-  "popups",
-  "banners",
-  "sideBanners",
-  "universityAcceptances",
-  "programCategories",
-  "mentorStrategies",
-  "footerImages",
-  // 입시정보 관리 (탭 하위 키 포함 — 사이드바에는 탭 목록의 첫 키만 뜬다)
-  "admissionGuidelines",
-  "admissionUniversities",
-  "admissionSusiJungsi",
-  "acceptanceRates",
-  "admissionCaseLogos",
-  "specialHighschool",
-  "specialHighschoolRates",
-  "admissionResults",
-  "trendingDepartments",
-  "galleries",
-  "columnCategories",
-  // 고객안내 관리
-  "companyNews",
-  "notices",
-  "faqs",
-  "pageContents",
-  // 서비스 관리 — 서비스
-  "learningDiagnosis",
-  "learningDiagnosisV2SurveyCopy",
-  "goalUniversityCuts",
-  "goalStudents",
-  "growthReports",
-  "selfevalSessions",
-  "aiTelemetry",
-  "knowledgeEvals",
-  "serviceCreditAdjust",
-  // 서비스 관리 — 프리미엄
-  "premiumBookPages",
-  "premiumConsults",
-  // 서비스 관리 — 멘토
-  "mentorApplications",
-  "mentorApplyFaqs",
-  "mentorApplyCopy",
-  // 서비스 관리 — 위닝 DB
-  "winningBaseData",
-  // 서비스 관리, 심화탐구
-  "inquirySessions",
-  "winningDbInputs",
-  "winningSuhaengTopicDb",
-  "winningSuhaengResourceDb",
-  "winningSetukDb",
-  "winningDeepReportDb",
-  // 회원관리 — 소속(테넌트) 마스터가 회원 데이터의 상위 개념이라 members 앞에
-  // 둔다(admin_resources sort_order 305, 20260922002929 참고).
-  "tenants",
-  "members",
-  // 회원관리, 계약 종료 회원 삭제(스쿨멘토, tenants 권한을 같이 쓴다. adminPermissions.ts 의 별칭)
-  "memberPurge",
-  "memberPurgeLogs",
-  // 매출·결제관리
-  "revenue",
-  "enrollments",
-  "refunds",
-  "refundRequests",
-  "refundLedger",
-  "coupons",
-  // 직원관리 — 20260822000010_admin_permissions 의 admin_resources 시드에도
-  // 같은 키(adminMembers/adminRoles)가 들어 있다. 둘이 어긋나면 화면은 있는데
-  // 권한을 못 주거나(키 누락) 권한 화면에 유령 항목이 뜬다(키 잔존).
-  "adminMembers",
-  "adminRoles",
-  "adminAccessLogs",
-] as const;
+import type { AdminMenuKey } from "../../../shared/admin-permission/menu.js";
 
-export type AdminSectionKey = (typeof ADMIN_SECTION_KEYS)[number];
+// 키 목록 자체는 서버 permission.key 와 같이 쓰려고 shared/admin-permission/menu.ts 에 둔다.
+export { ADMIN_MENU_KEYS as ADMIN_SECTION_KEYS } from "../../../shared/admin-permission/menu.js";
+
+export type AdminSectionKey = AdminMenuKey;
 
 export const ADMIN_DEFAULT_SECTION_KEY: AdminSectionKey = "popups";
 

@@ -26,7 +26,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-import handler from "./service-credit-summary.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/service-credit-summary" };
 
 const PID = "223e4567-e89b-42d3-a456-426614174000";
 
@@ -74,7 +76,7 @@ describe("GET /api/admin/service-credit-summary", () => {
     const admin = setup();
     const r = await get();
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
     const body = r.body as { items: Record<string, unknown>[] };
     expect(body).not.toHaveProperty("ok");
     expect(Object.keys(body).sort()).toEqual(["items", "student"]);
@@ -137,10 +139,11 @@ describe("GET /api/admin/service-credit-summary", () => {
     }
   });
 
-  test("POST 는 405 다", async () => {
+  test("POST 는 Allow 를 실은 405 다", async () => {
     setup();
     const r = await callRoute(handler, { method: "POST" });
     expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe("GET, HEAD");
     expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
   });
 

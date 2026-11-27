@@ -34,256 +34,358 @@
     "okSuccess": 2
   },
   "api/_routes/auth/login.ts": {
-    "legacyError": 3
+    "legacyError": 3,
+    "legacyHandler": 1
   },
   "api/_routes/auth/teacher-reset-password.ts": {
     "legacyError": 9,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/change-phone.ts": {
     "legacyError": 7,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/check-service-access.ts": {
-    "legacyError": 4
+    "legacyError": 4,
+    "legacyHandler": 1
+  },
+  "api/_routes/complete-refund.ts": {
+    "legacyHandler": 1
   },
   "api/_routes/confirm-payment.ts": {
     "legacyError": 16,
     "outsideHandler": 1
   },
   "api/_routes/console/admission-coaching.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/assign-pool.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/change-password.ts": {
     "legacyError": 7,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/classes.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/classes/capacity.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/classes/delete.ts": {
     "legacyError": 4,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/coaching.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/coaching/print-log.ts": {
     "legacyError": 2,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/coaching/report.ts": {
-    "legacyError": 3
+    "legacyError": 3,
+    "legacyHandler": 1
   },
   "api/_routes/console/coaching/service.ts": {
-    "legacyError": 3
+    "legacyError": 3,
+    "legacyHandler": 1
   },
   "api/_routes/console/coaching/students.ts": {
-    "legacyError": 1
+    "legacyError": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/counsel-status.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/dashboard.ts": {
-    "legacyError": 3
+    "legacyError": 3,
+    "legacyHandler": 1
   },
   "api/_routes/console/enrollment-requests.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/enrollment-requests/count.ts": {
-    "legacyError": 1
+    "legacyError": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/enrollment-requests/decide.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/enrollment/export.ts": {
     "legacyError": 2,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/enrollment/summary.ts": {
-    "legacyError": 1
+    "legacyError": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/first-password.ts": {
     "legacyError": 7,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/graduates.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/groups.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/groups/delete.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/me.ts": {
-    "legacyError": 1
+    "legacyError": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/memos.ts": {
-    "legacyError": 4
+    "legacyError": 4,
+    "legacyHandler": 1
   },
   "api/_routes/console/memos/hide.ts": {
     "legacyError": 5,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/org-info.ts": {
     "legacyError": 4,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/org-info/confirm.ts": {
     "legacyError": 6,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/proxy/end.ts": {
     "legacyError": 2,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/proxy/start.ts": {
     "legacyError": 4,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/proxy/tenants.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/school-year.ts": {
-    "legacyError": 1
+    "legacyError": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/school-year/rollover.ts": {
     "legacyError": 2,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/school-year/rollover/preview.ts": {
-    "legacyError": 3
+    "legacyError": 3,
+    "legacyHandler": 1
   },
   "api/_routes/console/service-status.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/students.ts": {
-    "legacyError": 3
+    "legacyError": 3,
+    "legacyHandler": 1
   },
   "api/_routes/console/students/detail.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/students/enrollment-history.ts": {
-    "legacyError": 3
+    "legacyError": 3,
+    "legacyHandler": 1
   },
   "api/_routes/console/students/enrollment.ts": {
     "legacyError": 4,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/students/flag.ts": {
     "legacyError": 2,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/students/history.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/accounts.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/assignments.ts": {
     "legacyError": 4,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/connect-preview.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/delete.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/import-preview.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/import.ts": {
     "legacyError": 5,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/issue.ts": {
     "legacyError": 5,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/list.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/name.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/register.ts": {
-    "legacyError": 4
+    "legacyError": 4,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/reissue.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/status.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/console/teachers/unissued.ts": {
-    "legacyError": 1
+    "legacyError": 1,
+    "legacyHandler": 1
   },
   "api/_routes/create-consult-request.ts": {
     "legacyError": 10,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/create-service-ticket.ts": {
     "legacyError": 7,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/delete-account.ts": {
     "legacyError": 8,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/diagnosis/access.ts": {
-    "legacyError": 1
+    "legacyError": 1,
+    "legacyHandler": 1
   },
   "api/_routes/diagnosis/consume.ts": {
     "legacyError": 2,
-    "okSuccess": 4
+    "okSuccess": 4,
+    "legacyHandler": 1
   },
   "api/_routes/diagnosis/submit.ts": {
     "legacyError": 2,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/dispatch.ts": {
     "legacyError": 1
   },
   "api/_routes/enrollment/join-tenant-lookup.ts": {
     "legacyError": 4,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/enrollment/join-tenant.ts": {
     "legacyError": 5,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/enrollment/me.ts": {
     "legacyError": 1,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/enrollment/request-change.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/enrollment/self-assign.ts": {
     "legacyError": 5,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/find-account-by-phone.ts": {
     "legacyError": 4,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
+  },
+  "api/_routes/goal/admin/cuts/backfill.ts": {
+    "legacyHandler": 1
+  },
+  "api/_routes/goal/admin/cuts/bulk.ts": {
+    "legacyHandler": 1
+  },
+  "api/_routes/goal/admin/cuts/jungsi-missing.ts": {
+    "legacyHandler": 1
+  },
+  "api/_routes/goal/admin/cuts/rows.ts": {
+    "legacyHandler": 1
+  },
+  "api/_routes/goal/admin/cuts/summary.ts": {
+    "legacyHandler": 1
+  },
+  "api/_routes/goal/admin/resend-report.ts": {
+    "legacyHandler": 1
+  },
+  "api/_routes/goal/admin/reset-student.ts": {
+    "legacyHandler": 1
+  },
+  "api/_routes/goal/admin/students.ts": {
+    "legacyHandler": 1
+  },
+  "api/_routes/goal/admin/students/[id].ts": {
+    "legacyHandler": 1
+  },
+  "api/_routes/goal/admin/students/[id]/records.ts": {
+    "legacyHandler": 1
   },
   "api/_routes/goal/advice.ts": {
     "legacyError": 7,
@@ -346,69 +448,86 @@
   },
   "api/_routes/growth/collect.ts": {
     "legacyError": 2,
-    "okSuccess": 3
+    "okSuccess": 3,
+    "legacyHandler": 1
   },
   "api/_routes/growth/plan.ts": {
     "legacyError": 2,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/growth/plan/item.ts": {
     "legacyError": 2,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/growth/report.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/growth/reports.ts": {
     "legacyError": 2,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/growth/survey.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/inquiry/assets.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/inquiry/evaluate-report.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/inquiry/finalize.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/inquiry/plan-report.ts": {
     "legacyError": 1,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/inquiry/recommend-topics.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/inquiry/reports.ts": {
     "legacyError": 1,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/inquiry/session.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/inquiry/submission.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/lookup-child.ts": {
     "legacyError": 9,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/mentor-apply-upload-url.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/mentor-apply.ts": {
     "legacyError": 5,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/nice-identity-callback.ts": {
     "legacyError": 3,
@@ -416,90 +535,119 @@
   },
   "api/_routes/nice-identity-result.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/nice-identity-start.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
+  },
+  "api/_routes/performance/admin-embed.ts": {
+    "legacyHandler": 1
   },
   "api/_routes/performance/analyze-guide.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/performance/bootstrap.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/performance/design-report.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/performance/discard-attachment.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/performance/evaluate.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/performance/finalize.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/performance/recommend-topics.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/performance/reports.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/performance/session.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/performance/submission.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/performance/upload-url.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/request-enrollment.ts": {
-    "legacyError": 22
+    "legacyError": 22,
+    "legacyHandler": 1
   },
   "api/_routes/reset-password-by-phone.ts": {
     "legacyError": 12,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/selfeval/analyze.ts": {
-    "legacyError": 1
+    "legacyError": 1,
+    "legacyHandler": 1
   },
   "api/_routes/selfeval/finalize.ts": {
-    "legacyError": 1
+    "legacyError": 1,
+    "legacyHandler": 1
   },
   "api/_routes/selfeval/manual-logs.ts": {
-    "legacyError": 2
+    "legacyError": 2,
+    "legacyHandler": 1
   },
   "api/_routes/selfeval/pick-records.ts": {
     "legacyError": 1,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/selfeval/report.ts": {
     "legacyError": 1,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/selfeval/reports.ts": {
     "legacyError": 1,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/_routes/selfeval/session.ts": {
     "legacyError": 1,
-    "okSuccess": 3
+    "okSuccess": 3,
+    "legacyHandler": 1
   },
   "api/_routes/selfeval/verify.ts": {
-    "legacyError": 1
+    "legacyError": 1,
+    "legacyHandler": 1
   },
   "api/_routes/selfeval/write.ts": {
-    "legacyError": 1
+    "legacyError": 1,
+    "legacyHandler": 1
   },
   "api/_routes/send-phone-code.ts": {
     "legacyError": 7,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/session-check.ts": {
     "legacyError": 3,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/_routes/signup-welcome.ts": {
     "legacyError": 5,
@@ -507,10 +655,12 @@
     "okSuccess": 3
   },
   "api/_routes/signup/school-student.ts": {
-    "legacyError": 11
+    "legacyError": 11,
+    "legacyHandler": 1
   },
   "api/_routes/signup/tenant-lookup.ts": {
-    "legacyError": 6
+    "legacyError": 6,
+    "legacyHandler": 1
   },
   "api/_routes/toss-webhook.ts": {
     "legacyError": 6,
@@ -519,54 +669,70 @@
   },
   "api/_routes/verify-phone-code.ts": {
     "legacyError": 9,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
+  },
+  "api/cron/admin-uploads-tmp-cleanup.ts": {
+    "legacyHandler": 1
   },
   "api/cron/ai-telemetry-cleanup.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/cron/b2b-retention-purge.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/cron/daily-report.ts": {
     "legacyError": 1,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/cron/growth-archive.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/cron/growth-resume.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/cron/inquiry-archive.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/cron/monthly-report.ts": {
     "legacyError": 2,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/cron/selfeval-archive.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/cron/weekly-report.ts": {
     "legacyError": 1,
-    "okSuccess": 2
+    "okSuccess": 2,
+    "legacyHandler": 1
   },
   "api/performance/cleanup-attachments.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/performance/embed-session-vectors.ts": {
     "legacyError": 1,
-    "okSuccess": 1
+    "okSuccess": 1,
+    "legacyHandler": 1
   },
   "api/report-pdf.ts": {
-    "legacyError": 3
+    "legacyError": 3,
+    "legacyHandler": 1
   },
   "api/zoom-webhook.ts": {
     "legacyError": 8,

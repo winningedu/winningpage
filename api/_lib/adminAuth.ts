@@ -29,6 +29,7 @@
 //   막으려면 SQL 함수와 이 파일을 **같이** 고쳐야 한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { PROBLEM_CODE } from "../../shared/http/codes.js";
 import {
   isQaAccount,
   isReadMethod,
@@ -38,6 +39,13 @@ import {
 import { getBearerToken } from "./serviceAccess.js";
 
 export { getBearerToken };
+
+/** resolveAdmin 계열 실패의 problem code. 판정은 code 없이 status 와 detail 만 주므로 problem 응답에서만 채운다. 500 은 code 없이 INTERNAL_ERROR 가 된다. */
+export function adminProblemCode(status: number): string | undefined {
+  if (status === 401) return PROBLEM_CODE.UNAUTHENTICATED;
+  if (status === 403) return PROBLEM_CODE.FORBIDDEN;
+  return undefined;
+}
 
 export type AdminResolution =
   | { ok: true; userId: string; email: string | null }

@@ -1950,7 +1950,8 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                                 : "rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-2.5 py-1 text-xs font-medium text-primary transition hover:border-primary hover:bg-primary hover:text-white"
                             }
                           >
-                            {empty ? "추가" : "수정"}
+                            {/* view 권한이면 다이얼로그가 읽기 전용이라 쓰기 라벨 대신 보기로 적는다. */}
+                            {config.readOnly ? "보기" : empty ? "추가" : "수정"}
                           </button>
                         );
                       })()

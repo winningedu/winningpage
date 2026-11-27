@@ -17,26 +17,35 @@ vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+import { app } from "../app.js";
 import startProxy from "../console/proxy/start.js";
-import inviteMember from "./invite-member.js";
-import sendMessage from "./send-message.js";
-import memberPurge from "./tenants/member-purge.js";
-import moveStudent from "./tenants/move-student.js";
-import schoolAdmin from "./tenants/school-admin.js";
 
 const QA_BODY = {
   detail: "QA 계정이라 이 기능은 작동하지 않아요.",
   code: "QA_ACCOUNT_READ_ONLY",
 };
 
-const ROUTES = [
-  ["tenants/member-purge", memberPurge],
-  ["tenants/move-student", moveStudent],
-  ["tenants/school-admin", schoolAdmin],
-  ["console/proxy/start", startProxy],
-  ["send-message", sendMessage],
-  ["invite-member", inviteMember],
+const ROUTES = [["console/proxy/start", startProxy]] as const;
+
+// Hono 로 옮긴 라우트는 루트 앱으로 부른다.
+const HONO_ROUTES = [
+  "tenants/member-purge",
+  "tenants/move-student",
+  "tenants/school-admin",
+  "send-message",
+  "invite-member",
 ] as const;
+
+const WRITE_BODY = {
+  tenantId: "t1",
+  reason: "roster_proxy",
+  profileId: "p1",
+  text: "hi",
+  phone: "01012345678",
+  email: "a@b.co",
+  name: "n",
+  roleId: "r1",
+};
 
 beforeEach(() => {
   vi.stubEnv("SITE", "schoolmentor");
@@ -69,16 +78,7 @@ describe.each(ROUTES)("%s", (_name, handler) => {
   test("QA 본사 관리자는 403 QA_ACCOUNT_READ_ONLY 이고 아무것도 쓰지 않는다", async () => {
     kit.state.rows.qa_accounts = () => ({ profile_id: "hq-1" });
 
-    const r = await callHandler(handler, {
-      tenantId: "t1",
-      reason: "roster_proxy",
-      profileId: "p1",
-      text: "hi",
-      phone: "01012345678",
-      email: "a@b.co",
-      name: "n",
-      roleId: "r1",
-    });
+    const r = await callHandler(handler, WRITE_BODY);
 
     expect(r.status).toBe(403);
     expect(r.body).toEqual(expect.objectContaining(QA_BODY));
@@ -86,5 +86,24 @@ describe.each(ROUTES)("%s", (_name, handler) => {
     expect(
       kit.state.events.filter((e) => e.startsWith("rpc:fn_proxy")),
     ).toEqual([]);
+  });
+});
+
+describe.each(HONO_ROUTES)("%s", (name) => {
+  test("QA 본사 관리자는 403 QA_ACCOUNT_READ_ONLY 이고 아무것도 쓰지 않는다", async () => {
+    kit.state.rows.qa_accounts = () => ({ profile_id: "hq-1" });
+
+    const response = await app.request(`/api/admin/${name}`, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(WRITE_BODY),
+    });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual(expect.objectContaining(QA_BODY));
+    expect(kit.state.inserts).toEqual([]);
   });
 });

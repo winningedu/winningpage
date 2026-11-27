@@ -245,7 +245,14 @@ describe("서비스 설정", () => {
   });
 
   test("저장은 PUT :id/service-settings 이고 본문에 tenant_id 와 updated_by 가 없다", async () => {
-    const spy = stubFetch({ program_key: "diagnose" });
+    const spy = stubFetch({
+      program_key: "diagnose",
+      enabled: true,
+      starts_on: null,
+      ends_on: null,
+      monthly_limit: 3,
+      term_limit: null,
+    });
     const row = {
       tenant_id: "tenant-1",
       program_key: "diagnose",
@@ -287,7 +294,12 @@ describe("전체 관리자", () => {
   });
 
   test("발급은 POST school-admin 이고 loginId 와 임시 비밀번호를 돌려준다", async () => {
-    const spy = stubFetch({ loginId: "ABCD", tempPassword: "pw" });
+    const spy = stubFetch({
+      teacherId: "teacher-1",
+      loginId: "ABCD",
+      verdict: "created",
+      tempPassword: "pw",
+    });
 
     const issued = await issueSchoolAdmin({
       tenantId: "tenant-1",
@@ -300,6 +312,6 @@ describe("전체 관리자", () => {
       path: "/api/admin/tenants/school-admin",
       body: { tenantId: "tenant-1", name: "박관리", phone: "01099998888" },
     });
-    expect(issued).toEqual({ loginId: "ABCD", tempPassword: "pw" });
+    expect(issued).toMatchObject({ loginId: "ABCD", tempPassword: "pw" });
   });
 });

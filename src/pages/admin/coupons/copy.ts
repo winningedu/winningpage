@@ -1,6 +1,11 @@
 // 쿠폰 화면 문구와 표시 함수. 문구는 승인된 규범이라 값을 바꾸지 않는다.
 
 import { formatDateTime } from "@/lib/time/format";
+import {
+  COUPON_ERROR,
+  COUPON_GRANT_TYPES,
+} from "../../../../shared/coupon/contract.js";
+import { PROBLEM_CODE } from "../../../../shared/http/codes.js";
 
 // DB 컬럼명으로 대체하던 폴백은 제거했다(FieldName 참고), 라벨이 아직
 // 승인되지 않은 자리는 값 그대로 null 로 두어 아무것도 그리지 않는다.
@@ -64,25 +69,27 @@ export const ADMIN_LOAD_ERROR_TEXT = "잠시 후 다시 시도해 주세요.";
 
 // 서버 problem code 별 문구. 예전 PostgREST/RPC 코드(42501, WC002, WC003, WC004, 23514)와 같은 문구다.
 const FORBIDDEN_TEXT = "관리자 권한이 없습니다.";
+// 키는 서버 problem code(shared/ 계약)다.
 export const VOID_ERROR_TEXT: Record<string, string> = {
-  FORBIDDEN: FORBIDDEN_TEXT,
-  REDEMPTION_ALREADY_VOIDED:
+  [PROBLEM_CODE.FORBIDDEN]: FORBIDDEN_TEXT,
+  [COUPON_ERROR.REDEMPTION_ALREADY_VOIDED]:
     "이미 무효화되었거나 존재하지 않는 사용 이력입니다.",
 };
 export const GRANT_ERROR_TEXT: Record<string, string> = {
-  FORBIDDEN: FORBIDDEN_TEXT,
-  COUPON_NOT_GRANTABLE: "발급할 수 없는 쿠폰입니다.",
+  [PROBLEM_CODE.FORBIDDEN]: FORBIDDEN_TEXT,
+  [COUPON_ERROR.COUPON_NOT_GRANTABLE]: "발급할 수 없는 쿠폰입니다.",
 };
 export const REVOKE_ERROR_TEXT: Record<string, string> = {
-  FORBIDDEN: FORBIDDEN_TEXT,
-  GRANT_ALREADY_REVOKED: "이미 회수되었거나 존재하지 않는 발급입니다.",
+  [PROBLEM_CODE.FORBIDDEN]: FORBIDDEN_TEXT,
+  [COUPON_ERROR.GRANT_ALREADY_REVOKED]:
+    "이미 회수되었거나 존재하지 않는 발급입니다.",
 };
 
 // 쿠폰 등록과 수정 실패 문구. 금액 CHECK(COUPON_CHECK_FAILED)와 파생 CHECK(COUPON_CAP_MISMATCH)를 가른다.
 export const COUPON_SAVE_ERROR_TEXT: Record<string, string> = {
-  COUPON_CHECK_FAILED:
+  [COUPON_ERROR.COUPON_CHECK_FAILED]:
     "할인 금액\u00b7최소 결제 금액을 확인해 주세요. 할인 금액은 0보다 커야 하고, 최소 결제 금액은 0 이상이어야 합니다.",
-  COUPON_CAP_MISMATCH:
+  [COUPON_ERROR.COUPON_CAP_MISMATCH]:
     "배포 방식과 1인당 사용 횟수가 맞지 않습니다. 발급형은 1인당 사용 횟수가 1이어야 하고, 조건형은 무제한이어야 합니다.",
 };
 
@@ -168,7 +175,7 @@ export function FieldName({ k }: { k: string }) {
   return FIELD_LABEL[k];
 }
 
-export const GRANT_TYPES: string[] = ["auto", "granted"];
+export const GRANT_TYPES: readonly string[] = COUPON_GRANT_TYPES;
 
 // grant_type 표시 라벨(팀 리드 승인, 2026-08-11). 목록 칼럼과 폼 라디오 둘 다
 // 이 라벨로 보여주고, DB 값,폼 상태(form.grant_type)는 GRANT_TYPES 의 영문을

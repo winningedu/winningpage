@@ -25,7 +25,7 @@ export const ITEM = {
   ledgerReversedAt: null,
   terminal: null,
   progress: [],
-  lastActivityAt: null,
+  lastActivityAt: "2026-11-24T00:00:00.000Z",
   completedAt: null,
 };
 

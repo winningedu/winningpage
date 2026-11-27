@@ -18,7 +18,9 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./ai-telemetry-pricing.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/ai-telemetry-pricing" };
 
 const TABLE = {
   "gemini-x": {
@@ -51,6 +53,23 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe("메서드와 응답 헤더", () => {
+  test("GET 은 Allow 를 실은 405 이고 쓰지 않는다", async () => {
+    const admin = setup();
+    const r = await callRoute(handler, { method: "GET" });
+    expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe("PUT");
+    expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
+    expect(writes(admin)).toEqual([]);
+  });
+
+  test("저장 응답은 no-store 다", async () => {
+    setup();
+    const r = await put();
+    expect(r.headers["cache-control"]).toBe("no-store");
+  });
 });
 
 describe("권한", () => {

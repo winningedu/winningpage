@@ -3,15 +3,23 @@
 
 import { z } from "zod";
 import { api } from "@/lib/http/client";
+import {
+  type SectionRow,
+  type SectionValuesBody,
+  sectionExportSchema,
+  sectionListSchema,
+  sectionRowSchema,
+} from "../../../../shared/sections/contract.js";
+import {
+  type IssueUploadInput,
+  issuedUploadSchema,
+} from "../../../../shared/uploads/contract.js";
+import {
+  type UploadPreviewBody,
+  uploadPreviewSchema,
+} from "../../../../shared/uploads/preview.js";
 
-const rowSchema = z.record(z.string(), z.any());
-const listSchema = z.object({ items: z.array(rowSchema), total: z.number() });
-const exportSchema = z.object({
-  items: z.array(rowSchema),
-  next: z.number().nullable(),
-});
-
-export type SectionRow = z.infer<typeof rowSchema>;
+export type { SectionRow };
 export type SectionPageParams = { page: number; q: string };
 
 export const sectionKeys = {
@@ -40,7 +48,7 @@ export function fetchSectionList(
       searchParams: params ? { page: params.page, q: params.q } : {},
       ...(signal ? { signal } : {}),
     })
-    .json(listSchema);
+    .json(sectionListSchema);
 }
 
 export function fetchSectionRow(
@@ -48,29 +56,38 @@ export function fetchSectionRow(
   id: string | number,
   signal?: AbortSignal,
 ) {
-  return api.get(one(key, id), signal ? { signal } : {}).json(rowSchema);
+  return api.get(one(key, id), signal ? { signal } : {}).json(sectionRowSchema);
 }
 
-export function createSectionRow(key: string, values: Record<string, unknown>) {
-  return api.post(base(key), { json: { values } }).json(rowSchema);
+export function createSectionRow(
+  key: string,
+  values: SectionValuesBody["values"],
+) {
+  return api
+    .post(base(key), { json: { values } satisfies SectionValuesBody })
+    .json(sectionRowSchema);
 }
 
 export function updateSectionRow(
   key: string,
   id: string | number,
-  values: Record<string, unknown>,
+  values: SectionValuesBody["values"],
 ) {
-  return api.patch(one(key, id), { json: { values } }).json(rowSchema);
+  return api
+    .patch(one(key, id), { json: { values } satisfies SectionValuesBody })
+    .json(sectionRowSchema);
 }
 
 export function updateSectionMeta(
   key: string,
   id: string | number,
-  values: Record<string, unknown>,
+  values: SectionValuesBody["values"],
 ) {
   return api
-    .patch(`${one(key, id)}/meta`, { json: { values } })
-    .json(rowSchema);
+    .patch(`${one(key, id)}/meta`, {
+      json: { values } satisfies SectionValuesBody,
+    })
+    .json(sectionRowSchema);
 }
 
 export async function deleteSectionRow(key: string, id: string | number) {
@@ -78,35 +95,35 @@ export async function deleteSectionRow(key: string, id: string | number) {
 }
 
 export function markSectionReviewed(key: string, id: string | number) {
-  return api.post(`${one(key, id)}/reviewed`).json(rowSchema);
+  return api.post(`${one(key, id)}/reviewed`).json(sectionRowSchema);
 }
 
 export function fetchExportChunk(key: string, from: number, q: string) {
   return api
     .get(`${base(key)}/export`, { searchParams: { from, q } })
-    .json(exportSchema);
+    .json(sectionExportSchema);
 }
 
 // 임시 버킷 업로드 3단계(서버가 주소를 발급하고, 브라우저가 PUT 하고, 미리보기 주소를 받는다).
-const issuedUploadSchema = z.object({
-  path: z.string(),
-  uploadUrl: z.string(),
-});
-const previewSchema = z.object({ url: z.string() });
 
 export function issueUpload(
   section: string,
-  file: { field: string; fileName: string; contentType: string; size: number },
+  file: Omit<IssueUploadInput, "section">,
 ) {
   return api
     .post("admin/uploads", { json: { section, ...file } })
     .json(issuedUploadSchema);
 }
 
-export async function previewUpload(section: string, path: string) {
+export async function previewUpload(
+  section: UploadPreviewBody["section"],
+  path: UploadPreviewBody["path"],
+) {
   const { url } = await api
-    .post("admin/uploads/preview", { json: { section, path } })
-    .json(previewSchema);
+    .post("admin/uploads/preview", {
+      json: { section, path } satisfies UploadPreviewBody,
+    })
+    .json(uploadPreviewSchema);
   return url;
 }
 

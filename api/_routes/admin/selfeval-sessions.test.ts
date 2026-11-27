@@ -26,7 +26,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-import handler from "./selfeval-sessions.js";
+import { selfevalSessionsPage } from "../../../shared/selfeval-session/contract.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/selfeval-sessions" };
 
 const SID = "123e4567-e89b-42d3-a456-426614174000";
 const PID = "223e4567-e89b-42d3-a456-426614174000";
@@ -82,7 +85,8 @@ describe("GET /api/admin/selfeval-sessions", () => {
     const admin = setup();
     const r = await get();
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(selfevalSessionsPage.parse(r.body)).toEqual(r.body);
     const body = r.body as Record<string, unknown>;
     expect(body).not.toHaveProperty("ok");
     expect(body).toMatchObject({ total: 1, page: 1, pageSize: 20 });
@@ -118,6 +122,7 @@ describe("GET /api/admin/selfeval-sessions", () => {
     setup("view");
     const r = await callRoute(handler, { method: "POST" });
     expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe("GET, HEAD");
     expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
   });
 
