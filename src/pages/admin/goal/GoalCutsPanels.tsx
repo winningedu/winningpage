@@ -3,7 +3,6 @@ import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -16,12 +15,14 @@ import {
 } from "@/lib/goal/goalCutBackfill";
 import { ApiError } from "@/lib/http/client";
 import { withDedupedKeys } from "@/lib/reactKeys";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   AdminChunkError,
   reportAdminError,
   withChunkRows,
 } from "@/pages/admin/shared/adminErrors";
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { pad2, triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";
 import {
@@ -467,7 +468,10 @@ function GoalCutsBackfillPanel({ onReload }) {
                   <p className="font-semibold">
                     상위 {stats.samples.length}행 샘플
                   </p>
-                  <Table className="mt-1 min-w-150">
+                  <AdminTableFrame
+                    label={`상위 ${stats.samples.length}행 샘플`}
+                    className="mt-1 min-w-150"
+                  >
                     <TableHeader>
                       <TableRow className="hover:bg-transparent">
                         {["대학", "학과", "종류", "컷", "연도"].map((h) => (
@@ -506,7 +510,7 @@ function GoalCutsBackfillPanel({ onReload }) {
                         </TableRow>
                       ))}
                     </TableBody>
-                  </Table>
+                  </AdminTableFrame>
                 </div>
               )}
 
@@ -564,6 +568,7 @@ function GoalCutsBulkXlsxPanel({
   onReload: () => void;
   totalRowCount: number | null;
 }) {
+  const canEdit = useCanEditSection();
   // 다운로드 버튼은 하나뿐이다(2026-08-07 사용자 지시: "엑셀 다운로드
   // 버튼이 여러 개다, 우리가 개발한 걸로 통일해라"). 범위는 라디오로 고른다.
   const [downloadScope, setDownloadScope] = useState("all"); // all | jungsiTemplate
@@ -772,25 +777,29 @@ function GoalCutsBulkXlsxPanel({
                 ? "엑셀 다운로드 (정시 컷 템플릿)"
                 : `엑셀 다운로드 (전체 ${totalRowCount === null ? "-" : totalRowCount.toLocaleString()}행)`}
           </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={busy}
-          >
-            {idMapProgress
-              ? `업로드 검증 준비 중… ${idMapProgress.done.toLocaleString()} / ${idMapProgress.total.toLocaleString()}행`
-              : "엑셀 업로드"}
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx"
-            onChange={handleFileChange}
-            className="hidden"
-            aria-label="목표관리 대학 컷 xlsx 파일 선택"
-          />
+          {canEdit && (
+            <>
+              <Button
+                variant="outline"
+                size="lg"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={busy}
+              >
+                {idMapProgress
+                  ? `업로드 검증 준비 중… ${idMapProgress.done.toLocaleString()} / ${idMapProgress.total.toLocaleString()}행`
+                  : "엑셀 업로드"}
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx"
+                onChange={handleFileChange}
+                className="hidden"
+                aria-label="목표관리 대학 컷 xlsx 파일 선택"
+              />
+            </>
+          )}
         </div>
       </div>
 
@@ -977,6 +986,7 @@ function GoalCutsBulkXlsxPanel({
 // props 는 { rows, onReload, mutationSeq } 지만 rows 는 쓰지 않는다,
 // serverPaginate 탭이라 현재 페이지 10행뿐이다.
 export function GoalCutsListSummary({ onReload, mutationSeq }) {
+  const canEdit = useCanEditSection();
   // 백필, 엑셀 적용 후 H-1 현황 요약도 같이 갱신되게 하는 토큰.
   const [refreshToken, setRefreshToken] = useState(0);
   function handleReload() {
@@ -998,7 +1008,7 @@ export function GoalCutsListSummary({ onReload, mutationSeq }) {
         summary={summary.data}
         isPending={summary.isPending}
       />
-      <GoalCutsBackfillPanel onReload={handleReload} />
+      {canEdit && <GoalCutsBackfillPanel onReload={handleReload} />}
       <GoalCutsBulkXlsxPanel
         onReload={handleReload}
         totalRowCount={summary.data?.total ?? null}

@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -21,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { site } from "@/config/site";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   AdminApiError,
   reportAdminError,
@@ -32,6 +32,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { useKeywordParam } from "@/pages/admin/shared/useKeywordParam";
 import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
@@ -187,6 +188,7 @@ function TenantCreate({
 }: TenantsAdminProps & { onIssued: (tenant: TenantRow) => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const canEdit = useCanEditSection();
   const [form, setForm] = useState<CreateForm>(() => emptyForm());
   // 등록이 끝나 스스로 이동할 때는 이탈 보호를 거치지 않는다.
   const done = useRef(false);
@@ -283,9 +285,11 @@ function TenantCreate({
           </Select>
         </Field>
 
-        <ActionButton onClick={save} disabled={saving}>
-          {saving ? "등록 중..." : "등록"}
-        </ActionButton>
+        {canEdit && (
+          <ActionButton onClick={save} disabled={saving}>
+            {saving ? "등록 중..." : "등록"}
+          </ActionButton>
+        )}
         <ActionButton variant="light" onClick={closeForm}>
           취소
         </ActionButton>
@@ -297,6 +301,7 @@ function TenantCreate({
 function TenantList({ config }: TenantsAdminProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const canEdit = useCanEditSection();
   const [keyword, setKeyword] = useKeywordParam();
   const query = useQuery({
     queryKey: tenantKeys.list(),
@@ -353,15 +358,17 @@ function TenantList({ config }: TenantsAdminProps) {
             />
           </div>
 
-          <Button
-            type="button"
-            size="lg"
-            onClick={openCreate}
-            className="shrink-0 font-semibold"
-          >
-            <Plus size={14} aria-hidden="true" />
-            등록
-          </Button>
+          {canEdit && (
+            <Button
+              type="button"
+              size="lg"
+              onClick={openCreate}
+              className="shrink-0 font-semibold"
+            >
+              <Plus size={14} aria-hidden="true" />
+              등록
+            </Button>
+          )}
         </div>
 
         <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
@@ -378,7 +385,10 @@ function TenantList({ config }: TenantsAdminProps) {
             전체 <span className="text-blue-600">{filteredRows.length}</span>건
           </div>
 
-          <Table className="min-w-[45rem] border-collapse">
+          <AdminTableFrame
+            label={config.title}
+            className="min-w-[45rem] border-collapse"
+          >
             <TableHeader>
               <TableRow className="border-y border-gray-300 hover:bg-transparent">
                 <TableHead scope="col" className={`${HEAD} w-14`}>
@@ -507,7 +517,7 @@ function TenantList({ config }: TenantsAdminProps) {
                 ))
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </div>

@@ -18,7 +18,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -28,12 +27,14 @@ import {
 import { useAuth } from "@/context/AuthProvider";
 import { adminPermissionsQueryOptions } from "@/lib/adminPermissions";
 import { ApiError } from "@/lib/http/client";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   ActionButton,
   Field,
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { deletionDdayText, tenantToday } from "./contract";
@@ -140,6 +141,7 @@ function PurgePanel({
     enabled: !!userId,
   });
   const canEdit = access?.permissions.get("tenants") === "edit";
+  const canEditSection = useCanEditSection();
 
   // 미리보기가 새로 오면(처음, 삭제 뒤 다시 읽기) 유료 전환이 아닌 학생을 기본으로 고른다.
   useEffect(() => {
@@ -290,16 +292,21 @@ function PurgePanel({
               <dd className="font-medium">{ddayText ?? "-"}</dd>
             </div>
           </dl>
-          <div className="mb-4">
-            <ActionButton
-              variant="danger"
-              disabled={selected.size === 0 || !deletable || !canEdit}
-              onClick={() => setConfirming(true)}
-            >
-              삭제 실행
-            </ActionButton>
-          </div>
-          <Table className="min-w-[40rem] border-collapse">
+          {canEditSection && (
+            <div className="mb-4">
+              <ActionButton
+                variant="danger"
+                disabled={selected.size === 0 || !deletable || !canEdit}
+                onClick={() => setConfirming(true)}
+              >
+                삭제 실행
+              </ActionButton>
+            </div>
+          )}
+          <AdminTableFrame
+            label="삭제 대상 미리보기"
+            className="min-w-[40rem] border-collapse"
+          >
             <TableHeader>
               <TableRow className="border-y border-gray-300 hover:bg-transparent">
                 <TableHead
@@ -371,7 +378,7 @@ function PurgePanel({
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </>

@@ -78,6 +78,10 @@ export interface SiteConfig {
     companyLocation: boolean;
     // 이용신청 > 이용안내 화면(/usage-guide: 안내서 뷰어와 도입 문의 폼)의 라우트 노출 여부.
     usageGuide: boolean;
+    // 교사 콘솔 마이페이지의 교사, 기관관리자 이용약관(terms.teacher_service) 링크. 행이 있는 사이트만 켠다.
+    teacherTerms: boolean;
+    // 공용 푸터(SiteFooter)의 로고 줄에 SNS 아이콘 링크(카카오, 네이버, 유튜브, 인스타그램)를 보일지.
+    footerSocialLinks: boolean;
   };
   // 공용 푸터(SiteFooter)의 사이트별 표시.
   footer: {
@@ -158,13 +162,15 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       studentEnrollment: true,
       hqTenantAdmin: true,
       hqB2cView: true,
-      columnVideo: false,
+      columnVideo: true,
       serviceStartNotice: false,
       admissionResultsNotice: false,
       goalZeroHourRecord: false,
       diagnosisResume: false,
       companyLocation: true,
       usageGuide: false,
+      teacherTerms: false,
+      footerSocialLinks: true,
     },
     company: {
       name: "주식회사 위닝에듀",
@@ -255,6 +261,8 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       diagnosisResume: true,
       companyLocation: false,
       usageGuide: true,
+      teacherTerms: true,
+      footerSocialLinks: false,
     },
     company: {
       name: "주식회사 위닝로직",

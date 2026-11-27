@@ -10,12 +10,14 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Toaster, toast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/http/client";
-import { TestQueryProvider } from "@/pages/admin/engine/testQuery";
+import { TestQueryProvider as BaseQueryProvider } from "@/pages/admin/engine/testQuery";
 import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import GoalStudentsAdmin, { GoalStudentDetail } from "./GoalStudentsAdmin";
 
 const http = vi.hoisted(() => ({
@@ -99,6 +101,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
+
+// 쓰기 동작을 시험하는 화면이라 edit 권한으로 감싼다.
+function TestQueryProvider({ children }: { children: ReactNode }) {
+  return (
+    <SectionEditAccessProvider value={true}>
+      <BaseQueryProvider>{children}</BaseQueryProvider>
+    </SectionEditAccessProvider>
+  );
+}
 
 const noop = () => {};
 
@@ -451,6 +462,23 @@ describe("GoalStudentsAdmin 목록", () => {
     renderRoutes("/admin/goalStudents");
     const header = await screen.findByRole("columnheader", { name: "이름" });
     expect(header).toHaveAttribute("scope", "col");
+  });
+});
+
+describe("GoalStudentsAdmin 표 배치", () => {
+  it("학생 목록 표는 이름 있는 스크롤 영역이고 관리 열은 오른쪽에 고정된다", async () => {
+    holder.list = { items: [row("s1")], total: 1, searchTruncated: false };
+    renderRoutes("/admin/goalStudents");
+
+    const region = await screen.findByRole("region", { name: "학생 목록" });
+    expect(region).toHaveAttribute("tabindex", "0");
+    const header = screen.getByRole("columnheader", { name: "관리" });
+    const cell = (
+      await screen.findByRole("button", { name: "상세 보기" })
+    ).closest("td") as HTMLElement;
+    for (const el of [header, cell]) {
+      expect(el).toHaveClass("sticky", "right-0");
+    }
   });
 });
 

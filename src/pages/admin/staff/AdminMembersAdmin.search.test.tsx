@@ -98,3 +98,18 @@ test("입력한 검색어는 주소의 q 에 써지고 비우면 지워진다", 
   });
   expect(router.state.location.search).toBe("");
 });
+
+test("직원 목록 표는 이름 있는 스크롤 영역이고 관리 열은 오른쪽에 고정된다", async () => {
+  renderMembers();
+  await screen.findByText("김관리");
+
+  const region = await screen.findByRole("region", { name: "직원 목록" });
+  expect(region).toHaveAttribute("tabindex", "0");
+  const header = screen.getByRole("columnheader", { name: "관리" });
+  const cell = screen
+    .getAllByRole("button", { name: "더보기" })[0]!
+    .closest("td") as HTMLElement;
+  for (const el of [header, cell]) {
+    expect(el).toHaveClass("sticky", "right-0");
+  }
+});

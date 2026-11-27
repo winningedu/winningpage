@@ -86,8 +86,9 @@ export function buildSignupBody(
         identityRequestId: verification.pass.requestId,
       }),
     agreeService: agreements.service,
-    agreePrivacy: agreements.privacyRequired,
-    agreeDbTransfer: agreements.dbTransfer,
+    // 필수 한 칸(1-1~1-4)이 이용약관과 개인정보 동의를 함께 덮는다.
+    agreePrivacy: agreements.service,
     agreeMarketing: agreements.marketing,
+    agreePrivacyAdditional: agreements.privacyOptional,
   };
 }

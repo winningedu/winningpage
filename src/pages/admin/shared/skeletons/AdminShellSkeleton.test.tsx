@@ -31,6 +31,32 @@ describe("AdminShellSkeleton", () => {
     );
   });
 
+  test("md 미만에서는 실제 셸처럼 사이드바를 숨기고 상단바와 본문이 전체 폭을 쓴다", () => {
+    const { container } = render(<AdminShellSkeleton />);
+    const cls = (part: string) =>
+      container.querySelector(`[data-part="${part}"]`)?.className.split(" ") ??
+      [];
+    expect(cls("sidebar")).toEqual(
+      expect.arrayContaining(["hidden", "md:block", "md:w-56"]),
+    );
+    expect(cls("topbar")).toEqual(
+      expect.arrayContaining(["left-0", "md:left-56"]),
+    );
+    expect(cls("main")).toContain("md:ml-56");
+  });
+
+  test("상단바와 본문 좌우 여백은 실제 셸과 같은 px-4 xl:px-7 이다", () => {
+    const { container } = render(<AdminShellSkeleton />);
+    for (const el of [
+      container.querySelector('[data-part="topbar"]'),
+      container.querySelector('[data-part="main"] > div'),
+    ]) {
+      const c = el?.className.split(" ") ?? [];
+      expect(c).toEqual(expect.arrayContaining(["px-4", "xl:px-7"]));
+      expect(c).not.toContain("px-7");
+    }
+  });
+
   test("본문에 표 스켈레톤이 있고 모든 막대는 aria-hidden에 모션 줄이기를 따른다", () => {
     const { container } = render(<AdminShellSkeleton />);
     expect(container.querySelectorAll('[data-part="row"]')).toHaveLength(10);

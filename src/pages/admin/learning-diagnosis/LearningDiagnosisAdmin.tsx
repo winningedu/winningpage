@@ -14,6 +14,7 @@ import {
   TextInput,
   Toggle,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   type DiagnosisWrite,
@@ -115,6 +116,8 @@ const PROGRAM_EMPTY: DiagnosisProgramDraft = {
 };
 
 export default function LearningDiagnosisAdmin() {
+  // view 권한이면 추가, 저장, 삭제 버튼을 그리지 않는다.
+  const canEdit = useCanEditSection();
   const lists = useDiagnosisLists();
   const write = useDiagnosisWrite();
   const saving = write.isPending;
@@ -303,7 +306,8 @@ export default function LearningDiagnosisAdmin() {
       json: {
         title,
         description: newQuestion.description || "",
-        input_type: newQuestion.input_type || "single",
+        input_type:
+          newQuestion.input_type === "multiple" ? "multiple" : "single",
         is_required: boolValue(newQuestion.is_required),
         is_active: boolValue(newQuestion.is_active),
         sort_order: sortOrder,
@@ -329,7 +333,7 @@ export default function LearningDiagnosisAdmin() {
       json: {
         title: question.title,
         description: question.description || "",
-        input_type: question.input_type || "single",
+        input_type: question.input_type === "multiple" ? "multiple" : "single",
         is_required: boolValue(question.is_required),
         is_active: boolValue(question.is_active),
         sort_order: Number(question.sort_order || 1),
@@ -514,86 +518,95 @@ export default function LearningDiagnosisAdmin() {
               </div>
             </div>
 
-            <div className="mb-6 rounded-sm border border-[#B88737]/30 bg-[#FFF8E8] p-4">
-              <h3 className="mb-3 text-sm font-semibold text-[#7A4A12]">
-                새 추천 프로그램 추가
-              </h3>
-              <div className="grid gap-3 lg:grid-cols-2">
-                <Field label="프로그램명">
-                  <TextInput
-                    value={newProgram.title}
-                    onChange={(value) =>
-                      setNewProgram((prev) => ({ ...prev, title: value }))
-                    }
-                    placeholder="예: 위닝 수행평가 서비스"
-                  />
-                </Field>
-                <Field label="상단 배지">
-                  <TextInput
-                    value={newProgram.badge}
-                    onChange={(value) =>
-                      setNewProgram((prev) => ({ ...prev, badge: value }))
-                    }
-                    placeholder="예: 추천 서비스 01"
-                  />
-                </Field>
-                <Field label="추천 문구">
-                  <Textarea
-                    value={newProgram.description}
-                    onChange={(value) =>
-                      setNewProgram((prev) => ({ ...prev, description: value }))
-                    }
-                    rows={4}
-                  />
-                </Field>
-                <div className="grid gap-3">
-                  <Field label="서비스 버튼명">
+            {canEdit && (
+              <div className="mb-6 rounded-sm border border-[#B88737]/30 bg-[#FFF8E8] p-4">
+                <h3 className="mb-3 text-sm font-semibold text-[#7A4A12]">
+                  새 추천 프로그램 추가
+                </h3>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <Field label="프로그램명">
                     <TextInput
-                      value={newProgram.primary_button_text}
+                      value={newProgram.title}
+                      onChange={(value) =>
+                        setNewProgram((prev) => ({ ...prev, title: value }))
+                      }
+                      placeholder="예: 위닝 수행평가 서비스"
+                    />
+                  </Field>
+                  <Field label="상단 배지">
+                    <TextInput
+                      value={newProgram.badge}
+                      onChange={(value) =>
+                        setNewProgram((prev) => ({ ...prev, badge: value }))
+                      }
+                      placeholder="예: 추천 서비스 01"
+                    />
+                  </Field>
+                  <Field label="추천 문구">
+                    <Textarea
+                      value={newProgram.description}
                       onChange={(value) =>
                         setNewProgram((prev) => ({
                           ...prev,
-                          primary_button_text: value,
+                          description: value,
                         }))
                       }
+                      rows={4}
                     />
                   </Field>
-                  <Field label="서비스 링크">
-                    <TextInput
-                      value={newProgram.primary_button_link}
-                      onChange={(value) =>
-                        setNewProgram((prev) => ({
-                          ...prev,
-                          primary_button_link: value,
-                        }))
-                      }
-                      placeholder="/page/services-ai-performance"
-                    />
-                  </Field>
-                  <Field label="순서">
-                    <TextInput
-                      value={String(newProgram.sort_order)}
-                      onChange={(value) =>
-                        setNewProgram((prev) => ({
-                          ...prev,
-                          sort_order: value,
-                        }))
-                      }
-                    />
-                  </Field>
+                  <div className="grid gap-3">
+                    <Field label="서비스 버튼명">
+                      <TextInput
+                        value={newProgram.primary_button_text}
+                        onChange={(value) =>
+                          setNewProgram((prev) => ({
+                            ...prev,
+                            primary_button_text: value,
+                          }))
+                        }
+                      />
+                    </Field>
+                    <Field label="서비스 링크">
+                      <TextInput
+                        value={newProgram.primary_button_link}
+                        onChange={(value) =>
+                          setNewProgram((prev) => ({
+                            ...prev,
+                            primary_button_link: value,
+                          }))
+                        }
+                        placeholder="/page/services-ai-performance"
+                      />
+                    </Field>
+                    <Field label="순서">
+                      <TextInput
+                        value={String(newProgram.sort_order)}
+                        onChange={(value) =>
+                          setNewProgram((prev) => ({
+                            ...prev,
+                            sort_order: value,
+                          }))
+                        }
+                      />
+                    </Field>
+                  </div>
+                </div>
+                <div className="mt-4 flex justify-end">
+                  <ActionButton onClick={createProgram} disabled={saving}>
+                    <Plus size={14} />
+                    추천 프로그램 추가
+                  </ActionButton>
                 </div>
               </div>
-              <div className="mt-4 flex justify-end">
-                <ActionButton onClick={createProgram} disabled={saving}>
-                  <Plus size={14} />
-                  추천 프로그램 추가
-                </ActionButton>
-              </div>
-            </div>
+            )}
 
             <div className="grid gap-4 xl:grid-cols-2">
               {programs.map((program) => (
-                <div key={program.id} className="border border-border p-4">
+                <fieldset
+                  key={program.id}
+                  disabled={!canEdit}
+                  className="min-w-0 border border-border p-4"
+                >
                   <div className="grid gap-3 md:grid-cols-2">
                     <Field label="프로그램명">
                       <TextInput
@@ -692,23 +705,25 @@ export default function LearningDiagnosisAdmin() {
                       }
                       label="사용"
                     />
-                    <div className="flex gap-2">
-                      <ActionButton
-                        onClick={() => saveProgram(program)}
-                        disabled={saving}
-                      >
-                        저장
-                      </ActionButton>
-                      <ActionButton
-                        onClick={() => deleteProgram(program)}
-                        variant="danger"
-                      >
-                        <Trash2 size={14} />
-                        삭제
-                      </ActionButton>
-                    </div>
+                    {canEdit && (
+                      <div className="flex gap-2">
+                        <ActionButton
+                          onClick={() => saveProgram(program)}
+                          disabled={saving}
+                        >
+                          저장
+                        </ActionButton>
+                        <ActionButton
+                          onClick={() => deleteProgram(program)}
+                          variant="danger"
+                        >
+                          <Trash2 size={14} />
+                          삭제
+                        </ActionButton>
+                      </div>
+                    )}
                   </div>
-                </div>
+                </fieldset>
               ))}
             </div>
           </section>
@@ -722,80 +737,91 @@ export default function LearningDiagnosisAdmin() {
               </p>
             </div>
 
-            <div className="mb-6 rounded-sm border border-[#B88737]/30 bg-[#FFF8E8] p-4">
-              <h3 className="mb-3 text-sm font-semibold text-[#7A4A12]">
-                새 질문 추가
-              </h3>
-              <div className="grid gap-3 lg:grid-cols-[1.3fr_0.7fr_0.5fr]">
-                <Field label="질문 내용">
-                  <TextInput
-                    value={newQuestion.title}
-                    onChange={(value) =>
-                      setNewQuestion((prev) => ({ ...prev, title: value }))
-                    }
-                    placeholder="예: 현재 가장 큰 학습 고민은 무엇인가요?"
-                  />
-                </Field>
-                <Field label="선택 방식">
-                  <Select
-                    value={newQuestion.input_type}
-                    onChange={(value) =>
-                      setNewQuestion((prev) => ({ ...prev, input_type: value }))
-                    }
-                  >
-                    <option value="single">단일 선택</option>
-                    <option value="multiple">중복 선택</option>
-                  </Select>
-                </Field>
-                <Field label="순서">
-                  <TextInput
-                    value={String(newQuestion.sort_order)}
-                    onChange={(value) =>
-                      setNewQuestion((prev) => ({ ...prev, sort_order: value }))
-                    }
-                  />
-                </Field>
-              </div>
-              <div className="mt-3">
-                <Field label="질문 설명">
-                  <Textarea
-                    value={newQuestion.description}
-                    onChange={(value) =>
-                      setNewQuestion((prev) => ({
-                        ...prev,
-                        description: value,
-                      }))
-                    }
-                    rows={2}
-                  />
-                </Field>
-              </div>
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex gap-4">
-                  <Toggle
-                    checked={newQuestion.is_required}
-                    onChange={(value) =>
-                      setNewQuestion((prev) => ({
-                        ...prev,
-                        is_required: value,
-                      }))
-                    }
-                    label="필수 질문"
-                  />
-                  <Toggle
-                    checked={newQuestion.is_active}
-                    onChange={(value) =>
-                      setNewQuestion((prev) => ({ ...prev, is_active: value }))
-                    }
-                    label="사용"
-                  />
+            {canEdit && (
+              <div className="mb-6 rounded-sm border border-[#B88737]/30 bg-[#FFF8E8] p-4">
+                <h3 className="mb-3 text-sm font-semibold text-[#7A4A12]">
+                  새 질문 추가
+                </h3>
+                <div className="grid gap-3 lg:grid-cols-[1.3fr_0.7fr_0.5fr]">
+                  <Field label="질문 내용">
+                    <TextInput
+                      value={newQuestion.title}
+                      onChange={(value) =>
+                        setNewQuestion((prev) => ({ ...prev, title: value }))
+                      }
+                      placeholder="예: 현재 가장 큰 학습 고민은 무엇인가요?"
+                    />
+                  </Field>
+                  <Field label="선택 방식">
+                    <Select
+                      value={newQuestion.input_type}
+                      onChange={(value) =>
+                        setNewQuestion((prev) => ({
+                          ...prev,
+                          input_type: value,
+                        }))
+                      }
+                    >
+                      <option value="single">단일 선택</option>
+                      <option value="multiple">중복 선택</option>
+                    </Select>
+                  </Field>
+                  <Field label="순서">
+                    <TextInput
+                      value={String(newQuestion.sort_order)}
+                      onChange={(value) =>
+                        setNewQuestion((prev) => ({
+                          ...prev,
+                          sort_order: value,
+                        }))
+                      }
+                    />
+                  </Field>
                 </div>
-                <ActionButton onClick={createQuestion} disabled={saving}>
-                  <Plus size={14} />
-                  질문 추가
-                </ActionButton>
+                <div className="mt-3">
+                  <Field label="질문 설명">
+                    <Textarea
+                      value={newQuestion.description}
+                      onChange={(value) =>
+                        setNewQuestion((prev) => ({
+                          ...prev,
+                          description: value,
+                        }))
+                      }
+                      rows={2}
+                    />
+                  </Field>
+                </div>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex gap-4">
+                    <Toggle
+                      checked={newQuestion.is_required}
+                      onChange={(value) =>
+                        setNewQuestion((prev) => ({
+                          ...prev,
+                          is_required: value,
+                        }))
+                      }
+                      label="필수 질문"
+                    />
+                    <Toggle
+                      checked={newQuestion.is_active}
+                      onChange={(value) =>
+                        setNewQuestion((prev) => ({
+                          ...prev,
+                          is_active: value,
+                        }))
+                      }
+                      label="사용"
+                    />
+                  </div>
+                  <ActionButton onClick={createQuestion} disabled={saving}>
+                    <Plus size={14} />
+                    질문 추가
+                  </ActionButton>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="space-y-5">
               {questions.map((question, questionIndex) => {
@@ -836,7 +862,7 @@ export default function LearningDiagnosisAdmin() {
                     </button>
 
                     {isOpen && (
-                      <div className="p-5">
+                      <fieldset disabled={!canEdit} className="min-w-0 p-5">
                         <div className="grid gap-3 lg:grid-cols-[1.3fr_0.7fr_0.5fr]">
                           <Field label="질문 내용">
                             <TextInput
@@ -906,33 +932,37 @@ export default function LearningDiagnosisAdmin() {
                               label="사용"
                             />
                           </div>
-                          <div className="flex gap-2">
-                            <ActionButton
-                              onClick={() => saveQuestion(question)}
-                              disabled={saving}
-                            >
-                              질문 저장
-                            </ActionButton>
-                            <ActionButton
-                              onClick={() => deleteQuestion(question)}
-                              variant="danger"
-                            >
-                              <Trash2 size={14} />
-                              질문 삭제
-                            </ActionButton>
-                          </div>
+                          {canEdit && (
+                            <div className="flex gap-2">
+                              <ActionButton
+                                onClick={() => saveQuestion(question)}
+                                disabled={saving}
+                              >
+                                질문 저장
+                              </ActionButton>
+                              <ActionButton
+                                onClick={() => deleteQuestion(question)}
+                                variant="danger"
+                              >
+                                <Trash2 size={14} />
+                                질문 삭제
+                              </ActionButton>
+                            </div>
+                          )}
                         </div>
 
                         <div className="mt-5">
                           <div className="mb-3 flex items-center justify-between">
                             <h4 className="text-sm font-semibold">답변 목록</h4>
-                            <ActionButton
-                              onClick={() => createOption(question.id)}
-                              variant="light"
-                            >
-                              <Plus size={14} />
-                              답변 추가
-                            </ActionButton>
+                            {canEdit && (
+                              <ActionButton
+                                onClick={() => createOption(question.id)}
+                                variant="light"
+                              >
+                                <Plus size={14} />
+                                답변 추가
+                              </ActionButton>
+                            )}
                           </div>
 
                           <div className="space-y-3">
@@ -990,21 +1020,23 @@ export default function LearningDiagnosisAdmin() {
                                     }
                                     label="사용"
                                   />
-                                  <div className="flex gap-2">
-                                    <ActionButton
-                                      onClick={() => saveOption(option)}
-                                      disabled={saving}
-                                    >
-                                      답변 저장
-                                    </ActionButton>
-                                    <ActionButton
-                                      onClick={() => deleteOption(option)}
-                                      variant="danger"
-                                    >
-                                      <Trash2 size={14} />
-                                      삭제
-                                    </ActionButton>
-                                  </div>
+                                  {canEdit && (
+                                    <div className="flex gap-2">
+                                      <ActionButton
+                                        onClick={() => saveOption(option)}
+                                        disabled={saving}
+                                      >
+                                        답변 저장
+                                      </ActionButton>
+                                      <ActionButton
+                                        onClick={() => deleteOption(option)}
+                                        variant="danger"
+                                      >
+                                        <Trash2 size={14} />
+                                        삭제
+                                      </ActionButton>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ))}
@@ -1017,7 +1049,7 @@ export default function LearningDiagnosisAdmin() {
                             )}
                           </div>
                         </div>
-                      </div>
+                      </fieldset>
                     )}
                   </article>
                 );

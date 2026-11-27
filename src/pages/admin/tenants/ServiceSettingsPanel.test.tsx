@@ -31,6 +31,7 @@ vi.mock("./api", () => ({
 }));
 
 import { ApiError } from "@/lib/http/client";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import ServiceSettingsPanel from "./ServiceSettingsPanel";
 
 const DEFAULTS = {
@@ -42,6 +43,7 @@ const DEFAULTS = {
 };
 
 beforeEach(() => {
+  canEdit = true;
   db.settings = [];
   db.defaults = DEFAULTS;
   db.loadError = null;
@@ -51,6 +53,9 @@ beforeEach(() => {
   db.fetches = [];
 });
 
+// 지금 메뉴의 편집 권한. 기본은 edit 이고, view 시험에서만 끈다.
+let canEdit = true;
+
 function renderPanel(
   props: Partial<{ termMonths: number | null; isCatchAll: boolean }> = {},
 ) {
@@ -58,13 +63,15 @@ function renderPanel(
     defaultOptions: { queries: { retry: false } },
   });
   render(
-    <QueryClientProvider client={client}>
-      <ServiceSettingsPanel
-        tenantId="tenant-7"
-        termMonths={props.termMonths === undefined ? 6 : props.termMonths}
-        isCatchAll={props.isCatchAll ?? false}
-      />
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={client}>
+        <ServiceSettingsPanel
+          tenantId="tenant-7"
+          termMonths={props.termMonths === undefined ? 6 : props.termMonths}
+          isCatchAll={props.isCatchAll ?? false}
+        />
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
 }
 
@@ -301,5 +308,65 @@ describe("ServiceSettingsPanel", () => {
     ).toBeTruthy();
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
     expect(db.fetches).toHaveLength(0);
+  });
+});
+
+describe("ServiceSettingsPanel view 권한", () => {
+  test("view 권한이면 서비스 행은 보이고 저장 버튼은 없다", async () => {
+    canEdit = false;
+    renderPanel();
+
+    expect(await screen.findAllByTestId("service-row")).toHaveLength(6);
+    expect(screen.queryAllByRole("button", { name: /저장$/ })).toHaveLength(0);
+  });
+
+  test("view 권한이면 제공 체크박스는 막히고 한도와 날짜 칸은 읽기 전용이다", async () => {
+    db.settings = [
+      {
+        program_key: "diagnose",
+        enabled: true,
+        starts_on: null,
+        ends_on: null,
+        monthly_limit: 2,
+        term_limit: 8,
+      },
+    ];
+    canEdit = false;
+    renderPanel();
+
+    expect(await screen.findByLabelText("학습진단 제공")).toBeDisabled();
+    for (const name of ["시작일", "종료일", "월 한도", "학기 한도"]) {
+      expect(screen.getByLabelText(`학습진단 ${name}`)).toHaveAttribute(
+        "readonly",
+      );
+    }
+  });
+
+  test("edit 권한이면 제공 체크박스와 한도 칸을 고칠 수 있다", async () => {
+    db.settings = [
+      {
+        program_key: "diagnose",
+        enabled: true,
+        starts_on: null,
+        ends_on: null,
+        monthly_limit: 2,
+        term_limit: 8,
+      },
+    ];
+    renderPanel();
+
+    expect(await screen.findByLabelText("학습진단 제공")).toBeEnabled();
+    for (const name of ["시작일", "종료일", "월 한도", "학기 한도"]) {
+      expect(screen.getByLabelText(`학습진단 ${name}`)).not.toHaveAttribute(
+        "readonly",
+      );
+    }
+  });
+
+  test("edit 권한이면 서비스마다 저장 버튼이 있다", async () => {
+    renderPanel();
+
+    await screen.findAllByTestId("service-row");
+    expect(screen.getAllByRole("button", { name: /저장$/ })).toHaveLength(6);
   });
 });

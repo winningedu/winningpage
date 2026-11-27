@@ -1,5 +1,11 @@
 // 지식 검색 품질 평가 화면의 입력 변환과 표 계산. 화면 컴포넌트는 EvalsAdmin.tsx.
 
+import type {
+  GoldenCreateInput,
+  KnowledgeType,
+  SweepResponse,
+} from "../../../../../shared/knowledge-eval/contract.js";
+
 /** 서버 EvalParams 와 같은 키. */
 export type EvalParamKey =
   | "matchThreshold"
@@ -105,12 +111,10 @@ export function toSweepGrid(
   return { ok: true, grid: { rrfK, weights, matchThreshold } };
 }
 
-/** 서버 RunMetrics 와 같은 모양. recall 키는 k 문자열이다. */
+/** 서버 계약의 지표 모양. recall 키는 k 문자열이다. */
 export type RunMetrics = { recall: Record<string, number>; mrr: number };
 
-export type SweepItem =
-  | { status: "done"; runId: string; params: EvalParams; metrics: RunMetrics }
-  | { status: "skipped"; params: EvalParams };
+export type SweepItem = SweepResponse["items"][number];
 
 export function isSameParams(a: EvalParams, b: EvalParams): boolean {
   return PARAM_FIELDS.every(({ key }) => a[key] === b[key]);
@@ -162,7 +166,7 @@ export function diffMetrics(
   ];
 }
 
-export type KnowledgeType = "topic_pattern" | "verified_resource";
+export type { KnowledgeType };
 
 /** 기대 자료로 고른 지식 항목. 제목은 화면 표시용이고 저장은 id 만 한다. */
 export type ExpectedResource = { id: string; title: string };
@@ -187,16 +191,8 @@ export const EMPTY_GOLDEN_DRAFT: GoldenDraft = {
   expected: [],
 };
 
-export type GoldenRowInput = {
-  knowledge_type: KnowledgeType;
-  grade: string;
-  subject: string;
-  career: string | null;
-  selected_topic: string | null;
-  assessment_info: string | null;
-  note: string | null;
-  expected_resource_ids: string[];
-};
+/** 기준 문제집 추가 본문(서버 계약 goldenCreateBody 의 입력). */
+export type GoldenRowInput = GoldenCreateInput;
 
 function optional(text: string): string | null {
   return text.trim() || null;

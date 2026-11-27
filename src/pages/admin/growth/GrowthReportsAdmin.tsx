@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -25,12 +24,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   ActionButton,
   Field,
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
@@ -85,6 +86,7 @@ export default function GrowthReportsAdmin({ config }: Props) {
 }
 
 function GrowthReportsScreen({ config }: Props) {
+  const canEdit = useCanEditSection();
   const { id } = useParams();
   const navigate = useNavigate();
   const { search } = useLocation();
@@ -164,9 +166,11 @@ function GrowthReportsScreen({ config }: Props) {
             </div>
             <ActionButton type="submit">조회</ActionButton>
           </form>
-          <ActionButton onClick={() => setGrantOpen(true)}>
-            이용권 부여
-          </ActionButton>
+          {canEdit && (
+            <ActionButton onClick={() => setGrantOpen(true)}>
+              이용권 부여
+            </ActionButton>
+          )}
         </div>
         <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
@@ -189,7 +193,10 @@ function GrowthReportsScreen({ config }: Props) {
           <div className="mb-4 text-sm font-medium text-gray-500">
             전체 <span className="text-blue-600">{total}</span>건
           </div>
-          <Table className="min-w-[60rem] border-collapse">
+          <AdminTableFrame
+            label={config.title}
+            className="min-w-[60rem] border-collapse"
+          >
             <TableHeader>
               <TableRow className="border-y border-gray-300 hover:bg-transparent">
                 {[
@@ -270,7 +277,7 @@ function GrowthReportsScreen({ config }: Props) {
                 ))
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
 
           <AdminPagination
             page={params.page}
@@ -313,6 +320,7 @@ function ReportDetailDialog({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { search } = useLocation();
+  const canEdit = useCanEditSection();
   const [confirming, setConfirming] = useState(false);
   const recover = useMutation({
     mutationFn: postGrowthRecover,
@@ -397,7 +405,8 @@ function ReportDetailDialog({
               </div>
             )}
 
-            {canRecover(row) &&
+            {canEdit &&
+              canRecover(row) &&
               (confirming ? (
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <span>새 회차를 만들어 복구합니다. 진행할까요?</span>

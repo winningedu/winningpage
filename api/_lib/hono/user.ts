@@ -38,4 +38,5 @@ export const user = (options: RouteOptions) =>
       c.set("supabaseAdmin", createSupabaseAdmin());
       await next();
     }),
+    { auth: "user" },
   );

@@ -10,6 +10,7 @@ import {
 import { Toaster } from "@/components/ui/toast";
 import { mainConfigs } from "@/pages/admin/configs/main";
 import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import PremiumBookAdmin from "./PremiumBookAdmin";
 
 export const PAGES_PATH = "admin/premium-book/pages";
@@ -27,6 +28,7 @@ export function renderPremiumBook(
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   }),
+  canEdit = true,
 ) {
   const router = createMemoryRouter(
     [
@@ -42,7 +44,9 @@ export function renderPremiumBook(
   );
   const view = render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
+      <SectionEditAccessProvider value={canEdit}>
+        <RouterProvider router={router} />
+      </SectionEditAccessProvider>
       <Toaster />
       <ConfirmAdminHost />
     </QueryClientProvider>,

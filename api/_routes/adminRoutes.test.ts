@@ -11,16 +11,14 @@ const SCAN_DIRS = ["admin", "goal/admin"];
 
 // 규칙 밖에 두는 라우트와 그 이유.
 const ALLOWLIST: Record<string, string> = {
-  "admin/me/activate.ts":
-    "초대받은 사용자는 관리자가 되기 전에 활성화하므로 auth user 다",
-  "admin/me/permissions.ts":
-    "호출자 자신의 권한 맵을 읽는 라우트라 메뉴 권한이 없다",
+  "admin/me.ts":
+    "호출자 자신의 권한 맵을 읽고(permission none) 관리자가 되기 전에 활성화한다(auth user)",
 };
 
 /**
  * defineHandler({ ... }) 호출마다 auth:"admin" 과 permission 이 있는지 보고, 어긋난 점을 돌려준다.
- * Hono 앱 파일(.createApp())은 admin({ ... }) 마다 permission 이 있는지만 본다. 메서드 라우트마다 인증 미들웨어가 붙었는지는
- * 라우트 표 가드(api/_routes/app.test.ts)가 실제 앱에서 본다.
+ * Hono 앱 파일(.createApp())은 admin({ ... }) 마다 permission 이 있는지만 본다. 메서드 라우트마다 첫 미들웨어가 메뉴 권한을 거는
+ * admin() 인지(허용 목록 경로 제외)는 라우트 표 가드(api/_routes/app.test.ts)가 실제 앱에서 본다.
  */
 function checkAdminRouteSource(source: string): string[] {
   if (/\.createApp\(\)|create(Admin|Root)App\(\)/.test(source)) {
@@ -28,9 +26,13 @@ function checkAdminRouteSource(source: string): string[] {
       .split("admin({")
       .slice(1)
       .flatMap((chunk, index) =>
-        /permission:/.test(chunk)
-          ? []
-          : [`admin #${index + 1}: permission 이 없다`],
+        !/permission:/.test(chunk)
+          ? [`admin #${index + 1}: permission 이 없다`]
+          : /permission:\s*"none"/.test(chunk)
+            ? [
+                `admin #${index + 1}: permission "none" 은 허용 목록의 파일만 쓴다`,
+              ]
+            : [],
       );
   }
   const chunks = source.split("defineHandler({").slice(1);
@@ -62,20 +64,22 @@ function routeFiles(dir: string): string[] {
 const AUDIT_OFF = "audit: false";
 const AUDIT_EXPECTATIONS: Record<string, string> = {
   "admin/access-logs.ts": AUDIT_OFF,
-  "admin/tenants/member-purge.ts": AUDIT_OFF,
-  "admin/tenants/school-admin.ts": AUDIT_OFF,
-  "admin/tenants/move-student.ts": AUDIT_OFF,
+  // member-purge, school-admin, move-student 는 각자 audit 행을 직접 남긴다.
+  "admin/tenants-purge.ts": AUDIT_OFF,
+  "admin/tenants-school-admins.ts": AUDIT_OFF,
+  "admin/tenants-students.ts": AUDIT_OFF,
   // 발급 회수, 사용 이력 무효화 둘 다 기존 행을 바꾼다.
   "admin/coupons.ts": 'audit: { action: "update" }',
-  "admin/sections/[key]/[id]/reviewed.ts": 'audit: { action: "update" }',
+  // 검토 완료(POST /:key/:id/reviewed)만 기존 행을 바꾸는 수정으로 남긴다.
+  "admin/sections.ts": 'audit: { action: "update" }',
   "admin/growth-recover.ts": 'audit: { action: "update" }',
   "admin/inquiry-recover.ts": 'audit: { action: "update" }',
   "admin/selfeval-recover.ts": 'audit: { action: "update" }',
   "goal/admin/reset-student.ts": 'audit: { action: "update" }',
   "admin/knowledge-search.ts": 'audit: { action: "view" }',
   "admin/knowledge-dedupe.ts": 'audit: { action: "view" }',
-  "admin/uploads/preview.ts": 'audit: { action: "view" }',
-  "admin/mentor-applications/[id]/proof-url.ts": 'audit: { action: "view" }',
+  "admin/uploads-preview.ts": 'audit: { action: "view" }',
+  "admin/mentor-applications-detail.ts": 'audit: { action: "view" }',
 };
 
 // 조회(GET)는 기본으로 남긴다. GET 을 받는 defineHandler 에서 audit:false 를 쓰려면 여기에 한 줄 이유를 둔다.
@@ -133,6 +137,24 @@ describe("checkAdminRouteSource", () => {
     expect(
       checkAdminRouteSource("export default function handler() {}"),
     ).toHaveLength(1);
+  });
+
+  test('Hono 앱 파일의 permission: "none" 은 실패한다', () => {
+    const hono = `
+      const app = adminFactory.createApp();
+      const own = admin({ permission: "none", logLabel: "[x]" });
+    `;
+    expect(checkAdminRouteSource(hono)).toEqual([
+      'admin #1: permission "none" 은 허용 목록의 파일만 쓴다',
+    ]);
+  });
+
+  test("Hono 앱 파일의 메뉴 키 permission 은 통과한다", () => {
+    const hono = `
+      const app = adminFactory.createApp();
+      const guard = admin({ permission: { key: "coupons" }, logLabel: "[x]" });
+    `;
+    expect(checkAdminRouteSource(hono)).toEqual([]);
   });
 
   test("호출이 둘이면 하나라도 어긋날 때 실패한다", () => {

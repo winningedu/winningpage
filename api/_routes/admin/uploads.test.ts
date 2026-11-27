@@ -1,6 +1,7 @@
 // POST, DELETE /api/admin/uploads 계약 검증: 임시 업로드 URL 발급과 banners 파일 삭제.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { issuedUploadSchema } from "../../../shared/uploads/contract.js";
 import {
   createSectionAdmin,
   createSectionDb,
@@ -8,8 +9,8 @@ import {
 } from "../../_lib/admin-sections/sectionTestKit.js";
 import { createFakeStorage } from "../../_lib/admin-uploads/storageTestKit.js";
 import { parseTempName } from "../../_lib/admin-uploads/tmp.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
 } from "../../_lib/console/consoleTestKit.js";
@@ -22,6 +23,7 @@ const kit = vi.hoisted(() => ({
 }));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => ({
     ...createSectionAdmin(kit.state, createSectionDb({})),
@@ -29,11 +31,13 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   }),
 }));
 
-import handler from "./uploads.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/uploads" };
 
 const MB = 1024 * 1024;
-const post = (body: unknown) => callHandler(handler, body, "POST");
-const del = (body: unknown) => callHandler(handler, body, "DELETE");
+const post = (body: unknown) => callRoute(route, { method: "POST", body });
+const del = (body: unknown) => callRoute(route, { method: "DELETE", body });
 
 const issue = (overrides: Record<string, unknown> = {}) => ({
   section: "banners",
@@ -50,11 +54,24 @@ beforeEach(() => {
   seedAdmin(kit.state, "edit", "banners");
 });
 
+describe("POST, DELETE 가 아닌 메서드", () => {
+  test("405 이고 Allow 가 DELETE, POST 다", async () => {
+    const r = await callRoute(route, { method: "GET" });
+
+    expect(r.status).toBe(405);
+    expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
+    expect(r.headers.allow).toBe("DELETE, POST");
+    expect(kit.fake.calls).toHaveLength(0);
+  });
+});
+
 describe("POST /api/admin/uploads", () => {
   test("edit 권한이면 임시 이름과 업로드 URL 을 201 로 돌려준다", async () => {
     const r = await post(issue());
 
     expect(r.status).toBe(201);
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(issuedUploadSchema.safeParse(r.body).success).toBe(true);
     const body = r.body as { path: string; uploadUrl: string };
     expect(parseTempName(body.path)).toMatchObject({
       fieldKey: "image_url",
@@ -244,6 +261,7 @@ describe("DELETE /api/admin/uploads", () => {
     const r = await del({ section: "banners", paths });
 
     expect(r.status).toBe(204);
+    expect(r.headers["cache-control"]).toBe("no-store");
     expect(kit.fake.calls).toEqual([
       { bucket: "banners", op: "remove", args: [paths] },
     ]);

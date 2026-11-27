@@ -22,11 +22,12 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import {
   type IssuedSchoolAdmin,
-  type IssueSchoolAdminBody,
+  type IssueSchoolAdminInput,
   issueSchoolAdmin,
 } from "./api";
 import {
@@ -74,6 +75,7 @@ export default function SchoolAdminPanel({
   tenantName,
 }: SchoolAdminPanelProps) {
   const queryClient = useQueryClient();
+  const canEdit = useCanEditSection();
   const [form, setForm] = useState<IssueForm>(EMPTY_FORM);
   const [formError, setFormError] = useState("");
   const [issued, setIssued] = useState<IssuedSchoolAdmin | null>(null);
@@ -83,7 +85,7 @@ export default function SchoolAdminPanel({
   const loadError = listQuery.isError ? errorDetail(listQuery.error) : "";
 
   const issueMutation = useMutation({
-    mutationFn: (body: IssueSchoolAdminBody) => issueSchoolAdmin(body),
+    mutationFn: (body: IssueSchoolAdminInput) => issueSchoolAdmin(body),
     onSuccess: (result) => {
       setForm(EMPTY_FORM);
       setIssued(result);
@@ -317,58 +319,60 @@ export default function SchoolAdminPanel({
         </p>
       </div>
 
-      <div className="bg-white p-6 shadow-sm">
-        <div className="mb-3 text-sm font-medium text-gray-500">
-          전체 관리자 발급
-        </div>
-        <div className="flex flex-wrap items-end gap-4">
-          <Field label="기관">
-            <Input
-              value={tenantName}
-              readOnly
-              className="h-10 bg-muted font-medium"
-            />
-          </Field>
-          <Field label="이름">
-            <TextInput
-              value={form.name}
-              onChange={(value) => setField("name", value)}
-            />
-          </Field>
-          <Field label="전화번호">
-            <TextInput
-              value={form.phone}
-              onChange={(value) => setField("phone", value)}
-            />
-          </Field>
-          <Field label="일반전화">
-            <TextInput
-              value={form.landline}
-              onChange={(value) => setField("landline", value)}
-            />
-          </Field>
-          <Field label="담당 이메일">
-            <TextInput
-              value={form.email}
-              onChange={(value) => setField("email", value)}
-            />
-          </Field>
-          <Field label="직책">
-            <TextInput
-              value={form.position}
-              onChange={(value) => setField("position", value)}
-            />
-          </Field>
-          <ActionButton onClick={issue} disabled={issuing}>
-            {issuing ? "발급 중..." : "발급"}
-          </ActionButton>
-        </div>
-        {formError && (
-          <div role="alert" className="mt-3 text-sm font-medium text-red-600">
-            {formError}
+      {canEdit && (
+        <div className="bg-white p-6 shadow-sm">
+          <div className="mb-3 text-sm font-medium text-gray-500">
+            전체 관리자 발급
           </div>
-        )}
-      </div>
+          <div className="flex flex-wrap items-end gap-4">
+            <Field label="기관">
+              <Input
+                value={tenantName}
+                readOnly
+                className="h-10 bg-muted font-medium"
+              />
+            </Field>
+            <Field label="이름">
+              <TextInput
+                value={form.name}
+                onChange={(value) => setField("name", value)}
+              />
+            </Field>
+            <Field label="전화번호">
+              <TextInput
+                value={form.phone}
+                onChange={(value) => setField("phone", value)}
+              />
+            </Field>
+            <Field label="일반전화">
+              <TextInput
+                value={form.landline}
+                onChange={(value) => setField("landline", value)}
+              />
+            </Field>
+            <Field label="담당 이메일">
+              <TextInput
+                value={form.email}
+                onChange={(value) => setField("email", value)}
+              />
+            </Field>
+            <Field label="직책">
+              <TextInput
+                value={form.position}
+                onChange={(value) => setField("position", value)}
+              />
+            </Field>
+            <ActionButton onClick={issue} disabled={issuing}>
+              {issuing ? "발급 중..." : "발급"}
+            </ActionButton>
+          </div>
+          {formError && (
+            <div role="alert" className="mt-3 text-sm font-medium text-red-600">
+              {formError}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

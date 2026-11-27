@@ -131,9 +131,7 @@ function clickActionOf(inputLabel: string) {
 }
 
 function agreeRequiredTerms() {
-  check(/이용약관/);
-  check(/개인정보 수집 및 이용/);
-  check(/DB 전환 안내/);
+  check(/아래 스쿨멘토 약관 및 이용 방침에 동의합니다/);
   click("다음");
 }
 
@@ -162,18 +160,36 @@ afterEach(() => {
 });
 
 describe("1단계 약관 동의", () => {
-  it("필수 3개를 모두 동의해야 다음으로 넘어간다", () => {
+  it("학생 가입약관 V2 대로 필수 한 칸에 동의해야 다음으로 넘어간다", () => {
     renderSignup();
 
     const next = screen.getByRole("button", { name: "다음" });
     expect(next).toBeDisabled();
 
-    check(/이용약관/);
-    check(/개인정보 수집 및 이용/);
+    check(/마케팅 및 광고성 정보 수신 동의/);
+    check(/선택 개인정보 수집 및 이용 동의/);
     expect(next).toBeDisabled();
 
-    check(/DB 전환 안내/);
+    check(/아래 스쿨멘토 약관 및 이용 방침에 동의합니다/);
     expect(next).toBeEnabled();
+  });
+
+  it("필수 칸은 학생 가입약관 전문, 선택 칸은 각 동의서로 이어지고 DB 전환 안내는 없다", () => {
+    renderSignup();
+
+    const linkOf = (name: RegExp) =>
+      screen.getByRole("link", { name }).getAttribute("href");
+    expect(linkOf(/아래 스쿨멘토 약관 및 이용 방침에 동의합니다/)).toBe(
+      "/terms/student/service",
+    );
+    expect(linkOf(/마케팅 및 광고성 정보 수신 동의/)).toBe(
+      "/terms/student/marketing",
+    );
+    expect(linkOf(/선택 개인정보 수집 및 이용 동의/)).toBe(
+      "/privacy-additional",
+    );
+    expect(screen.getAllByRole("checkbox")).toHaveLength(4);
+    expect(screen.queryByText(/DB 전환 안내/)).not.toBeInTheDocument();
   });
 });
 
@@ -918,8 +934,8 @@ describe("가입 제출과 5단계 완료", () => {
       guardianConsent: false,
       agreeService: true,
       agreePrivacy: true,
-      agreeDbTransfer: true,
       agreeMarketing: false,
+      agreePrivacyAdditional: false,
     });
     expect(
       screen.getByRole("button", { name: "서비스 둘러보기" }),

@@ -9,6 +9,7 @@ import {
   RouterProvider,
 } from "react-router";
 import { AdminSectionRoute } from "@/pages/Admin";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import { TestQueryProvider } from "./testQuery";
 
 export function renderSectionRoutes(
@@ -16,7 +17,12 @@ export function renderSectionRoutes(
   entry: string | { pathname: string; state?: unknown },
   options: { extras?: ReactNode; extraRoutes?: RouteObject[] } = {},
 ) {
-  const element = <AdminSectionRoute section={section} />;
+  // 쓰기 흐름을 보는 테스트용 도우미라 edit 권한으로 연다. view 화면은 Admin.viewOnly.test.tsx 가 본다.
+  const element = (
+    <SectionEditAccessProvider value={true}>
+      <AdminSectionRoute section={section} />
+    </SectionEditAccessProvider>
+  );
   const router = createMemoryRouter(
     [
       {

@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea as UiTextarea } from "@/components/ui/textarea";
 
-// 상태 값 정본은 src/lib/mentor-application/status.ts 다. 서버(PATCH 검증)와 같은 목록을 쓴다.
-export { MENTOR_APPLICATION_STATUS_OPTIONS } from "@/lib/mentor-application/status";
+// 상태 값 정본은 shared/mentor-application/status.ts 다. 서버(PATCH 검증)와 같은 목록을 쓴다.
+export { MENTOR_APPLICATION_STATUS_OPTIONS } from "../../../../shared/mentor-application/status.js";
 
 // source: 백필(admission_results 유도)로 만들어진 행인지, 사람이 손으로 넣은
 // 행인지를 구분한다. 백필 재실행이 'manual' 행을 덮어쓰지 않는 근거 컬럼이다.
@@ -53,6 +53,7 @@ interface TextInputProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  readOnly?: boolean;
   "aria-label"?: string;
 }
 
@@ -61,6 +62,7 @@ export function TextInput({
   onChange,
   placeholder,
   className = "",
+  readOnly,
   "aria-label": ariaLabel,
 }: TextInputProps) {
   return (
@@ -68,6 +70,7 @@ export function TextInput({
       value={value || ""}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
+      readOnly={readOnly}
       aria-label={ariaLabel}
       className={`h-10 font-medium ${className}`}
     />

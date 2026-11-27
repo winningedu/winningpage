@@ -36,7 +36,14 @@ vi.mock("../../_lib/performance/embeddings.js", () => ({
   }),
 }));
 
-import handler from "./knowledge-eval.js";
+import {
+  runResponse,
+  runsResponse,
+  sweepResponse,
+} from "../../../shared/knowledge-eval/contract.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/knowledge-eval" };
 
 const GOLDEN = {
   id: "q1",
@@ -113,6 +120,7 @@ describe("GET /api/admin/knowledge-eval", () => {
       items: [RUN_ROW],
     });
     expect(r.body).not.toHaveProperty("ok");
+    expect(r.headers["cache-control"]).toBe("no-store");
     const query = firstQuery(admin, "knowledge_eval_runs");
     expect(argsOf(query, "eq")).toEqual(["knowledge_type", "topic_pattern"]);
     expect(argsOf(query, "order")).toEqual([
@@ -120,6 +128,51 @@ describe("GET /api/admin/knowledge-eval", () => {
       { ascending: false },
     ]);
     expect(argsOf(query, "limit")).toEqual([50]);
+  });
+
+  test("이력 행은 계약 runsResponse 로 읽힌다", async () => {
+    const params = {
+      matchThreshold: 0.3,
+      rrfK: 60,
+      fullTextWeight: 1,
+      semanticWeight: 1,
+      matchCount: 10,
+    };
+    runs = () => ({
+      data: [
+        {
+          id: "run-1",
+          created_at: "2026-11-26T00:00:00.000Z",
+          created_by: "admin-1",
+          knowledge_type: "topic_pattern",
+          mode: "hybrid",
+          params,
+          query_count: 1,
+          metrics: { recall: { "1": 1 }, mrr: 1 },
+          per_query: [
+            {
+              queryId: "q1",
+              label: "고2 물리학",
+              expectedIds: ["r1"],
+              ranks: [1],
+            },
+          ],
+          note: null,
+        },
+      ],
+      error: null,
+    });
+    setup("view");
+    const r = await get();
+    expect(r.status).toBe(200);
+    expect(runsResponse.parse(r.body)).toEqual(r.body);
+  });
+
+  test("PUT 은 405 이고 Allow 는 GET, HEAD, POST 다", async () => {
+    setup("edit");
+    const r = await callRoute(handler, { method: "PUT", body: RUN });
+    expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe("GET, HEAD, POST");
   });
 
   test("모르는 knowledgeType 이나 view 는 400 VALIDATION_FAILED 다", async () => {
@@ -176,6 +229,7 @@ describe("POST /api/admin/knowledge-eval", () => {
       metrics: expect.objectContaining({ mrr: 1 }),
       perQuery: [expect.objectContaining({ queryId: "q1", ranks: [1, null] })],
     });
+    expect(runResponse.parse(r.body)).toEqual(r.body);
     expect(r.body).not.toHaveProperty("ok");
     const insert = argsOf(firstQuery(admin, "knowledge_eval_runs"), "insert");
     expect(insert?.[0]).toMatchObject({
@@ -201,6 +255,7 @@ describe("POST /api/admin/knowledge-eval", () => {
         }),
       ],
     });
+    expect(sweepResponse.parse(r.body)).toEqual(r.body);
     expect(r.body).not.toHaveProperty("ok");
   });
 

@@ -54,6 +54,7 @@ vi.mock("@/lib/admissionResultsBulkXlsx", () => ({
 
 import { ApiError } from "@/lib/http/client";
 import { AdminChunkError } from "@/pages/admin/shared/adminErrors";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import {
   AdmissionListSummary,
   AdmissionResultsListSummary,
@@ -79,12 +80,17 @@ function notFound() {
   });
 }
 
-function wrap(ui: React.ReactElement) {
+// 쓰기 흐름을 보는 기존 테스트는 edit 권한으로 연다. view 화면은 아래 「보기 권한」이 본다.
+function wrap(ui: React.ReactElement, canEdit = true) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+    <QueryClientProvider client={client}>
+      <SectionEditAccessProvider value={canEdit}>
+        {ui}
+      </SectionEditAccessProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -456,5 +462,57 @@ describe("입결정보 엑셀", () => {
       expect(onReload).toHaveBeenCalledTimes(1);
       expect(mocks.toastSuccess).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("보기 권한", () => {
+  function stubYear() {
+    mocks.get.mockImplementation((path: string) => {
+      if (path === YEAR_PATH) return reply({ year: 2026 });
+      if (path === COUNT_PATH) return reply({ total: 0 });
+      if (path === ROWS_PATH) return reply({ items: [] });
+      return fail(new Error(path));
+    });
+  }
+
+  test("view 권한이면 모집요강 요약에 공개 연도 변경과 엑셀 업로드가 없고 다운로드는 있다", async () => {
+    stubYear();
+    wrap(<AdmissionListSummary rows={[]} onReload={vi.fn()} />, false);
+
+    expect(await screen.findByText("2026학년도")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /엑셀 다운로드/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "변경" })).toBeNull();
+    expect(screen.queryByLabelText("새 공개 연도")).toBeNull();
+    expect(screen.queryByRole("button", { name: "엑셀 업로드" })).toBeNull();
+    expect(screen.queryByLabelText("모집요강 xlsx 파일 선택")).toBeNull();
+  });
+
+  test("edit 권한이면 모집요강 요약에 공개 연도 변경과 엑셀 업로드가 있다", async () => {
+    stubYear();
+    wrap(<AdmissionListSummary rows={[]} onReload={vi.fn()} />);
+
+    expect(await screen.findByText("2026학년도")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "변경" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "엑셀 업로드" })).toBeTruthy();
+  });
+
+  test("view 권한이면 입결정보 요약에 엑셀 업로드가 없고 다운로드는 있다", async () => {
+    stubYear();
+    wrap(<AdmissionResultsListSummary onReload={vi.fn()} />, false);
+
+    expect(
+      await screen.findByRole("button", { name: /엑셀 다운로드/ }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "엑셀 업로드" })).toBeNull();
+    expect(screen.queryByLabelText("입결정보 xlsx 파일 선택")).toBeNull();
+  });
+
+  test("edit 권한이면 입결정보 요약에 엑셀 업로드가 있다", async () => {
+    stubYear();
+    wrap(<AdmissionResultsListSummary onReload={vi.fn()} />);
+
+    expect(
+      await screen.findByRole("button", { name: "엑셀 업로드" }),
+    ).toBeTruthy();
   });
 });

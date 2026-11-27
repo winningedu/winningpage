@@ -83,6 +83,60 @@ beforeEach(() => {
   state.allowed = new Set(["popups", "banners", "admissionGuidelines"]);
 });
 
+describe("AdminSidebar 접기", () => {
+  const sidebar = () =>
+    document.querySelector("[data-slot=sidebar]") as HTMLElement;
+
+  it("처음에는 펼쳐져 있고 상단바 버튼으로 아이콘만 남게 접힌다", async () => {
+    renderShell("/admin/banners");
+    await screen.findByRole("link", { name: "팝업 관리" });
+    expect(sidebar()).toHaveAttribute("data-state", "expanded");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "사이드바 접기/펼치기" }),
+    );
+
+    expect(sidebar()).toHaveAttribute("data-state", "collapsed");
+    expect(screen.queryByRole("link", { name: "팝업 관리" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^모두/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "메인화면 관리" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "입시정보 관리" })).toBeTruthy();
+  });
+
+  it("접힌 상태에서 대분류 아이콘을 누르면 사이드바가 펼쳐지고 그 대분류의 항목이 보인다", async () => {
+    renderShell("/admin/banners");
+    await screen.findByRole("link", { name: "팝업 관리" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "사이드바 접기/펼치기" }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "입시정보 관리" }));
+
+    expect(sidebar()).toHaveAttribute("data-state", "expanded");
+    expect(
+      screen.getByRole("button", { name: "입시정보 관리" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("link", { name: "대입 모집 요강" }),
+    ).toHaveAttribute("href", "/admin/admissionGuidelines");
+  });
+
+  it("접힌 상태에서도 현재 섹션의 대분류 아이콘만 활성으로 표시된다", async () => {
+    renderShell("/admin/banners");
+    await screen.findByRole("link", { name: "팝업 관리" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "사이드바 접기/펼치기" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "메인화면 관리" }),
+    ).toHaveAttribute("data-active");
+    expect(
+      screen.getByRole("button", { name: "입시정보 관리" }),
+    ).not.toHaveAttribute("data-active");
+  });
+});
+
 describe("AdminSidebar 하위 경로", () => {
   it("/admin/coupons/c1/edit 에서도 쿠폰관리 항목이 현재 섹션으로 강조된다", async () => {
     state.allowed = new Set(["coupons", "banners"]);
@@ -255,7 +309,7 @@ describe("AdminSidebar 메뉴", () => {
     expect(document.querySelector('a[href="/admin/usageStatus"]')).toBeNull();
   });
 
-  it("Cmd+B 를 눌러도 사이드바는 그대로 있고 포커스된 요소의 keydown 핸들러가 먼저 실행된다", async () => {
+  it("Cmd+B 는 사이드바를 접고, 포커스된 요소의 keydown 핸들러가 먼저 실행된다", async () => {
     renderShell("/admin/banners");
     await screen.findByRole("link", { name: "팝업 관리" });
 
@@ -274,8 +328,10 @@ describe("AdminSidebar 메뉴", () => {
     fireEvent.keyDown(editor, { key: "b", metaKey: true });
 
     expect(seen[0]).toBe("own:b:false");
-    expect(screen.getByRole("link", { name: "팝업 관리" })).toBeVisible();
-    expect(document.querySelector("aside")).toBeInTheDocument();
-    expect(document.querySelector("[data-slot=sidebar]")).toBeInTheDocument();
+    expect(document.querySelector("[data-slot=sidebar]")).toHaveAttribute(
+      "data-state",
+      "collapsed",
+    );
+    expect(screen.queryByRole("link", { name: "팝업 관리" })).toBeNull();
   });
 });

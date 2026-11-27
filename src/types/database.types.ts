@@ -7065,6 +7065,7 @@ export type Database = {
           grade: string | null;
           graduated_at: string | null;
           id: string;
+          needs_confirm: boolean;
           number: number | null;
           school_year: number;
           status: string;
@@ -7080,6 +7081,7 @@ export type Database = {
           grade?: string | null;
           graduated_at?: string | null;
           id?: string;
+          needs_confirm?: boolean;
           number?: number | null;
           school_year: number;
           status?: string;
@@ -7094,6 +7096,7 @@ export type Database = {
           grade?: string | null;
           graduated_at?: string | null;
           id?: string;
+          needs_confirm?: boolean;
           number?: number | null;
           school_year?: number;
           status?: string;
@@ -9013,6 +9016,20 @@ export type Database = {
         Returns: string;
       };
       fn_delete_account: { Args: { p_user_id: string }; Returns: string };
+      fn_enrollment_confirm: {
+        Args: {
+          p_actor: string;
+          p_allowed_class_ids?: string[];
+          p_expected_version: number;
+          p_student: string;
+          p_tenant: string;
+        };
+        Returns: {
+          changed: boolean;
+          enrollment_id: string;
+          version: number;
+        }[];
+      };
       fn_enrollment_join: {
         Args: {
           p_class_name: string;
@@ -9027,6 +9044,10 @@ export type Database = {
           enrollment_id: string;
           version: number;
         }[];
+      };
+      fn_enrollment_mark_confirmed: {
+        Args: { p_actor: string; p_enrollment: string };
+        Returns: boolean;
       };
       fn_enrollment_update: {
         Args: {
@@ -9879,9 +9900,10 @@ export type Database = {
       };
       fn_student_signup: {
         Args: {
-          p_agree_db_transfer: boolean;
+          p_agree_db_transfer?: boolean;
           p_agree_marketing: boolean;
           p_agree_privacy: boolean;
+          p_agree_privacy_additional?: boolean;
           p_agree_service: boolean;
           p_birth_date: string;
           p_class_name: string;

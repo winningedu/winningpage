@@ -8,6 +8,7 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { studentSearchQueryOptions } from "@/pages/admin/shared/studentSearch";
 import { SERVICE_PROGRAMS } from "./serviceSettings";
@@ -57,12 +58,15 @@ const withoutActor = (rows: ReturnType<typeof resetPayloads>): UsageRow[] =>
   rows.map(({ updated_by: _actor, ...row }) => row);
 
 export default function StudentUsageAdmin() {
+  const canEdit = useCanEditSection();
   const [term, setTerm] = useState("");
   const [submittedTerm, setSubmittedTerm] = useState("");
   const studentSearch = useQuery(
     studentSearchQueryOptions("serviceCreditAdjust", submittedTerm),
   );
   const students = studentSearch.data?.items ?? [];
+  // 검색어가 비면 쿼리가 꺼져 있어 isPending 이 계속 true 이므로 검색을 누른 뒤에만 본다.
+  const searching = submittedTerm.trim() !== "" && studentSearch.isPending;
   const [selected, setSelected] = useState<string[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const viewedId = searchParams.get("student");
@@ -161,6 +165,10 @@ export default function StudentUsageAdmin() {
         <ActionButton onClick={search}>검색</ActionButton>
       </div>
 
+      {searching && (
+        <AdminDetailSkeleton rows={3} label="학생을 검색하는 중입니다." />
+      )}
+
       {students.length > 0 && (
         <ul className="bg-white p-4 shadow-sm">
           {students.map((student) => (
@@ -248,23 +256,25 @@ export default function StudentUsageAdmin() {
               </div>
             );
           })}
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={save}
-              disabled={busy || dirty.size === 0 || selected.length === 0}
-              className="inline-flex h-9 items-center bg-primary px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {`선택한 ${selected.length}명에게 저장`}
-            </button>
-            <ActionButton
-              variant="light"
-              disabled={busy || selected.length === 0}
-              onClick={() => write(withoutActor(resetPayloads(selected, "")))}
-            >
-              기관 설정으로 되돌리기
-            </ActionButton>
-          </div>
+          {canEdit && (
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={save}
+                disabled={busy || dirty.size === 0 || selected.length === 0}
+                className="inline-flex h-9 items-center bg-primary px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {`선택한 ${selected.length}명에게 저장`}
+              </button>
+              <ActionButton
+                variant="light"
+                disabled={busy || selected.length === 0}
+                onClick={() => write(withoutActor(resetPayloads(selected, "")))}
+              >
+                기관 설정으로 되돌리기
+              </ActionButton>
+            </div>
+          )}
         </div>
       )}
 

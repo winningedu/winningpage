@@ -1,6 +1,7 @@
 // POST /api/admin/knowledge-search 계약 검증. 읽기 POST 라 view 권한이면 된다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { searchPreviewResultSchema } from "../../../shared/knowledge/contract.js";
 import {
   callRoute,
   createAdminFake,
@@ -34,7 +35,9 @@ vi.mock("../../_lib/performance/embeddings.js", () => ({
   }),
 }));
 
-import handler from "./knowledge-search.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/knowledge-search" };
 
 const BODY = {
   knowledgeType: "topic_pattern",
@@ -61,7 +64,7 @@ function setup(
 }
 
 const post = (body: unknown = BODY) =>
-  callRoute(handler, { method: "POST", body });
+  callRoute(route, { method: "POST", body });
 
 beforeEach(() => {
   rpcResult = { data: [], error: null };
@@ -88,6 +91,7 @@ describe("POST /api/admin/knowledge-search", () => {
     expect(r.body).not.toHaveProperty("ok");
     expect(admin.rpcCalls[0]?.name).toBe("match_winning_suhaeng_hybrid");
     expect(kit.embedded).toHaveLength(1);
+    expect(searchPreviewResultSchema.safeParse(r.body).success).toBe(true);
   });
 
   test("vector 모드는 keywordQuery 가 null 이다", async () => {
@@ -140,4 +144,39 @@ describe("POST /api/admin/knowledge-search", () => {
     expect(r.status).toBe(500);
     expect(problemCode(r.body)).toBe("INTERNAL_ERROR");
   });
+
+  test("GET 은 405 METHOD_NOT_ALLOWED 이고 Allow 는 POST 다", async () => {
+    setup();
+    const r = await callRoute(route, { method: "GET" });
+    expect(r.status).toBe(405);
+    expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
+    expect(r.headers.allow).toBe("POST");
+  });
+
+  test.each(["hybrid", "vector"])(
+    "%s 모드의 행이 있는 응답도 계약 스키마를 통과한다",
+    async (mode) => {
+      rpcResult = {
+        data: [
+          {
+            id: "k1",
+            title: "제목",
+            grade: "2",
+            subject: "수학",
+            career_field: "의사",
+            similarity: 0.9,
+            semantic_rank: 1,
+            keyword_rank: null,
+            rrf_score: 0.03,
+          },
+        ],
+        error: null,
+      };
+      setup();
+      const r = await post({ ...BODY, mode });
+      expect(r.status).toBe(200);
+      expect(searchPreviewResultSchema.safeParse(r.body).success).toBe(true);
+      expect((r.body as { items: unknown[] }).items).toHaveLength(1);
+    },
+  );
 });

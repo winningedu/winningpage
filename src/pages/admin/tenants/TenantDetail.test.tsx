@@ -80,6 +80,7 @@ vi.mock("./ServiceSettingsPanel", () => ({
 
 import { ApiError } from "@/lib/http/client";
 import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import TenantDetail from "./TenantDetail";
 import { tenantKeys } from "./tenantQueries";
 
@@ -109,6 +110,7 @@ const ROW = {
 };
 
 beforeEach(() => {
+  canEdit = true;
   db.row = { ...ROW };
   db.loadError = null;
   db.patchError = null;
@@ -123,6 +125,9 @@ function problem(status: number, code: string, detail: string) {
   return new ApiError({ status, code, detail });
 }
 
+// 지금 메뉴의 편집 권한. 기본은 edit 이고, view 시험에서만 끈다.
+let canEdit = true;
+
 function renderDetail(path = "/admin/tenants/tenant-7") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -136,10 +141,12 @@ function renderDetail(path = "/admin/tenants/tenant-7") {
     { initialEntries: [path] },
   );
   render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-      <ConfirmAdminHost />
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+        <ConfirmAdminHost />
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
   return { router, reset };
 }
@@ -583,5 +590,22 @@ describe("TenantDetail 저장하지 않은 변경 보호", () => {
     const dirty = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(dirty);
     expect(dirty.defaultPrevented).toBe(true);
+  });
+});
+
+describe("TenantDetail view 권한", () => {
+  test("view 권한이면 기관 정보 탭에 저장 버튼이 없다", async () => {
+    canEdit = false;
+    renderDetail();
+    await screen.findByDisplayValue("한빛고");
+
+    expect(screen.queryByRole("button", { name: "저장" })).toBeNull();
+  });
+
+  test("edit 권한이면 기관 정보 탭에 저장 버튼이 있다", async () => {
+    renderDetail();
+    await screen.findByDisplayValue("한빛고");
+
+    expect(SAVE()).toBeTruthy();
   });
 });

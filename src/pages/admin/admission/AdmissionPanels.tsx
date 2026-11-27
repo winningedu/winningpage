@@ -6,7 +6,6 @@ import {
 } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,8 +26,22 @@ import {
 } from "@/pages/admin/shared/adminErrors";
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { pad2, triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";
+import {
+  type ActiveYearInput,
+  activeYearSchema,
+  type GuidelinesBulkInput,
+  guidelinesBulkSchema,
+  RESULTS_BULK_MAX_ITEMS,
+  RESULTS_PAGE_SIZE,
+  type ResultsBulkInput,
+  type ResultsRowsQueryInput,
+  resultsBulkSchema,
+  resultsCountSchema,
+  resultsRowsSchema,
+} from "../../../../shared/admission/contract.js";
 import { chunkItemsBySize } from "./chunkItems";
 
 // 대입모집요강 공개 노출 연도 표시, 변경(admissionGuidelines의 ListSummary,
@@ -69,8 +82,6 @@ export function AdmissionListSummary({ rows, onReload }) {
   );
 }
 
-const activeYearSchema = z.object({ year: z.number() });
-
 const activeYearQuery = queryOptions({
   queryKey: ["admin", "admission", "active-year"],
   queryFn: ({ signal }) =>
@@ -86,6 +97,8 @@ function AdmissionActiveYearSummary({ rows }) {
   const notSet =
     yearQuery.error instanceof ApiError && yearQuery.error.code === "NOT_FOUND";
   const [draftYear, setDraftYear] = useState("");
+  // view 권한이면 공개 연도는 보기만 한다(서버가 쓰기를 403 으로 막는다).
+  const canEdit = useCanEditSection();
 
   useEffect(() => {
     if (activeYear !== null) setDraftYear(String(activeYear));
@@ -94,7 +107,9 @@ function AdmissionActiveYearSummary({ rows }) {
   const save = useMutation({
     mutationFn: async (year: number) => {
       await api
-        .put("admin/admission/active-year", { json: { year } })
+        .put("admin/admission/active-year", {
+          json: { year } satisfies ActiveYearInput,
+        })
         .json(activeYearSchema);
       // 낙관적 표시 대신 실제 값을 재조회한다, 이 값이 고객 노출을 좌우하므로
       // 저장이 실제로 반영됐는지 확인한다.
@@ -154,26 +169,28 @@ function AdmissionActiveYearSummary({ rows }) {
           </>
         )}
       </div>
-      <div className="flex items-center gap-2">
-        <Input
-          type="number"
-          value={draftYear}
-          onChange={(e) => setDraftYear(e.target.value)}
-          min={2000}
-          max={2100}
-          disabled={loadingActiveYear || saving}
-          className="h-9 w-24 font-medium"
-          aria-label="새 공개 연도"
-        />
-        <Button
-          size="lg"
-          type="button"
-          onClick={handleChangeYear}
-          disabled={loadingActiveYear || saving}
-        >
-          {saving ? "저장 중…" : "변경"}
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            value={draftYear}
+            onChange={(e) => setDraftYear(e.target.value)}
+            min={2000}
+            max={2100}
+            disabled={loadingActiveYear || saving}
+            className="h-9 w-24 font-medium"
+            aria-label="새 공개 연도"
+          />
+          <Button
+            size="lg"
+            type="button"
+            onClick={handleChangeYear}
+            disabled={loadingActiveYear || saving}
+          >
+            {saving ? "저장 중…" : "변경"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -246,6 +263,8 @@ const BULK_XLSX_RAW_CATEGORY_KEYS = Object.keys(HWP_SECTION_JSON_KEYS);
 const GUIDELINES_APPLY_MAX_BYTES = 3 * 1024 * 1024;
 
 function AdmissionBulkXlsxPanel({ rows, onReload }) {
+  // view 권한이면 엑셀 업로드와 적용을 그리지 않는다. 다운로드는 읽기라 남긴다.
+  const canEdit = useCanEditSection();
   const [exportTruncatedCells, setExportTruncatedCells] = useState<
     ReturnType<typeof exportAdmissionRowsToXlsx>["truncatedCells"]
   >([]);
@@ -263,8 +282,10 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
   const applyChunk = useMutation({
     mutationFn: (items: Record<string, unknown>[]) =>
       api
-        .put("admin/admission/guidelines/bulk", { json: { items } })
-        .json(z.object({ upserted: z.number() })),
+        .put("admin/admission/guidelines/bulk", {
+          json: { items } satisfies GuidelinesBulkInput,
+        })
+        .json(guidelinesBulkSchema),
   });
   const [applying, setApplying] = useState(false);
 
@@ -391,22 +412,26 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
           >
             {`엑셀 다운로드 (전체 ${totalRows}행)`}
           </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            엑셀 업로드
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx"
-            onChange={handleFileChange}
-            className="hidden"
-            aria-label="모집요강 xlsx 파일 선택"
-          />
+          {canEdit && (
+            <>
+              <Button
+                variant="outline"
+                size="lg"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                엑셀 업로드
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx"
+                onChange={handleFileChange}
+                className="hidden"
+                aria-label="모집요강 xlsx 파일 선택"
+              />
+            </>
+          )}
         </div>
       </div>
 
@@ -608,10 +633,10 @@ export function AdmissionResultsListSummary({ onReload }) {
 //       거는 것"이지 id 자체가 아니다.
 // PostgREST 기본 응답 상한과 맞춘 읽기 청크, 다운로드(전체 조회)와
 // existingIdSet 준비(id만 조회) 둘 다 이 크기로 .range() 반복한다.
-const RESULTS_READ_CHUNK = 1000;
+const RESULTS_READ_CHUNK = RESULTS_PAGE_SIZE;
 // insert/upsert 배치 크기. 43k행 전량이 한 번에 바뀌는 시나리오(연도
 // 전체 재적재 등)에서도 요청 하나가 과도하게 커지지 않게 나눈다.
-const RESULTS_APPLY_CHUNK = 500;
+const RESULTS_APPLY_CHUNK = RESULTS_BULK_MAX_ITEMS;
 
 const RESULTS_WARNING_GROUPS = [
   {
@@ -634,16 +659,13 @@ const RESULTS_WARNING_GROUPS = [
   },
 ];
 
-const countSchema = z.object({ total: z.number() });
-const rowsPageSchema = z.object({
-  items: z.array(z.record(z.string(), z.unknown())),
-});
-
 // count는 다운로드 버튼 라벨, 진행률 분모로만 쓰인다.
 const resultsCountQuery = queryOptions({
   queryKey: ["admin", "admission", "results-count"],
   queryFn: ({ signal }) =>
-    api.get("admin/admission/results/count", { signal }).json(countSchema),
+    api
+      .get("admin/admission/results/count", { signal })
+      .json(resultsCountSchema),
 });
 
 // fields all(29컬럼) 또는 id만 전량을 서버 페이지(1000행, offset)로 반복해 읽는다.
@@ -655,14 +677,14 @@ async function readAllResults(
 ) {
   const { total } = await api
     .get("admin/admission/results/count")
-    .json(countSchema);
+    .json(resultsCountSchema);
   const all: Record<string, unknown>[] = [];
   for (let offset = 0; offset < total; offset += RESULTS_READ_CHUNK) {
     const { items } = await api
       .get("admin/admission/results/rows", {
-        searchParams: { offset, fields },
+        searchParams: { offset, fields } satisfies ResultsRowsQueryInput,
       })
-      .json(rowsPageSchema);
+      .json(resultsRowsSchema);
     if (items.length === 0) break;
     all.push(...items);
     onProgress?.({ done: all.length, total });
@@ -671,6 +693,8 @@ async function readAllResults(
 }
 
 function AdmissionResultsBulkXlsxPanel({ onReload }) {
+  // view 권한이면 엑셀 업로드와 적용을 그리지 않는다. 다운로드는 읽기라 남긴다.
+  const canEdit = useCanEditSection();
   const queryClient = useQueryClient();
   const [fetchProgress, setFetchProgress] = useState<{
     done: number;
@@ -712,8 +736,10 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
   const applyChunk = useMutation({
     mutationFn: (items: Record<string, unknown>[]) =>
       api
-        .post("admin/admission/results/bulk", { json: { items } })
-        .json(z.object({ inserted: z.number(), updated: z.number() })),
+        .post("admin/admission/results/bulk", {
+          json: { items } satisfies ResultsBulkInput,
+        })
+        .json(resultsBulkSchema),
   });
 
   const busy = Boolean(fetchProgress || idSetProgress || applying);
@@ -872,25 +898,29 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
               ? `읽는 중… ${fetchProgress.done.toLocaleString()} / ${fetchProgress.total.toLocaleString()}행`
               : `엑셀 다운로드 (전체 ${totalRowCount === null ? "-" : totalRowCount.toLocaleString()}행)`}
           </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={busy}
-          >
-            {idSetProgress
-              ? `업로드 검증 준비 중… ${idSetProgress.done.toLocaleString()} / ${idSetProgress.total.toLocaleString()}행`
-              : "엑셀 업로드"}
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx"
-            onChange={handleFileChange}
-            className="hidden"
-            aria-label="입결정보 xlsx 파일 선택"
-          />
+          {canEdit && (
+            <>
+              <Button
+                variant="outline"
+                size="lg"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={busy}
+              >
+                {idSetProgress
+                  ? `업로드 검증 준비 중… ${idSetProgress.done.toLocaleString()} / ${idSetProgress.total.toLocaleString()}행`
+                  : "엑셀 업로드"}
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx"
+                onChange={handleFileChange}
+                className="hidden"
+                aria-label="입결정보 xlsx 파일 선택"
+              />
+            </>
+          )}
         </div>
       </div>
 

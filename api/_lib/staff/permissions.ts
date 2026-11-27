@@ -1,36 +1,12 @@
 // 관리자 권한 항목(메뉴 키별 level) 저장 규칙. 관리자 개별 권한과 권한 묶음 두 라우트가 같이 쓴다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { VercelResponse } from "@vercel/node";
-import { z } from "zod";
-import { sendError } from "../httpResponse.js";
+import { PROBLEM_CODE } from "../../../shared/http/codes.js";
+import type { PermissionItemsInput } from "../../../shared/staff/detail.js";
+import { ProblemError } from "../hono/problem.js";
+import { VALIDATION_FAILED_MESSAGE } from "../httpResponse.js";
 
-const itemSchema = z.strictObject({
-  resourceKey: z.string().min(1),
-  level: z.enum(["edit", "view", "none"]),
-});
-
-// 옛 화면은 최대 48행이었다. 200 은 메뉴가 늘어도 여유 있는 상한이다.
-export const permissionItemsBody = z.strictObject({
-  items: z
-    .array(itemSchema)
-    .max(200)
-    .superRefine((items, ctx) => {
-      const seen = new Set<string>();
-      items.forEach((item, index) => {
-        if (seen.has(item.resourceKey)) {
-          ctx.addIssue({
-            code: "custom",
-            path: [index, "resourceKey"],
-            message: "같은 메뉴가 두 번 들어 있습니다.",
-          });
-        }
-        seen.add(item.resourceKey);
-      });
-    }),
-});
-
-export type PermissionItem = z.output<typeof itemSchema>;
+type PermissionItem = PermissionItemsInput["items"][number];
 
 /** DB 행(resource_key, level)을 응답 항목으로 바꾼다. */
 export function toItems(
@@ -43,15 +19,14 @@ export function toItems(
 }
 
 /**
- * 항목의 메뉴 키가 모두 admin_resources 에 있어야 한다. 없는 키가 있으면 400 을 보내고 false.
+ * 항목의 메뉴 키가 모두 admin_resources 에 있어야 한다. 없는 키가 있으면 400 VALIDATION_FAILED 를 던진다.
  * FK 오류(23503)에 기대지 않고 쓰기 전에 막아, 지우기만 되고 넣기가 실패하는 일을 줄인다.
  */
 export async function checkResourceKeys(
-  res: VercelResponse,
   admin: SupabaseClient,
   items: PermissionItem[],
-): Promise<boolean> {
-  if (items.length === 0) return true;
+): Promise<void> {
+  if (items.length === 0) return;
   const { data, error } = await admin
     .from("admin_resources")
     .select("key")
@@ -71,16 +46,13 @@ export async function checkResourceKeys(
           },
         ],
   );
-  if (errors.length === 0) return true;
-  sendError(
-    res,
-    "problem",
+  if (errors.length === 0) return;
+  throw new ProblemError(
     400,
-    "요청 값이 올바르지 않아요.",
-    "VALIDATION_FAILED",
+    VALIDATION_FAILED_MESSAGE,
+    PROBLEM_CODE.VALIDATION_FAILED,
     { errors },
   );
-  return false;
 }
 
 /**

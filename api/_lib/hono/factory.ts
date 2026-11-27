@@ -50,8 +50,8 @@ export type UserEnv = {
   };
 };
 
-// 끝 슬래시는 dispatch 처럼 같은 라우트로 본다.
-const defaultAppOptions = { strict: false };
+// 끝 슬래시 주소(/x/)는 /x 와 다른 경로다. 어떤 라우트와도 맞지 않아 problem 404 가 된다(405 도 아니다).
+const defaultAppOptions = { strict: true };
 
 export const baseFactory = createFactory<BaseEnv>({ defaultAppOptions });
 export const adminFactory = createFactory<AdminEnv>({ defaultAppOptions });

@@ -4,12 +4,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
 import { sendError } from "../httpResponse.js";
+import type { AlimtalkSendOutcome } from "../messaging/alimtalkSend.js";
 import { type ConsoleAuditCtx, writeConsoleAuditLog } from "./audit.js";
 import {
   generateTempPassword,
   hashTempPassword,
   RpcError,
   readIssueDedupeKey,
+  sendTeacherAccountNotice,
   sendTeacherDbError,
   TEACHERS_RESOURCE_KEY,
 } from "./teacherAccounts.js";
@@ -114,16 +116,17 @@ export type ReissueResult =
         | "send_not_failed"
         | "busy";
     }
-  | { status: "reissued"; tempPassword: string };
+  | { status: "reissued"; tempPassword: string; send: AlimtalkSendOutcome };
 
 // 교사 계정 알림톡 발송을 연결했는지(개발팀 결정 16). 연결하기 전에는 발송 기록이 없으므로 비밀번호를
-// 아직 정하지 않은 교사면 재발송을 허용하고, 연결한 뒤에는 마지막 발송이 실패일 때만 허용한다.
-// 발송을 연결하는 변경이 이 값을 true 로 바꾼다.
-const ISSUE_SEND_LOG_WIRED = false;
+// 아직 정하지 않은 교사면 재발송을 허용하고, 연결한 뒤에는 마지막 발송이 실패이거나 발송 기록이 없을 때 허용한다.
+// 발급과 재발급 뒤 계정 안내(sendTeacherAccountNotice)를 보내므로 연결된 상태다.
+const ISSUE_SEND_LOG_WIRED = true;
 
 /**
  * 비밀번호 설정 전 계정의 임시 비밀번호를 다시 만든다(사 #148, 결정 16). 알림톡 발송을 연결하기 전에는
- * 비밀번호 미설정이면 허용하고, 연결한 뒤에는 마지막 발송이 실패한 경우에만 허용한다.
+ * 비밀번호 미설정이면 허용하고, 연결한 뒤에는 마지막 발송이 실패했거나 발송 기록이 없을 때 허용한다.
+ * 기록이 없는 경우는 연결 전에 발급한 계정과 기록을 남기기 전에 실패한 발송이다(2026-11-27 결정).
  * 한 요청만 들어오도록 fn_teacher_reissue_claim 을 먼저 잡고 마지막에 놓는다(다른 요청은 busy).
  * 순서: 새 해시 저장(DB) -> 감사 로그 -> Auth 비밀번호 교체. Auth 가 바뀌기 전까지 옛 임시 비밀번호가 남으므로
  * 실패(AuthSyncError)하면 같은 요청을 다시 보낸다. 발송 상태는 alimtalk_send_logs 의 열쇠(teacherIssue:교사id:)로 읽는다.
@@ -159,7 +162,8 @@ export async function reissueTeacherAccount(
       .order("id", { ascending: false })
       .limit(1);
     if (logError) throw new RpcError("alimtalk log read", logError.code);
-    if ((logs as { status: string }[] | null)?.[0]?.status !== "failed") {
+    const lastStatus = (logs as { status: string }[] | null)?.[0]?.status;
+    if (lastStatus !== undefined && lastStatus !== "failed") {
       return { status: "send_not_failed" };
     }
   }
@@ -187,14 +191,12 @@ export async function reissueTeacherAccount(
     if (attachError)
       throw new RpcError("fn_teacher_attach_account", attachError.code);
 
+    const sendDedupeKey = await readIssueDedupeKey(admin, teacherId);
     await writeConsoleAuditLog(ctx, {
       action: "account_reissue",
       resourceKey: TEACHERS_RESOURCE_KEY,
       targetId: teacherId,
-      meta: {
-        loginId: teacher.login_id,
-        sendDedupeKey: await readIssueDedupeKey(admin, teacherId),
-      },
+      meta: { loginId: teacher.login_id, sendDedupeKey },
     });
 
     const { error: authError } = await admin.auth.admin.updateUserById(
@@ -202,7 +204,14 @@ export async function reissueTeacherAccount(
       { password: tempPassword },
     );
     if (authError) throw new AuthSyncError("password");
-    return { status: "reissued", tempPassword };
+    // 새 임시 비밀번호가 Auth 에 들어간 뒤에 보낸다. 실패해도 재발급은 끝난 것이고 결과로만 알린다.
+    const send = await sendTeacherAccountNotice(
+      admin,
+      teacherId,
+      tempPassword,
+      sendDedupeKey,
+    );
+    return { status: "reissued", tempPassword, send };
   } finally {
     // 성공이든 실패든 놓는다. 실패하면 같은 요청을 바로 다시 보낼 수 있다(놓지 못해도 2분 뒤 만료).
     const { error: releaseError } = await admin.rpc(

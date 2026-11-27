@@ -1,9 +1,10 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SiteConfig, SiteKey } from "@/config/sites";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SITES, type SiteConfig, type SiteKey } from "@/config/sites";
 import type { FooterOperatorImage } from "@/hooks/useFooterOperatorImage";
+import { trackEvent } from "@/lib/analytics";
 import SiteFooter from "./SiteFooter";
 
 // 두 사이트가 같은 푸터를 쓴다. 사이트 값은 sites.ts 정본을 그대로 읽는다.
@@ -16,6 +17,8 @@ vi.mock("@/config/site", async () => {
     }),
   };
 });
+
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 
 const operatorImage = vi.hoisted(() => ({
   value: null as FooterOperatorImage | null,
@@ -36,6 +39,14 @@ function renderFooter() {
     </MemoryRouter>,
   );
 }
+
+const SOCIAL_LABELS = [
+  "카카오톡 채널",
+  "네이버 블로그",
+  "네이버 클립",
+  "유튜브",
+  "인스타그램",
+];
 
 // 시안(운영위탁 줄 세 개)과 글자 그대로 같아야 한다.
 const COMPANY_LINES = [
@@ -200,21 +211,252 @@ describe("SiteFooter - 위닝", () => {
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 
-  it("옛 푸터의 메뉴 컬럼과 소셜 아이콘은 없다", () => {
+  it("옛 푸터의 메뉴 컬럼은 없다", () => {
     renderFooter();
     const footer = screen.getByRole("contentinfo");
 
     expect(within(footer).queryByRole("navigation")).not.toBeInTheDocument();
-    for (const name of [
+  });
+});
+
+describe("SiteFooter - 위닝 SNS 아이콘", () => {
+  beforeEach(() => {
+    siteState.key = "winning";
+  });
+
+  it("카카오, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램 순서로 새 탭 링크를 보인다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+    const links = within(footer)
+      .getAllByRole("link")
+      .filter((link) =>
+        SOCIAL_LABELS.includes(link.getAttribute("aria-label") ?? ""),
+      );
+
+    // 모바일(로고 아래)과 데스크톱(오른쪽) 자리에 한 벌씩, 화면 크기에 따라 하나만 보인다.
+    expect(links.map((link) => link.getAttribute("aria-label"))).toEqual([
+      ...SOCIAL_LABELS,
+      ...SOCIAL_LABELS,
+    ]);
+    expect(links.slice(0, 5).map((link) => link.getAttribute("href"))).toEqual([
+      "https://pf.kakao.com/_EfjwX",
+      "https://blog.naver.com/winningedu",
+      "https://clip.naver.com/@winningedu",
+      "https://www.youtube.com/@winningedu-100",
+      "https://www.instagram.com/winningedu.official/",
+    ]);
+    for (const link of links) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+      expect(link.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    }
+  });
+});
+
+describe("SiteFooter - 위닝 아이콘 배지", () => {
+  beforeEach(() => {
+    siteState.key = "winning";
+  });
+
+  it("네이버 블로그 배지는 N이 아니라 소문자 b 마크를 그린다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    for (const link of within(footer).getAllByRole("link", {
+      name: "네이버 블로그",
+    })) {
+      expect(link.querySelector("svg")).toHaveAttribute(
+        "data-icon",
+        "naver-blog",
+      );
+    }
+  });
+
+  it("배지는 원이 아니라 둥근 사각형이고 시안 브랜드 색을 쓴다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    for (const [label, color] of [
+      ["카카오톡 채널", "bg-[#fee500]"],
+      ["네이버 블로그", "bg-[#03c75a]"],
+      ["네이버 클립", "bg-[#6f4dce]"],
+      ["유튜브", "bg-[#ff0000]"],
+    ] as const) {
+      const badge = within(footer).getAllByRole("link", { name: label })[0];
+      expect(badge).toHaveClass("size-[1.875rem]", "rounded-lg", color);
+      expect(badge).not.toHaveClass("rounded-full");
+    }
+    const instagram = within(footer).getAllByRole("link", {
+      name: "인스타그램",
+    })[0];
+    expect(instagram).toHaveClass("size-[1.875rem]", "rounded-lg");
+    expect(instagram).not.toHaveClass("rounded-full");
+    expect(instagram?.style.background).toContain("linear-gradient");
+  });
+});
+
+describe("SiteFooter - 위닝 데스크톱 로고 줄", () => {
+  beforeEach(() => {
+    siteState.key = "winning";
+  });
+
+  it("개인정보처리방침, 이용약관, 아이콘 순서로 로고와 같은 줄 오른쪽에 놓고 회사 정보는 아래 줄이다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+    const privacy = within(footer).getByRole("link", {
+      name: "개인정보처리방침",
+    });
+    const legal = privacy.parentElement as HTMLElement;
+    const desktopIcons = within(footer).getAllByRole("link", {
+      name: "네이버 블로그",
+    })[1]?.parentElement as HTMLElement;
+    const logoRow = legal.parentElement as HTMLElement;
+
+    // 격자(lg)에서 로고, 링크, 아이콘이 첫 줄에 차례로 놓인다.
+    expect(logoRow).toHaveClass("lg:grid");
+    expect(legal).toHaveClass("lg:col-start-2", "lg:row-start-1");
+    expect(desktopIcons).toHaveClass(
+      "hidden",
+      "lg:flex",
+      "lg:col-start-3",
+      "lg:row-start-1",
+    );
+    expect(desktopIcons.parentElement).toBe(logoRow);
+    expect(
+      legal.compareDocumentPosition(desktopIcons) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const logo = within(footer).getByRole("img", { name: "위닝에듀" });
+    expect(logo.parentElement?.parentElement).toBe(logoRow);
+    expect(logo.parentElement).toHaveClass("lg:col-start-1", "lg:row-start-1");
+    const infoBlock = within(footer).getByText(
+      (_, element) =>
+        element?.tagName === "P" && element.textContent === WINNING_LINES[0],
+    ).parentElement as HTMLElement;
+    expect(infoBlock.parentElement?.parentElement).toBe(logoRow);
+    expect(infoBlock.parentElement).toHaveClass(
+      "lg:col-span-3",
+      "lg:row-start-2",
+    );
+  });
+
+  it("모바일은 로고 아래 아이콘 줄이 있고 약관 링크는 회사 정보 뒤에 온다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+    const mobileIcons = within(footer).getAllByRole("link", {
+      name: "네이버 블로그",
+    })[0]?.parentElement as HTMLElement;
+    const privacy = within(footer).getByRole("link", {
+      name: "개인정보처리방침",
+    });
+
+    expect(mobileIcons).toHaveClass("flex", "lg:hidden");
+    expect(
+      mobileIcons.compareDocumentPosition(privacy) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      within(footer)
+        .getByRole("img", { name: "위닝에듀" })
+        .compareDocumentPosition(mobileIcons) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+});
+
+describe("SiteFooter - 스쿨멘토 SNS 아이콘", () => {
+  it("카카오 채널 주소가 있어도 SNS 아이콘을 그리지 않고 링크 묶음은 그대로다", () => {
+    siteState.key = "schoolmentor";
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    for (const label of SOCIAL_LABELS) {
+      expect(
+        footer.querySelector(`[aria-label="${label}"]`),
+      ).not.toBeInTheDocument();
+    }
+    expect(within(footer).getAllByRole("link")).toHaveLength(2);
+  });
+
+  it("약관 링크 묶음의 구조와 클래스는 기존 그대로다", () => {
+    siteState.key = "schoolmentor";
+    renderFooter();
+    const legal = screen.getByRole("link", { name: "개인정보처리방침" })
+      .parentElement as HTMLElement;
+
+    expect(legal.className).toBe(
+      "flex shrink-0 gap-[1.6625rem] text-[0.8125rem] leading-5 font-semibold text-footer-b2b-link lg:pt-[0.4375rem]",
+    );
+    expect(legal.parentElement).toHaveClass(
+      "lg:flex-row",
+      "lg:justify-between",
+    );
+    expect(legal.previousElementSibling).toHaveClass("min-w-0");
+  });
+});
+
+describe("SiteFooter - 위닝 SNS 주소가 없는 아이콘", () => {
+  const naverClipUrl = SITES.winning.company.naverClipUrl as string;
+
+  beforeEach(() => {
+    siteState.key = "winning";
+  });
+  afterEach(() => {
+    SITES.winning.company.naverClipUrl = naverClipUrl;
+  });
+
+  it("주소가 없는 링크는 그리지 않고 나머지 순서는 그대로다", () => {
+    Reflect.deleteProperty(SITES.winning.company, "naverClipUrl");
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    expect(
+      footer.querySelector('[aria-label="네이버 클립"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(footer)
+        .getAllByRole("link")
+        .map((link) => link.getAttribute("aria-label"))
+        .filter((label) => SOCIAL_LABELS.includes(label ?? "")),
+    ).toEqual([
       "카카오톡 채널",
       "네이버 블로그",
       "유튜브",
       "인스타그램",
-    ]) {
-      expect(
-        within(footer).queryByRole("link", { name }),
-      ).not.toBeInTheDocument();
-    }
+      "카카오톡 채널",
+      "네이버 블로그",
+      "유튜브",
+      "인스타그램",
+    ]);
+  });
+});
+
+describe("SiteFooter - 위닝 카카오 문의 클릭 이벤트", () => {
+  beforeEach(() => {
+    siteState.key = "winning";
+    vi.mocked(trackEvent).mockClear();
+  });
+
+  it("카카오톡 채널 링크를 누르면 kakao_inquiry_click을 footer로 보낸다", () => {
+    renderFooter();
+
+    fireEvent.click(
+      screen.getAllByRole("link", { name: "카카오톡 채널" })[0] as HTMLElement,
+    );
+
+    expect(trackEvent).toHaveBeenCalledWith("kakao_inquiry_click", {
+      location: "footer",
+    });
+  });
+
+  it("다른 소셜 링크는 이벤트를 보내지 않는다", () => {
+    renderFooter();
+
+    fireEvent.click(
+      screen.getAllByRole("link", { name: "유튜브" })[0] as HTMLElement,
+    );
+
+    expect(trackEvent).not.toHaveBeenCalled();
   });
 });
 

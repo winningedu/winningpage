@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import SelfevalSessionsAdmin from "./SelfevalSessionsAdmin";
 
 export const LIST_PATH = "admin/selfeval-sessions";
@@ -24,7 +25,7 @@ export const ITEM = {
   ledgerReversedAt: null,
   terminal: null,
   progress: [],
-  lastActivityAt: null,
+  lastActivityAt: "2026-11-24T00:00:00.000Z",
   completedAt: null,
 };
 
@@ -96,7 +97,10 @@ export function archivedDetail() {
   });
 }
 
-export function renderSelfeval(initialPath = "/admin/selfevalSessions") {
+export function renderSelfeval(
+  initialPath = "/admin/selfevalSessions",
+  canEdit = true,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -110,9 +114,11 @@ export function renderSelfeval(initialPath = "/admin/selfevalSessions") {
     { initialEntries: [initialPath] },
   );
   const view = render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
   return { router, client, ...view };
 }

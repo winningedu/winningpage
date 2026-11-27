@@ -5,6 +5,7 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import type { Mock } from "vitest";
 import { Toaster } from "@/components/ui/toast";
 import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import MembersAdmin from "./MembersAdmin";
 
 export interface HttpMock {
@@ -37,7 +38,7 @@ export const CONFIG = {
   columns: [],
 };
 
-export function renderMembers(url = "/admin/members") {
+export function renderMembers(url = "/admin/members", canEdit = true) {
   const router = createMemoryRouter(
     [{ path: "/admin/members/*", element: <MembersAdmin config={CONFIG} /> }],
     { initialEntries: [url] },
@@ -46,11 +47,13 @@ export function renderMembers(url = "/admin/members") {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-      <Toaster />
-      <ConfirmAdminHost />
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+        <Toaster />
+        <ConfirmAdminHost />
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
   return { router, queryClient };
 }

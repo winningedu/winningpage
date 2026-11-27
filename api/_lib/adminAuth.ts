@@ -47,6 +47,13 @@ export function adminProblemCode(status: number): string | undefined {
   return undefined;
 }
 
+/** resolveAdmin 단계별 걸린 시간(ms). 돈 단계만 채운다. 로그용이라 판정에는 쓰지 않는다. */
+export interface AdminAuthTimings {
+  getUser?: number;
+  role?: number;
+  qa?: number;
+}
+
 export type AdminResolution =
   | { ok: true; userId: string; email: string | null }
   | { ok: false; status: number; detail: string; code?: string };
@@ -56,10 +63,13 @@ async function rejectQaWrite(
   supabaseAdmin: SupabaseClient,
   userId: string,
   method: string | undefined,
+  timings?: AdminAuthTimings,
 ): Promise<AdminResolution | null> {
-  if (isReadMethod(method) || !(await isQaAccount(supabaseAdmin, userId))) {
-    return null;
-  }
+  if (isReadMethod(method)) return null;
+  const qaStart = performance.now();
+  const isQa = await isQaAccount(supabaseAdmin, userId);
+  if (timings) timings.qa = performance.now() - qaStart;
+  if (!isQa) return null;
   return {
     ok: false,
     status: 403,
@@ -77,6 +87,7 @@ async function rejectQaWrite(
 export async function resolveAdmin(
   supabaseAdmin: SupabaseClient,
   req: { headers: Record<string, string>; method?: string | undefined },
+  timings?: AdminAuthTimings,
 ): Promise<AdminResolution> {
   const token = getBearerToken(req);
 
@@ -84,8 +95,10 @@ export async function resolveAdmin(
     return { ok: false, status: 401, detail: "로그인이 필요합니다." };
   }
 
+  const getUserStart = performance.now();
   const { data: userData, error: userError } =
     await supabaseAdmin.auth.getUser(token);
+  if (timings) timings.getUser = performance.now() - getUserStart;
 
   if (userError || !userData?.user?.id) {
     return { ok: false, status: 401, detail: "로그인이 필요합니다." };
@@ -94,11 +107,13 @@ export async function resolveAdmin(
   const userId = userData.user.id;
   const email = userData.user.email ?? null;
 
+  const roleStart = performance.now();
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("role")
     .eq("id", userId)
     .maybeSingle();
+  if (timings) timings.role = performance.now() - roleStart;
 
   // 조회 자체가 실패한 것을 "권한 없음"으로 뭉개면 원인이 안 보인다.
   // 권한 거부(403)와 서버 오류(500)를 구분해서 돌려준다.
@@ -115,7 +130,7 @@ export async function resolveAdmin(
   }
 
   return (
-    (await rejectQaWrite(supabaseAdmin, userId, req.method)) ?? {
+    (await rejectQaWrite(supabaseAdmin, userId, req.method, timings)) ?? {
       ok: true,
       userId,
       email,

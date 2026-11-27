@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -16,6 +15,7 @@ import {
   buildSummaryRows,
   type RevenueRowLike,
 } from "@/lib/revenueDashboard";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 
 // ---------------------------------------------------------------------------
 // 매출 총괄 대시보드 (QA 274) — 파일18 「위닝에듀 정산관리」의 정산 총괄표.
@@ -205,7 +205,7 @@ export default function RevenueDashboard({
 
           <div className="bg-white px-5 py-4 shadow-sm">
             <div className="text-sm font-semibold">항목별 집계 요약</div>
-            <Table className="mt-3">
+            <AdminTableFrame label="항목별 집계 요약" className="mt-3">
               <TableHeader>
                 <TableRow className="text-left hover:bg-transparent">
                   <TableHead
@@ -243,7 +243,7 @@ export default function RevenueDashboard({
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </AdminTableFrame>
           </div>
         </div>
       </div>

@@ -98,7 +98,6 @@ const VALIDATION_FIELD: Record<string, string> = {
   grade_required: "grade",
   terms_service_required: "agreeService",
   privacy_required: "agreePrivacy",
-  db_transfer_required: "agreeDbTransfer",
   invalid_gender: "gender",
   gender_required: "gender",
   birth_date_required: "birthDate",

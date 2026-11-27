@@ -2,19 +2,10 @@
 // 총/사용은 fn_program_access_grants_summary(부여 원장 + 소비 원장 재계산)가 정본이다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ServiceCreditRow } from "../../../shared/service-credit/contract.js";
 import { SERVICE_CREDIT_PROGRAMS } from "./programs.js";
 
-export type ServiceCreditRow = {
-  programKey: string;
-  label: string;
-  periodBased: boolean;
-  liveCount: number;
-  /** null = 회차 무제한 이용권(기간형). 이용권이 없으면 0. */
-  quotaTotal: number | null;
-  quotaUsed: number;
-  quotaRemaining: number | null;
-  expiresAt: string | null;
-};
+export type { ServiceCreditRow };
 
 type SummaryRpcRow = {
   live_count: number;

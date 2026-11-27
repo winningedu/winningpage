@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import TelemetryAdmin from "./TelemetryAdmin";
 
 export const totals = {
@@ -37,7 +38,10 @@ export function callsBody(over: Record<string, unknown> = {}) {
   return { items: [], total: 0, page: 1, pageSize: 20, ...over };
 }
 
-export function renderTelemetry(initialPath = "/admin/telemetry") {
+export function renderTelemetry(
+  initialPath = "/admin/telemetry",
+  canEdit = true,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -51,9 +55,11 @@ export function renderTelemetry(initialPath = "/admin/telemetry") {
     { initialEntries: [initialPath] },
   );
   const view = render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
   /** 지금 주소의 검색 파라미터. */
   const search = () =>

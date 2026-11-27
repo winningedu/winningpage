@@ -5,6 +5,7 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import {
   errorMessage,
   type PricingResponse,
@@ -26,6 +27,7 @@ function rowLabel(index: number, text: string) {
 }
 
 export default function PricingTab({ initial }: { initial: PricingResponse }) {
+  const canEdit = useCanEditSection();
   const [rows, setRows] = useState<PricingRow[]>(() =>
     initial.pricing && Object.keys(initial.pricing).length > 0
       ? fromPricing(initial.pricing)
@@ -84,6 +86,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               <Field label={rowLabel(index, "모델명")}>
                 <TextInput
                   value={row.model}
+                  readOnly={!canEdit}
                   onChange={(model) => patch(index, { model })}
                   placeholder={MODEL_PLACEHOLDERS[index] ?? ""}
                 />
@@ -93,6 +96,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               <Field label={rowLabel(index, "입력")}>
                 <TextInput
                   value={row.input}
+                  readOnly={!canEdit}
                   onChange={(input) => patch(index, { input })}
                 />
               </Field>
@@ -101,6 +105,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               <Field label={rowLabel(index, "캐시 입력")}>
                 <TextInput
                   value={row.cachedInput}
+                  readOnly={!canEdit}
                   onChange={(cachedInput) => patch(index, { cachedInput })}
                 />
               </Field>
@@ -109,20 +114,23 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               <Field label={rowLabel(index, "출력")}>
                 <TextInput
                   value={row.output}
+                  readOnly={!canEdit}
                   onChange={(output) => patch(index, { output })}
                 />
               </Field>
             </div>
-            <ActionButton
-              variant="light"
-              aria-label={`삭제 ${index + 1}번째 행`}
-              onClick={() => {
-                setSaved(false);
-                setRows((prev) => prev.filter((_, i) => i !== index));
-              }}
-            >
-              삭제
-            </ActionButton>
+            {canEdit && (
+              <ActionButton
+                variant="light"
+                aria-label={`삭제 ${index + 1}번째 행`}
+                onClick={() => {
+                  setSaved(false);
+                  setRows((prev) => prev.filter((_, i) => i !== index));
+                }}
+              >
+                삭제
+              </ActionButton>
+            )}
           </div>
         ))}
       </div>
@@ -144,17 +152,19 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
         </div>
       )}
 
-      <div className="mt-4 flex gap-2">
-        <ActionButton
-          variant="light"
-          onClick={() => setRows((prev) => [...prev, emptyPricingRow()])}
-        >
-          행 추가
-        </ActionButton>
-        <ActionButton onClick={save} disabled={busy}>
-          {busy ? "저장 중..." : "저장"}
-        </ActionButton>
-      </div>
+      {canEdit && (
+        <div className="mt-4 flex gap-2">
+          <ActionButton
+            variant="light"
+            onClick={() => setRows((prev) => [...prev, emptyPricingRow()])}
+          >
+            행 추가
+          </ActionButton>
+          <ActionButton onClick={save} disabled={busy}>
+            {busy ? "저장 중..." : "저장"}
+          </ActionButton>
+        </div>
+      )}
     </div>
   );
 }

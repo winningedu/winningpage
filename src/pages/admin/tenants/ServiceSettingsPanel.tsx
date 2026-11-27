@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { ActionButton } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { fetchServiceSettings, putServiceSetting } from "./api";
 import {
@@ -97,6 +98,8 @@ function ServiceSettingsForm({
   settings,
   defaults,
 }: ServiceSettingsFormProps) {
+  // view 권한이면 저장 버튼을 감추고 입력칸도 읽기 전용으로 둔다.
+  const canEdit = useCanEditSection();
   const [rows, setRows] = useState<ServiceRowForm[]>(() =>
     buildServiceRows(settings),
   );
@@ -176,6 +179,7 @@ function ServiceSettingsForm({
                 type="checkbox"
                 aria-label={`${row.label} 제공`}
                 checked={row.provided}
+                disabled={!canEdit}
                 onChange={(e) => toggle(row, e.target.checked)}
               />
               {row.label}
@@ -197,6 +201,7 @@ function ServiceSettingsForm({
                   onChange={(e) =>
                     patchRow(row.programKey, { startsOn: e.target.value })
                   }
+                  readOnly={!canEdit}
                   className={INPUT_CLASS}
                 />
                 <Input
@@ -206,6 +211,7 @@ function ServiceSettingsForm({
                   onChange={(e) =>
                     patchRow(row.programKey, { endsOn: e.target.value })
                   }
+                  readOnly={!canEdit}
                   className={INPUT_CLASS}
                 />
                 <Input
@@ -216,6 +222,7 @@ function ServiceSettingsForm({
                   onChange={(e) =>
                     patchRow(row.programKey, { monthlyLimit: e.target.value })
                   }
+                  readOnly={!canEdit}
                   className={INPUT_CLASS}
                 />
                 <Input
@@ -227,6 +234,7 @@ function ServiceSettingsForm({
                   onChange={(e) =>
                     patchRow(row.programKey, { termLimit: e.target.value })
                   }
+                  readOnly={!canEdit}
                   className={INPUT_CLASS}
                 />
               </div>
@@ -236,19 +244,21 @@ function ServiceSettingsForm({
                 {TERM_MONTHS_NOTICE}
               </p>
             )}
-            <div className="mt-3 flex items-center gap-3">
-              <ActionButton
-                onClick={() => save(row)}
-                disabled={saving !== null}
-              >
-                {row.label} 저장
-              </ActionButton>
-              {messages[row.programKey] && (
-                <span className="text-sm font-medium text-gray-700">
-                  {messages[row.programKey]}
-                </span>
-              )}
-            </div>
+            {canEdit && (
+              <div className="mt-3 flex items-center gap-3">
+                <ActionButton
+                  onClick={() => save(row)}
+                  disabled={saving !== null}
+                >
+                  {row.label} 저장
+                </ActionButton>
+                {messages[row.programKey] && (
+                  <span className="text-sm font-medium text-gray-700">
+                    {messages[row.programKey]}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         );
       })}

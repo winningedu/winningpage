@@ -2,8 +2,12 @@
 // 최고 관리자(데이터 술어)를 모두 통과한 사람만 읽고, 교사 이름, 로그인 아이디, 가린 전화번호,
 // 가린 학생 이름을 붙여 한 줄씩 돌려준다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  accessLogCreatedSchema,
+  accessLogPageSchema,
+} from "../../../shared/access-log/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
   createFakeAdmin,
   createKitState,
@@ -17,11 +21,12 @@ const kit = vi.hoisted(() => ({
 }));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => fakeAdminWithInsertReturning(),
 }));
 
-import handler from "./access-logs.js";
+import { app } from "../app.js";
 
 // 공용 가짜의 insert 는 await 만 되므로, insert().select().single() 체인을 얹는다.
 function fakeAdminWithInsertReturning() {
@@ -55,48 +60,23 @@ function fakeAdminWithInsertReturning() {
   };
 }
 
-interface Captured {
-  status: number;
-  body: unknown;
-  headers: Record<string, string>;
-}
+const route = { app, path: "/api/admin/access-logs" };
 
-// problem 바디는 res.end 로 나가므로 json 과 end 를 모두 받는 가짜 res 로 부른다.
-async function call(
+type Captured = Awaited<ReturnType<typeof callRoute>>;
+
+// 토큰을 뺀 요청은 Authorization 을 빈 값으로 보낸다.
+const call = (
   method: string,
   body: unknown,
   query: Record<string, string> = {},
   withToken = true,
-): Promise<Captured> {
-  const out: Captured = { status: 0, body: undefined, headers: {} };
-  const headers: Record<string, string> = withToken
-    ? { authorization: "Bearer token" }
-    : {};
-  const res = {
-    req: { headers },
-    setHeader: (key: string, value: string) => {
-      out.headers[key] = value;
-      return res;
-    },
-    status(code: number) {
-      out.status = code;
-      return res;
-    },
-    json(payload: unknown) {
-      out.body = payload;
-      return res;
-    },
-    end(payload: string) {
-      out.body = JSON.parse(payload);
-      return res;
-    },
-  };
-  await handler(
-    { method, headers, query, body } as unknown as VercelRequest,
-    res as unknown as VercelResponse,
-  );
-  return out;
-}
+): Promise<Captured> =>
+  callRoute(route, {
+    method,
+    body,
+    query,
+    ...(withToken ? {} : { headers: { authorization: "" } }),
+  });
 
 const get = (query: Record<string, string> = {}, method = "GET") =>
   call(method, undefined, query);
@@ -224,17 +204,19 @@ describe("GET /api/admin/access-logs", () => {
     });
   });
 
-  test("GET 과 POST 가 아닌 메서드는 405 METHOD_NOT_ALLOWED 이다", async () => {
+  test("GET 과 POST 가 아닌 메서드는 405 METHOD_NOT_ALLOWED 이고 Allow 가 GET, HEAD, POST 다", async () => {
     const r = await get({}, "DELETE");
 
     expectProblem(r, 405, "METHOD_NOT_ALLOWED");
+    expect(r.headers.allow).toBe("GET, HEAD, POST");
   });
 
   test("교사 이름, 로그인 아이디, 가린 전화번호와 가린 학생 이름을 한 줄로 붙인다", async () => {
     const r = await get();
 
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(accessLogPageSchema.safeParse(r.body).success).toBe(true);
     const body = r.body as Body;
     expect(Object.keys(body).sort()).toEqual(["hasNext", "items", "page"]);
     expect(body.items).toEqual([
@@ -430,10 +412,12 @@ describe("POST /api/admin/access-logs", () => {
     const r = await post(VALID_POST);
 
     expect(r.status).toBe(201);
+    expect(r.headers["cache-control"]).toBe("no-store");
     expect(r.body).toEqual({
       id: "log-new",
       createdAt: "2026-11-24T01:02:03Z",
     });
+    expect(accessLogCreatedSchema.safeParse(r.body).success).toBe(true);
     expect(kit.state.auth.getUserById).toHaveBeenCalledWith("hq-1");
     expect(kit.state.inserts).toEqual([
       {
@@ -503,6 +487,20 @@ describe("POST /api/admin/access-logs", () => {
     const r = await post({ ...VALID_POST, resourceKey: undefined });
 
     expectProblem(r, 403, "FORBIDDEN");
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
+  test("JSON 이 아닌 본문은 권한 키를 알 수 없어 403 이고 적재하지 않는다", async () => {
+    const response = await app.request("/api/admin/access-logs", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer admin-token",
+        "content-type": "application/json",
+      },
+      body: "{",
+    });
+
+    expect(response.status).toBe(403);
     expect(kit.state.inserts).toHaveLength(0);
   });
 

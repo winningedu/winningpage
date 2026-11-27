@@ -26,7 +26,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-import handler from "./service-credit-adjust.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/service-credit-adjust" };
 
 const PID = "223e4567-e89b-42d3-a456-426614174000";
 
@@ -106,7 +108,7 @@ describe("POST /api/admin/service-credit-adjust", () => {
     const admin = setup();
     const r = await post();
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
     const body = r.body as { credit: Record<string, unknown> };
     expect(Object.keys(body)).toEqual(["credit"]);
     expect(body.credit).toMatchObject({ programKey: "growth", quotaTotal: 10 });
@@ -202,6 +204,15 @@ describe("POST /api/admin/service-credit-adjust", () => {
     expect(admin.queries.some((q) => q.table === "program_access_grants")).toBe(
       false,
     );
+    expect(admin.rpcCalls).toHaveLength(0);
+  });
+
+  test("GET 은 Allow 를 실은 405 이고 아무것도 쓰지 않는다", async () => {
+    const admin = setup();
+    const r = await callRoute(handler, { method: "GET" });
+    expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe("POST");
+    expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
     expect(admin.rpcCalls).toHaveLength(0);
   });
 

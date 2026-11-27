@@ -1,4 +1,5 @@
-// POST /api/admin/service-credit-adjust { profileId, programKey, delta, months?, reason }
+// /api/admin/service-credit-adjust 의 POST. 관리자 앱(api/_routes/admin/app.ts)이 .route("/service-credit-adjust", serviceCreditAdjust) 로 붙인다.
+// POST { profileId, programKey, delta, months?, reason }
 // Authorization: Bearer <supabase access token>   (관리자)
 //
 // 고객별 서비스 이용횟수를 수기로 추가(delta > 0)하거나 차감(delta < 0)한다.
@@ -9,7 +10,7 @@
 //
 // 권한: 메뉴 serviceCreditAdjust(POST edit).
 //
-// 응답 200 { credit: ServiceCreditRow }
+// 응답 200 { credit: ServiceCreditRow } (shared/service-credit/contract.ts)
 // 오류(problem): 400 VALIDATION_FAILED / INVALID_BODY / NOT_STUDENT, 404 PROFILE_NOT_FOUND,
 //   409 NO_ENTITLEMENT / UNLIMITED_SESSIONS / INSUFFICIENT_CREDIT,
 //   401/403 인증, 405 METHOD_NOT_ALLOWED, 500
@@ -17,9 +18,15 @@
 // 본문은 zod 가 모양을 보고 모르는 키를 버린다. 값 규칙은 validateAdjustBody 가 맡고 insert 와 rpc 인자는
 // buildAdjustGrantRow, buildDeductArgs 의 키만 쓴다. 멱등 키는 아직 없다(후속 PR). 판단과 조립은 api/_lib/service-credit/.
 
-import { z } from "zod";
-import { defineHandler } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import {
+  type AdjustResult,
+  adjustBody,
+  SERVICE_CREDIT_ERROR,
+} from "../../../shared/service-credit/contract.js";
+import { admin } from "../../_lib/hono/admin.js";
+import { adminFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   buildAdjustGrantRow,
   buildDeductArgs,
@@ -35,33 +42,27 @@ const DEDUCT_STATUS_MESSAGES: Record<string, string> = {
   insufficient_credit: "잔여 횟수보다 많이 차감할 수 없습니다.",
 };
 
-const bodySchema = z.object({
-  profileId: z.string(),
-  programKey: z.string(),
-  delta: z.number(),
-  months: z.number().nullish(),
-  reason: z.string(),
-});
-
-export default defineHandler({
-  methods: ["POST"],
-  auth: "admin",
-  errorShape: "problem",
+const guard = admin({
   permission: { key: "serviceCreditAdjust" },
   unhandledMessage: "서비스 이용횟수 조정에 실패했습니다.",
   logLabel: "admin/service-credit-adjust",
-  headers: { "Cache-Control": "no-store" },
-  body: bodySchema,
-  handler: async (_req, res, ctx) => {
-    const parsed = validateAdjustBody(ctx.body);
+});
+
+export const serviceCreditAdjust = adminFactory
+  .createApp()
+  .post("/", guard, validate("json", adjustBody), async (c) => {
+    const parsed = validateAdjustBody(c.req.valid("json"));
     if (!parsed.ok) {
-      sendError(res, "problem", 400, parsed.reason, "INVALID_BODY");
-      return;
+      throw new ProblemError(
+        400,
+        parsed.reason,
+        SERVICE_CREDIT_ERROR.INVALID_BODY,
+      );
     }
     const { body } = parsed;
-    const db = ctx.supabaseAdmin;
-    const actorId = ctx.admin?.userId;
-    if (!actorId) throw new Error("ctx.admin 이 없습니다.");
+    const db = c.var.supabaseAdmin;
+    const actorId = c.var.userId;
+    if (!actorId) throw new Error("관리자 id 가 없습니다.");
 
     const { data: profile, error: profileError } = await db
       .from("profiles")
@@ -71,24 +72,18 @@ export default defineHandler({
     if (profileError)
       throw new Error(`profiles 조회 실패: ${profileError.message}`);
     if (!profile) {
-      sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         404,
         "회원을 찾을 수 없습니다.",
-        "PROFILE_NOT_FOUND",
+        SERVICE_CREDIT_ERROR.PROFILE_NOT_FOUND,
       );
-      return;
     }
     if (!isAdjustableProfile(profile)) {
-      sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         400,
         "학생 또는 관리자 계정에만 조정할 수 있습니다.",
-        "NOT_STUDENT",
+        SERVICE_CREDIT_ERROR.NOT_STUDENT,
       );
-      return;
     }
 
     if (body.delta > 0) {
@@ -105,10 +100,7 @@ export default defineHandler({
         await readServiceCredit(db, body.profileId, body.programKey),
         -body.delta,
       );
-      if (!check.ok) {
-        sendError(res, "problem", 409, check.message, check.code);
-        return;
-      }
+      if (!check.ok) throw new ProblemError(409, check.message, check.code);
       const { data, error: deductError } = await db.rpc(
         "fn_admin_deduct_service_credit",
         buildDeductArgs(body, actorId),
@@ -119,14 +111,11 @@ export default defineHandler({
         );
       const status = String((data as { status?: unknown } | null)?.status);
       if (status !== "deducted") {
-        sendError(
-          res,
-          "problem",
+        throw new ProblemError(
           409,
           DEDUCT_STATUS_MESSAGES[status] ?? "차감할 수 없습니다.",
           status.toUpperCase(),
         );
-        return;
       }
     }
 
@@ -139,10 +128,8 @@ export default defineHandler({
         `fn_sync_program_access_cache 실패: ${syncError.message}`,
       );
 
-    res.status(200).json({
+    return c.json({
       credit: await readServiceCredit(db, body.profileId, body.programKey),
-    });
-  },
-});
-
-export const config = { runtime: "nodejs" };
+    } satisfies AdjustResult);
+  })
+  .all("/", methodNotAllowed("POST"));

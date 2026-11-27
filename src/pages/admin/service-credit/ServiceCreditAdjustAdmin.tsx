@@ -9,7 +9,6 @@ import {
   useSearchParams,
 } from "react-router";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -17,15 +16,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ApiError } from "@/lib/http/client";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   ActionButton,
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { studentSearchQueryOptions } from "@/pages/admin/shared/studentSearch";
 import {
-  type AdjustBody,
+  type AdjustInput,
   postServiceCreditAdjust,
   type ServiceCreditRow,
   type ServiceCreditSummary,
@@ -62,7 +63,7 @@ function buildBody(
   row: ServiceCreditRow,
   profileId: string,
   form: { delta: string; months: string; reason: string },
-): { ok: true; body: AdjustBody } | { ok: false; message: string } {
+): { ok: true; body: AdjustInput } | { ok: false; message: string } {
   const reason = form.reason.trim();
   if (reason.length < REASON_MIN_LENGTH)
     return {
@@ -122,7 +123,7 @@ function AdjustForm({
   const [delta, setDelta] = useState("");
   const [months, setMonths] = useState("");
   const [reason, setReason] = useState("");
-  const [pending, setPending] = useState<AdjustBody | null>(null);
+  const [pending, setPending] = useState<AdjustInput | null>(null);
   const adjust = useMutation({ mutationFn: postServiceCreditAdjust });
   const busy = adjust.isPending;
   const [message, setMessage] = useState("");
@@ -335,6 +336,7 @@ function ServiceCreditScreen({ title }: { title: string }) {
 function StudentCredits({ studentId }: { studentId: string }) {
   const queryClient = useQueryClient();
   const summary = useQuery(serviceCreditSummaryQueryOptions(studentId));
+  const canEdit = useCanEditSection();
 
   // 조정 응답의 행만 캐시에 끼워 넣어 현황 전체를 다시 읽지 않는다.
   function replaceRow(credit: ServiceCreditRow) {
@@ -382,10 +384,13 @@ function StudentCredits({ studentId }: { studentId: string }) {
         {student.email || "-"}
       </p>
       {items.length > 0 && (
-        <Table className="border-collapse">
+        <AdminTableFrame label="서비스 이용횟수" className="border-collapse">
           <TableHeader>
             <TableRow className="border-b border-gray-300 hover:bg-transparent">
-              {["서비스", "총", "사용", "잔여", "만료", "조정"].map((label) => (
+              {(canEdit
+                ? ["서비스", "총", "사용", "잔여", "만료", "조정"]
+                : ["서비스", "총", "사용", "잔여", "만료"]
+              ).map((label) => (
                 <TableHead
                   key={label}
                   scope="col"
@@ -413,17 +418,19 @@ function StudentCredits({ studentId }: { studentId: string }) {
                   {formatCount(row.quotaRemaining)}
                 </TableCell>
                 <TableCell className="py-3">{formatExpiry(row)}</TableCell>
-                <TableCell className="whitespace-normal py-3">
-                  <AdjustForm
-                    row={row}
-                    profileId={student.id}
-                    onApplied={replaceRow}
-                  />
-                </TableCell>
+                {canEdit && (
+                  <TableCell className="whitespace-normal py-3">
+                    <AdjustForm
+                      row={row}
+                      profileId={student.id}
+                      onApplied={replaceRow}
+                    />
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+        </AdminTableFrame>
       )}
     </div>
   );

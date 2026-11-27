@@ -1,11 +1,12 @@
 // 관리자 임시 업로드 규칙: 버킷 이름, 임시 객체 이름 만들기와 읽기, 허용 형식과 크기.
 // 브라우저는 이 이름을 만들지 않는다(서버가 정하고 돌려준다).
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
+import { UPLOAD_ERROR } from "../../../shared/uploads/preview.js";
 import type { UploadField } from "../admin-sections/registry.js";
 import { uploadRulesFor } from "../admin-sections/uploadRules.js";
 import { RouteParamError } from "../handler.js";
-import { sendError } from "../httpResponse.js";
+import { ProblemError } from "../hono/problem.js";
 
 export const TMP_BUCKET = "admin-uploads-tmp";
 export const PUBLIC_BUCKET = "banners";
@@ -172,10 +173,12 @@ export function validateUpload(
 
 /**
  * 본문 section 으로 메뉴 권한 키를 정한다(권한 키 = 섹션 키). 모르는 섹션은 권한 판정보다 먼저
- * 400 VALIDATION_FAILED 로 막아 403 으로 보이지 않게 한다(sectionPermissionKey 와 같다).
+ * 400 VALIDATION_FAILED 로 막아 403 으로 보이지 않게 한다(sectionPermissionKey 와 같다). 업로드 발급, 삭제, 미리보기가 쓴다.
  */
-export function uploadSectionKey(req: VercelRequest): string {
-  const key = (req.body as { section?: unknown } | undefined)?.section;
+export async function uploadSectionKey(c: Context): Promise<string> {
+  // 본문 파싱 실패와 JSON 이 아닌 본문은 section 이 없는 것과 같다. 뒤의 validate 가 같은 본문을 다시 읽는다(Hono 가 캐시한다).
+  const body: unknown = await c.req.json().catch(() => undefined);
+  const key = (body as { section?: unknown } | null | undefined)?.section;
   if (typeof key !== "string" || !uploadRulesFor(key)) {
     throw new RouteParamError("section", "알 수 없는 섹션입니다.");
   }
@@ -201,7 +204,6 @@ export function isDeletablePath(
 export const UPLOAD_EXPIRED_MESSAGE =
   "올린 파일이 만료됐어요. 파일을 다시 올려 주세요.";
 
-/** 임시 파일이 사라졌을 때(2시간 URL 만료, 24시간 정리) 409. 브라우저는 파일을 다시 올리게 한다. */
-export function sendUploadExpired(res: VercelResponse): void {
-  sendError(res, "problem", 409, UPLOAD_EXPIRED_MESSAGE, "UPLOAD_EXPIRED");
-}
+/** 임시 파일이 사라졌을 때(2시간 URL 만료, 24시간 정리) 던지는 409. 브라우저는 파일을 다시 올리게 한다. */
+export const uploadExpired = () =>
+  new ProblemError(409, UPLOAD_EXPIRED_MESSAGE, UPLOAD_ERROR.UPLOAD_EXPIRED);

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { fetchHqTrends } from "./api";
 import ErrorBox from "./ErrorBox";
@@ -94,28 +95,35 @@ export default function TrendSection() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <Table aria-label="기간별 가입과 결제">
+            <AdminTableFrame
+              label="기간별 가입과 결제"
+              aria-label="기간별 가입과 결제"
+            >
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>기간</TableHead>
-                  <TableHead>새 가입</TableHead>
+                  <TableHead className="text-right">새 가입</TableHead>
                   <TableHead>유형별</TableHead>
-                  <TableHead>결제 주문</TableHead>
+                  <TableHead className="text-right">결제 주문</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {query.data.series.map((row) => (
                   <TableRow key={row.start}>
                     <TableCell>{period(row.start, row.end)}</TableCell>
-                    <TableCell>{row.signups.toLocaleString()}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {row.signups.toLocaleString()}
+                    </TableCell>
                     <TableCell>
                       {formatByMemberType(row.signupsByMemberType)}
                     </TableCell>
-                    <TableCell>{row.paidOrders.toLocaleString()}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {row.paidOrders.toLocaleString()}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </AdminTableFrame>
           </CardContent>
         </Card>
       ) : (

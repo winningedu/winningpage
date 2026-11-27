@@ -6,6 +6,7 @@
 //   검증은 validate.ts 의 zValidator 가 라우트에서 한다. 오류는 던지고 error.ts 가 problem 응답으로 바꾼다.
 
 import type { Context, MiddlewareHandler } from "hono";
+import { routePath } from "hono/route";
 import type { AdminMenuKey } from "../../../shared/admin-permission/menu.js";
 import { PROBLEM_CODE } from "../../../shared/http/codes.js";
 import {
@@ -13,11 +14,17 @@ import {
   isAuditableMethod,
   scheduleAdminAudit,
 } from "../accessLog/adminWrite.js";
-import { adminProblemCode, resolveAdmin } from "../adminAuth.js";
+import {
+  type AdminAuthTimings,
+  adminProblemCode,
+  resolveAdmin,
+} from "../adminAuth.js";
 import {
   type AdminLevel,
   assertSectionPermission,
+  SectionPermissionDeniedError,
 } from "../adminPermission.js";
+import { RouteParamError } from "../handler.js";
 import { resolveUser } from "../httpAuth.js";
 import { AUTH_REQUIRED_MESSAGE } from "../httpResponse.js";
 import { isReadMethod } from "../qaAccount.js";
@@ -65,12 +72,19 @@ export interface RouteOptions {
 }
 
 export interface AdminRouteOptions extends RouteOptions {
-  /** 메뉴 권한. key 는 메뉴 키이거나 요청에서 뽑는 함수다(던진 RouteParamError 는 400). level 생략 시 GET, HEAD 는 view, 나머지는 edit. */
-  permission: {
-    /** 리터럴은 메뉴 키 목록 안에서만. 키 함수는 요청 값에서 만들므로 string 을 돌려준다(모르는 키는 권한 판정에서 403). */
-    key: AdminMenuKey | ((c: Context<AdminEnv>) => string);
-    level?: AdminLevel;
-  };
+  /**
+   * 메뉴 권한. key 는 메뉴 키이거나 요청에서 뽑는 함수다(본문을 읽어야 하면 async 도 된다. 던진 RouteParamError 는 400). level 생략 시 GET, HEAD 는 view, 나머지는 edit.
+   * "none" 은 관리자 인증만 보고 메뉴 권한 판정과 감사 행을 건너뛴다. api/_routes/adminRoutes.test.ts 허용 목록의 파일과 api/_routes/app.test.ts 허용 목록의 경로만 쓸 수 있다.
+   */
+  permission:
+    | "none"
+    | {
+        /** 리터럴은 메뉴 키 목록 안에서만. 키 함수는 요청 값에서 만들므로 string 을 돌려준다(모르는 키는 권한 판정에서 403). */
+        key:
+          | AdminMenuKey
+          | ((c: Context<AdminEnv>) => string | Promise<string>);
+        level?: AdminLevel;
+      };
   /** false 면 자동 감사 행을 끈다(라우트가 직접 남기는 경우). { action } 은 메서드 기본값을 바꾼다. */
   audit?: false | { action: AdminAuditAction };
 }
@@ -91,16 +105,61 @@ function prepare(
   if (timeZone) c.set("timeZone", timeZone);
 }
 
-// 라우트 표 가드(api/_routes/app.test.ts)가 메서드 라우트의 첫 미들웨어가 인증인지 본다.
-const authMiddlewares = new WeakSet<MiddlewareHandler>();
+/** 인증 미들웨어가 거는 것. "menu" 는 메뉴 권한 판정까지, "none" 은 관리자 판정만 한다. */
+export type RouteAuth =
+  | { auth: "admin"; permission: "menu" | "none" }
+  | { auth: "user" };
 
-export function isAuthMiddleware(handler: unknown): boolean {
-  return authMiddlewares.has(handler as MiddlewareHandler);
+// 라우트 표 가드(api/_routes/app.test.ts)가 메서드 라우트의 첫 미들웨어가 인증인지, 관리자 경로면 메뉴 권한을 거는지 본다.
+const authMiddlewares = new WeakMap<MiddlewareHandler, RouteAuth>();
+
+export function routeAuth(handler: unknown): RouteAuth | undefined {
+  return authMiddlewares.get(handler as MiddlewareHandler);
 }
 
-export function registered<T extends MiddlewareHandler>(middleware: T): T {
-  authMiddlewares.add(middleware);
+export function isAuthMiddleware(handler: unknown): boolean {
+  return routeAuth(handler) !== undefined;
+}
+
+export function registered<T extends MiddlewareHandler>(
+  middleware: T,
+  auth: RouteAuth,
+): T {
+  authMiddlewares.set(middleware, auth);
   return middleware;
+}
+
+// 던진 오류가 응답에서 갖게 될 상태. error.ts 의 매핑 중 인증 구간에서 나올 수 있는 것만 본다.
+function failureStatus(error: unknown): number {
+  if (error instanceof ProblemError) return error.status;
+  if (error instanceof SectionPermissionDeniedError) return 403;
+  if (error instanceof RouteParamError) return 400;
+  return 500;
+}
+
+// 인증 구간(관리자 판정부터 메뉴 권한까지) 단계별 시간 한 줄. 경로 패턴과 시간만 싣고 토큰, 이메일, 사용자 id 는 싣지 않는다.
+function logAuthTiming(
+  c: Context<AdminEnv>,
+  status: "ok" | number,
+  startedAt: number,
+  steps: AdminAuthTimings & { permission?: number },
+): void {
+  const ms = (value: number) => Math.round(value * 10) / 10;
+  console.info(
+    JSON.stringify({
+      event: "admin_auth_timing",
+      method: c.req.method,
+      route: routePath(c),
+      status,
+      ...(steps.getUser !== undefined && { getUserMs: ms(steps.getUser) }),
+      ...(steps.role !== undefined && { roleMs: ms(steps.role) }),
+      ...(steps.qa !== undefined && { qaMs: ms(steps.qa) }),
+      ...(steps.permission !== undefined && {
+        permissionMs: ms(steps.permission),
+      }),
+      totalMs: ms(performance.now() - startedAt),
+    }),
+  );
 }
 
 /** defineHandler auth:"admin". 관리자 판정(QA 관리자의 쓰기 차단 포함)과 메뉴 권한을 본다. */
@@ -111,40 +170,60 @@ export const admin = (options: AdminRouteOptions) =>
       const supabaseAdmin = createSupabaseAdmin();
       c.set("supabaseAdmin", supabaseAdmin);
 
-      const resolved = await resolveAdmin(supabaseAdmin, {
-        headers: nodeHeaders(c),
-        method: c.req.method,
-      });
-      if (!resolved.ok) {
-        if (resolved.code) throw qaBlocked(resolved.code);
-        throw new ProblemError(
-          resolved.status,
-          resolved.detail,
-          adminProblemCode(resolved.status),
+      const startedAt = performance.now();
+      const steps: AdminAuthTimings & { permission?: number } = {};
+      try {
+        const resolved = await resolveAdmin(
+          supabaseAdmin,
+          { headers: nodeHeaders(c), method: c.req.method },
+          steps,
         );
-      }
-      c.set("userId", resolved.userId);
+        if (!resolved.ok) {
+          if (resolved.code) throw qaBlocked(resolved.code);
+          throw new ProblemError(
+            resolved.status,
+            resolved.detail,
+            adminProblemCode(resolved.status),
+          );
+        }
+        c.set("userId", resolved.userId);
 
-      const { key, level } = options.permission;
-      // 키 함수가 던지면(400) 대상 메뉴가 없으니 감사 행도 없다.
-      const requestedKey = typeof key === "function" ? key(c) : key;
-      if (options.audit !== false) {
-        c.set("audit", {
-          actor: { userId: resolved.userId, email: resolved.email },
-          requestedKey,
-          params: c.req.param(),
-          ...(options.audit ? { action: options.audit.action } : {}),
-        });
+        if (options.permission !== "none") {
+          const { key, level } = options.permission;
+          // 키 함수가 던지면(400) 대상 메뉴가 없으니 감사 행도 없다.
+          const requestedKey = typeof key === "function" ? await key(c) : key;
+          if (options.audit !== false) {
+            c.set("audit", {
+              actor: { userId: resolved.userId, email: resolved.email },
+              requestedKey,
+              params: c.req.param(),
+              ...(options.audit ? { action: options.audit.action } : {}),
+            });
+          }
+          // 거부는 SectionPermissionDeniedError(403), 조회 오류는 일반 예외(500)로 error.ts 가 응답한다.
+          const permissionStart = performance.now();
+          try {
+            await assertSectionPermission(
+              supabaseAdmin,
+              resolved.userId,
+              requestedKey,
+              level ?? (isReadMethod(c.req.method) ? "view" : "edit"),
+            );
+          } finally {
+            steps.permission = performance.now() - permissionStart;
+          }
+        }
+      } catch (error) {
+        logAuthTiming(c, failureStatus(error), startedAt, steps);
+        throw error;
       }
-      // 거부는 SectionPermissionDeniedError(403), 조회 오류는 일반 예외(500)로 error.ts 가 응답한다.
-      await assertSectionPermission(
-        supabaseAdmin,
-        resolved.userId,
-        requestedKey,
-        level ?? (isReadMethod(c.req.method) ? "view" : "edit"),
-      );
+      logAuthTiming(c, "ok", startedAt, steps);
       await next();
     }),
+    {
+      auth: "admin",
+      permission: options.permission === "none" ? "none" : "menu",
+    },
   );
 
 /** defineHandler auth:"user". 관리자가 되기 전 사용자가 부르는 라우트(admin/me/activate)용. */
@@ -166,4 +245,5 @@ export const user = (options: RouteOptions) =>
       c.set("supabaseAdmin", createSupabaseAdmin());
       await next();
     }),
+    { auth: "user" },
   );

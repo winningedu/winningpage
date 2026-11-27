@@ -177,8 +177,7 @@ async function loadNameCell() {
     src,
     `<TableCell
                     key={column.key}
-                    className="whitespace-normal px-3 py-3"
-                  >`,
+                    className={`,
     "</TableCell>",
     "어드민 목록 셀",
   );
@@ -195,6 +194,8 @@ const normalizeArray = (v) => (Array.isArray(v) ? v : []);
 const formatListValue = () => 'stub-list';
 const truncateText = () => 'stub-truncate';
 const loadedOptions = {};
+// 셀 className 이 참조하는 열 타입별 클래스. 이 검사는 셀 내용만 보므로 빈 표로 둔다.
+const CELL_TYPE_CLASS = {};
 // 슬라이스가 ui TableCell 을 쓰므로 같은 td 로 렌더하는 스텁을 둔다.
 const TableCell = (props) => <td {...props} />;
 export default function CellHarness({
@@ -544,7 +545,7 @@ describe("대학명 → official_source_url 배선 검증", () => {
   test("admin:11. 공유 셀 무오염 — 타입 없는 평범한 컬럼(35개 메뉴)의 셀은 formatValue 결과만 렌더하고, onOpenMetaEdit 가 없으면 대학명도 평문이다(완전 일치)", async () => {
     const NameCell = await loadNameCell();
     const WRAP = (inner: string) =>
-      `<table><tbody><tr><td class="whitespace-normal px-3 py-3">${inner}</td></tr></tbody></table>`;
+      `<table><tbody><tr><td class="px-3 py-3 whitespace-normal">${inner}</td></tr></tbody></table>`;
     const plain = renderToStaticMarkup(
       React.createElement(NameCell, {
         column: { key: "title" },

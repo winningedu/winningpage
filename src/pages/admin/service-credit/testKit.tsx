@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
+import { SectionEditAccessProvider } from "../shared/sectionEditAccess";
 import ServiceCreditAdjustAdmin from "./ServiceCreditAdjustAdmin";
 
 export const STUDENT_ID = "123e4567-e89b-42d3-a456-426614174000";
@@ -56,7 +57,10 @@ export function searchBody(
   return { items: items.map((i) => ({ isAdmin: false, ...i })) };
 }
 
-export function renderCredit(initialPath = "/admin/serviceCreditAdjust") {
+export function renderCredit(
+  initialPath = "/admin/serviceCreditAdjust",
+  canEdit = true,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -72,9 +76,11 @@ export function renderCredit(initialPath = "/admin/serviceCreditAdjust") {
     { initialEntries: [initialPath] },
   );
   const view = render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
   return { router, client, ...view };
 }

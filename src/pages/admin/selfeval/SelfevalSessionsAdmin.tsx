@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -26,12 +25,14 @@ import {
 } from "@/components/ui/table";
 import { ApiError } from "@/lib/http/client";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   ActionButton,
   Field,
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
@@ -97,6 +98,7 @@ export default function SelfevalSessionsAdmin({ config }: Props) {
 }
 
 function SelfevalSessionsScreen({ title }: { title: string }) {
+  const canEdit = useCanEditSection();
   const { id } = useParams();
   const navigate = useNavigate();
   // 상세로 갈 때 목록 조건(search)을 달고 가서 닫을 때 그대로 돌려준다.
@@ -169,9 +171,11 @@ function SelfevalSessionsScreen({ title }: { title: string }) {
             </div>
             <ActionButton type="submit">조회</ActionButton>
           </form>
-          <ActionButton onClick={() => setGrantOpen(true)}>
-            이용권 부여
-          </ActionButton>
+          {canEdit && (
+            <ActionButton onClick={() => setGrantOpen(true)}>
+              이용권 부여
+            </ActionButton>
+          )}
         </div>
         <h1 className="mt-4 text-xl font-semibold">{title}</h1>
       </div>
@@ -194,7 +198,10 @@ function SelfevalSessionsScreen({ title }: { title: string }) {
           <div className="mb-4 text-sm font-medium text-gray-500">
             전체 <span className="text-blue-600">{total}</span>건
           </div>
-          <Table className="min-w-[72rem] border-collapse">
+          <AdminTableFrame
+            label={title}
+            className="min-w-[72rem] border-collapse"
+          >
             <TableHeader>
               <TableRow className="border-y border-gray-300 hover:bg-transparent">
                 {[
@@ -285,7 +292,7 @@ function SelfevalSessionsScreen({ title }: { title: string }) {
                 ))
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
 
           <AdminPagination
             page={query.page}
@@ -326,6 +333,7 @@ function SessionDetailDialog({
     ...selfevalDetailQueryOptions(id ?? ""),
     enabled: id !== null,
   });
+  const canEdit = useCanEditSection();
   const recover = useMutation({ mutationFn: postSelfevalRecover });
   const busy = recover.isPending;
   const [confirming, setConfirming] = useState(false);
@@ -439,10 +447,11 @@ function SessionDetailDialog({
 
               {alert}
 
-              {canRecover({
-                status: detail.session.status,
-                terminal: detail.terminal,
-              }) &&
+              {canEdit &&
+                canRecover({
+                  status: detail.session.status,
+                  terminal: detail.terminal,
+                }) &&
                 (confirming ? (
                   <div className="flex items-center gap-2 text-sm font-medium">
                     <span>새 세션을 만들어 복구합니다. 진행할까요?</span>

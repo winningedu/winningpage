@@ -2,56 +2,16 @@
 
 import { z } from "zod";
 import { ApiError, api } from "@/lib/http/client";
-import type { buildGrantBody } from "./grantForm";
+import {
+  type InquiryGrantInput,
+  inquiryGrantResultSchema,
+  inquiryRecoverResultSchema,
+} from "../../../../shared/inquiry-ops/contract.js";
+import {
+  inquirySession,
+  inquirySessionsPage,
+} from "../../../../shared/inquiry-session/contract.js";
 import type { InquirySessionsParams } from "./query";
-import type { InquirySessionItem } from "./row";
-
-const terminalSchema = z.object({
-  reason: z.string(),
-  at: z.string(),
-  mode: z.string(),
-});
-
-const inquirySessionSchema: z.ZodType<InquirySessionItem> = z.object({
-  id: z.string(),
-  profileId: z.string(),
-  studentName: z.string().nullable(),
-  email: z.string().nullable(),
-  status: z.string(),
-  currentStep: z.number(),
-  subject: z.string(),
-  topicTitle: z.string().nullable(),
-  completedAt: z.string().nullable(),
-  lastActivityAt: z.string().nullable(),
-  ledgerId: z.string().nullable(),
-  ledgerReversedAt: z.string().nullable(),
-  terminal: terminalSchema.nullable(),
-  generation: z.object({
-    modes: z.record(
-      z.string(),
-      z.object({
-        status: z.string(),
-        attempts: z.number(),
-        startedAt: z.string().nullable(),
-        finishedAt: z.string().nullable(),
-        issues: z.array(z.unknown()),
-      }),
-    ),
-    terminal: terminalSchema.nullable(),
-  }),
-  evaluationCount: z.number(),
-  topicRoundCount: z.number(),
-});
-
-const inquirySessionsPageSchema = z.object({
-  items: z.array(inquirySessionSchema),
-  total: z.number(),
-  page: z.number(),
-  pageSize: z.number(),
-});
-
-const grantSchema = z.object({ grantId: z.string(), quota: z.unknown() });
-const recoverSchema = z.object({ newSessionId: z.string() });
 
 export const inquirySessionKeys = {
   all: ["admin", "inquirySessions"] as const,
@@ -74,7 +34,7 @@ export function fetchInquirySessions(
       },
       ...(signal ? { signal } : {}),
     })
-    .json(inquirySessionsPageSchema);
+    .json(inquirySessionsPage);
 }
 
 export function fetchInquirySession(id: string, signal?: AbortSignal) {
@@ -83,17 +43,19 @@ export function fetchInquirySession(id: string, signal?: AbortSignal) {
       `admin/inquiry-sessions/${encodeURIComponent(id)}`,
       signal ? { signal } : {},
     )
-    .json(inquirySessionSchema);
+    .json(inquirySession);
 }
 
-export function postInquiryGrant(body: ReturnType<typeof buildGrantBody>) {
-  return api.post("admin/inquiry-grant", { json: body }).json(grantSchema);
+export function postInquiryGrant(body: InquiryGrantInput) {
+  return api
+    .post("admin/inquiry-grant", { json: body })
+    .json(inquiryGrantResultSchema);
 }
 
 export function postInquiryRecover(sessionId: string) {
   return api
     .post("admin/inquiry-recover", { json: { sessionId } })
-    .json(recoverSchema);
+    .json(inquiryRecoverResultSchema);
 }
 
 /** 서버가 준 problem detail 을 그대로 보여주고, 응답을 읽지 못한 실패만 일반 문구로 대신한다. */

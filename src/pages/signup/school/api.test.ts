@@ -80,8 +80,8 @@ const BODY: SchoolSignupBody = {
   guardianConsent: false,
   agreeService: true,
   agreePrivacy: true,
-  agreeDbTransfer: true,
   agreeMarketing: false,
+  agreePrivacyAdditional: false,
 };
 
 describe("submitSchoolSignup", () => {

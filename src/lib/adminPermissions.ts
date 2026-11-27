@@ -1,10 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
-import { z } from "zod";
 import { site } from "@/config/site";
-import {
-  ADMIN_LEVELS,
-  type AdminLevel,
-} from "../../shared/admin-permission/menu.js";
+import { adminPermissionsSchema } from "../../shared/admin-me/contract.js";
+import type { AdminLevel } from "../../shared/admin-permission/menu.js";
 import {
   isSuperOnlySection,
   permissionKeyFor,
@@ -36,11 +33,6 @@ export type AdminPermissionMap = Map<string, AdminLevel>;
 
 const PERMISSIONS_STALE_MS = 15_000;
 
-const permissionsResponseSchema = z.object({
-  permissions: z.record(z.string(), z.enum(ADMIN_LEVELS)),
-  isSuper: z.boolean(),
-});
-
 /**
  * GET /api/admin/me/permissions: 내 최종 권한 맵과 최고 관리자 여부.
  *
@@ -56,7 +48,7 @@ export function adminPermissionsQueryOptions(userId: string) {
     }): Promise<{ permissions: AdminPermissionMap; isSuper: boolean }> => {
       const body = await api
         .get("admin/me/permissions", { signal })
-        .json(permissionsResponseSchema);
+        .json(adminPermissionsSchema);
       return {
         permissions: new Map(Object.entries(body.permissions)),
         isSuper: body.isSuper,
@@ -81,4 +73,18 @@ export function canAccessSection(
   if (isSuperOnlySection(sectionKey)) return isSuperAdmin;
   const key = permissionKeyFor(sectionKey, () => site.features.hqTenantAdmin);
   return key !== null && permissions.has(key);
+}
+
+/**
+ * 이 메뉴에서 등록, 수정, 삭제, 저장을 보여도 되나. 서버(R2)는 view 권한의 쓰기를 403 으로 막으므로
+ * 화면도 같은 기준으로 쓰기 버튼을 감춘다. 접근 판정과 같은 순서로 거르고, 맵에 없거나 view 면 닫는다.
+ */
+export function canEditSection(
+  permissions: AdminPermissionMap,
+  isSuperAdmin: boolean,
+  sectionKey: string,
+): boolean {
+  if (isSuperOnlySection(sectionKey)) return isSuperAdmin;
+  const key = permissionKeyFor(sectionKey, () => site.features.hqTenantAdmin);
+  return key !== null && permissions.get(key) === "edit";
 }

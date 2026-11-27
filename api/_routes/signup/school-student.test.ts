@@ -75,8 +75,8 @@ const BODY = {
   guardianConsent: false,
   agreeService: true,
   agreePrivacy: true,
-  agreeDbTransfer: true,
   agreeMarketing: false,
+  agreePrivacyAdditional: false,
 };
 
 beforeEach(() => {
@@ -337,8 +337,8 @@ describe("POST /api/signup/school-student", () => {
         p_identity_request_id: null,
         p_agree_service: true,
         p_agree_privacy: true,
-        p_agree_db_transfer: true,
         p_agree_marketing: false,
+        p_agree_privacy_additional: false,
       },
     ]);
     expect(r.status).toBe(200);
@@ -346,6 +346,21 @@ describe("POST /api/signup/school-student", () => {
       linkCode: "LINK-1",
       tenantName: "가나중학교",
     });
+  });
+
+  test("선택 개인정보 동의(4-2)를 넘기고, 예전 DB 전환 동의 칸은 보내지 않는다", async () => {
+    happyPath();
+    const signupCalls: Record<string, unknown>[] = [];
+    kit.state.rpc.fn_student_signup = (args) => {
+      signupCalls.push(args);
+      return { data: SIGNUP_OK, error: null };
+    };
+
+    const r = await post({ ...BODY, agreePrivacyAdditional: true });
+
+    expect(r.status).toBe(200);
+    expect(signupCalls[0]).toMatchObject({ p_agree_privacy_additional: true });
+    expect(signupCalls[0]).not.toHaveProperty("p_agree_db_transfer");
   });
 
   test("가입 확정이 실패해도 Auth 사용자를 만들거나 지우지 않는다", async () => {
