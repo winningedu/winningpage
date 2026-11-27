@@ -131,3 +131,43 @@ describe("pickBody", () => {
     expect(parse({ ...base, type: "deepen" }).success).toBe(false);
   });
 });
+
+describe("pickBody 연계 action", () => {
+  const base = { sessionId: "s1" };
+
+  test("link, delete-link, confirm-link, add-link 를 받는다", () => {
+    expect(parse({ ...base, action: "link" }).data).toEqual({
+      sessionId: "s1",
+      action: "link",
+    });
+    for (const action of ["delete-link", "confirm-link"]) {
+      expect(parse({ ...base, action, fromId: "a", toId: "b" }).data).toEqual({
+        sessionId: "s1",
+        action,
+        fromId: "a",
+        toId: "b",
+      });
+    }
+    const addLink = {
+      ...base,
+      action: "add-link",
+      fromId: "a",
+      toId: "b",
+      type: "deepen",
+      note: "이어서 했어요",
+    };
+    expect(parse(addLink).data).toEqual(addLink);
+  });
+
+  test("id, type, note 가 없거나 문자열이 아니면 거절한다", () => {
+    for (const bad of [
+      { action: "delete-link", fromId: "a" },
+      { action: "confirm-link", fromId: 1, toId: "b" },
+      { action: "add-link", fromId: "a", toId: "b", type: "deepen" },
+      { action: "add-link", fromId: "a", toId: "b", note: "x" },
+      { action: "add-link", fromId: "", toId: "b", type: "deepen", note: "x" },
+    ]) {
+      expect(parse({ ...base, ...bad }).success).toBe(false);
+    }
+  });
+});
