@@ -11,11 +11,11 @@ import {
   pageIdParams,
 } from "../../../shared/premium-book/contract.js";
 import type { UploadField } from "../../_lib/admin-sections/registry.js";
-import { uploadExpired } from "../../_lib/admin-uploads/promote.js";
 import {
   PUBLIC_BUCKET,
   parseTempName,
   TMP_BUCKET,
+  uploadExpired,
   validateUpload,
 } from "../../_lib/admin-uploads/tmp.js";
 import { RouteParamError } from "../../_lib/handler.js";

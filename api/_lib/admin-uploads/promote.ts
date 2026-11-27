@@ -2,16 +2,14 @@
 // 공개 URL 로 바꾼다. 브라우저는 업로드 직후 받은 임시 읽기 URL 을 폼 값으로 들고 있다가 그대로 보낸다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { UPLOAD_ERROR } from "../../../shared/uploads/preview.js";
 import type { SectionEntry } from "../admin-sections/registry.js";
 import { RouteParamError } from "../handler.js";
-import { ProblemError } from "../hono/problem.js";
 import {
   destinationPath,
   PUBLIC_BUCKET,
   parseTempName,
   TMP_BUCKET,
-  UPLOAD_EXPIRED_MESSAGE,
+  uploadExpired,
   validateUpload,
 } from "./tmp.js";
 
@@ -114,10 +112,6 @@ export async function promoteTempUploads<T>(
   }
   return replaceUrls(payload, urls) as T;
 }
-
-/** sendUploadExpired 의 Hono 판. 던지면 409 UPLOAD_EXPIRED 가 된다(섹션 저장, 업로드 미리보기). */
-export const uploadExpired = () =>
-  new ProblemError(409, UPLOAD_EXPIRED_MESSAGE, UPLOAD_ERROR.UPLOAD_EXPIRED);
 
 /** 라우트용 묶음: 만료면 409 UPLOAD_EXPIRED 를 던지고, 아니면 바뀐 payload 를 돌려준다. 쓰기 쿼리 전에 불러 만료 때 DB 를 건드리지 않는다. */
 export async function promoteForSave<T>(

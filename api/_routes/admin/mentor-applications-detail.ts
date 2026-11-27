@@ -2,8 +2,8 @@
 // 목록(루트 경로)은 api/_routes/admin/mentor-applications.ts 가 맡는다. 요청 검증과 응답 모양은 shared/mentor-application/detail.ts 를 따른다.
 // 권한: 메뉴 mentorApplications(GET view, PATCH edit, proof-url 은 읽기라 view).
 
+import type { MentorApplication } from "../../../shared/mentor-application/contract.js";
 import {
-  type ApplicationDetail,
   applicationIdParams,
   applicationStatusBody,
   MENTOR_APPLICATION_ERROR,
@@ -59,7 +59,7 @@ export const mentorApplicationsDetail = adminFactory
         .maybeSingle();
       if (error) throw new Error("mentor application read failed");
       if (!data) throw notFound(WHAT);
-      return c.json(data as ApplicationDetail);
+      return c.json(data as MentorApplication);
     },
   )
   // PATCH /:id: 상태만 바꾼다. 닿은 행이 없으면 404.
@@ -77,7 +77,7 @@ export const mentorApplicationsDetail = adminFactory
         .maybeSingle();
       if (error) throw new Error("mentor application update failed");
       if (!data) throw notFound(WHAT);
-      return c.json(data as ApplicationDetail);
+      return c.json(data as MentorApplication);
     },
   )
   .all("/:id", methodNotAllowed("GET", "PATCH"))

@@ -18,7 +18,7 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import { applicationDetailSchema } from "../../../shared/mentor-application/detail.js";
+import { mentorApplicationSchema } from "../../../shared/mentor-application/contract.js";
 import { app } from "../app.js";
 
 const handler = { app, path: "/api/admin/mentor-applications/:id" };
@@ -133,7 +133,7 @@ describe("계약", () => {
       query: { id: ID },
       body: { status: "interview" },
     });
-    expect(applicationDetailSchema.safeParse(got.body).success).toBe(true);
-    expect(applicationDetailSchema.safeParse(patched.body).success).toBe(true);
+    expect(mentorApplicationSchema.safeParse(got.body).success).toBe(true);
+    expect(mentorApplicationSchema.safeParse(patched.body).success).toBe(true);
   });
 });

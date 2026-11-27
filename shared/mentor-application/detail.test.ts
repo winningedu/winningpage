@@ -2,7 +2,6 @@
 
 import { describe, expect, test } from "vitest";
 import {
-  applicationDetailSchema,
   applicationIdParams,
   applicationStatusBody,
   proofUrlSchema,
@@ -37,12 +36,6 @@ describe("요청 스키마", () => {
 });
 
 describe("응답 스키마", () => {
-  test("행은 쓰는 컬럼이 비어 있어도 받고 나머지 컬럼은 통과시킨다", () => {
-    expect(
-      applicationDetailSchema.parse({ id: ID, status: null, name: "김" }),
-    ).toEqual({ id: ID, status: null, name: "김" });
-  });
-
   test("증빙 URL 은 url 문자열이다", () => {
     expect(proofUrlSchema.safeParse({ url: "https://x" }).success).toBe(true);
     expect(proofUrlSchema.safeParse({}).success).toBe(false);
