@@ -2,8 +2,8 @@ import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";
 import InstagramIcon from "@/components/icons/InstagramIcon";
 import KakaoIcon from "@/components/icons/KakaoIcon";
+import NaverBlogIcon from "@/components/icons/NaverBlogIcon";
 import NaverClipIcon from "@/components/icons/NaverClipIcon";
-import NaverIcon from "@/components/icons/NaverIcon";
 import YoutubeIcon from "@/components/icons/YoutubeIcon";
 import { site } from "@/config/site";
 import { useFooterOperatorImage } from "@/hooks/useFooterOperatorImage";
@@ -61,7 +61,7 @@ function SocialLinks({
     {
       label: "네이버 블로그",
       href: company.naverBlogUrl,
-      Icon: NaverIcon,
+      Icon: NaverBlogIcon,
       badgeClassName: "bg-[#03c75a] text-white",
     },
     {
@@ -89,7 +89,7 @@ function SocialLinks({
   ].filter((item) => item.href);
 
   return (
-    <div className={`items-center gap-4 ${className}`}>
+    <div className={`items-center gap-[0.5625rem] ${className}`}>
       {items.map(({ label, href, onClick, Icon, badgeClassName, style }) => (
         <a
           key={label}
@@ -99,7 +99,7 @@ function SocialLinks({
           rel="noopener noreferrer"
           aria-label={label}
           style={style}
-          className={`inline-flex size-8 items-center justify-center rounded-full transition hover:opacity-90 ${badgeClassName}`}
+          className={`inline-flex size-[1.875rem] items-center justify-center rounded-lg transition hover:opacity-90 ${badgeClassName}`}
         >
           <Icon className="size-4" aria-hidden="true" />
         </a>
@@ -133,7 +133,13 @@ export default function SiteFooter() {
   ];
 
   const legalLinks = (
-    <div className="flex shrink-0 gap-[1.6625rem] text-[0.8125rem] leading-5 font-semibold text-footer-b2b-link lg:pt-[0.4375rem]">
+    <div
+      className={`flex shrink-0 gap-[1.6625rem] text-[0.8125rem] leading-5 font-semibold text-footer-b2b-link ${
+        features.footerSocialLinks
+          ? "mt-6 items-center lg:col-start-2 lg:row-start-1 lg:mt-0"
+          : "lg:pt-[0.4375rem]"
+      }`}
+    >
       <Link
         to="/privacy"
         className="relative whitespace-nowrap font-bold text-footer-b2b-privacy after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
@@ -146,6 +152,60 @@ export default function SiteFooter() {
       >
         이용약관
       </Link>
+    </div>
+  );
+
+  const brand =
+    "logo" in footer.brand ? (
+      <img
+        src={footer.brand.logo}
+        alt={site.brandName}
+        className="h-6 w-auto"
+      />
+    ) : (
+      <p className="text-[1.4375rem] leading-7 font-extrabold tracking-[0.01875rem] text-white">
+        {footer.brand.text}
+      </p>
+    );
+
+  const info = (
+    <div className="mt-[1.031rem] break-keep text-[0.8125rem] leading-[1.675rem] text-footer-b2b-info">
+      <p>
+        <PipeItems
+          items={nameItems}
+          prefix={
+            footer.operatorLabel && (
+              <span className="text-white">({footer.operatorLabel}) </span>
+            )
+          }
+        />
+      </p>
+      <p>
+        <PipeItems items={registrationItems} />
+      </p>
+      <p>
+        <PipeItems items={addressItems} />
+      </p>
+      {company.hostingProvider && (
+        <p>
+          <span className="whitespace-nowrap">
+            호스팅서비스 제공자: {company.hostingProvider}
+          </span>
+          {company.mailOrderNo && (
+            <>
+              {" | "}
+              <a
+                href={ftcBizInfoUrl(company.bizRegNo)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="whitespace-nowrap underline"
+              >
+                사업자정보 확인
+              </a>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 
@@ -164,75 +224,28 @@ export default function SiteFooter() {
               <hr className="h-px w-full border-0 bg-footer-b2b-line lg:h-auto lg:w-px lg:self-stretch" />
             </>
           )}
-          <div className="flex min-w-0 flex-1 flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
-              {"logo" in footer.brand ? (
-                <img
-                  src={footer.brand.logo}
-                  alt={site.brandName}
-                  className="h-6 w-auto"
-                />
-              ) : (
-                <p className="text-[1.4375rem] leading-7 font-extrabold tracking-[0.01875rem] text-white">
-                  {footer.brand.text}
-                </p>
-              )}
-              {features.footerSocialLinks && (
-                <SocialLinks
-                  company={company}
-                  className="mt-4 flex lg:hidden"
-                />
-              )}
-              <div className="mt-[1.031rem] break-keep text-[0.8125rem] leading-[1.675rem] text-footer-b2b-info">
-                <p>
-                  <PipeItems
-                    items={nameItems}
-                    prefix={
-                      footer.operatorLabel && (
-                        <span className="text-white">
-                          ({footer.operatorLabel}){" "}
-                        </span>
-                      )
-                    }
-                  />
-                </p>
-                <p>
-                  <PipeItems items={registrationItems} />
-                </p>
-                <p>
-                  <PipeItems items={addressItems} />
-                </p>
-                {company.hostingProvider && (
-                  <p>
-                    <span className="whitespace-nowrap">
-                      호스팅서비스 제공자: {company.hostingProvider}
-                    </span>
-                    {company.mailOrderNo && (
-                      <>
-                        {" | "}
-                        <a
-                          href={ftcBizInfoUrl(company.bizRegNo)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="whitespace-nowrap underline"
-                        >
-                          사업자정보 확인
-                        </a>
-                      </>
-                    )}
-                  </p>
-                )}
+          {features.footerSocialLinks ? (
+            <div className="flex min-w-0 flex-1 flex-col lg:grid lg:grid-cols-[1fr_auto_auto] lg:items-center lg:gap-x-[1.8125rem]">
+              <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+                {brand}
               </div>
+              <SocialLinks company={company} className="mt-4 flex lg:hidden" />
+              <div className="lg:col-span-3 lg:row-start-2">{info}</div>
+              {legalLinks}
+              <SocialLinks
+                company={company}
+                className="hidden lg:col-start-3 lg:row-start-1 lg:flex"
+              />
             </div>
-            {features.footerSocialLinks ? (
-              <div className="flex shrink-0 flex-col items-start gap-6 lg:items-end lg:gap-4">
-                <SocialLinks company={company} className="hidden lg:flex" />
-                {legalLinks}
+          ) : (
+            <div className="flex min-w-0 flex-1 flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                {brand}
+                {info}
               </div>
-            ) : (
-              legalLinks
-            )}
-          </div>
+              {legalLinks}
+            </div>
+          )}
         </div>
 
         <p className="text-[0.78125rem] leading-5 text-footer-b2b-copyright lg:mt-[0.675rem]">

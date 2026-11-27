@@ -64,6 +64,21 @@ describe("SectionCopyPanel", () => {
     ).toBeInTheDocument();
   });
 
+  test("view 권한이면 입력창이 읽기 전용이고 edit 권한이면 입력할 수 있다", async () => {
+    const view = renderPanel("services", false);
+    const labels = ["라벨", "큰제목", "중제목"];
+    for (const label of labels) {
+      expect(await screen.findByLabelText(label)).toHaveAttribute("readonly");
+    }
+    view.unmount();
+    renderPanel("services", true);
+    for (const label of labels) {
+      expect(await screen.findByLabelText(label)).not.toHaveAttribute(
+        "readonly",
+      );
+    }
+  });
+
   test("저장된 값을 입력창에 채우고 섹션 경로와 signal 로 읽는다", async () => {
     mocks.get.mockResolvedValue({
       section_key: "services",
