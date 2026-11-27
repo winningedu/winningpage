@@ -13,6 +13,16 @@
 // 의도적으로 `status`가 아니라 `kind`로 둔다.
 
 import type { Options } from "ky";
+import type { z } from "zod";
+import {
+  type TimerBodyInput,
+  type TimerSubject,
+  type TimerSummary,
+  timerGetResponse,
+  timerRunningResponse,
+  timerSubjectsResponse,
+  timerTargetResponse,
+} from "../../shared/goal/timer.js";
 import { getAuthHeader } from "./apiFetch";
 import { ApiError, api } from "./http/client";
 import { parseTenantReason, type TenantBlockReason } from "./tenantBlock";
@@ -202,19 +212,6 @@ interface GoalWorkbook {
   shelvedAt: string | null;
 }
 
-/** GET /api/goal/timer 응답의 summary 블록(camelCase). api/_routes/goal/timer.ts 참고. */
-interface GoalTimerSummary {
-  date: string;
-  serverNow: string;
-  running: { subject: string; startedAt: string } | null;
-  subjects: { subject: string; seconds: number }[];
-  totalSeconds: number;
-  targets: { subject: string; targetHours: number }[];
-  // 학생이 타이머 화면에 노출 중인 과목 목록(정렬 순, QA B9 "+ 과목 추가"). 행이 없으면
-  // 서버가 기본 4과목을 돌려준다(api/_lib/goal/repo.ts DEFAULT_TIMER_SUBJECTS).
-  visibleSubjects: string[];
-}
-
 /** fetchGoalGrades()/addGoalGrade() 회차 레코드 — api/_routes/goal/grades.ts validateEntry 참고. */
 interface GoalGradeRecord {
   term: string;
@@ -260,13 +257,16 @@ type GoalResponse = {
 async function goalRequest(
   path: string,
   options: Options,
+  schema?: z.ZodType,
 ): Promise<GoalResponse> {
   try {
-    const response = await api(path, options);
+    const call = api(path, options);
+    const response = await call;
     return {
       ok: true,
       status: response.status,
-      body: await parseJsonSafe(response),
+      // 계약 스키마가 있으면 성공 본문을 검증한다. 어긋나면 SchemaValidationError 를 던져 호출부 catch 가 error 로 접는다.
+      body: schema ? await call.json(schema) : await parseJsonSafe(response),
     };
   } catch (error) {
     if (error instanceof ApiError && error.status !== null) {
@@ -1481,30 +1481,34 @@ export async function deleteGoalGrade(
 // keepalive:true는 sendBeacon과 동일하게 페이지 언로드 이후에도 요청이 살아남는
 // 것을 브라우저가 보장하는 표준 대안이다.
 
-type RequestGoalTimerResult =
+type RequestGoalTimerResult<Body> =
   | { kind: "no-session" }
   | NotAllowed
   | { kind: "validation-error"; detail: string }
   | { kind: "error" }
-  // biome-ignore lint/suspicious/noExplicitAny: 안전 파싱된 원시 JSON 그대로 넘긴다 — 각 wrapper가 필요한 필드만 좁혀 쓴다.
-  | { kind: "success"; body: any };
+  | { kind: "success"; body: Body };
 
-/** 공용 요청 실행기 — 인증 헤더 부착 + JSON 직렬화 + 안전 파싱까지 공유. */
-async function requestGoalTimer(
+/** 공용 요청 실행기: 인증 헤더 부착 + JSON 직렬화 + 계약 스키마로 성공 본문 검증까지 공유. */
+async function requestGoalTimer<S extends z.ZodType>(
   method: string,
-  body?: object,
+  schema: S,
+  body?: TimerBodyInput,
   { keepalive = false }: { keepalive?: boolean } = {},
-): Promise<RequestGoalTimerResult> {
+): Promise<RequestGoalTimerResult<z.output<S>>> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/timer", {
-      method,
-      ...(body ? { json: body } : {}),
-      ...(keepalive ? { keepalive: true } : {}),
-    });
+    response = await goalRequest(
+      "goal/timer",
+      {
+        method,
+        ...(body ? { json: body } : {}),
+        ...(keepalive ? { keepalive: true } : {}),
+      },
+      schema,
+    );
   } catch (error) {
     console.error(`[goalApi] ${method} /api/goal/timer 호출 오류:`, error);
     return { kind: "error" };
@@ -1530,29 +1534,26 @@ async function requestGoalTimer(
 }
 
 /**
- * 오늘(KST) 타이머 요약 조회.
+ * 오늘(학생 현지) 타이머 요약 조회.
  *   { kind: 'success', summary }  — 200. summary는 위 shape 그대로.
  *   { kind: 'not-allowed' }       — 200 {allowed:false}. 이용권 없음(조회형 규약).
  *   그 외 kind는 requestGoalTimer 공통 계약(no-session/error).
  */
 export async function fetchGoalTimer() {
-  const result = await requestGoalTimer("GET");
+  const result = await requestGoalTimer("GET", timerGetResponse);
   if (result.kind !== "success") return result;
-  if (result.body?.allowed === false) return notAllowed(result.body);
-  return {
-    kind: "success" as const,
-    summary: result.body as GoalTimerSummary,
-  };
+  if ("allowed" in result.body) return notAllowed(result.body);
+  return { kind: "success" as const, summary: result.body as TimerSummary };
 }
 
 /** 과목 측정 시작 — 진행 중이던 다른 과목이 있으면 서버가 자동으로 전환 마감한다. */
 export async function startGoalTimer(subject: string) {
-  const result = await requestGoalTimer("POST", { action: "start", subject });
+  const result = await requestGoalTimer("POST", timerRunningResponse, {
+    action: "start",
+    subject: subject as TimerSubject,
+  });
   if (result.kind !== "success") return result;
-  return {
-    kind: "success" as const,
-    running: result.body?.running as GoalTimerSummary["running"],
-  };
+  return { kind: "success" as const, running: result.body.running };
 }
 
 /** 진행 중인 세션 종료. 진행 중이 없어도 200(멱등) — 항상 success로 접는다. */
@@ -1563,6 +1564,7 @@ export async function stopGoalTimer({
 } = {}) {
   const result = await requestGoalTimer(
     "POST",
+    timerRunningResponse,
     { action: "stop" },
     { keepalive },
   );
@@ -1578,41 +1580,35 @@ export async function heartbeatGoalTimer({
 } = {}) {
   const result = await requestGoalTimer(
     "POST",
+    timerRunningResponse,
     { action: "heartbeat" },
     { keepalive },
   );
   if (result.kind !== "success") return result;
-  return {
-    kind: "success" as const,
-    running: result.body?.running as GoalTimerSummary["running"],
-  };
+  return { kind: "success" as const, running: result.body.running };
 }
 
 /** 과목별 목표 시간 저장(학생 자율 설정). */
 export async function setGoalTimerTarget(subject: string, targetHours: number) {
-  const result = await requestGoalTimer("POST", {
+  const result = await requestGoalTimer("POST", timerTargetResponse, {
     action: "setTarget",
-    subject,
+    subject: subject as TimerSubject,
     targetHours,
   });
   if (result.kind !== "success") return result;
-  return {
-    kind: "success" as const,
-    target: result.body?.target as GoalTimerSummary["targets"][number],
-  };
+  return { kind: "success" as const, target: result.body.target };
 }
 
 /** 타이머 화면에 과목 카드 추가("+ 과목 추가", QA B9). 이미 노출 중이면 멱등. */
 export async function addGoalTimerSubject(subject: string) {
-  const result = await requestGoalTimer("POST", {
+  const result = await requestGoalTimer("POST", timerSubjectsResponse, {
     action: "addSubject",
-    subject,
+    subject: subject as TimerSubject,
   });
   if (result.kind !== "success") return result;
   return {
     kind: "success" as const,
-    visibleSubjects: result.body
-      ?.visibleSubjects as GoalTimerSummary["visibleSubjects"],
+    visibleSubjects: result.body.visibleSubjects,
   };
 }
 
