@@ -187,17 +187,17 @@ export type CandidateRow = {
   alreadyUsed: boolean;
   role: ActivityRole | null;
   /** 기록 상태. 없으면 completed 로 본다. */
-  recordStatus?: RecordStatus;
+  recordStatus?: RecordStatus | undefined;
   /** 제출일(createdAt 으로 대신한 값 포함). */
-  submittedAt?: string;
+  submittedAt?: string | undefined;
   /** 핵심과의 연계 상태. 연계 확인 전이거나 실패했으면 null. */
-  linkState?: CandidateLinkState | null;
+  linkState?: CandidateLinkState | null | undefined;
   /** 연계 가점. 선택 순서에만 쓰고 적합도 점수에는 넣지 않는다. */
-  bonus?: number;
+  bonus?: number | undefined;
   /** 이미 고른 기록에 없는 11항목 칸 수. 0 이면 중복이다. */
-  contribution?: number;
+  contribution?: number | undefined;
   /** 학생이 읽는 선정 이유. 쓸 수 있는 기록은 한 줄 이상이다. */
-  selectionReasons?: string[];
+  selectionReasons?: string[] | undefined;
 };
 
 // 활동 기록 연계(명세 No.174~196)
@@ -709,7 +709,6 @@ export type SourceCounts = {
 };
 
 export type PickListResponse = {
-  ok: true;
   candidates: CandidateRow[];
   selection: PickSelection | null;
   auto: PickAuto | null;
@@ -733,14 +732,13 @@ export type PickListResponse = {
 /** link, delete-link, confirm-link, add-link 의 응답. list 와 같은 본문이다. */
 export type PickLinkResponse = PickListResponse & {
   /** link 만. 이미 판정을 마쳐 모델을 부르지 않았으면 true. */
-  cached?: boolean;
-  attempts?: number;
+  cached?: boolean | undefined;
+  attempts?: number | undefined;
   /** 연계 판정이 실패하거나 시도를 소진했을 때의 코드. */
-  linkError?: string;
+  linkError?: string | undefined;
 };
 
 export type PickSelectResponse = {
-  ok: true;
   selection: PickSelection;
   coreMismatch: boolean;
   warnings: string[];
@@ -750,7 +748,6 @@ export type PickSelectResponse = {
 };
 
 export type PickManualResponse = {
-  ok: true;
   activityRecordId: string;
   selection: PickSelection;
   currentStep: 3;
