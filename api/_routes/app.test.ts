@@ -141,6 +141,30 @@ describe("vercel.json rewrite", () => {
     expect(hijacked).toEqual([]);
   });
 
+  test("모르는 관리자 경로도 Hono 진입 함수로 가고 시간 한도 경로는 유지한다", () => {
+    expect({
+      unknown: destinationOf("/api/admin/does-not-exist"),
+      nested: destinationOf("/api/admin/coupons-x/y"),
+      knowledgeSearch: destinationOf("/api/admin/knowledge-search"),
+      premiumBookApply: destinationOf("/api/admin/premium-book/apply"),
+      goalAdmin: destinationOf("/api/goal/admin/cuts/backfill"),
+    }).toEqual({
+      unknown: "/api/app",
+      nested: "/api/app",
+      knowledgeSearch: "/api/app-30",
+      premiumBookApply: "/api/app-60",
+      goalAdmin: "/api/router-60",
+    });
+  });
+
+  test("관리자 경로의 점 구간은 새 진입 함수 rewrite 에 걸리지 않는다", () => {
+    const dotted = ["/api/admin/../goal", "/api/admin/..", "/api/admin/x/../y"];
+    const hijacked = dotted.filter((url) =>
+      destinationOf(url)?.startsWith("/api/app"),
+    );
+    expect(hijacked).toEqual([]);
+  });
+
   test("점 구간이 있는 경로는 새 진입 함수 rewrite 에 걸리지 않는다", () => {
     const dotted = [
       "/api/admin/coupons/../members",

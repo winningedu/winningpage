@@ -2,22 +2,6 @@
   "regions": ["icn1"],
   "rewrites": [
     {
-      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/(?:coupons(?:/.*)?|tenant-options/?|send-message/?|web-analytics/?|invite-member/?|access-logs/?|ai-telemetry(?:-pricing)?/?|service-credit-(?:adjust|summary)/?|(?:growth|inquiry|selfeval)-(?:grant|recover)/?|knowledge-bulk/?|mentor-applications/?|revenue/?|members(?:/[^/]+(?:/(?:tenant|messages|orders|services|links))?)?/?|staff(?:/[^/]+(?:/permissions)?)?/?|roles(?:/[^/]+(?:/permissions)?)?/?|tenants(?:/.*)?|uploads/?|hq-dashboard(?:/.*)?))",
-      "destination": "/api/app"
-    },
-    {
-      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/me(?:/.*)?)",
-      "destination": "/api/app"
-    },
-    {
-      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/students(?:/.*)?)",
-      "destination": "/api/app"
-    },
-    {
-      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/(?:admission|growth-reports|home-section-copy|inquiry-sessions|knowledge-eval/queries|knowledge-items|learning-diagnosis|mentor-applications/[^/]+|premium-book/pages|revenue/pending|revenue/services|sections|selfeval-sessions|uploads/preview)(?:/.*)?)",
-      "destination": "/api/app"
-    },
-    {
       "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/(?:knowledge-search/?))",
       "destination": "/api/app-30"
     },
@@ -36,6 +20,10 @@
     {
       "source": "/api/(admin/premium-book/apply/?)",
       "destination": "/api/app-60"
+    },
+    {
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin(?:/.*)?)",
+      "destination": "/api/app"
     },
     {
       "source": "/api/((?:goal/admin/cuts/backfill|growth/collect|growth/report|inquiry/evaluate-report|inquiry/plan-report|inquiry/recommend-topics|performance/admin-embed|performance/analyze-guide|performance/design-report|performance/evaluate|performance/recommend-topics|selfeval/analyze|selfeval/finalize|selfeval/manual-logs|selfeval/pick-records|selfeval/report|selfeval/verify|selfeval/write)/?)",
