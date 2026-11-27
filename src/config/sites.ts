@@ -80,6 +80,8 @@ export interface SiteConfig {
     usageGuide: boolean;
     // 교사 콘솔 마이페이지의 교사, 기관관리자 이용약관(terms.teacher_service) 링크. 행이 있는 사이트만 켠다.
     teacherTerms: boolean;
+    // 공용 푸터(SiteFooter)의 로고 줄에 SNS 아이콘 링크(카카오, 네이버, 유튜브, 인스타그램)를 보일지.
+    footerSocialLinks: boolean;
   };
   // 공용 푸터(SiteFooter)의 사이트별 표시.
   footer: {
@@ -168,6 +170,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       companyLocation: true,
       usageGuide: false,
       teacherTerms: false,
+      footerSocialLinks: true,
     },
     company: {
       name: "주식회사 위닝에듀",
@@ -259,6 +262,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       companyLocation: false,
       usageGuide: true,
       teacherTerms: true,
+      footerSocialLinks: false,
     },
     company: {
       name: "주식회사 위닝로직",

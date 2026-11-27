@@ -111,7 +111,7 @@ function SocialLinks({
 // 두 사이트 공용 푸터. 브랜드 자리, 운영 형태, 저작권 문구는 site.footer, 회사 정보는 site.company 를 따른다.
 // 저작권보호정책 링크는 문서와 라우트가 생길 때 추가한다(결정 26).
 export default function SiteFooter() {
-  const { company, footer } = site;
+  const { company, footer, features } = site;
   const operatorImage = useFooterOperatorImage();
   const nameItems = [
     `상호명: ${company.name}`,
@@ -131,6 +131,23 @@ export default function SiteFooter() {
       ? `온라인고객센터 : ${company.supportChannelLabel}`
       : undefined,
   ];
+
+  const legalLinks = (
+    <div className="flex shrink-0 gap-[1.6625rem] text-[0.8125rem] leading-5 font-semibold text-footer-b2b-link lg:pt-[0.4375rem]">
+      <Link
+        to="/privacy"
+        className="relative whitespace-nowrap font-bold text-footer-b2b-privacy after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
+      >
+        개인정보처리방침
+      </Link>
+      <Link
+        to="/terms"
+        className="relative whitespace-nowrap after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
+      >
+        이용약관
+      </Link>
+    </div>
+  );
 
   return (
     <footer className="bg-footer-b2b-bg">
@@ -160,7 +177,12 @@ export default function SiteFooter() {
                   {footer.brand.text}
                 </p>
               )}
-              <SocialLinks company={company} className="mt-4 flex lg:hidden" />
+              {features.footerSocialLinks && (
+                <SocialLinks
+                  company={company}
+                  className="mt-4 flex lg:hidden"
+                />
+              )}
               <div className="mt-[1.031rem] break-keep text-[0.8125rem] leading-[1.675rem] text-footer-b2b-info">
                 <p>
                   <PipeItems
@@ -202,23 +224,14 @@ export default function SiteFooter() {
                 )}
               </div>
             </div>
-            <div className="flex shrink-0 flex-col items-start gap-6 lg:items-end lg:gap-4">
-              <SocialLinks company={company} className="hidden lg:flex" />
-              <div className="flex shrink-0 gap-[1.6625rem] text-[0.8125rem] leading-5 font-semibold text-footer-b2b-link lg:pt-[0.4375rem]">
-                <Link
-                  to="/privacy"
-                  className="relative whitespace-nowrap font-bold text-footer-b2b-privacy after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
-                >
-                  개인정보처리방침
-                </Link>
-                <Link
-                  to="/terms"
-                  className="relative whitespace-nowrap after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
-                >
-                  이용약관
-                </Link>
+            {features.footerSocialLinks ? (
+              <div className="flex shrink-0 flex-col items-start gap-6 lg:items-end lg:gap-4">
+                <SocialLinks company={company} className="hidden lg:flex" />
+                {legalLinks}
               </div>
-            </div>
+            ) : (
+              legalLinks
+            )}
           </div>
         </div>
 

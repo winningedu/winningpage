@@ -253,6 +253,21 @@ describe("SiteFooter - 위닝 SNS 아이콘", () => {
   });
 });
 
+describe("SiteFooter - 스쿨멘토 SNS 아이콘", () => {
+  it("카카오 채널 주소가 있어도 SNS 아이콘을 그리지 않고 링크 묶음은 그대로다", () => {
+    siteState.key = "schoolmentor";
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    for (const label of SOCIAL_LABELS) {
+      expect(
+        footer.querySelector(`[aria-label="${label}"]`),
+      ).not.toBeInTheDocument();
+    }
+    expect(within(footer).getAllByRole("link")).toHaveLength(2);
+  });
+});
+
 describe("SiteFooter - 위닝 SNS 주소가 없는 아이콘", () => {
   const naverClipUrl = SITES.winning.company.naverClipUrl as string;
 
