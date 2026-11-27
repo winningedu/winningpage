@@ -3,6 +3,11 @@
 import { queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 import { api } from "@/lib/http/client";
+import { revenuePendingSchema } from "../../../../shared/revenue/pending.js";
+import {
+  type RevenueServiceTab,
+  revenueServicesSchema,
+} from "../../../../shared/revenue/services.js";
 
 const revenueRowSchema = z.object({
   order_item_id: z.number(),
@@ -23,19 +28,8 @@ const revenueRowSchema = z.object({
 
 const revenueResponseSchema = z.object({ items: z.array(revenueRowSchema) });
 
-const serviceTabsResponseSchema = z.object({
-  items: z.array(z.object({ key: z.string(), label: z.string() })),
-});
-
-const pendingSchema = z.object({
-  approvalWaiting: z.number(),
-  processWaiting: z.number(),
-});
-
 export type RevenueRow = z.infer<typeof revenueRowSchema>;
-export type ServiceTab = z.infer<
-  typeof serviceTabsResponseSchema
->["items"][number];
+export type ServiceTab = RevenueServiceTab;
 
 const revenueKey = ["admin", "revenue"] as const;
 export const revenueRowsKey = [...revenueKey, "rows"] as const;
@@ -61,12 +55,12 @@ export const revenueServicesQuery = queryOptions({
     (
       await api
         .get("admin/revenue/services", { signal })
-        .json(serviceTabsResponseSchema)
+        .json(revenueServicesSchema)
     ).items,
 });
 
 export const revenuePendingQuery = queryOptions({
   queryKey: [...revenueKey, "pending"],
   queryFn: ({ signal }) =>
-    api.get("admin/revenue/pending", { signal }).json(pendingSchema),
+    api.get("admin/revenue/pending", { signal }).json(revenuePendingSchema),
 });

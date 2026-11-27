@@ -7,17 +7,20 @@ import {
   createAdminFake,
   firstQuery,
   problemCode,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./services.js";
+import { revenueServicesSchema } from "../../../shared/revenue/services.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/revenue/services" };
 
 let products: unknown[] = [];
 
@@ -101,5 +104,14 @@ describe("GET /api/admin/revenue/services", () => {
     const r = await callRoute(handler);
     expect(r.status).toBe(500);
     expect(problemCode(r.body)).toBe("INTERNAL_ERROR");
+  });
+});
+
+describe("계약", () => {
+  test("응답은 계약 스키마를 통과한다", async () => {
+    products = [{ service_key: "growth", service_name: "성장 설계" }];
+    setup();
+    const r = await callRoute(handler);
+    expect(revenueServicesSchema.safeParse(r.body).success).toBe(true);
   });
 });

@@ -9,6 +9,9 @@ import { inquirySessions } from "./inquiry-sessions.js";
 import { knowledgeEval } from "./knowledge-eval.js";
 import { knowledgeItems } from "./knowledge-items.js";
 import { learningDiagnosis } from "./learning-diagnosis.js";
+import { mentorApplicationsDetail } from "./mentor-applications-detail.js";
+import { revenuePending } from "./revenue-pending.js";
+import { revenueServices } from "./revenue-services.js";
 import { sections } from "./sections.js";
 import { selfevalSessions } from "./selfeval-sessions.js";
 import { uploadsPreview } from "./uploads-preview.js";
@@ -21,6 +24,9 @@ export const admin = createAdminApp()
   .route("/knowledge-eval", knowledgeEval)
   .route("/knowledge-items", knowledgeItems)
   .route("/learning-diagnosis", learningDiagnosis)
+  .route("/mentor-applications", mentorApplicationsDetail)
+  .route("/revenue", revenuePending)
+  .route("/revenue", revenueServices)
   .route("/sections", sections)
   .route("/selfeval-sessions", selfevalSessions)
   .route("/uploads", uploadsPreview);

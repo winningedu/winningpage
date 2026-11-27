@@ -8,17 +8,20 @@ import {
   firstQuery,
   problemCode,
   type Respond,
-} from "../../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./proof-url.js";
+import { proofUrlSchema } from "../../../shared/mentor-application/detail.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/mentor-applications/:id/proof-url" };
 
 const ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 
@@ -77,7 +80,7 @@ describe("POST /api/admin/mentor-applications/:id/proof-url", () => {
     const r = await post();
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ url: "https://signed.example/x" });
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
     expect(kitStorage.calls).toEqual([
       { bucket: "mentor-applications", path: "a/b.pdf", ttl: 60 },
     ]);
@@ -138,5 +141,14 @@ describe("POST /api/admin/mentor-applications/:id/proof-url", () => {
   test("uuid 가 아닌 id 는 400 이다", async () => {
     setup();
     expect((await post({ id: "abc" })).status).toBe(400);
+  });
+});
+
+describe("계약", () => {
+  test("응답은 계약 스키마를 통과한다", async () => {
+    setup();
+    const r = await callRoute(handler, { method: "POST", query: { id: ID } });
+    expect(r.status).toBe(200);
+    expect(proofUrlSchema.safeParse(r.body).success).toBe(true);
   });
 });

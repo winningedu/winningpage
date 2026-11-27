@@ -6,17 +6,20 @@ import {
   callRoute,
   createAdminFake,
   problemCode,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./pending.js";
+import { revenuePendingSchema } from "../../../shared/revenue/pending.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/revenue/pending" };
 
 let counts = { approval: 0 as number | null, process: 0 as number | null };
 let failApproval = false;
@@ -99,5 +102,14 @@ describe("GET /api/admin/revenue/pending", () => {
     const r = await callRoute(handler);
     expect(r.status).toBe(500);
     expect(problemCode(r.body)).toBe("INTERNAL_ERROR");
+  });
+});
+
+describe("계약", () => {
+  test("응답은 계약 스키마를 통과한다", async () => {
+    counts = { approval: 1, process: 2 };
+    setup();
+    const r = await callRoute(handler);
+    expect(revenuePendingSchema.safeParse(r.body).success).toBe(true);
   });
 });

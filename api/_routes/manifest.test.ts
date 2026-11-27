@@ -413,16 +413,6 @@ describe("학습진단, 멘토 신청 경로", () => {
 
   test.each([
     ["/api/admin/mentor-applications", "admin/mentor-applications", {}],
-    [
-      `/api/admin/mentor-applications/${ID}`,
-      "admin/mentor-applications/[id]",
-      { id: ID },
-    ],
-    [
-      `/api/admin/mentor-applications/${ID}/proof-url`,
-      "admin/mentor-applications/[id]/proof-url",
-      { id: ID },
-    ],
   ])("%s 는 %s 로 간다", async (url, key, query) => {
     expect(await resolve(url)).toEqual({ key, query });
   });

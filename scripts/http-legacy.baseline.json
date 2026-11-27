@@ -129,12 +129,6 @@
   "api/_routes/admin/mentor-applications.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/mentor-applications/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/mentor-applications/[id]/proof-url.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/premium-book/apply.ts": {
     "legacyHandler": 1
   },
@@ -145,12 +139,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/revenue.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/revenue/pending.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/revenue/services.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/roles.ts": {

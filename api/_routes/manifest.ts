@@ -17,10 +17,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/ai-telemetry": () => import("./admin/ai-telemetry.js"),
   "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
   "admin/mentor-applications": () => import("./admin/mentor-applications.js"),
-  "admin/mentor-applications/[id]": () =>
-    import("./admin/mentor-applications/[id].js"),
-  "admin/mentor-applications/[id]/proof-url": () =>
-    import("./admin/mentor-applications/[id]/proof-url.js"),
   "admin/growth-grant": () => import("./admin/growth-grant.js"),
   "admin/hq-dashboard/summary": () => import("./admin/hq-dashboard/summary.js"),
   "admin/hq-dashboard/tenants": () => import("./admin/hq-dashboard/tenants.js"),
@@ -49,8 +45,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/premium-book/pages/[id]": () =>
     import("./admin/premium-book/pages/[id].js"),
   "admin/revenue": () => import("./admin/revenue.js"),
-  "admin/revenue/pending": () => import("./admin/revenue/pending.js"),
-  "admin/revenue/services": () => import("./admin/revenue/services.js"),
   "admin/roles": () => import("./admin/roles.js"),
   "admin/roles/[id]": () => import("./admin/roles/[id].js"),
   "admin/roles/[id]/permissions": () =>

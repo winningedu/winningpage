@@ -8,17 +8,20 @@ import {
   firstQuery,
   problemCode,
   type Respond,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./[id].js";
+import { applicationDetailSchema } from "../../../shared/mentor-application/detail.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/mentor-applications/:id" };
 
 const ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 let rows: Respond = () => ({
@@ -118,5 +121,19 @@ describe("PATCH /api/admin/mentor-applications/:id", () => {
     expect(admin.queries.map((q) => q.table)).not.toContain(
       "mentor_applications",
     );
+  });
+});
+
+describe("계약", () => {
+  test("GET 과 PATCH 응답은 계약 스키마를 통과한다", async () => {
+    setup("edit");
+    const got = await callRoute(handler, { query: { id: ID } });
+    const patched = await callRoute(handler, {
+      method: "PATCH",
+      query: { id: ID },
+      body: { status: "interview" },
+    });
+    expect(applicationDetailSchema.safeParse(got.body).success).toBe(true);
+    expect(applicationDetailSchema.safeParse(patched.body).success).toBe(true);
   });
 });
