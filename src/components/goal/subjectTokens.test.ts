@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { SUBJECT_IDS } from "../../../api/_routes/goal/workbooks";
+import { WORKBOOK_SUBJECTS as SUBJECT_IDS } from "../../../shared/goal/workbooks";
 import {
   getBookDarkBgClass,
   getBookDarkTextClass,

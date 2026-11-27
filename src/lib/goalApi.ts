@@ -41,6 +41,14 @@ import {
   timerSubjectsResponse,
   timerTargetResponse,
 } from "../../shared/goal/timer.js";
+import {
+  type GoalWorkbook,
+  type WorkbookCreateInput,
+  type WorkbookPutInput,
+  workbookDeleteResponse,
+  workbookResponse,
+  workbooksListResponse,
+} from "../../shared/goal/workbooks.js";
 import { getAuthHeader } from "./apiFetch";
 import { ApiError, api } from "./http/client";
 import { parseTenantReason, type TenantBlockReason } from "./tenantBlock";
@@ -121,19 +129,6 @@ export interface GoalPlanTask {
   pageFrom: number | null;
   pageTo: number | null;
   workbookTitle: string | null;
-}
-
-/** api/_lib/goal/repo.ts buildWorkbookPayload(). */
-interface GoalWorkbook {
-  id: number;
-  subject: string;
-  title: string;
-  totalPages: number | null;
-  currentPage: number | null;
-  status: string;
-  // "책장에 꽂기" 수동 전이(Figma 4026:6046) — null이면 status='done'이어도 아직
-  // BookStack에 안 옮겨진 상태.
-  shelvedAt: string | null;
 }
 
 /** fetchGoalGrades()/addGoalGrade() 회차 레코드 — api/_routes/goal/grades.ts validateEntry 참고. */
@@ -660,17 +655,19 @@ type GoalWorkbooksRequestResult =
 
 async function goalWorkbooksRequest(
   method: string,
-  body?: object,
+  schema: z.ZodType,
+  body?: WorkbookCreateInput | WorkbookPutInput | { id: number },
 ): Promise<GoalWorkbooksRequestResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/workbooks", {
-      method,
-      ...(body !== undefined ? { json: body } : {}),
-    });
+    response = await goalRequest(
+      "goal/workbooks",
+      { method, ...(body !== undefined ? { json: body } : {}) },
+      schema,
+    );
   } catch (error) {
     console.error(`[goalApi] ${method} /api/goal/workbooks 호출 오류:`, error);
     return { kind: "error" };
@@ -704,17 +701,15 @@ export async function fetchGoalWorkbooks(): Promise<
   | Exclude<GoalWorkbooksRequestResult, { kind: "success" }>
   | { kind: "success"; workbooks: GoalWorkbook[] }
 > {
-  const outcome = await goalWorkbooksRequest("GET");
+  const outcome = await goalWorkbooksRequest("GET", workbooksListResponse);
   if (outcome.kind !== "success") return outcome;
   return { kind: "success", workbooks: outcome.result?.workbooks ?? [] };
 }
 
-interface GoalWorkbookInput {
+// 화면은 과목을 string 으로 들고 있다. 서버가 목록 밖의 값을 400 으로 막는다.
+type GoalWorkbookInput = Omit<WorkbookCreateInput, "subject"> & {
   subject: string;
-  title: string;
-  totalPages: number;
-  currentPage?: number;
-}
+};
 
 /** POST — 문제집 1건 등록. payload: {subject, title, totalPages, currentPage?}. */
 export async function createGoalWorkbook(
@@ -723,7 +718,11 @@ export async function createGoalWorkbook(
   | Exclude<GoalWorkbooksRequestResult, { kind: "success" }>
   | { kind: "success"; workbook: GoalWorkbook }
 > {
-  const outcome = await goalWorkbooksRequest("POST", payload);
+  const outcome = await goalWorkbooksRequest(
+    "POST",
+    workbookResponse,
+    payload as WorkbookCreateInput,
+  );
   if (outcome.kind !== "success") return outcome;
   return { kind: "success", workbook: outcome.result?.workbook };
 }
@@ -737,7 +736,7 @@ export async function updateGoalWorkbook(
   | Exclude<GoalWorkbooksRequestResult, { kind: "success" }>
   | { kind: "success"; workbook: GoalWorkbook }
 > {
-  const outcome = await goalWorkbooksRequest("PUT", payload);
+  const outcome = await goalWorkbooksRequest("PUT", workbookResponse, payload);
   if (outcome.kind !== "success") return outcome;
   return { kind: "success", workbook: outcome.result?.workbook };
 }
@@ -753,7 +752,10 @@ export async function shelveGoalWorkbook(
   | Exclude<GoalWorkbooksRequestResult, { kind: "success" }>
   | { kind: "success"; workbook: GoalWorkbook }
 > {
-  const outcome = await goalWorkbooksRequest("PUT", { id, shelve: true });
+  const outcome = await goalWorkbooksRequest("PUT", workbookResponse, {
+    id,
+    shelve: true,
+  });
   if (outcome.kind !== "success") return outcome;
   return { kind: "success", workbook: outcome.result?.workbook };
 }
@@ -764,7 +766,9 @@ export async function deleteGoalWorkbook(
 ): Promise<
   Exclude<GoalWorkbooksRequestResult, { kind: "success" }> | { kind: "success" }
 > {
-  const outcome = await goalWorkbooksRequest("DELETE", { id });
+  const outcome = await goalWorkbooksRequest("DELETE", workbookDeleteResponse, {
+    id,
+  });
   if (outcome.kind !== "success") return outcome;
   return { kind: "success" };
 }
