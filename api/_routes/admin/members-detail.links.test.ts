@@ -4,31 +4,34 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   createSectionAdmin,
   type SectionDb,
-} from "../../../../_lib/admin-sections/sectionTestKit.js";
+} from "../../_lib/admin-sections/sectionTestKit.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 import {
   MEMBER_ID,
   OTHER_ID,
   seedMembersDb,
-} from "../../../../_lib/members/membersTestKit.js";
+} from "../../_lib/members/membersTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   db: null as unknown as SectionDb,
 }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createSectionAdmin(kit.state, kit.db),
 }));
 
-import handler from "./links.js";
+import { app } from "../app.js";
 
-const get = (id: string) => callHandler(handler, undefined, "GET", { id });
+const route = { app, path: "/api/admin/members/:id/links" };
+
+const get = (id: string) => callRoute(route, { query: { id } });
 
 const PARENT = "7d3e4c5d-6f70-4182-8c9d-1e2f3a4b5c6d";
 const OTHER_PARENT = "9f506e7f-8192-43a4-8ebf-3a4b5c6d7e8f";

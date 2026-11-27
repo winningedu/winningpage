@@ -4,18 +4,18 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   createSectionAdmin,
   type SectionDb,
-} from "../../../../_lib/admin-sections/sectionTestKit.js";
+} from "../../_lib/admin-sections/sectionTestKit.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 import {
   MEMBER_ID,
   OTHER_ID,
   seedMembersDb,
-} from "../../../../_lib/members/membersTestKit.js";
+} from "../../_lib/members/membersTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
@@ -25,25 +25,27 @@ const kit = vi.hoisted(() => ({
   userClientTokens: [] as string[],
 }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   isSupabaseConfigError: () => false,
   getEnv: (name: string) => process.env[name],
   createSupabaseAdmin: () => createSectionAdmin(kit.state, kit.db),
 }));
 
-vi.mock("../../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: (token: string) => {
     kit.userClientTokens.push(token);
     return createFakeAdmin(kit.userState);
   },
 }));
 
-import handler from "./tenant.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/members/:id/tenant" };
 
 const TENANT = "9f506e7f-8192-43a4-8ebf-3a4b5c6d7e8f";
 
 const put = (body: unknown, id = MEMBER_ID) =>
-  callHandler(handler, body, "PUT", { id });
+  callRoute(route, { method: "PUT", query: { id }, body });
 
 const TABLES = {
   profiles: [{ id: MEMBER_ID, member_type: "student", tenant_id: null }],
@@ -84,7 +86,7 @@ describe("PUT /api/admin/members/:id/tenant", () => {
       tenant_name: "한빛 학원",
     });
     // 함수가 auth.uid() 로 권한과 변경자를 보므로 서비스 롤로 부르지 않는다.
-    expect(kit.userClientTokens).toEqual(["token"]);
+    expect(kit.userClientTokens).toEqual(["admin-token"]);
     expect(rpcCalls).toEqual([
       { p_profile_id: MEMBER_ID, p_tenant_id: TENANT },
     ]);

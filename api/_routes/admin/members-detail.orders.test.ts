@@ -4,31 +4,34 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   createSectionAdmin,
   type SectionDb,
-} from "../../../../_lib/admin-sections/sectionTestKit.js";
+} from "../../_lib/admin-sections/sectionTestKit.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 import {
   MEMBER_ID,
   OTHER_ID,
   seedMembersDb,
-} from "../../../../_lib/members/membersTestKit.js";
+} from "../../_lib/members/membersTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   db: null as unknown as SectionDb,
 }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createSectionAdmin(kit.state, kit.db),
 }));
 
-import handler from "./orders.js";
+import { app } from "../app.js";
 
-const get = (id: string) => callHandler(handler, undefined, "GET", { id });
+const route = { app, path: "/api/admin/members/:id/orders" };
+
+const get = (id: string) => callRoute(route, { query: { id } });
 
 const TABLES = {
   profiles: [{ id: MEMBER_ID, member_type: "parent" }],
@@ -67,7 +70,11 @@ describe("GET /api/admin/members/:id/orders", () => {
   });
 
   test("필터 문자열을 깨는 id 는 400 이고 주문을 읽지 않는다", async () => {
-    const r = await get("x,parent_profile_id.neq.0");
+    // 루트 앱은 "%" 가 든 경로를 라우트 전에 404 로 막으므로, 쉼표와 점은 인코딩하지 않은 그대로 보낸다.
+    const r = await callRoute({
+      app,
+      path: "/api/admin/members/x,parent_profile_id.neq.0/orders",
+    });
 
     expect(r.status).toBe(400);
     expect(kit.db.calls.some((c) => c.table === "orders")).toBe(false);

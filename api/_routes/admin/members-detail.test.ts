@@ -4,32 +4,35 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   createSectionAdmin,
   type SectionDb,
-} from "../../../_lib/admin-sections/sectionTestKit.js";
+} from "../../_lib/admin-sections/sectionTestKit.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 import {
   MEMBER_ID,
   OTHER_ID,
   seedMembersDb,
-} from "../../../_lib/members/membersTestKit.js";
+} from "../../_lib/members/membersTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   db: null as unknown as SectionDb,
 }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createSectionAdmin(kit.state, kit.db),
 }));
 
-import handler from "./[id].js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/members/:id" };
 
 const call = (method: string, id: string, body?: unknown) =>
-  callHandler(handler, body, method, { id });
+  callRoute(route, { method, query: { id }, body });
 
 const TABLES = {
   profiles: [
@@ -228,5 +231,49 @@ describe("PATCH /api/admin/members/:id", () => {
 
     expect(r.status).toBe(500);
     expect(r.body).toMatchObject({ code: "INTERNAL_ERROR" });
+  });
+});
+
+describe("메서드와 경로", () => {
+  test.each([
+    ["/api/admin/members/:id", "GET, HEAD, PATCH"],
+    ["/api/admin/members/:id/tenant", "PUT"],
+    ["/api/admin/members/:id/links", "GET, HEAD"],
+    ["/api/admin/members/:id/messages", "GET, HEAD"],
+    ["/api/admin/members/:id/orders", "GET, HEAD"],
+    ["/api/admin/members/:id/services", "GET, HEAD"],
+  ])("%s 에 맞지 않는 메서드는 405 와 Allow(%s) 다", async (path, allow) => {
+    const r = await callRoute(
+      { app, path },
+      { method: "DELETE", query: { id: MEMBER_ID } },
+    );
+
+    expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe(allow);
+    expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
+  });
+
+  test("목록 경로와 회원 경로는 서로 다른 핸들러에 닿는다", async () => {
+    const list = await callRoute({ app, path: "/api/admin/members" });
+    const one = await call("GET", MEMBER_ID);
+
+    expect((list.body as { items?: unknown }).items).toBeDefined();
+    expect((one.body as { id?: string }).id).toBe(MEMBER_ID);
+  });
+
+  test("모르는 하위 경로는 problem 404 다", async () => {
+    const r = await callRoute({
+      app,
+      path: `/api/admin/members/${MEMBER_ID}/unknown`,
+    });
+
+    expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  test("HEAD 는 GET 처럼 권한을 보고 본문 없이 200 이다", async () => {
+    const r = await call("HEAD", MEMBER_ID);
+
+    expect(r.status).toBe(200);
   });
 });

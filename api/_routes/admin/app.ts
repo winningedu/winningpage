@@ -21,6 +21,7 @@ import { knowledgeItems } from "./knowledge-items.js";
 import { knowledgeSearch } from "./knowledge-search.js";
 import { me } from "./me.js";
 import { members } from "./members.js";
+import { membersDetail } from "./members-detail.js";
 import { mentorApplications } from "./mentor-applications.js";
 import { revenue } from "./revenue.js";
 import { roles } from "./roles.js";
@@ -60,6 +61,7 @@ export const admin = createAdminApp()
   .route("/mentor-applications", mentorApplications)
   .route("/revenue", revenue)
   .route("/members", members)
+  .route("/members", membersDetail)
   .route("/staff", staff)
   .route("/roles", roles)
   .route("/tenants", tenants)

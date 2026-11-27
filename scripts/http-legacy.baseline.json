@@ -84,24 +84,6 @@
   "api/_routes/admin/learning-diagnosis/questions/[id].ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/members/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/members/[id]/links.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/members/[id]/messages.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/members/[id]/orders.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/members/[id]/services.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/members/[id]/tenant.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/mentor-applications/[id].ts": {
     "legacyHandler": 1
   },
