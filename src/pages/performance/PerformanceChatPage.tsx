@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { useParams } from "react-router";
+import type { z } from "zod";
 import AiLoadingBubble from "@/components/performance/chat/AiLoadingBubble";
 import ChatTimeline, {
   type PerformanceChatMessage,
@@ -64,7 +65,12 @@ import {
   entitlementDeniedMessage,
   type TenantBlockReason,
 } from "@/lib/tenantBlock";
-import { sessionWriteResponse } from "../../../shared/performance/contract.js";
+import {
+  type sessionSchema,
+  sessionWriteResponse,
+} from "../../../shared/performance/session.js";
+
+type PerformanceSession = z.output<typeof sessionSchema>;
 
 // STEP1~STEP5 채팅 화면 — docs/수행평가-상세-명세.md §5.5(`3754:3206`) / §5.6(`3754:3261`) /
 // §5.7(`3754:3315`) / §5.8(`3754:3370`·`3754:3431`) / §5.9(`3754:3562`·`3754:3493`) /
@@ -372,25 +378,6 @@ function buildResumeChoiceCopy(profileName, lastSession) {
 // 말풍선을 재생하지 않는다(저장된 안내문 원문·업로드 장수를 bootstrap이 안 준다, 위
 // 파일 상단 주석). 대신 다리 역할의 안내 한 줄만 남긴다.
 const RESUME_CONTINUE_COPY = "이전 진행 기록을 불러왔어요. 이어서 진행할게요.";
-
-// ── 이 파일 전용 로컬 타입 ────────────────────────────────────────────────────
-// `GET /api/performance/session`·bootstrap 등 서버 응답을 화면이 실제로 쓰는 필드만 좁혀서
-// 담는다(§8.6 계약은 그대로이고 타입만 좁힌다 — `session.ts` 상단 주석과 같은 판단).
-type PerformanceSession = {
-  id: string;
-  status?: string;
-  currentStep?: number;
-  completedSteps?: unknown;
-  gradeLabel?: string;
-  semester?: string;
-  schoolType?: string | null;
-  subjectGroup?: string;
-  subject?: string;
-  careerGoal?: string;
-  previousTopic?: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
 
 // bootstrap.ts summaryOf가 실제로 내려주는 값은 DB 컬럼 원본이라 값 없음이 null로
 // 온다(undefined가 아니다) — performanceBootstrapQueryOptions(src/lib/queryClient.ts)의
