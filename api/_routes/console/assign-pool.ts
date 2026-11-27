@@ -1,6 +1,9 @@
 // GET /api/console/assign-pool?grade=&classId=&q=&page=&pageSize=
 //
 // W12 미배정 목록. 올해 재학 중이면서 학년이나 학급이 비어 있는 학생을 학교 관리자, 본사 대행, 담임에게 같게 준다.
+// 소속코드로 가입하며 스스로 적은 반이 명단과 맞지 않은 학생(needs_confirm)도 "확인 필요"로 맨 앞에 준다.
+// 이들은 적은 반에 그대로 있고 needsConfirm, 반 정보, canConfirm(담임은 담당 반 학생만)을 함께 싣는다.
+// 확인은 POST /api/console/assign-pool/confirm 이 한다.
 // 담임도 담당 학급과 무관하게 기관 전체 풀을 본다. 이름은 가리지 않고 실명으로 주며, q 는 대소문자를 가리지 않는 부분 일치다.
 // 동명 재학생(같은 기관, 같은 실명, 올해 학급이 있는 학생)은 번호 중복을 피해 배치하도록 이름 없이 함께 준다.
 // classId 는 동명 재학생 확인만 그 반으로 좁힌다(결정 105). 배치 쓰기는 PATCH /api/console/students/enrollment 가 한다.
@@ -29,9 +32,10 @@ interface EnrollmentRow {
   class_id: string | null;
   number: number | null;
   version: number;
+  needs_confirm: boolean;
 }
 
-const COLUMNS = "student_id, grade, class_id, number, version";
+const COLUMNS = "student_id, grade, class_id, number, version, needs_confirm";
 
 export default defineHandler({
   methods: ["GET"],
@@ -76,11 +80,12 @@ export default defineHandler({
       (e) => e.class_id !== null && (!classId || e.class_id === classId),
     );
     const pool = current
-      .filter((e) => e.grade === null || e.class_id === null)
+      .filter((e) => e.needs_confirm || e.grade === null || e.class_id === null)
       .filter((e) => !grade || e.grade === grade)
       .filter((e) => !q || nameOf(e.student_id).toLowerCase().includes(q));
     pool.sort(
       (a, b) =>
+        Number(b.needs_confirm) - Number(a.needs_confirm) ||
         gradeRank(a.grade) - gradeRank(b.grade) ||
         nameOf(a.student_id).localeCompare(nameOf(b.student_id), "ko") ||
         a.student_id.localeCompare(b.student_id),
@@ -108,11 +113,21 @@ export default defineHandler({
       pageCount: paged.pageCount,
       items: paged.items.map((e) => {
         const sameName = sameNameOf(e.student_id);
+        const cls = e.class_id ? classes.get(e.class_id) : undefined;
         return {
           studentId: e.student_id,
           name: nameOf(e.student_id),
           enrollmentVersion: e.version,
           grade: e.grade,
+          needsConfirm: e.needs_confirm,
+          canConfirm:
+            e.needs_confirm &&
+            (actor.kind !== "homeroom" ||
+              (e.class_id !== null && actor.classIds.includes(e.class_id))),
+          classId: e.class_id,
+          groupName: cls?.groupName ?? null,
+          className: cls?.name ?? null,
+          number: e.number,
           sameNameCount: sameName.length,
           sameNameEnrolled: sameName.map((s) => {
             const cls = s.class_id ? classes.get(s.class_id) : undefined;
