@@ -10,8 +10,14 @@ import { scheduleAfterResponse } from "../afterResponse.js";
 
 export type AdminAuditAction = "create" | "update" | "delete" | "view";
 
+/** 감사 행에 쓰는 요청 값. VercelRequest 와 Hono 미들웨어(api/_lib/hono/admin.ts)가 같은 모양으로 넘긴다. */
+export type AuditRequest = Pick<VercelRequest, "method" | "url" | "headers"> & {
+  /** 경로 값(dispatch 가 담은 req.query 또는 Hono 경로 파라미터). */
+  query?: Record<string, unknown>;
+};
+
 export interface AdminAuditInput {
-  req: VercelRequest;
+  req: AuditRequest;
   statusCode: number;
   /** 토큰에서 확인한 관리자. 본문 값은 쓰지 않는다. */
   actor: { userId: string; email: string | null };
@@ -36,12 +42,12 @@ export function isAuditableMethod(method: string | undefined): boolean {
   return method !== undefined && method in DEFAULT_ACTION;
 }
 
-function pathOf(req: VercelRequest): string {
+function pathOf(req: AuditRequest): string {
   return req.url?.split("?")[0] ?? "";
 }
 
 // ?id= 쿼리만으로 대상이 정해지지 않게, 경로 조각에 실제로 있는 값만 대상 id 로 본다.
-function pathParam(req: VercelRequest, name: string): string | null {
+function pathParam(req: AuditRequest, name: string): string | null {
   const value = req.query?.[name];
   if (typeof value !== "string" || value === "") return null;
   const segments = pathOf(req)
@@ -58,7 +64,7 @@ function pathParam(req: VercelRequest, name: string): string | null {
 
 // Vercel 은 x-forwarded-for 를 덮어써 외부에서 보낸 값을 넘기지 않는다(스푸핑 방지).
 // https://vercel.com/docs/headers/request-headers (2026-11-24 확인, 문서 갱신 2025-12-13)
-function clientIp(req: VercelRequest): string | null {
+function clientIp(req: AuditRequest): string | null {
   const forwarded = req.headers["x-forwarded-for"];
   if (typeof forwarded !== "string") return null;
   return forwarded.split(",")[0]?.trim() || null;

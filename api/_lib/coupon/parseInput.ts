@@ -3,6 +3,7 @@
 
 import type { VercelResponse } from "@vercel/node";
 import type { z } from "zod";
+import { zodIssuesToErrors } from "../../../shared/http/problem.js";
 import { sendError } from "../httpResponse.js";
 
 /** 통과하면 파싱된 값, 실패하면 400 을 보내고 null. */
@@ -19,12 +20,7 @@ export function parseInput<T extends z.ZodType>(
     400,
     "요청 값이 올바르지 않아요.",
     "VALIDATION_FAILED",
-    {
-      errors: parsed.error.issues.map((issue) => ({
-        path: issue.path.map(String).join("."),
-        message: issue.message,
-      })),
-    },
+    { errors: zodIssuesToErrors(parsed.error.issues) },
   );
   return null;
 }

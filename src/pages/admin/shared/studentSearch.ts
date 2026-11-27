@@ -2,30 +2,16 @@
 // section 은 서버가 권한을 확인하는 메뉴 키다. 호출 화면의 메뉴 키를 그대로 넘긴다.
 
 import { queryOptions } from "@tanstack/react-query";
-import { z } from "zod";
 import { api } from "@/lib/http/client";
+import {
+  STUDENT_SEARCH_SECTIONS,
+  type StudentSearchItem,
+  type StudentSearchSection,
+  studentSearchSchema,
+} from "../../../../shared/student/contract.js";
 
-export const STUDENT_SEARCH_SECTIONS = [
-  "growthReports",
-  "inquirySessions",
-  "selfevalSessions",
-  "serviceCreditAdjust",
-] as const;
-export type StudentSearchSection = (typeof STUDENT_SEARCH_SECTIONS)[number];
-
-const studentSearchSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string().nullable(),
-      email: z.string().nullable(),
-      isAdmin: z.boolean(),
-    }),
-  ),
-});
-export type StudentSearchItem = z.infer<
-  typeof studentSearchSchema
->["items"][number];
+export type { StudentSearchItem, StudentSearchSection };
+export { STUDENT_SEARCH_SECTIONS };
 
 export const studentSearchKeys = {
   all: ["admin", "student-search"] as const,

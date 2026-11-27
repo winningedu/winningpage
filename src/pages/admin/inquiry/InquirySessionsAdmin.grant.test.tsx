@@ -105,14 +105,23 @@ describe("InquirySessionsAdmin 학생 검색", () => {
   });
 });
 
+// 서버가 돌려주는 회차 현황(shared/program-quota/contract.ts)과 같은 모양이다.
+const QUOTA = {
+  quotaTotal: 3,
+  quotaUsed: 1,
+  quotaRemaining: 2,
+  planEndsAt: null,
+  planLabel: "수동 부여",
+};
+
 describe("InquirySessionsAdmin 이용권 부여 다이얼로그", () => {
   test("부여하면 본문을 보내고 quota 를 보여주며 목록을 다시 읽는다", async () => {
-    on("POST", GRANT, { grantId: "g-1", quota: { quotaTotal: 3 } });
+    on("POST", GRANT, { grantId: "g-1", quota: QUOTA });
     await openGrant();
     await fillAndSubmit();
 
     expect(await screen.findByText(/부여했습니다\. quota:/)).toHaveTextContent(
-      '{"quotaTotal":3}',
+      JSON.stringify(QUOTA),
     );
     expect(callsTo("POST", GRANT)[0]?.options.json).toEqual({
       profileId: "p-1",
@@ -124,7 +133,7 @@ describe("InquirySessionsAdmin 이용권 부여 다이얼로그", () => {
   });
 
   test("무제한을 체크하면 세션 수 입력이 사라지고 quota 는 null 로 보낸다", async () => {
-    on("POST", GRANT, { grantId: "g-1", quota: {} });
+    on("POST", GRANT, { grantId: "g-1", quota: QUOTA });
     await openGrant();
     await pickStudent();
     fireEvent.click(screen.getByLabelText("무제한"));

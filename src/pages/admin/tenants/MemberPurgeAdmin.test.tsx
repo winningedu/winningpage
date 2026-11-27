@@ -44,6 +44,10 @@ const TENANT = {
   id: "tenant-7",
   code: "ABCD1234",
   name: "한빛고",
+  region: "서울",
+  org_type: "학교",
+  tier: "A",
+  created_at: "2026-01-01T00:00:00.000Z",
   contract_end_date: "2026-09-01",
   time_zone: "Asia/Seoul",
 };

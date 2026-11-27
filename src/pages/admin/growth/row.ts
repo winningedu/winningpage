@@ -1,32 +1,9 @@
 // 서버 계약(GET /api/admin/growth-reports)의 행 모양과 표시 변환.
-export type GrowthReportTerminal = {
-  reason: string;
-  at: string;
-  step: number;
-};
+import type { GrowthReport } from "../../../../shared/growth-report/contract.js";
 
-export type GrowthReportProgress = {
-  step: number;
-  label: string;
-  status: string;
-  attempts: number;
-};
-
-export type GrowthReportItem = {
-  id: string;
-  profileId: string;
-  studentName: string | null;
-  email: string | null;
-  status: string;
-  currentStep: number;
-  track: string | null;
-  issuedAt: string | null;
-  lastActivityAt: string | null;
-  ledgerId: string | null;
-  ledgerReversedAt: string | null;
-  terminal: GrowthReportTerminal | null;
-  progress: GrowthReportProgress[];
-};
+export type GrowthReportItem = GrowthReport;
+export type GrowthReportTerminal = NonNullable<GrowthReport["terminal"]>;
+export type GrowthReportProgress = GrowthReport["progress"][number];
 
 export const GROWTH_STEP_COUNT = 8;
 

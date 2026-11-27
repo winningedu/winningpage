@@ -27,6 +27,7 @@ import {
   type Resource,
   type RoleOption,
   staffKeys,
+  staffStatusSchema,
 } from "./api";
 import { LEVEL_CHOICES, type LevelDraft, sameDraft, toDraft } from "./levels";
 
@@ -270,7 +271,13 @@ function MemberDetail({
               <TextInput value={deptDraft} onChange={setDeptDraft} />
             </Field>
             <Field label="상태">
-              <Select value={statusDraft} onChange={setStatusDraft}>
+              <Select
+                value={statusDraft}
+                // 선택지가 계약의 세 값(shared/staff/contract.ts)이라 고른 값은 늘 그 안에 있다.
+                onChange={(value) =>
+                  setStatusDraft(staffStatusSchema.parse(value))
+                }
+              >
                 {ADMIN_MEMBER_STATUS_OPTIONS.map((option) => {
                   const value =
                     typeof option === "object" ? option.value : String(option);

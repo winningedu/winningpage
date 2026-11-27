@@ -6,6 +6,7 @@ import {
   type DedupeResult,
   KNOWLEDGE_TEXT_FIELDS,
 } from "../../../../../api/_lib/knowledge/dedupe.js";
+import type { KnowledgeBulkInput } from "../../../../../shared/knowledge/contract.js";
 import type { KnowledgeParseResult } from "./xlsx";
 
 /**
@@ -34,11 +35,7 @@ export function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-export type BulkRequest = {
-  knowledgeType: string;
-  inserts: Record<string, unknown>[];
-  updates: Array<Record<string, unknown> & { id: string }>;
-};
+export type BulkRequest = KnowledgeBulkInput;
 
 /**
  * 체크한 행으로 api/admin/knowledge-bulk 요청 본문 목록을 만든다. 신규와 수정을 합쳐

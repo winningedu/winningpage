@@ -1,39 +1,8 @@
 // 서버 계약(GET /api/admin/inquiry-sessions)의 행 모양과 표시 변환.
-export type InquiryTerminal = {
-  reason: string;
-  at: string;
-  mode: string;
-};
+import type { InquirySession } from "../../../../shared/inquiry-session/contract.js";
 
-export type InquiryModeState = {
-  status: string;
-  attempts: number;
-  startedAt: string | null;
-  finishedAt: string | null;
-  issues: unknown[];
-};
-
-export type InquirySessionItem = {
-  id: string;
-  profileId: string;
-  studentName: string | null;
-  email: string | null;
-  status: string;
-  currentStep: number;
-  subject: string;
-  topicTitle: string | null;
-  completedAt: string | null;
-  lastActivityAt: string | null;
-  ledgerId: string | null;
-  ledgerReversedAt: string | null;
-  terminal: InquiryTerminal | null;
-  generation: {
-    modes: Record<string, InquiryModeState>;
-    terminal: InquiryTerminal | null;
-  };
-  evaluationCount: number;
-  topicRoundCount: number;
-};
+export type InquirySessionItem = InquirySession;
+export type InquiryTerminal = NonNullable<InquirySession["terminal"]>;
 
 export const INQUIRY_STEP_COUNT = 6;
 

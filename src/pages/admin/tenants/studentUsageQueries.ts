@@ -1,54 +1,18 @@
 // 스쿨멘토 서비스이용횟수조정의 서버 호출. 실패는 던져서 react-query 가 오류로 받는다.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { z } from "zod";
 import { api } from "@/lib/http/client";
+import {
+  type PutStudentUsageInput,
+  type StudentUsage,
+  studentUsageSavedSchema,
+  studentUsageSchema,
+} from "../../../../shared/tenants/students.js";
 
-const limitOverrideSchema = z.object({
-  monthlyLimit: z.number().nullable(),
-  termLimit: z.number().nullable(),
-});
-
-const studentUsageSchema = z.object({
-  tenant: z
-    .object({ id: z.string(), name: z.string(), isCatchAll: z.boolean() })
-    .nullable(),
-  programs: z.array(
-    z.object({
-      programKey: z.string(),
-      allowed: z.boolean(),
-      denyReason: z.string().nullable(),
-      monthUsed: z.number(),
-      monthLimit: z.number().nullable(),
-      monthRemaining: z.number().nullable(),
-      termUsed: z.number(),
-      termLimit: z.number().nullable(),
-      termRemaining: z.number().nullable(),
-      monthResetsOn: z.string().nullable(),
-      termResetsOn: z.string().nullable(),
-      setting: z
-        .object({
-          enabled: z.boolean(),
-          monthlyLimit: z.number().nullable(),
-          termLimit: z.number().nullable(),
-        })
-        .nullable(),
-      override: limitOverrideSchema.nullable(),
-    }),
-  ),
-});
-
-const savedSchema = z.object({ saved: z.number() });
-
-export type StudentUsage = z.infer<typeof studentUsageSchema>;
+export type { StudentUsage };
 
 /** 고친 칸만 담는다. 빠진 열은 서버가 건드리지 않는다. 변경자는 서버가 채운다. */
-export interface UsageRow {
-  profile_id: string;
-  program_key: string;
-  monthly_limit?: number | null;
-  term_limit?: number | null;
-}
+export type UsageRow = PutStudentUsageInput["rows"][number];
 
 const usageKey = (profileId: string | null) => [
   "admin",
@@ -76,7 +40,7 @@ export function useSaveStudentUsage() {
     mutationFn: (rows: UsageRow[]) =>
       api
         .put("admin/tenants/student-usage", { json: { rows } })
-        .json(savedSchema),
+        .json(studentUsageSavedSchema),
     // 저장한 값이 화면에 보이도록 보던 학생의 현황을 비우고 스켈레톤 뒤에 다시 읽는다.
     onSettled: () =>
       client.resetQueries({ queryKey: ["admin", "student-usage"] }),

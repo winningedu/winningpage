@@ -1,10 +1,11 @@
 import { queryOptions } from "@tanstack/react-query";
-import { z } from "zod";
 import { site } from "@/config/site";
+import { adminPermissionsSchema } from "../../shared/admin-me/contract.js";
+import type { AdminLevel } from "../../shared/admin-permission/menu.js";
 import {
   isSuperOnlySection,
   permissionKeyFor,
-} from "./admin-permission/sections";
+} from "../../shared/admin-permission/sections.js";
 import { api } from "./http/client";
 
 // ---------------------------------------------------------------------------
@@ -25,17 +26,12 @@ import { api } from "./http/client";
 //   그 전까지 이 파일은 "실수로 들어가는 것"만 막는다고 이해할 것.
 // ---------------------------------------------------------------------------
 
-export type AdminLevel = "view" | "edit";
+export type { AdminLevel };
 
 /** 메뉴 키 → 최종 권한. 여기 **없는 키는 접근 불가**다(규칙 3, default deny). */
 export type AdminPermissionMap = Map<string, AdminLevel>;
 
 const PERMISSIONS_STALE_MS = 15_000;
-
-const permissionsResponseSchema = z.object({
-  permissions: z.record(z.string(), z.enum(["view", "edit"])),
-  isSuper: z.boolean(),
-});
 
 /**
  * GET /api/admin/me/permissions: 내 최종 권한 맵과 최고 관리자 여부.
@@ -52,7 +48,7 @@ export function adminPermissionsQueryOptions(userId: string) {
     }): Promise<{ permissions: AdminPermissionMap; isSuper: boolean }> => {
       const body = await api
         .get("admin/me/permissions", { signal })
-        .json(permissionsResponseSchema);
+        .json(adminPermissionsSchema);
       return {
         permissions: new Map(Object.entries(body.permissions)),
         isSuper: body.isSuper,

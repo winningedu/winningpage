@@ -1,6 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { z } from "zod";
 import { ApiError, api } from "@/lib/http/client";
 import {
   ActionButton,
@@ -9,6 +8,7 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { tenantSaveErrorMessage } from "@/pages/admin/tenants/saveError";
+import { movedStudentSchema } from "../../../../shared/tenants/students.js";
 
 // 스쿨멘토 본사의 학생 기관 이동(사 결정 r4 4번, 결정 102). 소속만이 아니라 학적(학년, 그룹, 반, 번호)도
 // 대상 기관에 만들어야 학생이 새 기관 콘솔에 보이므로 POST /api/admin/tenants/move-student 를 부른다.
@@ -22,9 +22,6 @@ export interface MoveTarget {
   orgType: string | null;
   isCatchAll: boolean;
 }
-
-// 응답 값은 쓰지 않고 성공 여부만 본다.
-const movedSchema = z.looseObject({ tenantId: z.string() });
 
 interface MoveStudentFormProps {
   profileId: string;
@@ -61,7 +58,9 @@ export default function MoveStudentForm({
 
   const move = useMutation({
     mutationFn: (body: Record<string, unknown>) =>
-      api.post("admin/tenants/move-student", { json: body }).json(movedSchema),
+      api
+        .post("admin/tenants/move-student", { json: body })
+        .json(movedStudentSchema),
     onSuccess: onMoved,
   });
 

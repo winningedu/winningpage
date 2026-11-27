@@ -123,7 +123,8 @@ export function tenantPayload(values: TenantFormValues) {
     tier: values.tier,
     contract_start_date: blankToNull(values.contract_start_date),
     contract_end_date: blankToNull(values.contract_end_date),
-    term_months: values.term_months === "" ? null : Number(values.term_months),
+    term_months:
+      values.term_months === "" ? null : (Number(values.term_months) as 3 | 6),
     mou_status: blankToNull(values.mou_status),
     grace_ends_on: blankToNull(values.grace_ends_on),
     trial_start_date: blankToNull(values.trial_start_date),

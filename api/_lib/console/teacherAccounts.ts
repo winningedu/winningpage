@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
 import { MAX_PASSWORD_LENGTH, SYNTHETIC_DOMAIN } from "../auth/login.js";
+import { ProblemError } from "../hono/problem.js";
 import { type ErrorShape, sendError } from "../httpResponse.js";
 import {
   type AlimtalkSendOutcome,
@@ -464,16 +465,23 @@ const DB_ERRORS: Record<
   },
 };
 
+/** DB 함수가 규칙 위반으로 낸 에러면 그 응답을 담은 ProblemError 를, 아니면 undefined 를 돌려준다(Hono 라우트는 받아서 던진다). */
+export function teacherDbProblem(error: unknown): ProblemError | undefined {
+  if (!(error instanceof RpcError) || !error.code) return undefined;
+  const mapped = DB_ERRORS[error.code];
+  if (!mapped) return undefined;
+  return new ProblemError(mapped.status, mapped.message, mapped.code);
+}
+
 /** DB 함수가 규칙 위반으로 낸 에러면 코드별 응답을 보내고 true. 그 밖의 에러는 false(호출부가 다시 던진다). shape 는 기존 호출부가 coded 라 기본값이다. */
 export function sendTeacherDbError(
   res: VercelResponse,
   error: unknown,
   shape: ErrorShape = "coded",
 ): boolean {
-  if (!(error instanceof RpcError) || !error.code) return false;
-  const mapped = DB_ERRORS[error.code];
-  if (!mapped) return false;
-  sendError(res, shape, mapped.status, mapped.message, mapped.code);
+  const problem = teacherDbProblem(error);
+  if (!problem) return false;
+  sendError(res, shape, problem.status, problem.message, problem.code);
   return true;
 }
 

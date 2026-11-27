@@ -1,3 +1,6 @@
+// /api/admin/knowledge-search. 관리자 앱(api/_routes/admin/app.ts)이 .route("/knowledge-search", knowledgeSearch) 로 붙인다.
+// 요청 검증과 응답 모양은 shared/knowledge/contract.ts 를 따른다.
+//
 // POST /api/admin/knowledge-search
 // Authorization: Bearer <supabase access token>   (관리자)
 //
@@ -24,12 +27,16 @@
 //
 // 판단은 api/_lib/knowledge/preview.ts, 계약 검증은 knowledge-search.test.ts.
 
+import type { SearchPreviewResult } from "../../../shared/knowledge/contract.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { performanceTraceContext } from "../../_lib/ai/telemetry/performanceContext.js";
 import { createAiTrace } from "../../_lib/ai/telemetry/trace.js";
-import { defineHandler } from "../../_lib/handler.js";
+import { admin } from "../../_lib/hono/admin.js";
+import { adminFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
+import { validate } from "../../_lib/hono/validate.js";
 import { knowledgeBodySchema } from "../../_lib/knowledge/bodySchema.js";
-import { knowledgeSectionKey } from "../../_lib/knowledge/permission.js";
+import { knowledgePermissionKey } from "../../_lib/knowledge/permission.js";
 import {
   buildSearchPreviewItems,
   buildSearchPreviewRpc,
@@ -38,61 +45,63 @@ import {
 import { embedText } from "../../_lib/performance/embeddings.js";
 import { buildKnowledgeQueryText } from "../../_lib/performance/knowledge.js";
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "admin",
-  errorShape: "problem",
-  permission: { key: knowledgeSectionKey, level: "view" },
-  body: knowledgeBodySchema(validateSearchPreviewBody),
+const guard = admin({
+  permission: { key: knowledgePermissionKey, level: "view" },
   // 데이터를 바꾸지 않는 읽기 POST 라 조회로 남긴다.
   audit: { action: "view" },
   unhandledMessage: "검색 테스트에 실패했습니다.",
   logLabel: "admin/knowledge-search",
-  headers: { "Cache-Control": "no-store" },
-  handler: async (_req, res, ctx) => {
-    const { body } = ctx;
-    const db = ctx.supabaseAdmin;
-    const queryText = buildKnowledgeQueryText(body);
-
-    const trace = createAiTrace(
-      performanceTraceContext({ feature: "knowledge_search_preview" }),
-    );
-    try {
-      const embedding = await embedText(queryText, trace);
-      const rpc = buildSearchPreviewRpc(body, embedding);
-      // pgvector 인자는 생성 타입이 string 이지만 supabase-js 가 number[] 를 그대로 직렬화한다.
-      const queryEmbedding = rpc.args.query_embedding as unknown as string;
-      const { data, error } =
-        rpc.fn === "match_winning_suhaeng_hybrid"
-          ? await db.rpc(rpc.fn, {
-              ...rpc.args,
-              query_embedding: queryEmbedding,
-            })
-          : await db.rpc(rpc.fn, {
-              ...rpc.args,
-              query_embedding: queryEmbedding,
-            });
-      if (error) throw new Error(`검색 실패: ${error.message}`);
-
-      const { threshold, items } = buildSearchPreviewItems(
-        body.knowledgeType,
-        data ?? [],
-        body.mode,
-      );
-      res.status(200).json({
-        mode: body.mode,
-        threshold,
-        queryText,
-        keywordQuery:
-          rpc.fn === "match_winning_suhaeng_hybrid"
-            ? rpc.args.query_keywords
-            : null,
-        items,
-      });
-    } finally {
-      scheduleAfterResponse(() => trace.flush(db));
-    }
-  },
 });
 
-export const config = { runtime: "nodejs", maxDuration: 30 };
+export const knowledgeSearch = adminFactory
+  .createApp()
+  .post(
+    "/",
+    guard,
+    validate("json", knowledgeBodySchema(validateSearchPreviewBody)),
+    async (c) => {
+      const body = c.req.valid("json");
+      const db = c.var.supabaseAdmin;
+      const queryText = buildKnowledgeQueryText(body);
+
+      const trace = createAiTrace(
+        performanceTraceContext({ feature: "knowledge_search_preview" }),
+      );
+      try {
+        const embedding = await embedText(queryText, trace);
+        const rpc = buildSearchPreviewRpc(body, embedding);
+        // pgvector 인자는 생성 타입이 string 이지만 supabase-js 가 number[] 를 그대로 직렬화한다.
+        const queryEmbedding = rpc.args.query_embedding as unknown as string;
+        const { data, error } =
+          rpc.fn === "match_winning_suhaeng_hybrid"
+            ? await db.rpc(rpc.fn, {
+                ...rpc.args,
+                query_embedding: queryEmbedding,
+              })
+            : await db.rpc(rpc.fn, {
+                ...rpc.args,
+                query_embedding: queryEmbedding,
+              });
+        if (error) throw new Error(`검색 실패: ${error.message}`);
+
+        const { threshold, items } = buildSearchPreviewItems(
+          body.knowledgeType,
+          data ?? [],
+          body.mode,
+        );
+        return c.json({
+          mode: body.mode,
+          threshold,
+          queryText,
+          keywordQuery:
+            rpc.fn === "match_winning_suhaeng_hybrid"
+              ? rpc.args.query_keywords
+              : null,
+          items,
+        } satisfies SearchPreviewResult);
+      } finally {
+        scheduleAfterResponse(() => trace.flush(db));
+      }
+    },
+  )
+  .all("/", methodNotAllowed("POST"));

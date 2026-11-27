@@ -25,6 +25,6 @@
     "allowImportingTsExtensions": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "api"],
+  "include": ["src", "api", "shared"],
   "exclude": ["node_modules", "dist", "scripts"]
 }

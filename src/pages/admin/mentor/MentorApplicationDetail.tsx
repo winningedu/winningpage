@@ -2,12 +2,12 @@ import { ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { ApiError } from "@/lib/http/client";
-import { MENTOR_APPLICATION_STATUS_OPTIONS } from "@/lib/mentor-application/status";
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
 import { normalizeArray } from "@/pages/admin/shared/csvExport";
 import { ActionButton, Field, Select } from "@/pages/admin/shared/formFields";
 import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { MENTOR_APPLICATION_STATUS_OPTIONS } from "../../../../shared/mentor-application/status.js";
 import {
   type MentorApplicationRow,
   reportMentorError,

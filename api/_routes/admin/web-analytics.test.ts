@@ -2,6 +2,7 @@
 // 방문 합계, 많이 본 페이지, 이벤트 10개 횟수와 속성별 나눔을 돌려준다. fetch 는 가짜로 바꾼다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { webAnalyticsReportSchema } from "../../../shared/web-analytics/contract.js";
 import {
   callRoute,
   createAdminFake,
@@ -17,7 +18,11 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => kit.admin,
 }));
 
-type Handler = typeof import("./web-analytics.js")["default"];
+// 보고서 캐시가 모듈 안에 있어 테스트마다 앱을 새로 불러온다.
+type Handler = {
+  app: Awaited<typeof import("../app.js")>["app"];
+  path: string;
+};
 let handler: Handler;
 
 const TOKEN = "vercel-secret-token";
@@ -125,7 +130,10 @@ const fetchMock = vi.fn(
 
 beforeEach(async () => {
   vi.resetModules();
-  handler = (await import("./web-analytics.js")).default;
+  handler = {
+    app: (await import("../app.js")).app,
+    path: "/api/admin/web-analytics",
+  };
   setup("view");
   for (const [key, value] of Object.entries(ENV)) vi.stubEnv(key, value);
   fetchMock.mockClear();
@@ -202,7 +210,8 @@ describe("GET /api/admin/web-analytics", () => {
     const r = await get(RANGE);
 
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(webAnalyticsReportSchema.safeParse(r.body).success).toBe(true);
     const body = r.body as Body;
     expect(body).not.toHaveProperty("ok");
     expect(body.range).toEqual(RANGE);
@@ -422,5 +431,6 @@ describe("GET /api/admin/web-analytics", () => {
 
     expect(r.status).toBe(405);
     expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
+    expect(r.headers.allow).toBe("GET, HEAD");
   });
 });

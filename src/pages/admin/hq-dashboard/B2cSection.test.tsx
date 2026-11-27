@@ -23,6 +23,7 @@ const STATS: LoginStatsResponse = {
   to: "2026-11-23",
   grain: "day",
   mauMode: "calendar",
+  scope: "all",
   includeInternal: false,
   firstMeasuredAt: "2026-11-22T15:15:00.000Z",
   series: [],
