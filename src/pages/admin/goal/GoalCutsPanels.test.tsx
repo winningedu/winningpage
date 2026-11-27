@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import * as XLSX from "xlsx";
 import { ApiError } from "@/lib/http/client";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import { exportGoalUniversityCutRowsToXlsx } from "./cutsBulkXlsx";
 import { GoalCutsListSummary } from "./GoalCutsPanels";
 
@@ -115,14 +116,16 @@ function routeGets(over: Record<string, unknown> = {}) {
   });
 }
 
-function renderPanels(onReload = vi.fn()) {
+function renderPanels(onReload = vi.fn(), canEdit = true) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   render(
-    <QueryClientProvider client={client}>
-      <GoalCutsListSummary onReload={onReload} mutationSeq={0} />
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={client}>
+        <GoalCutsListSummary onReload={onReload} mutationSeq={0} />
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
   return onReload;
 }
@@ -200,9 +203,11 @@ describe("현황 요약", () => {
       defaultOptions: { queries: { retry: false } },
     });
     const view = (seq: number) => (
-      <QueryClientProvider client={client}>
-        <GoalCutsListSummary onReload={vi.fn()} mutationSeq={seq} />
-      </QueryClientProvider>
+      <SectionEditAccessProvider value={true}>
+        <QueryClientProvider client={client}>
+          <GoalCutsListSummary onReload={vi.fn()} mutationSeq={seq} />
+        </QueryClientProvider>
+      </SectionEditAccessProvider>
     );
     const { rerender } = render(view(0));
     await screen.findByText(/전체 4건/);
@@ -479,5 +484,34 @@ describe("입결 유도 백필", () => {
       stale,
     );
     expect(screen.queryByText(/생성 대상/)).not.toBeInTheDocument();
+  });
+});
+
+describe("쓰기 권한", () => {
+  beforeEach(() => routeGets());
+
+  test("edit 권한이면 백필 계산과 엑셀 업로드가 보인다", async () => {
+    renderPanels(vi.fn(), true);
+
+    expect(
+      await screen.findByRole("button", { name: "미리보기 계산" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "엑셀 업로드" }),
+    ).toBeInTheDocument();
+  });
+
+  test("view 권한이면 현황과 엑셀 다운로드만 남고 백필과 엑셀 업로드는 없다", async () => {
+    renderPanels(vi.fn(), false);
+
+    await screen.findByText(/전체 4건/);
+    expect(screen.queryByRole("button", { name: "미리보기 계산" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "엑셀 업로드" })).toBeNull();
+    expect(
+      screen.queryByLabelText("목표관리 대학 컷 xlsx 파일 선택"),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /엑셀 다운로드/ }),
+    ).toBeInTheDocument();
   });
 });
