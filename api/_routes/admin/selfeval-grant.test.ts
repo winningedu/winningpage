@@ -26,7 +26,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-import handler from "./selfeval-grant.js";
+import { selfevalGrantResultSchema } from "../../../shared/selfeval-ops/contract.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/selfeval-grant" };
 
 const PID = "223e4567-e89b-42d3-a456-426614174000";
 
@@ -61,17 +64,18 @@ beforeEach(() => {
 describe("POST /api/admin/selfeval-grant", () => {
   const post = (
     body: unknown = { profileId: PID, sessionQuota: 3, months: 2 },
-  ) => callRoute(handler, { method: "POST", body });
+  ) => callRoute(route, { method: "POST", body });
 
   test("edit 권한이면 부여하고 ok 없이 { grantId, quota } 를 돌려준다", async () => {
     const admin = setup();
     const r = await post();
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
     const body = r.body as Record<string, unknown>;
     expect(body).not.toHaveProperty("ok");
     expect(body.grantId).toBe("grant-1");
     expect(body).toHaveProperty("quota");
+    expect(selfevalGrantResultSchema.safeParse(body).success).toBe(true);
     expect(admin.rpcCalls).toEqual([
       {
         name: "fn_sync_program_access_cache",
@@ -202,5 +206,12 @@ describe("POST /api/admin/selfeval-grant", () => {
     setup();
     syncError = { message: "boom" };
     expect((await post()).status).toBe(500);
+  });
+  test("GET 은 405 METHOD_NOT_ALLOWED 이고 Allow 는 POST 다", async () => {
+    setup();
+    const r = await callRoute(route, { method: "GET" });
+    expect(r.status).toBe(405);
+    expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
+    expect(r.headers.allow).toBe("POST");
   });
 });

@@ -1,3 +1,6 @@
+// /api/admin/selfeval-grant. 관리자 앱(api/_routes/admin/app.ts)이 .route("/selfeval-grant", selfevalGrant) 로 붙인다.
+// 요청 검증과 응답 모양은 shared/selfeval-ops/contract.ts 를 따른다.
+//
 // POST /api/admin/selfeval-grant { profileId, sessionQuota, months? | endsAt? }
 // Authorization: Bearer <supabase access token>   (관리자)
 //
@@ -14,9 +17,15 @@
 // 본문은 zod 가 모양을 보고 모르는 키를 버린다. 값 규칙은 validateGrantBody 가 맡고 insert 는 buildGrantRow 의 컬럼만 쓴다.
 // 멱등 키는 아직 없다(후속 PR). 판단과 조립은 api/_lib/selfeval/ops/grant.ts.
 
-import { z } from "zod";
-import { defineHandler } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import {
+  SELFEVAL_OPS_ERROR,
+  type SelfevalGrantResult,
+  selfevalGrantBody,
+} from "../../../shared/selfeval-ops/contract.js";
+import { admin } from "../../_lib/hono/admin.js";
+import { adminFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   buildGrantRow,
   SELFEVAL_PROGRAM_KEY,
@@ -28,32 +37,27 @@ import {
   SERVICE_CONFIGS,
 } from "../../_lib/serviceAccess.js";
 
-const bodySchema = z.object({
-  profileId: z.string(),
-  sessionQuota: z.number(),
-  months: z.number().nullish(),
-  endsAt: z.string().nullish(),
-});
-
-export default defineHandler({
-  methods: ["POST"],
-  auth: "admin",
-  errorShape: "problem",
+const guard = admin({
   permission: { key: "selfevalSessions" },
   unhandledMessage: "자기평가서 이용권 부여에 실패했습니다.",
   logLabel: "admin/selfeval-grant",
-  headers: { "Cache-Control": "no-store" },
-  body: bodySchema,
-  handler: async (_req, res, ctx) => {
-    const parsed = validateGrantBody(ctx.body);
+});
+
+export const selfevalGrant = adminFactory
+  .createApp()
+  .post("/", guard, validate("json", selfevalGrantBody), async (c) => {
+    const parsed = validateGrantBody(c.req.valid("json"));
     if (!parsed.ok) {
-      sendError(res, "problem", 400, parsed.reason, "INVALID_BODY");
-      return;
+      throw new ProblemError(
+        400,
+        parsed.reason,
+        SELFEVAL_OPS_ERROR.INVALID_BODY,
+      );
     }
     const { body } = parsed;
-    const db = ctx.supabaseAdmin;
-    const actorId = ctx.admin?.userId;
-    if (!actorId) throw new Error("ctx.admin 이 없습니다.");
+    const db = c.var.supabaseAdmin;
+    const actorId = c.var.userId;
+    if (!actorId) throw new Error("관리자 id 가 없습니다.");
 
     const { data: profile, error: profileError } = await db
       .from("profiles")
@@ -63,24 +67,18 @@ export default defineHandler({
     if (profileError)
       throw new Error(`profiles 조회 실패: ${profileError.message}`);
     if (!profile) {
-      sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         404,
         "회원을 찾을 수 없습니다.",
-        "PROFILE_NOT_FOUND",
+        SELFEVAL_OPS_ERROR.PROFILE_NOT_FOUND,
       );
-      return;
     }
     if (profile.member_type !== "student") {
-      sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         400,
         "학생 회원에게만 부여할 수 있습니다.",
-        "NOT_STUDENT",
+        SELFEVAL_OPS_ERROR.NOT_STUDENT,
       );
-      return;
     }
 
     const row = buildGrantRow(body, actorId, new Date().toISOString());
@@ -111,8 +109,9 @@ export default defineHandler({
       await findProgramAccessRow(db, body.profileId, config),
     );
 
-    res.status(200).json({ grantId: inserted.id, quota });
-  },
-});
-
-export const config = { runtime: "nodejs" };
+    return c.json({
+      grantId: inserted.id,
+      quota,
+    } satisfies SelfevalGrantResult);
+  })
+  .all("/", methodNotAllowed("POST"));

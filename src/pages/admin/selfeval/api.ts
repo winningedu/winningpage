@@ -5,6 +5,11 @@ import { queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 import { api } from "@/lib/http/client";
 import {
+  type SelfevalGrantInput,
+  selfevalGrantResultSchema,
+  selfevalRecoverResultSchema,
+} from "../../../../shared/selfeval-ops/contract.js";
+import {
   type SelfevalSessionsPage,
   selfevalSessionDetail,
   selfevalSessionsPage,
@@ -15,9 +20,6 @@ import {
 } from "./query";
 
 export type { SelfevalSessionsPage };
-
-const grantSchema = z.object({ grantId: z.string(), quota: z.unknown() });
-const recoverSchema = z.object({ newSessionId: z.string() });
 
 export const selfevalKeys = {
   all: ["admin", "selfeval-sessions"] as const,
@@ -50,12 +52,14 @@ export function selfevalDetailQueryOptions(id: string) {
   });
 }
 
-export function postSelfevalGrant(body: unknown) {
-  return api.post("admin/selfeval-grant", { json: body }).json(grantSchema);
+export function postSelfevalGrant(body: SelfevalGrantInput) {
+  return api
+    .post("admin/selfeval-grant", { json: body })
+    .json(selfevalGrantResultSchema);
 }
 
 export function postSelfevalRecover(sessionId: string) {
   return api
     .post("admin/selfeval-recover", { json: { sessionId } })
-    .json(recoverSchema);
+    .json(selfevalRecoverResultSchema);
 }

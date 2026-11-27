@@ -1,3 +1,6 @@
+// /api/admin/inquiry-recover. 관리자 앱(api/_routes/admin/app.ts)이 .route("/inquiry-recover", inquiryRecover) 로 붙인다.
+// 요청 검증과 응답 모양은 shared/inquiry-ops/contract.ts 를 따른다.
+//
 // POST /api/admin/inquiry-recover { sessionId }
 // Authorization: Bearer <supabase access token>   (관리자)
 //
@@ -17,9 +20,15 @@
 //
 // 판정과 복제는 api/_lib/inquiry/ops/recover.ts.
 
-import { z } from "zod";
-import { defineHandler } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import {
+  INQUIRY_OPS_ERROR,
+  type InquiryRecoverResult,
+  inquiryRecoverBody,
+} from "../../../shared/inquiry-ops/contract.js";
+import { admin } from "../../_lib/hono/admin.js";
+import { adminFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   planRecovery,
   type RecoverAssetRow,
@@ -34,26 +43,27 @@ const SOURCE_COLUMNS =
 const ASSET_COLUMNS =
   "kind, reliability, position, activity_record_id, interview_answers, gaps, oneline_text";
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "admin",
-  errorShape: "problem",
+const guard = admin({
   permission: { key: "inquirySessions" },
-  methodNotAllowedMessage: "POST만 허용됩니다.",
   // 종결된 원본 세션을 고치는 복구라 수정으로 남긴다.
   audit: { action: "update" },
   unhandledMessage: "심화탐구 세션 복구에 실패했습니다.",
   logLabel: "admin/inquiry-recover",
-  headers: { "Cache-Control": "no-store" },
+});
+
+export const inquiryRecover = adminFactory
+  .createApp()
   // 모양만 거르고 값 규칙과 한국어 사유는 validateRecoverBody 가 맡는다.
-  body: z.object({ sessionId: z.string() }).strict(),
-  handler: async (_req, res, ctx) => {
-    const parsed = validateRecoverBody(ctx.body);
+  .post("/", guard, validate("json", inquiryRecoverBody), async (c) => {
+    const parsed = validateRecoverBody(c.req.valid("json"));
     if (!parsed.ok) {
-      sendError(res, "problem", 400, parsed.reason, "INVALID_BODY");
-      return;
+      throw new ProblemError(
+        400,
+        parsed.reason,
+        INQUIRY_OPS_ERROR.INVALID_BODY,
+      );
     }
-    const db = ctx.supabaseAdmin;
+    const db = c.var.supabaseAdmin;
 
     const { data: source, error: sourceError } = await db
       .from("inquiry_sessions")
@@ -63,14 +73,11 @@ export default defineHandler({
     if (sourceError)
       throw new Error(`inquiry_sessions 조회 실패: ${sourceError.message}`);
     if (!source) {
-      sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         404,
         "세션을 찾을 수 없습니다.",
-        "SESSION_NOT_FOUND",
+        INQUIRY_OPS_ERROR.SESSION_NOT_FOUND,
       );
-      return;
     }
     const row = source as RecoverSourceRow;
 
@@ -93,8 +100,7 @@ export default defineHandler({
         plan.code === "ALREADY_RECOVERED"
           ? "이미 복구한 세션입니다."
           : "복구할 수 없는 세션입니다. 종결된 세션만 복구할 수 있습니다.";
-      sendError(res, "problem", 409, message, plan.code);
-      return;
+      throw new ProblemError(409, message, plan.code);
     }
 
     const openMessage = "이 학생에게 진행 중인 세션이 있어 복구할 수 없습니다.";
@@ -106,8 +112,11 @@ export default defineHandler({
       .limit(1);
     if (openError) throw new Error(`미완 세션 조회 실패: ${openError.message}`);
     if ((open ?? []).length > 0) {
-      sendError(res, "problem", 409, openMessage, "OPEN_SESSION_EXISTS");
-      return;
+      throw new ProblemError(
+        409,
+        openMessage,
+        INQUIRY_OPS_ERROR.OPEN_SESSION_EXISTS,
+      );
     }
 
     const { data: created, error: insertError } = await db
@@ -118,8 +127,11 @@ export default defineHandler({
     if (insertError) {
       // 위 확인과 insert 사이에 학생이 세션을 만든 경우(학생당 미완 1개 부분 유니크).
       if (insertError.code === PG_UNIQUE_VIOLATION) {
-        sendError(res, "problem", 409, openMessage, "OPEN_SESSION_EXISTS");
-        return;
+        throw new ProblemError(
+          409,
+          openMessage,
+          INQUIRY_OPS_ERROR.OPEN_SESSION_EXISTS,
+        );
       }
       throw new Error(`복구 세션 생성 실패: ${insertError.message}`);
     }
@@ -150,18 +162,13 @@ export default defineHandler({
     if ((marked ?? []).length === 0) {
       // 확인 뒤 원본이 종결 상태를 벗어났다. 성공으로 답하지 않고 방금 만든 세션을 되돌린다.
       await db.from("inquiry_sessions").delete().eq("id", created.id);
-      sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         409,
         "복구할 수 없는 세션입니다. 종결된 세션만 복구할 수 있습니다.",
-        "NOT_RECOVERABLE",
+        INQUIRY_OPS_ERROR.NOT_RECOVERABLE,
       );
-      return;
     }
 
-    res.status(200).json({ newSessionId: created.id });
-  },
-});
-
-export const config = { runtime: "nodejs" };
+    return c.json({ newSessionId: created.id } satisfies InquiryRecoverResult);
+  })
+  .all("/", methodNotAllowed("POST"));

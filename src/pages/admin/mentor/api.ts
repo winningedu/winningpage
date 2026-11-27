@@ -2,26 +2,19 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { z } from "zod";
 import { api } from "@/lib/http/client";
 import { toastError } from "@/pages/admin/shared/adminToast";
+import {
+  type MentorApplication,
+  mentorApplicationListSchema,
+  mentorApplicationSchema,
+} from "../../../../shared/mentor-application/contract.js";
 import {
   type ApplicationStatusInput,
   proofUrlSchema,
 } from "../../../../shared/mentor-application/detail.js";
 
-// 쓰는 컬럼만 명시하고 나머지는 통과시킨다.
-const applicationSchema = z.looseObject({
-  id: z.string(),
-  status: z.string().nullish(),
-  proof_file_path: z.string().nullish(),
-  proof_file_name: z.string().nullish(),
-  created_at: z.string().nullish(),
-  updated_at: z.string().nullish(),
-});
-export type MentorApplicationRow = z.infer<typeof applicationSchema>;
-
-const listSchema = z.object({ items: z.array(applicationSchema) });
+export type MentorApplicationRow = MentorApplication;
 
 export const keys = {
   all: ["admin", "mentor-applications"] as const,
@@ -34,7 +27,8 @@ const BASE = "admin/mentor-applications";
 export function useMentorApplicationList() {
   return useQuery({
     queryKey: keys.list(),
-    queryFn: ({ signal }) => api.get(BASE, { signal }).json(listSchema),
+    queryFn: ({ signal }) =>
+      api.get(BASE, { signal }).json(mentorApplicationListSchema),
   });
 }
 
@@ -46,7 +40,7 @@ export function useMentorApplication(id: string) {
     queryFn: ({ signal }) =>
       api
         .get(`${BASE}/${encodeURIComponent(id)}`, { signal })
-        .json(applicationSchema),
+        .json(mentorApplicationSchema),
   });
 }
 
@@ -65,7 +59,7 @@ export function useSaveMentorStatus(id: string) {
         .patch(`${BASE}/${encodeURIComponent(id)}`, {
           json: { status } satisfies ApplicationStatusInput,
         })
-        .json(applicationSchema),
+        .json(mentorApplicationSchema),
     onSuccess: () => queryClient.resetQueries({ queryKey: keys.all }),
   });
 }

@@ -2,47 +2,25 @@
 
 import { z } from "zod";
 import { api } from "@/lib/http/client";
+import {
+  type CreateTenantInput,
+  type TenantList,
+  type TenantRow,
+  tenantListSchema,
+  tenantRowSchema,
+} from "../../../../shared/tenants/contract.js";
 import type { tenantPayload } from "./form";
 import type { SettingRow, UsageDefaults } from "./serviceSettings";
 
 const nullableText = z.string().nullable();
 
-export const tenantRowSchema = z.object({
-  id: z.string(),
-  code: z.string(),
-  name: z.string(),
-  region: z.string(),
-  org_type: z.string(),
-  tier: z.string(),
-  created_at: z.string(),
-  // 아래 열은 스쿨멘토(hqTenantAdmin)에서만 온다.
-  contract_start_date: nullableText.optional(),
-  contract_end_date: nullableText.optional(),
-  grace_ends_on: nullableText.optional(),
-  mou_status: nullableText.optional(),
-  is_catch_all: z.boolean().optional(),
-  time_zone: z.string().optional(),
-});
-export type TenantRow = z.infer<typeof tenantRowSchema>;
-
-const tenantListSchema = z.object({
-  items: z.array(tenantRowSchema),
-  graceDays: z.number().nullable(),
-});
-export type TenantList = z.infer<typeof tenantListSchema>;
-
-export interface CreateTenantBody {
-  name: string;
-  region: string;
-  org_type: string;
-  tier: string;
-}
+export type { TenantList, TenantRow };
 
 export function fetchTenants(signal?: AbortSignal): Promise<TenantList> {
   return api.get("admin/tenants", { signal }).json(tenantListSchema);
 }
 
-export function createTenant(body: CreateTenantBody): Promise<TenantRow> {
+export function createTenant(body: CreateTenantInput): Promise<TenantRow> {
   return api.post("admin/tenants", { json: body }).json(tenantRowSchema);
 }
 

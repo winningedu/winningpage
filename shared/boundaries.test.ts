@@ -63,7 +63,6 @@ const SRC_TO_API_ALLOWLIST = new Set([
   "src/lib/time/day.test.ts",
   "src/pages/UsageGuide.tsx",
   "src/pages/admin/goal/reportResendOptions.ts",
-  "src/pages/admin/knowledge/api.ts",
   "src/pages/admin/knowledge/bulk/DedupeResult.tsx",
   "src/pages/admin/knowledge/bulk/flow.ts",
   "src/pages/admin/knowledge/bulk/plan.ts",

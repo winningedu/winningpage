@@ -1,12 +1,13 @@
 // GET /api/admin/members 계약 검증. 회원 목록과 파생 필드(이용서비스, 소속 이름).
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { membersListSchema } from "../../../shared/members/contract.js";
 import {
   createSectionAdmin,
   type SectionDb,
 } from "../../_lib/admin-sections/sectionTestKit.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
 } from "../../_lib/console/consoleTestKit.js";
@@ -18,13 +19,16 @@ const kit = vi.hoisted(() => ({
 }));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createSectionAdmin(kit.state, kit.db),
 }));
 
-import handler from "./members.js";
+import { app } from "../app.js";
 
-const get = (method = "GET") => callHandler(handler, undefined, method);
+const route = { app, path: "/api/admin/members" };
+
+const get = (method = "GET") => callRoute(route, { method });
 
 const TABLES = {
   profiles: [
@@ -60,7 +64,8 @@ describe("GET /api/admin/members", () => {
     const r = await get();
 
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(membersListSchema.safeParse(r.body).success).toBe(true);
     const items = (r.body as { items: Record<string, unknown>[] }).items;
     expect(items.map((x) => x.id)).toEqual(["m-2", MEMBER_ID, "admin-1"]);
     expect(items.find((x) => x.id === MEMBER_ID)).toMatchObject({
@@ -138,7 +143,11 @@ describe("GET /api/admin/members", () => {
   });
 
   test("GET 이외의 메서드는 405", async () => {
-    expect((await get("POST")).status).toBe(405);
+    const r = await get("POST");
+
+    expect(r.status).toBe(405);
+    expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
+    expect(r.headers.allow).toBe("GET, HEAD");
   });
 });
 

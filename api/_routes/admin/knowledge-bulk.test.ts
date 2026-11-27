@@ -1,6 +1,7 @@
 // POST /api/admin/knowledge-bulk 계약 검증. 권한, 본문 검증, 쓰기 컬럼 경계, 404.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { knowledgeBulkResultSchema } from "../../../shared/knowledge/contract.js";
 import {
   argsOf,
   callRoute,
@@ -22,7 +23,9 @@ vi.mock("../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: () => null,
 }));
 
-import handler from "./knowledge-bulk.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/knowledge-bulk" };
 
 const TABLE = "winning_assessment_knowledge_items";
 const ROW = {
@@ -60,7 +63,7 @@ function setup(
 }
 
 const post = (body: unknown = BODY) =>
-  callRoute(handler, { method: "POST", body });
+  callRoute(route, { method: "POST", body });
 
 const writes = (admin: ReturnType<typeof createAdminFake>) =>
   admin.queries.filter(
@@ -84,6 +87,7 @@ describe("POST /api/admin/knowledge-bulk 권한", () => {
     const r = await post();
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ inserted: 1, updated: 0, ids: ["n1"] });
+    expect(knowledgeBulkResultSchema.safeParse(r.body).success).toBe(true);
     expect(r.body).not.toHaveProperty("ok");
   });
 
@@ -240,5 +244,13 @@ describe("POST /api/admin/knowledge-bulk 쓰기 경계", () => {
     const r = await post();
     expect(r.status).toBe(500);
     expect(problemCode(r.body)).toBe("INTERNAL_ERROR");
+  });
+
+  test("GET 은 405 METHOD_NOT_ALLOWED 이고 Allow 는 POST 다", async () => {
+    setup();
+    const r = await callRoute(route, { method: "GET" });
+    expect(r.status).toBe(405);
+    expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
+    expect(r.headers.allow).toBe("POST");
   });
 });

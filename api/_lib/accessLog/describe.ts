@@ -1,13 +1,7 @@
 // 접근 로그 한 줄을 본사 화면 항목(구분, 메뉴 이름, 내용, 가린 전화번호)으로 풀어 준다(사 #170, 교 #66).
 // 순수 함수만 둔다. 읽기와 가림은 api/_routes/admin/access-logs.ts 가 한다.
 
-export type AccessLogKind =
-  | "view"
-  | "edit"
-  | "create"
-  | "delete"
-  | "export"
-  | "proxy";
+import type { AccessLogKind } from "../../../shared/access-log/contract.js";
 
 const KIND_LABELS: Record<AccessLogKind, string> = {
   view: "조회",
@@ -17,8 +11,6 @@ const KIND_LABELS: Record<AccessLogKind, string> = {
   export: "출력",
   proxy: "대행",
 };
-
-export const ACCESS_LOG_KINDS = Object.keys(KIND_LABELS) as AccessLogKind[];
 
 export function kindLabel(kind: AccessLogKind): string {
   return KIND_LABELS[kind];

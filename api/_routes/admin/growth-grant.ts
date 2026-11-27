@@ -1,3 +1,6 @@
+// POST /api/admin/growth-grant. 관리자 앱(api/_routes/admin/app.ts)이 .route("/growth-grant", growthGrant) 로 붙인다.
+// 요청 검증과 응답 모양은 shared/growth-ops/contract.ts 를 따른다.
+//
 // POST /api/admin/growth-grant { profileId, sessionQuota, months? | endsAt? }
 // Authorization: Bearer <supabase access token>   (관리자)
 //
@@ -12,49 +15,45 @@
 //
 // 판단과 조립은 api/_lib/growth/ops/grant.ts.
 
-import { z } from "zod";
+import {
+  GROWTH_OPS_ERROR,
+  type GrowthGrantResult,
+  growthGrantBody,
+} from "../../../shared/growth-ops/contract.js";
 import {
   buildGrantRow,
   GROWTH_PROGRAM_KEY,
   validateGrantBody,
 } from "../../_lib/growth/ops/grant.js";
-import { defineHandler } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { admin } from "../../_lib/hono/admin.js";
+import { adminFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   findProgramAccessRow,
   readQuotaSnapshot,
   SERVICE_CONFIGS,
 } from "../../_lib/serviceAccess.js";
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "admin",
-  errorShape: "problem",
+const guard = admin({
   permission: { key: "growthReports" },
-  methodNotAllowedMessage: "POST만 허용됩니다.",
   unhandledMessage: "성장설계 이용권 부여에 실패했습니다.",
   logLabel: "admin/growth-grant",
-  headers: { "Cache-Control": "no-store" },
+});
+
+export const growthGrant = adminFactory
+  .createApp()
   // 모양만 거르고 값 규칙과 한국어 사유는 validateGrantBody 가 맡는다.
   // 정의되지 않은 키는 400 으로 막아 insert 에는 buildGrantRow 의 컬럼만 간다.
-  body: z
-    .object({
-      profileId: z.string(),
-      sessionQuota: z.number(),
-      months: z.number().nullish(),
-      endsAt: z.string().nullish(),
-    })
-    .strict(),
-  handler: async (_req, res, ctx) => {
-    const parsed = validateGrantBody(ctx.body);
+  .post("/", guard, validate("json", growthGrantBody), async (c) => {
+    const parsed = validateGrantBody(c.req.valid("json"));
     if (!parsed.ok) {
-      sendError(res, "problem", 400, parsed.reason, "INVALID_BODY");
-      return;
+      throw new ProblemError(400, parsed.reason, GROWTH_OPS_ERROR.INVALID_BODY);
     }
     const { body } = parsed;
-    const db = ctx.supabaseAdmin;
-    const actorId = ctx.admin?.userId;
-    if (!actorId) throw new Error("ctx.admin 이 없습니다.");
+    const db = c.var.supabaseAdmin;
+    const actorId = c.var.userId;
+    if (!actorId) throw new Error("관리자 id 가 없습니다.");
 
     const { data: profile, error: profileError } = await db
       .from("profiles")
@@ -64,24 +63,18 @@ export default defineHandler({
     if (profileError)
       throw new Error(`profiles 조회 실패: ${profileError.message}`);
     if (!profile) {
-      sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         404,
         "회원을 찾을 수 없습니다.",
-        "PROFILE_NOT_FOUND",
+        GROWTH_OPS_ERROR.PROFILE_NOT_FOUND,
       );
-      return;
     }
     if (profile.member_type !== "student") {
-      sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         400,
         "학생 회원에게만 부여할 수 있습니다.",
-        "NOT_STUDENT",
+        GROWTH_OPS_ERROR.NOT_STUDENT,
       );
-      return;
     }
 
     const row = buildGrantRow(body, actorId, new Date().toISOString());
@@ -112,8 +105,6 @@ export default defineHandler({
       await findProgramAccessRow(db, body.profileId, config),
     );
 
-    res.status(200).json({ grantId: inserted.id, quota });
-  },
-});
-
-export const config = { runtime: "nodejs" };
+    return c.json({ grantId: inserted.id, quota } satisfies GrowthGrantResult);
+  })
+  .all("/", methodNotAllowed("POST"));
