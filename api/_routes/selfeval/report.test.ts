@@ -1,7 +1,9 @@
-// GET, POST /api/selfeval/report. 세션 조회, 입력 읽기, 저장소, 모델은 모두 가짜로 바꾸고
+// GET, POST /api/selfeval/report: Hono 라우트를 루트 앱으로 부른다. 응답은 계약 스키마(shared/selfeval/report)로 읽는다. 세션 조회, 입력 읽기, 저장소, 모델은 모두 가짜로 바꾸고
 // 소유자 한정, 완료 세션 조건, 멱등 재요청, 실패가 최종 저장을 건드리지 않는 응답 모양을 확인한다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { reportResponseSchema } from "../../../shared/selfeval/report.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import type { StoredReport } from "../../_lib/selfeval/report/run.js";
 import { sampleInput } from "../../_lib/selfeval/report/sample.testkit.js";
 
@@ -65,7 +67,9 @@ vi.mock("../../_lib/ai/gemini.js", () => ({
     (state.model as (...a: unknown[]) => unknown)(...args),
 }));
 
-import handler from "./report.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/selfeval/report" };
 
 type Res = { status: number; body: Record<string, unknown> };
 
@@ -73,30 +77,15 @@ async function call(
   method: "GET" | "POST",
   input: { body?: unknown; query?: Record<string, string> } = {},
 ): Promise<Res> {
-  const out: Res = { status: 0, body: {} };
-  const res = {
-    setHeader: () => {},
-    status(code: number) {
-      out.status = code;
-      return res;
-    },
-    json(p: Record<string, unknown>) {
-      out.body = p;
-      return res;
-    },
-  };
-  const req = {
+  const out = await callRoute(route, {
     method,
-    body: input.body,
-    query: input.query ?? {},
-    headers: { authorization: "Bearer t" },
-    socket: {},
+    ...(input.body === undefined ? {} : { body: input.body }),
+    ...(input.query === undefined ? {} : { query: input.query }),
+  });
+  return {
+    status: out.status,
+    body: (out.body ?? {}) as Record<string, unknown>,
   };
-  await (handler as unknown as (a: unknown, b: unknown) => Promise<void>)(
-    req,
-    res,
-  );
-  return out;
 }
 
 const completedSession = (over: Record<string, unknown> = {}) => ({
@@ -137,7 +126,8 @@ describe("POST /api/selfeval/report", () => {
   test("builds the report after finalize and returns it with the fixed tag numbers", async () => {
     const res = await call("POST", { body: { sessionId: SESSION } });
     expect(res.status).toBe(200);
-    expect(res.body.ok).toBe(true);
+    expect(res.body).not.toHaveProperty("ok");
+    expect(reportResponseSchema.parse(res.body).report.status).toBe("ready");
     const report = res.body.report as {
       status: string;
       attempts: number;
@@ -160,17 +150,17 @@ describe("POST /api/selfeval/report", () => {
   });
 
   test("rejects a bad body, another student's session and a session that is not completed", async () => {
-    expect((await call("POST", { body: { sessionId: "x" } })).status).toBe(400);
+    const badBody = await call("POST", { body: { sessionId: "x" } });
+    expect(badBody.status).toBe(400);
+    expect(badBody.body).toMatchObject({ code: "VALIDATION_FAILED" });
     state.session = completedSession({ profile_id: "someone-else" });
     const other = await call("POST", { body: { sessionId: SESSION } });
     expect(other.status).toBe(404);
-    expect(other.body).toMatchObject({ error: { code: "SESSION_NOT_FOUND" } });
+    expect(other.body).toMatchObject({ code: "SESSION_NOT_FOUND" });
     state.session = completedSession({ status: "in_progress" });
     const open = await call("POST", { body: { sessionId: SESSION } });
     expect(open.status).toBe(409);
-    expect(open.body).toMatchObject({
-      error: { code: "SESSION_NOT_COMPLETED" },
-    });
+    expect(open.body).toMatchObject({ code: "SESSION_NOT_COMPLETED" });
   });
 
   test("passes the session owner's time zone to the input loader, whatever the viewer header says", async () => {
@@ -189,15 +179,14 @@ describe("POST /api/selfeval/report", () => {
   test("answers 409 FINAL_REPORT_MISSING without a final body and 409 REPORT_BUSY when another request holds it", async () => {
     state.loaded = null;
     const none = await call("POST", { body: { sessionId: SESSION } });
-    expect(none.body).toMatchObject({
-      error: { code: "FINAL_REPORT_MISSING" },
-    });
+    expect(none.status).toBe(409);
+    expect(none.body).toMatchObject({ code: "FINAL_REPORT_MISSING" });
     const { tagMap: _t, ...input } = sampleInput();
     state.loaded = { input, finalRevision: 1 };
     state.claimOk = false;
     const busy = await call("POST", { body: { sessionId: SESSION } });
     expect(busy.status).toBe(409);
-    expect(busy.body).toMatchObject({ error: { code: "REPORT_BUSY" } });
+    expect(busy.body).toMatchObject({ code: "REPORT_BUSY" });
   });
 
   test("still returns the code values when the model replies badly, and flags the missing text", async () => {
@@ -232,12 +221,14 @@ describe("GET /api/selfeval/report", () => {
   test("404 when the report was never built, 404 for another student and 400 for a bad query", async () => {
     const none = await call("GET", { query: { sessionId: SESSION } });
     expect(none.status).toBe(404);
-    expect(none.body).toMatchObject({ error: { code: "REPORT_NOT_FOUND" } });
+    expect(none.body).toMatchObject({ code: "REPORT_NOT_FOUND" });
     state.session = completedSession({ profile_id: "someone-else" });
     expect((await call("GET", { query: { sessionId: SESSION } })).status).toBe(
       404,
     );
-    expect((await call("GET", { query: {} })).status).toBe(400);
+    const bad = await call("GET", { query: {} });
+    expect(bad.status).toBe(400);
+    expect(bad.body).toMatchObject({ code: "VALIDATION_FAILED" });
   });
 
   test("returns a failed report with no payload so the screen can offer a rebuild", async () => {
@@ -253,5 +244,24 @@ describe("GET /api/selfeval/report", () => {
     const res = await call("GET", { query: { sessionId: SESSION } });
     expect(res.status).toBe(200);
     expect(res.body.report).toMatchObject({ status: "failed", payload: null });
+  });
+});
+
+describe("인증과 메서드", () => {
+  test("토큰이 없으면 401 UNAUTHENTICATED problem 이고 no-store 가 실린다", async () => {
+    const out = await callRoute(route, {
+      method: "POST",
+      body: { sessionId: SESSION },
+      headers: { authorization: "" },
+    });
+    expect(out.status).toBe(401);
+    expect(out.body).toMatchObject({ code: "UNAUTHENTICATED" });
+    expect(out.headers["cache-control"]).toBe("no-store");
+  });
+
+  test("GET, POST 가 아니면 405 와 Allow 다", async () => {
+    const out = await callRoute(route, { method: "PUT" });
+    expect(out.status).toBe(405);
+    expect(out.headers.allow).toBe("GET, HEAD, POST");
   });
 });

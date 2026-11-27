@@ -1,20 +1,25 @@
-// POST /api/selfeval/pick-records 의 연계 판정과 연계 편집 동작. DB 계층과 모델은 가짜로 바꾼다.
+// POST /api/selfeval/pick-records: 연계 판정과 목록, 연계 편집, 선택, 직접 입력. Hono 라우트를 루트 앱으로 부른다.
+// DB 계층과 모델은 가짜로 바꾼다. 성공 응답은 계약 스키마(shared/selfeval/pick.ts)로 읽어 서버와 브라우저가 같은 모양인지 본다.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
-  createFakeDb,
-  createFakeSupabase,
-} from "../../_lib/fakeSupabase.testkit.js";
+  pickLinkResponseSchema,
+  pickListResponseSchema,
+  pickManualResponseSchema,
+  pickSelectResponseSchema,
+} from "../../../shared/selfeval/pick.js";
+import { callRoute, createAdminFake } from "../../_lib/adminRoute.testkit.js";
 
 const m = vi.hoisted(() => ({
-  state: { supabase: null as unknown },
+  state: { admin: null as unknown },
+  readSelfevalAccess: vi.fn(),
   callStructured: vi.fn(),
   loadSession: vi.fn(),
   loadActivityRecords: vi.fn(),
   loadUsedActivityIds: vi.fn(),
   loadSessionActivities: vi.fn(),
   loadRecordLinks: vi.fn(),
+  insertManualActivity: vi.fn(),
   insertModelLinks: vi.fn(),
   saveRecordLink: vi.fn(),
   replaceSessionActivities: vi.fn(),
@@ -26,16 +31,16 @@ const m = vi.hoisted(() => ({
 }));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
-  getEnv: (key: string) => process.env[key] ?? "",
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
-  createSupabaseAdmin: () => m.state.supabase,
+  createSupabaseAdmin: () => m.state.admin,
 }));
 vi.mock("../../_lib/ai/gemini.js", () => ({
   callStructured: m.callStructured,
 }));
 vi.mock("../../_lib/selfeval/access.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../_lib/selfeval/access.js")>()),
-  readSelfevalAccess: async () => ({ allowed: true }),
+  readSelfevalAccess: m.readSelfevalAccess,
 }));
 vi.mock("../../_lib/selfeval/db.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../_lib/selfeval/db.js")>()),
@@ -44,6 +49,7 @@ vi.mock("../../_lib/selfeval/db.js", async (importOriginal) => ({
   loadUsedActivityIds: m.loadUsedActivityIds,
   loadSessionActivities: m.loadSessionActivities,
   loadRecordLinks: m.loadRecordLinks,
+  insertManualActivity: m.insertManualActivity,
   insertModelLinks: m.insertModelLinks,
   saveRecordLink: m.saveRecordLink,
   replaceSessionActivities: m.replaceSessionActivities,
@@ -54,7 +60,9 @@ vi.mock("../../_lib/selfeval/db.js", async (importOriginal) => ({
   reverseCredit: m.reverseCredit,
 }));
 
-import handler from "./pick-records.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/selfeval/pick-records" };
 
 const record = (id: string, p: Record<string, unknown> = {}) => ({
   id,
@@ -104,19 +112,12 @@ const okState = {
 };
 
 const call = (body: Record<string, unknown>) =>
-  callHandler(
-    handler as never,
-    { sessionId: "s1", ...body },
-    { authorization: "Bearer t" },
-  );
+  callRoute(route, { method: "POST", body: { sessionId: "s1", ...body } });
 
 beforeEach(() => {
   vi.resetAllMocks();
-  const supabase = createFakeSupabase(createFakeDb({}));
-  Object.assign(supabase.auth, {
-    getUser: async () => ({ data: { user: { id: "me" } }, error: null }),
-  });
-  m.state.supabase = supabase;
+  m.state.admin = createAdminFake({ permissions: [] });
+  m.readSelfevalAccess.mockResolvedValue({ allowed: true, tenantReason: null });
   m.loadSession.mockResolvedValue(session());
   m.loadActivityRecords.mockResolvedValue([
     record("core", { topic: "핵심주제" }),
@@ -128,6 +129,8 @@ beforeEach(() => {
   m.loadRecordLinks.mockResolvedValue([]);
   m.claimStep.mockResolvedValue({ kind: "claimed", attempts: 1 });
   m.finishStep.mockResolvedValue(true);
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 const modelReply = (judgments: unknown[]) => ({
@@ -152,11 +155,12 @@ describe("pick-records link", () => {
     );
     const res = await call({ action: "link" });
     expect(res.status).toBe(200);
+    expect(res.headers["cache-control"]).toBe("no-store");
+    expect(res.body).not.toHaveProperty("ok");
     expect(m.callStructured).toHaveBeenCalledTimes(1);
     expect(m.claimStep.mock.calls[0]?.[3]).toBe("link");
     expect(m.insertModelLinks).toHaveBeenCalledTimes(1);
-    expect(res.body).toMatchObject({
-      ok: true,
+    expect(pickLinkResponseSchema.parse(res.body)).toMatchObject({
       linkStatus: "ok",
       linkUnchecked: false,
       maxSelect: 7,
@@ -183,14 +187,8 @@ describe("pick-records link", () => {
     const res = await call({ action: "link" });
     expect(m.callStructured).not.toHaveBeenCalled();
     expect(m.claimStep).not.toHaveBeenCalled();
-    expect(res.body).toMatchObject({ cached: true, linkStatus: "ok" });
-    const body = res.body as {
-      links: unknown[];
-      candidates: {
-        activity: { id: string };
-        linkState: { linked: boolean } | null;
-      }[];
-    };
+    const body = pickLinkResponseSchema.parse(res.body);
+    expect(body).toMatchObject({ cached: true, linkStatus: "ok" });
     expect(body.links).toHaveLength(1);
     expect(
       body.candidates.find((c) => c.activity.id === "a")?.linkState?.linked,
@@ -201,8 +199,7 @@ describe("pick-records link", () => {
     m.callStructured.mockRejectedValue(new Error("boom"));
     const res = await call({ action: "link" });
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({
-      ok: true,
+    expect(pickLinkResponseSchema.parse(res.body)).toMatchObject({
       linkUnchecked: true,
       linkStatus: "unchecked",
       maxSelect: 7,
@@ -223,10 +220,42 @@ describe("pick-records link", () => {
     expect(m.terminateSession).not.toHaveBeenCalled();
   });
 
-  test("requires the basic input step first", async () => {
+  test("requires the basic input step first as a 409 STEP_ORDER problem", async () => {
     m.loadSession.mockResolvedValue({ ...session(), current_step: 0 });
     const res = await call({ action: "link" });
     expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({
+      code: "STEP_ORDER",
+      detail: "기본 입력을 먼저 저장해 주세요.",
+      requiredStep: 1,
+    });
+  });
+});
+
+describe("pick-records list", () => {
+  test("returns the candidate list without an ok field and parses with the contract", async () => {
+    const res = await call({ action: "list" });
+    expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty("ok");
+    const body = pickListResponseSchema.parse(res.body);
+    expect(body.candidates.map((c) => c.activity.id).sort()).toEqual([
+      "a",
+      "b",
+      "core",
+    ]);
+    expect(body).toMatchObject({
+      linkStatus: "pending",
+      selection: null,
+      growthApplied: false,
+      currentStep: 1,
+    });
+  });
+
+  test("requires the basic input step first", async () => {
+    m.loadSession.mockResolvedValue({ ...session(), current_step: 0 });
+    const res = await call({ action: "list" });
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ code: "STEP_ORDER" });
   });
 });
 
@@ -248,13 +277,15 @@ describe("pick-records link edits", () => {
     m.loadRecordLinks.mockResolvedValue([stored]);
   });
 
-  test("delete-link marks the pair deleted", async () => {
+  test("delete-link marks the pair deleted and returns the list body", async () => {
     const res = await call({
       action: "delete-link",
       fromId: "a",
       toId: "core",
     });
     expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty("ok");
+    pickLinkResponseSchema.parse(res.body);
     expect(m.saveRecordLink).toHaveBeenCalledWith(
       expect.anything(),
       "s1",
@@ -280,7 +311,7 @@ describe("pick-records link edits", () => {
       note: " ",
     });
     expect(bad.status).toBe(400);
-    expect(bad.body).toMatchObject({ error: { code: "NOTE_REQUIRED" } });
+    expect(bad.body).toMatchObject({ code: "NOTE_REQUIRED" });
     expect(m.saveRecordLink).not.toHaveBeenCalled();
     const ok = await call({
       action: "add-link",
@@ -300,6 +331,27 @@ describe("pick-records link edits", () => {
         note: "국어에서 같은 소재를 다뤘어요",
       }),
     );
+  });
+
+  test("add-link with an unknown type or the same activity keeps its own code", async () => {
+    const type = await call({
+      action: "add-link",
+      fromId: "core",
+      toId: "b",
+      type: "nope",
+      note: "x",
+    });
+    expect(type.status).toBe(400);
+    expect(type.body).toMatchObject({ code: "INVALID_LINK_TYPE" });
+    const same = await call({
+      action: "add-link",
+      fromId: "core",
+      toId: "core",
+      type: "complement",
+      note: "x",
+    });
+    expect(same.status).toBe(400);
+    expect(same.body).toMatchObject({ code: "SAME_ACTIVITY" });
   });
 
   test("add-link keeps the unchecked list status when the link check failed", async () => {
@@ -322,13 +374,30 @@ describe("pick-records link edits", () => {
     expect(res.body).toMatchObject({ linkStatus: "unchecked" });
   });
 
-  test("delete-link on a missing pair is 404", async () => {
+  test("delete-link on a missing pair is 404 LINK_NOT_FOUND", async () => {
     const res = await call({ action: "delete-link", fromId: "a", toId: "b" });
     expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ code: "LINK_NOT_FOUND" });
+  });
+
+  test("a link edit after the analysis started is 409 SESSION_LOCKED", async () => {
+    m.loadSession.mockResolvedValue({ ...session(okState), current_step: 3 });
+    const res = await call({
+      action: "confirm-link",
+      fromId: "core",
+      toId: "a",
+    });
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({
+      code: "SESSION_LOCKED",
+      detail:
+        "분석을 시작한 뒤에는 활동을 바꿀 수 없어요. 파기하고 새로 시작해 주세요.",
+    });
+    expect(m.saveRecordLink).not.toHaveBeenCalled();
   });
 });
 
-describe("pick-records select limit", () => {
+describe("pick-records select", () => {
   test("lets the student pick up to N by hand even when the link check never ran", async () => {
     // step_state 가 비어 연계 판정이 pending 이어도 직접 고르는 상한은 N(500자면 7건)이다.
     m.loadActivityRecords.mockResolvedValue(
@@ -340,7 +409,18 @@ describe("pick-records select limit", () => {
       supportIds: ["a", "b", "c", "d", "e"],
     });
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ ok: true, maxSelect: 7 });
+    expect(res.body).not.toHaveProperty("ok");
+    expect(pickSelectResponseSchema.parse(res.body)).toMatchObject({
+      maxSelect: 7,
+      currentStep: 2,
+    });
+    expect(m.replaceSessionActivities).toHaveBeenCalledTimes(1);
+    expect(m.updateSession).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "s1",
+      expect.objectContaining({ current_step: 2 }),
+    );
   });
 
   test("keeps the student's own line on the list and counts it when the link check failed", async () => {
@@ -381,7 +461,7 @@ describe("pick-records select limit", () => {
       coreId: "core",
       supportIds: ["a", "b"],
     });
-    expect(picked.body).toMatchObject({ ok: true, excludedIds: ["b"] });
+    expect(picked.body).toMatchObject({ excludedIds: ["b"] });
   });
 
   test("rejects a selection above N with the count in the message", async () => {
@@ -396,10 +476,175 @@ describe("pick-records select limit", () => {
     });
     expect(res.status).toBe(400);
     expect(res.body).toMatchObject({
-      error: {
-        code: "TOO_MANY_SUPPORT",
-        message: "활동은 최대 3건까지 고를 수 있어요.",
-      },
+      code: "TOO_MANY_SUPPORT",
+      detail: "활동은 최대 3건까지 고를 수 있어요.",
+    });
+    expect(m.replaceSessionActivities).not.toHaveBeenCalled();
+  });
+
+  test("an unknown core is 400 UNKNOWN_ACTIVITY and nothing is saved", async () => {
+    const res = await call({ action: "select", coreId: "zzz" });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: "UNKNOWN_ACTIVITY" });
+    expect(m.replaceSessionActivities).not.toHaveBeenCalled();
+  });
+
+  test("warns when a picked support has no link to the others once the check is done", async () => {
+    m.loadSession.mockResolvedValue(session(okState));
+    const res = await call({
+      action: "select",
+      coreId: "core",
+      supportIds: ["a"],
+    });
+    expect(pickSelectResponseSchema.parse(res.body)).toMatchObject({
+      excludedIds: ["a"],
+      warnings: ["다른 기록과 이어지는 지점을 찾지 못했어요"],
+    });
+  });
+});
+
+describe("pick-records manual", () => {
+  const input = {
+    activityName: " 로봇 제작 ",
+    subjectOrArea: "물리학",
+    gradeLabel: "고2",
+    semester: 1,
+    motive: "m",
+    concept: "c",
+    action: "a",
+    method: "me",
+    result: "r 3",
+    role: "ro",
+    limitation: "l",
+    next: "n",
+  };
+
+  test("saves the manual activity as the core and moves to step 3", async () => {
+    m.insertManualActivity.mockResolvedValue("new-id");
+    const res = await call({ action: "manual", input });
+    expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty("ok");
+    expect(pickManualResponseSchema.parse(res.body)).toEqual({
+      activityRecordId: "new-id",
+      selection: { coreId: "new-id", supportIds: [] },
+      currentStep: 3,
+    });
+    expect(m.insertManualActivity.mock.calls[0]?.[1]).toMatchObject({
+      profile_id: "admin-1",
+      source_program: "manual",
+      topic: "로봇 제작",
+    });
+    expect(m.replaceSessionActivities).toHaveBeenCalledTimes(1);
+    expect(m.updateSession).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "s1",
+      expect.objectContaining({ current_step: 3 }),
+    );
+  });
+
+  test("a blank activity name keeps ACTIVITY_NAME_REQUIRED and its message, before any lookup", async () => {
+    const res = await call({
+      action: "manual",
+      input: { ...input, activityName: " " },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: "ACTIVITY_NAME_REQUIRED",
+      detail: "활동 이름을 입력해 주세요.",
+    });
+    expect(m.readSelfevalAccess).not.toHaveBeenCalled();
+    expect(m.insertManualActivity).not.toHaveBeenCalled();
+  });
+
+  test("a blank subject keeps SUBJECT_REQUIRED and its message", async () => {
+    const res = await call({
+      action: "manual",
+      input: { ...input, subjectOrArea: "" },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: "SUBJECT_REQUIRED",
+      detail: "과목이나 영역을 입력해 주세요.",
+    });
+  });
+
+  test("a wrong grade is a 400 VALIDATION_FAILED problem", async () => {
+    const res = await call({
+      action: "manual",
+      input: { ...input, gradeLabel: "고9" },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: "VALIDATION_FAILED" });
+  });
+});
+
+describe("pick-records guards", () => {
+  test("without a token it is a 401 UNAUTHENTICATED problem with no-store", async () => {
+    const res = await callRoute(route, {
+      method: "POST",
+      body: { sessionId: "s1", action: "list" },
+      headers: { authorization: "" },
+    });
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ code: "UNAUTHENTICATED" });
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+
+  test("anything but POST is a 405 with Allow", async () => {
+    const res = await callRoute(route, { method: "GET" });
+    expect(res.status).toBe(405);
+    expect(res.headers.allow).toBe("POST");
+  });
+
+  test("a bad body shape is a 400 VALIDATION_FAILED problem before any lookup", async () => {
+    for (const body of [
+      { action: "list" },
+      { sessionId: "s1", action: "nope" },
+      { sessionId: "s1", action: "select", coreId: 1 },
+    ]) {
+      const res = await callRoute(route, { method: "POST", body });
+      expect(res.status).toBe(400);
+      expect(res.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    }
+    expect(m.readSelfevalAccess).not.toHaveBeenCalled();
+    expect(m.loadSession).not.toHaveBeenCalled();
+  });
+
+  test("without an entitlement it is 403 NO_ENTITLEMENT and the session is not read", async () => {
+    m.readSelfevalAccess.mockResolvedValue({
+      allowed: false,
+      tenantReason: null,
+    });
+    const res = await call({ action: "list" });
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ code: "NO_ENTITLEMENT" });
+    expect(m.loadSession).not.toHaveBeenCalled();
+  });
+
+  test("a missing session is 404 SESSION_NOT_FOUND", async () => {
+    m.loadSession.mockResolvedValue(null);
+    const res = await call({ action: "list" });
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({
+      code: "SESSION_NOT_FOUND",
+      detail: "자기평가서 세션을 찾을 수 없어요.",
+    });
+  });
+
+  test("a closed session is 409 SESSION_NOT_OPEN", async () => {
+    m.loadSession.mockResolvedValue({ ...session(), status: "completed" });
+    const res = await call({ action: "list" });
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ code: "SESSION_NOT_OPEN" });
+  });
+
+  test("an unexpected failure is a 500 problem with the route message", async () => {
+    m.loadActivityRecords.mockRejectedValue(new Error("db down"));
+    const res = await call({ action: "list" });
+    expect(res.status).toBe(500);
+    expect(res.body).toMatchObject({
+      detail: "자기평가서 활동 선택에 실패했습니다.",
     });
   });
 });

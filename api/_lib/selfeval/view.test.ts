@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ReportRow, SessionListRow, SessionRow } from "./rows.js";
 import type { ActivityRecordLike, GrowthSnapshot } from "./types.js";
-import {
-  detailBody,
-  entryBody,
-  latestScores,
-  listItem,
-  parseReportsQuery,
-} from "./view.js";
+import { detailBody, entryBody, latestScores, listItem } from "./view.js";
 
 const NOW = new Date("2026-10-06T03:00:00Z");
 
@@ -477,25 +471,6 @@ describe("detailBody", () => {
       step: null,
     });
     expect(body.session.replyPending).not.toBeNull();
-  });
-});
-
-describe("parseReportsQuery", () => {
-  const id = "123e4567-e89b-12d3-a456-426614174000";
-  it("쿼리가 없으면 목록", () => {
-    expect(parseReportsQuery({})).toEqual({ ok: true });
-  });
-  it("sessionId 가 uuid 면 상세", () => {
-    expect(parseReportsQuery({ sessionId: id })).toEqual({
-      ok: true,
-      sessionId: id,
-    });
-  });
-  it("uuid 가 아니거나 배열이면 거절", () => {
-    expect(parseReportsQuery({ sessionId: "x" })).toMatchObject({ ok: false });
-    expect(parseReportsQuery({ sessionId: [id, id] })).toMatchObject({
-      ok: false,
-    });
   });
 });
 

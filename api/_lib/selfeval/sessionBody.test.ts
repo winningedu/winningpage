@@ -1,16 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { sessionBasicsSchema } from "../../../shared/selfeval/session.js";
 import type { SessionRow } from "./rows.js";
 import {
   applySessionPatch,
   buildSessionPatch,
   buildSessionRow,
   canEditBasics,
-  readSessionAction,
+  normalizeBasics,
   sessionToInput,
   validatePlanItem,
-  validateSessionCreateBody,
-  validateSessionDiscardBody,
-  validateSessionUpdateBody,
 } from "./sessionBody.js";
 import type { GrowthSnapshot } from "./types.js";
 
@@ -46,146 +44,6 @@ function snapshot(over: Partial<GrowthSnapshot> = {}): GrowthSnapshot {
     ...over,
   };
 }
-
-describe("validateSessionCreateBody", () => {
-  it("정상 바디를 trim 해서 SessionInput 으로 돌려준다", () => {
-    const r = validateSessionCreateBody(valid);
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(r.input.subject).toBe("생명과학");
-    expect(r.input.schoolPrompt).toBe("탐구 과정을 쓰시오");
-    expect(r.input.teacherNote).toBeNull();
-    expect(r.input.activityName).toBeNull();
-  });
-
-  it("교과인데 과목이 없으면 SUBJECT_REQUIRED", () => {
-    const r = validateSessionCreateBody({ ...valid, subject: "  " });
-    expect(r).toMatchObject({ ok: false, code: "SUBJECT_REQUIRED" });
-  });
-
-  it("창체(자율, 진로, 동아리)는 활동명이 비면 ACTIVITY_NAME_REQUIRED", () => {
-    for (const area of ["autonomy", "career", "club"] as const) {
-      const r = validateSessionCreateBody({
-        ...valid,
-        area,
-        subject: null,
-        activityName: "  ",
-      });
-      expect(r).toMatchObject({
-        ok: false,
-        code: "ACTIVITY_NAME_REQUIRED",
-        message: "활동명을 입력해 주세요.",
-      });
-    }
-  });
-
-  it("창체는 과목을 버린다", () => {
-    const r = validateSessionCreateBody({
-      ...valid,
-      area: "club",
-      subject: "무시",
-      activityName: "로봇부",
-    });
-    expect(r.ok && r.input.subject).toBeNull();
-    expect(r.ok && r.input.activityName).toBe("로봇부");
-  });
-
-  it("학교 문항이 공백이면 null 로 저장하고 통과한다", () => {
-    const r = validateSessionCreateBody({ ...valid, schoolPrompt: "   " });
-    expect(r.ok && r.input.schoolPrompt).toBeNull();
-  });
-
-  it("학교 문항을 생략해도 생성할 수 있다", () => {
-    const { schoolPrompt: _omit, ...rest } = valid;
-    const r = validateSessionCreateBody(rest);
-    expect(r.ok && r.input.schoolPrompt).toBeNull();
-  });
-
-  it("학교 문항이 문자열도 null 도 아니면 거절", () => {
-    const r = validateSessionCreateBody({ ...valid, schoolPrompt: 3 });
-    expect(r).toMatchObject({ ok: false, code: "INVALID_BODY" });
-  });
-
-  it.each([99, 3001, 500.5, "500"])("목표 글자 수 %s 는 거절", (v) => {
-    const r = validateSessionCreateBody({ ...valid, targetChars: v });
-    expect(r).toMatchObject({ ok: false, code: "TARGET_CHARS_INVALID" });
-  });
-
-  it("목표 글자 수 null 과 경계값 100, 3000 은 통과", () => {
-    for (const v of [null, 100, 3000]) {
-      expect(validateSessionCreateBody({ ...valid, targetChars: v }).ok).toBe(
-        true,
-      );
-    }
-  });
-
-  it("희망 대학은 최대 2개 문자열", () => {
-    const r = validateSessionCreateBody({
-      ...valid,
-      career: { career: null, department: null, universities: ["a", "b", "c"] },
-    });
-    expect(r).toMatchObject({ ok: false, code: "CAREER_INVALID" });
-    const r2 = validateSessionCreateBody({
-      ...valid,
-      career: { career: null, department: null, universities: [1] },
-    });
-    expect(r2).toMatchObject({ ok: false, code: "CAREER_INVALID" });
-  });
-
-  it("학년, 학기, 영역, 학년도, 글자 수 기준이 잘못되면 각 코드로 거절", () => {
-    expect(
-      validateSessionCreateBody({ ...valid, gradeLabel: "고4" }),
-    ).toMatchObject({ code: "GRADE_INVALID" });
-    expect(validateSessionCreateBody({ ...valid, semester: 3 })).toMatchObject({
-      code: "SEMESTER_INVALID",
-    });
-    expect(validateSessionCreateBody({ ...valid, area: "x" })).toMatchObject({
-      code: "AREA_INVALID",
-    });
-    expect(
-      validateSessionCreateBody({ ...valid, academicYear: 1999 }),
-    ).toMatchObject({ code: "ACADEMIC_YEAR_INVALID" });
-    expect(
-      validateSessionCreateBody({ ...valid, targetCharsMode: "x" }),
-    ).toMatchObject({ code: "TARGET_MODE_INVALID" });
-  });
-
-  it("객체가 아니면 INVALID_BODY", () => {
-    expect(validateSessionCreateBody(null)).toMatchObject({
-      ok: false,
-      code: "INVALID_BODY",
-    });
-  });
-});
-
-describe("validateSessionUpdateBody", () => {
-  it("sessionId 가 없으면 거절", () => {
-    expect(validateSessionUpdateBody({})).toMatchObject({
-      ok: false,
-      code: "INVALID_BODY",
-    });
-  });
-
-  it("보낸 필드만 patch 에 담는다", () => {
-    const r = validateSessionUpdateBody({ sessionId: "s1", targetChars: 800 });
-    expect(r).toEqual({
-      ok: true,
-      sessionId: "s1",
-      patch: { targetChars: 800 },
-    });
-  });
-
-  it("수정에서 학교 문항을 비우면 patch 에 null 을 담는다", () => {
-    expect(
-      validateSessionUpdateBody({ sessionId: "s1", schoolPrompt: " " }),
-    ).toEqual({ ok: true, sessionId: "s1", patch: { schoolPrompt: null } });
-  });
-
-  it("수정에서 학교 문항을 보내지 않으면 patch 에 담지 않는다", () => {
-    const r = validateSessionUpdateBody({ sessionId: "s1", targetChars: 800 });
-    expect(r.ok && "schoolPrompt" in r.patch).toBe(false);
-  });
-});
 
 function sessionRow(over: Partial<SessionRow> = {}): SessionRow {
   return {
@@ -237,13 +95,45 @@ describe("applySessionPatch", () => {
     const ok = applySessionPatch(current, { targetChars: 900 });
     expect(ok.ok && ok.input.targetChars).toBe(900);
     const noName = applySessionPatch(current, { area: "club" });
-    expect(noName).toMatchObject({ ok: false, code: "ACTIVITY_NAME_REQUIRED" });
+    expect(noName).toEqual({
+      ok: false,
+      errors: [{ path: "activityName", message: "활동명을 입력해 주세요." }],
+    });
+  });
+
+  it("영역을 바꾸면 맞지 않는 쪽 필드를 버린다", () => {
+    const current = sessionToInput(sessionRow());
+    const club = applySessionPatch(current, {
+      area: "club",
+      activityName: "로봇부",
+    });
+    expect(club.ok && club.input).toMatchObject({
+      subject: null,
+      activityName: "로봇부",
+    });
+  });
+});
+
+describe("normalizeBasics", () => {
+  it("창체는 과목을 버리고 교과는 활동명을 버린다", () => {
+    const base = sessionBasicsSchema.parse(valid);
+    expect(
+      normalizeBasics({
+        ...base,
+        area: "club",
+        subject: "무시",
+        activityName: "로봇부",
+      }),
+    ).toMatchObject({ subject: null, activityName: "로봇부" });
+    expect(normalizeBasics({ ...base, activityName: "무시" })).toMatchObject({
+      subject: "생명과학",
+      activityName: null,
+    });
   });
 });
 
 describe("buildSessionRow", () => {
-  const parsed = validateSessionCreateBody(valid);
-  const input = parsed.ok ? parsed.input : (undefined as never);
+  const input = normalizeBasics(sessionBasicsSchema.parse(valid));
 
   it("스냅샷이 없으면 growth_applied 는 false, 연동 키는 null", () => {
     const row = buildSessionRow(input, "u1", { snapshot: null });
@@ -315,8 +205,7 @@ describe("canEditBasics", () => {
 });
 
 describe("buildSessionPatch", () => {
-  const parsed = validateSessionCreateBody(valid);
-  const input = parsed.ok ? parsed.input : (undefined as never);
+  const input = normalizeBasics(sessionBasicsSchema.parse(valid));
 
   it("세션에 스냅샷이 없으면 growth_applied 를 false 로 둔다", () => {
     const patch = buildSessionPatch(input, sessionRow());
@@ -342,26 +231,5 @@ describe("buildSessionPatch", () => {
     expect(
       buildSessionPatch({ ...input, planItemId: "zz" }, session).plan_item_id,
     ).toBeNull();
-  });
-});
-
-describe("readSessionAction / validateSessionDiscardBody", () => {
-  it("action 이 create, update, discard 가 아니면 null", () => {
-    expect(readSessionAction({ action: "create" })).toBe("create");
-    expect(readSessionAction({ action: "update" })).toBe("update");
-    expect(readSessionAction({ action: "discard" })).toBe("discard");
-    expect(readSessionAction({ action: "x" })).toBeNull();
-    expect(readSessionAction(null)).toBeNull();
-  });
-
-  it("discard 는 sessionId 가 있어야 한다", () => {
-    expect(validateSessionDiscardBody({ sessionId: "s1" })).toEqual({
-      ok: true,
-      sessionId: "s1",
-    });
-    expect(validateSessionDiscardBody({})).toMatchObject({
-      ok: false,
-      code: "INVALID_BODY",
-    });
   });
 });

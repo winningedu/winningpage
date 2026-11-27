@@ -47,7 +47,7 @@ const SELFEVAL_STALE_MS = 15_000;
 export function selfevalEntryQuery(userId: string | null) {
   return queryOptions({
     queryKey: selfevalQueryKeys.entry(userId),
-    queryFn: async () => unwrap(await fetchEntry()),
+    queryFn: async ({ signal }) => unwrap(await fetchEntry(signal)),
     staleTime: SELFEVAL_STALE_MS,
     enabled: !!userId,
     retry: 0,
@@ -60,7 +60,8 @@ export function selfevalSessionQuery(
 ) {
   return queryOptions({
     queryKey: selfevalQueryKeys.session(userId, sessionId),
-    queryFn: async () => unwrap(await fetchSessionDetail(sessionId as string)),
+    queryFn: async ({ signal }) =>
+      unwrap(await fetchSessionDetail(sessionId as string, signal)),
     staleTime: SELFEVAL_STALE_MS,
     enabled: !!userId && !!sessionId,
     retry: 0,
@@ -73,7 +74,8 @@ export function selfevalPickQuery(
 ) {
   return queryOptions({
     queryKey: selfevalQueryKeys.pick(userId, sessionId),
-    queryFn: async () => unwrap(await pickList(sessionId as string)),
+    queryFn: async ({ signal }) =>
+      unwrap(await pickList(sessionId as string, signal)),
     staleTime: SELFEVAL_STALE_MS,
     enabled: !!userId && !!sessionId,
     retry: 0,
@@ -87,7 +89,8 @@ export function selfevalReportQuery(
 ) {
   return queryOptions({
     queryKey: selfevalQueryKeys.report(userId, sessionId),
-    queryFn: async () => unwrap(await fetchReport(sessionId as string)).report,
+    queryFn: async ({ signal }) =>
+      unwrap(await fetchReport(sessionId as string, signal)).report,
     staleTime: SELFEVAL_STALE_MS,
     enabled: !!userId && !!sessionId,
     retry: 0,

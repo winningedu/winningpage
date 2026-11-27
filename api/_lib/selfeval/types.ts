@@ -515,7 +515,12 @@ export type PromotedRecord = {
 // 상수
 // ---------------------------------------------------------------------------
 
-export const SESSION_EXPIRY_DAYS = 90;
+// 세션 만료 일수, 단계 선점 만료, 단계 시간 예산은 브라우저와 함께 쓰는 계약 값이다.
+export {
+  CLAIM_STALE_SECONDS,
+  SESSION_EXPIRY_DAYS,
+  STEP_BUDGET_MS,
+} from "../../../shared/selfeval/contract.js";
 export const GROWTH_STALE_DAYS = 180;
 export const FIT_AUTO_SELECT_THRESHOLD = 40;
 export const CANDIDATE_LIMIT = 20;
@@ -527,8 +532,6 @@ export const MAX_PAIR_RECORDS = 8;
 export const FALLBACK_SELECT_COUNT = 3;
 export const MAX_REGENERATIONS = 3;
 export const MAX_MODEL_ATTEMPTS_PER_STEP = 10;
-export const CLAIM_STALE_SECONDS = 120;
-export const STEP_BUDGET_MS = 50_000;
 export const DEFAULT_TARGET_CHARS = 500;
 export const TARGET_TOLERANCE = 0.05;
 export const MIN_LENGTH_CHARS = 400;

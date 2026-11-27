@@ -6,7 +6,6 @@ import {
   nextStepAfterPick,
   pickContextFrom,
   selectionRows,
-  validatePickBody,
 } from "./pickBody.js";
 import type { SessionRow } from "./rows.js";
 import type {
@@ -14,133 +13,6 @@ import type {
   CandidateRow,
   GrowthSnapshot,
 } from "./types.js";
-
-const manual = {
-  activityName: " 로봇 제작 ",
-  subjectOrArea: "물리학",
-  gradeLabel: "고2",
-  semester: 1,
-  motive: "m",
-  concept: "c",
-  action: "a",
-  method: "me",
-  result: "r",
-  role: "ro",
-  limitation: "l",
-  next: "n",
-};
-
-describe("validatePickBody", () => {
-  it("list", () => {
-    expect(validatePickBody({ sessionId: "s1", action: "list" })).toEqual({
-      ok: true,
-      body: { sessionId: "s1", action: "list" },
-    });
-  });
-
-  it("sessionId 없음과 모르는 action 은 INVALID_BODY", () => {
-    expect(validatePickBody({ action: "list" })).toMatchObject({
-      ok: false,
-      code: "INVALID_BODY",
-    });
-    expect(validatePickBody({ sessionId: "s", action: "x" })).toMatchObject({
-      ok: false,
-      code: "INVALID_BODY",
-    });
-    expect(validatePickBody(null)).toMatchObject({ ok: false });
-  });
-
-  it("select 는 coreId 문자열과 supportIds 문자열 배열이 필요", () => {
-    expect(
-      validatePickBody({
-        sessionId: "s",
-        action: "select",
-        coreId: "a",
-        supportIds: ["b"],
-      }),
-    ).toEqual({
-      ok: true,
-      body: {
-        sessionId: "s",
-        action: "select",
-        coreId: "a",
-        supportIds: ["b"],
-      },
-    });
-    expect(
-      validatePickBody({
-        sessionId: "s",
-        action: "select",
-        coreId: 1,
-        supportIds: [],
-      }),
-    ).toMatchObject({ ok: false, code: "INVALID_BODY" });
-    expect(
-      validatePickBody({
-        sessionId: "s",
-        action: "select",
-        coreId: "a",
-        supportIds: [1],
-      }),
-    ).toMatchObject({ ok: false, code: "INVALID_BODY" });
-  });
-
-  it("select 에서 supportIds 를 생략하면 빈 배열", () => {
-    const r = validatePickBody({
-      sessionId: "s",
-      action: "select",
-      coreId: "a",
-    });
-    expect(r.ok && r.body.action === "select" && r.body.supportIds).toEqual([]);
-  });
-
-  it("manual 은 입력을 정리하고 manual.ts 규칙으로 검증한다", () => {
-    const r = validatePickBody({
-      sessionId: "s",
-      action: "manual",
-      input: manual,
-    });
-    expect(
-      r.ok && r.body.action === "manual" && r.body.input.activityName,
-    ).toBe(" 로봇 제작 ");
-    expect(
-      validatePickBody({
-        sessionId: "s",
-        action: "manual",
-        input: { ...manual, activityName: " " },
-      }),
-    ).toMatchObject({ ok: false, code: "ACTIVITY_NAME_REQUIRED" });
-    expect(
-      validatePickBody({
-        sessionId: "s",
-        action: "manual",
-        input: { ...manual, subjectOrArea: "" },
-      }),
-    ).toMatchObject({ ok: false, code: "SUBJECT_REQUIRED" });
-  });
-
-  it("manual 의 학년, 학기가 잘못되면 거절하고 생략하면 null", () => {
-    expect(
-      validatePickBody({
-        sessionId: "s",
-        action: "manual",
-        input: { ...manual, gradeLabel: "고9" },
-      }),
-    ).toMatchObject({ ok: false, code: "INVALID_BODY" });
-    const r = validatePickBody({
-      sessionId: "s",
-      action: "manual",
-      input: { ...manual, gradeLabel: undefined, semester: undefined },
-    });
-    expect(
-      r.ok &&
-        r.body.action === "manual" && [
-          r.body.input.gradeLabel,
-          r.body.input.semester,
-        ],
-    ).toEqual([null, null]);
-  });
-});
 
 function session(over: Partial<SessionRow> = {}): SessionRow {
   return {
@@ -279,57 +151,5 @@ describe("manualSelectionRow", () => {
       analysis,
       analysis_source: "student",
     });
-  });
-});
-
-describe("validatePickBody link actions", () => {
-  const base = { sessionId: "s1" };
-  it("accepts link, delete-link, confirm-link and add-link", () => {
-    expect(validatePickBody({ ...base, action: "link" })).toEqual({
-      ok: true,
-      body: { sessionId: "s1", action: "link" },
-    });
-    for (const action of ["delete-link", "confirm-link"]) {
-      expect(
-        validatePickBody({ ...base, action, fromId: "a", toId: "b" }),
-      ).toEqual({
-        ok: true,
-        body: { sessionId: "s1", action, fromId: "a", toId: "b" },
-      });
-    }
-    expect(
-      validatePickBody({
-        ...base,
-        action: "add-link",
-        fromId: "a",
-        toId: "b",
-        type: "deepen",
-        note: "이어서 했어요",
-      }),
-    ).toEqual({
-      ok: true,
-      body: {
-        sessionId: "s1",
-        action: "add-link",
-        fromId: "a",
-        toId: "b",
-        type: "deepen",
-        note: "이어서 했어요",
-      },
-    });
-  });
-  it("rejects missing or non-string ids, type and note", () => {
-    for (const bad of [
-      { action: "delete-link", fromId: "a" },
-      { action: "confirm-link", fromId: 1, toId: "b" },
-      { action: "add-link", fromId: "a", toId: "b", type: "deepen" },
-      { action: "add-link", fromId: "a", toId: "b", note: "x" },
-      { action: "add-link", fromId: "", toId: "b", type: "deepen", note: "x" },
-    ]) {
-      expect(validatePickBody({ ...base, ...bad })).toMatchObject({
-        ok: false,
-        code: "INVALID_BODY",
-      });
-    }
   });
 });
