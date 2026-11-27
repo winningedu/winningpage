@@ -65,6 +65,7 @@ import {
   entitlementDeniedMessage,
   type TenantBlockReason,
 } from "@/lib/tenantBlock";
+import type { finalizeResponse } from "../../../shared/performance/finalize.js";
 import {
   type sessionSchema,
   sessionWriteResponse,
@@ -1355,7 +1356,10 @@ export default function PerformanceChatPage() {
         submissionId: targetSubmissionId,
       });
 
-      setEvaluationReport(data?.report || null);
+      // 섹션 안쪽은 모델 산출물이라 스키마가 좁히지 않는다. 리포트 컴포넌트가 EvaluationReport 로 좁혀 읽는다.
+      setEvaluationReport(
+        (data?.report as EvaluationReport | undefined) ?? null,
+      );
       // 확정이 겨냥할 제출본은 **평가에 성공한** 것이다(위 `evaluatedSubmissionId` 주석).
       setEvaluatedSubmissionId(targetSubmissionId);
       if (Number(data?.evaluationCount) > 0)
@@ -1553,9 +1557,7 @@ export default function PerformanceChatPage() {
     let keptPointer = false;
 
     try {
-      // finalizeSubmission은 §8.6 성공 응답 전체를 그대로 돌려주는 postJson 위임이라 정본
-      // 타입이 없다 — 이 화면이 실제로 읽는 필드(nextSessionId)만 좁혀서 갖는다.
-      let data: { nextSessionId?: string } | undefined;
+      let data: z.output<typeof finalizeResponse> | undefined;
       try {
         data = await finalizeSubmission({
           accessToken,

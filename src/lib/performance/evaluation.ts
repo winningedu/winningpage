@@ -39,8 +39,15 @@
 //   `guideUpload.js`/`topics.js`/`designReport.js`가 이미 쓰는 규약이라 읽는 쪽이 출처를
 //   따지지 않아도 된다.
 
-import { evaluateResponse } from "../../../shared/performance/contract.js";
-import { finalizeResponse } from "../../../shared/performance/finalize.js";
+import type { z } from "zod";
+import {
+  type EvaluateBodyInput,
+  evaluateResponse,
+} from "../../../shared/performance/evaluate.js";
+import {
+  type FinalizeBodyInput,
+  finalizeResponse,
+} from "../../../shared/performance/finalize.js";
 import { api } from "../http/client";
 import { entitlementDeniedMessage } from "../tenantBlock";
 import {
@@ -126,16 +133,16 @@ class EvaluationRequestError extends Error {
 }
 
 /** 두 호출이 공유하는 fetch + 실패 변환. 성공 응답 본문을 그대로 돌려준다. */
-async function postJson(
+async function postJson<T>(
   path: "performance/evaluate" | "performance/finalize",
-  body: Record<string, unknown>,
+  body: EvaluateBodyInput | FinalizeBodyInput,
+  schema: z.ZodType<T>,
   accessToken: string,
   fallbackMap: Record<string, string>,
   genericMessage: string,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ) {
-  // biome-ignore lint/suspicious/noExplicitAny: 화면이 응답을 필드마다 좁혀 읽는다(예전 data 와 같다)
-  let result: PerformanceResult<any>;
+  let result: PerformanceResult<T>;
 
   try {
     result = await performanceRequest(
@@ -145,9 +152,7 @@ async function postJson(
           headers: { Authorization: `Bearer ${accessToken}` },
           timeout: timeoutMs,
         })
-        .json(
-          path === "performance/evaluate" ? evaluateResponse : finalizeResponse,
-        ),
+        .json(schema),
     );
   } catch (error) {
     const wrapped = new EvaluationRequestError("NETWORK", NETWORK_ERROR);
@@ -183,7 +188,6 @@ async function postJson(
  * 평가 리포트 1회. 같은 `submissionId`로 다시 부르면 모델을 부르지 않고 저장분을 돌려준다.
  *
  * @param {{accessToken: string, sessionId: string, submissionId: string}} params
- * @returns {Promise<object>} §8.6 성공 응답 전체.
  * @throws {EvaluationRequestError}
  */
 export async function requestEvaluation({
@@ -198,6 +202,7 @@ export async function requestEvaluation({
   return postJson(
     "performance/evaluate",
     { sessionId, submissionId },
+    evaluateResponse,
     accessToken,
     EVALUATE_FALLBACK,
     EVALUATE_GENERIC,
@@ -230,6 +235,7 @@ export async function finalizeSubmission({
   return postJson(
     "performance/finalize",
     { sessionId, submissionId, action },
+    finalizeResponse,
     accessToken,
     FINALIZE_FALLBACK,
     FINALIZE_GENERIC,

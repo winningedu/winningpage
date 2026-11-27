@@ -90,14 +90,6 @@ export const submissionSaveResponse = z.looseObject({
   schema: z.unknown(),
 });
 
-export const evaluateResponse = z.looseObject({
-  report: z.unknown(),
-  submissionId: z.string(),
-  charged: z.boolean(),
-  evaluationCount: z.number(),
-  maxEvaluations: z.number(),
-});
-
 export const finalizeResponse = z.looseObject({
   submission: z.unknown(),
   finalReportId: z.string().nullable(),
