@@ -22,7 +22,7 @@
 // 범위 밖이라(자습 시간·하루 일과 편집 화면 없음) 건드리지 않는다 — 기존 저장값을
 // buildInitialStudentState의 weeklySchedule 오버라이드로 그대로 재사용한다.
 
-import type { Context } from "hono";
+import { intakeUpdateBody } from "../../../shared/goal/intake-update.js";
 import { goalFail } from "../../_lib/goal/problem.js";
 import {
   appendProbabilityLog,
@@ -35,9 +35,10 @@ import {
   PAID_MESSAGE,
   updateStudentRow,
 } from "../../_lib/goal/repo.js";
-import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 import {
   computeEngineDerivedFields,
@@ -144,15 +145,6 @@ export function validateIntakeUpdateBody(body: unknown, gradeLabel: string) {
 // 핸들러
 // ---------------------------------------------------------------------------
 
-// 본문을 JSON 으로 읽는다. 비었거나 깨졌으면 null 이고, 형식 검사는 각 핸들러가 한다.
-async function readBody(c: Context) {
-  try {
-    return await c.req.json();
-  } catch {
-    return null;
-  }
-}
-
 const guard = user({
   unhandledMessage: "처리 중 오류가 발생했습니다.",
   logLabel: "goal/intake-update",
@@ -160,7 +152,7 @@ const guard = user({
 
 export const intakeUpdate = userFactory
   .createApp()
-  .post("/", guard, async (c) => {
+  .post("/", guard, validate("json", intakeUpdateBody), async (c) => {
     try {
       // 1) 게이트 — 405 → 401 → 403 (intake.ts와 동일 규약).
       const session = await openGoalSession(c);
@@ -175,13 +167,10 @@ export const intakeUpdate = userFactory
 
       const { supabaseAdmin, profileId } = narrowGoalSession(session);
 
-      const body = await readBody(c);
+      const body = c.req.valid("json");
 
       // 2) 다른 학생 id 방어.
-      const ownCheck = ensureOwnProfile(
-        isPlainObject(body) ? body.profileId : undefined,
-        profileId,
-      );
+      const ownCheck = ensureOwnProfile(body.profileId, profileId);
       if (ownCheck.error) {
         return goalFail(c, ownCheck.error.status, ownCheck.error.body);
       }

@@ -42,6 +42,14 @@ import {
   gradeWriteResponse,
 } from "../../shared/goal/grades.js";
 import {
+  type GoalIntakeStudent,
+  intakeResponse,
+} from "../../shared/goal/intake.js";
+import {
+  type IntakeUpdateInput,
+  intakeUpdateResponse,
+} from "../../shared/goal/intake-update.js";
+import {
   type PlanTaskCreateInput,
   type PlanTasksQueryInput,
   type PlanTaskUpdateInput,
@@ -286,14 +294,14 @@ export async function fetchGoalStudent(): Promise<FetchGoalStudentResult> {
 export type SubmitGoalIntakeResult =
   | { kind: "no-session" }
   | { kind: "not-allowed"; tenantReason: TenantBlockReason | null }
-  | { kind: "success"; student: GoalStudentPayload }
+  | { kind: "success"; student: GoalIntakeStudent }
   | { kind: "already-onboarded" }
   | { kind: "cuts-missing"; missing: string[] }
   | { kind: "validation-error"; detail: string }
   | { kind: "error" };
 
-// intake 설문 본문(7단계 폼) — 서버가 zod로 검증하는 실제 계약(api/_routes/goal/intake.ts)이라
-// 클라이언트 쪽에서 이중으로 좁게 규정하지 않는다(과잉 제약 방지, 판단 지점).
+// intake 설문 본문(7단계 폼) — 서버가 zod 계약(shared/goal/intake.ts intakeBody)으로 검증한다.
+// 화면의 작성 중 상태가 null 이나 느슨한 Record 를 들고 있어 여기서는 object 로 받는다(과잉 제약 방지, 판단 지점).
 export async function submitGoalIntake(
   body: object,
 ): Promise<SubmitGoalIntakeResult> {
@@ -302,10 +310,11 @@ export async function submitGoalIntake(
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/intake", {
-      method: "POST",
-      json: body,
-    });
+    response = await goalRequest(
+      "goal/intake",
+      { method: "POST", json: body },
+      intakeResponse,
+    );
   } catch (error) {
     console.error("[goalApi] POST /api/goal/intake 호출 오류:", error);
     return { kind: "error" };
@@ -352,24 +361,25 @@ export async function submitGoalIntake(
 export type SubmitGoalIntakeUpdateResult =
   | { kind: "no-session" }
   | NotAllowed
-  | { kind: "success"; student: GoalStudentPayload }
+  | { kind: "success"; student: GoalIntakeStudent }
   | { kind: "not-onboarded" }
   | { kind: "cuts-missing"; missing: string[] }
   | { kind: "validation-error"; detail: string }
   | { kind: "error" };
 
 export async function submitGoalIntakeUpdate(
-  body: object,
+  body: IntakeUpdateInput,
 ): Promise<SubmitGoalIntakeUpdateResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/intake-update", {
-      method: "POST",
-      json: body,
-    });
+    response = await goalRequest(
+      "goal/intake-update",
+      { method: "POST", json: body },
+      intakeUpdateResponse,
+    );
   } catch (error) {
     console.error("[goalApi] POST /api/goal/intake-update 호출 오류:", error);
     return { kind: "error" };
