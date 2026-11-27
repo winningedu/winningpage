@@ -13,6 +13,7 @@
 // 의도적으로 `status`가 아니라 `kind`로 둔다.
 
 import type { Options } from "ky";
+
 import type { z } from "zod";
 import {
   type AdviceBodyInput,
@@ -104,6 +105,98 @@ export type {
   GoalTomorrowTargets,
 };
 
+/** 화면은 컨디션, 항목, 방해 요인을 string 으로 들고 있다. 서버가 목록 밖의 값을 400 으로 막는다. */
+type SubmitDailyRecordBody = Omit<
+  DailyRecordInput,
+  "bodyCondition" | "reasons" | "tasks"
+> & { bodyCondition?: string; reasons?: string[]; tasks?: string[] };
+
+export type SubmitGoalIntakeResult =
+  | { kind: "no-session" }
+  | { kind: "not-allowed"; tenantReason: TenantBlockReason | null }
+  | { kind: "success"; student: GoalIntakeStudent }
+  | { kind: "already-onboarded" }
+  | { kind: "cuts-missing"; missing: string[] }
+  | { kind: "validation-error"; detail: string }
+  | { kind: "error" };
+
+export type SubmitGoalIntakeUpdateResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "success"; student: GoalIntakeStudent }
+  | { kind: "not-onboarded" }
+  | { kind: "cuts-missing"; missing: string[] }
+  | { kind: "validation-error"; detail: string }
+  | { kind: "error" };
+
+export type FetchTodayGoalRecordResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "not-active" }
+  | {
+      kind: "success";
+      record: GoalDailyRecord | null;
+      probs: GoalProbsBlock;
+      cooldown: GoalRecordCooldown | null;
+      summary: GoalRecordSummary | null;
+      tomorrowTargets: GoalTomorrowTargets;
+    }
+  | { kind: "error" };
+
+export type SubmitDailyRecordResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "not-active" }
+  | { kind: "no-study-time" }
+  | { kind: "before-start-date" }
+  // QA3 행305 — 12시간 쿨다운 중 재제출. api/_routes/goal/daily-record.ts 409 {reason:'cooldown'}.
+  | { kind: "cooldown"; submittedAt: string | null; unlocksAt: string | null }
+  | { kind: "validation-error"; detail: string }
+  | {
+      kind: "success";
+      record: GoalDailyRecord;
+      delta: GoalProbsBlock;
+      probs: GoalProbsBlock;
+      recordCount: number;
+    }
+  | { kind: "error" };
+
+export type FetchGoalGradesResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "not-onboarded" }
+  | { kind: "error" }
+  | {
+      kind: "ok";
+      naesinRecords: GoalGradeRecord[];
+      mockRecords: GoalGradeRecord[];
+    };
+
+export type AddGoalGradeResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "not-onboarded" }
+  | { kind: "validation-error"; detail: string }
+  | { kind: "success"; record?: GoalGradeRecord; records: GoalGradeRecord[] }
+  | { kind: "error" };
+
+export type UpdateGoalGradeResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "not-onboarded" }
+  | { kind: "not-found" }
+  | { kind: "validation-error"; detail: string }
+  | { kind: "success"; record?: GoalGradeRecord; records: GoalGradeRecord[] }
+  | { kind: "error" };
+
+export type DeleteGoalGradeResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "not-onboarded" }
+  | { kind: "not-found" }
+  | { kind: "success"; records: GoalGradeRecord[] }
+  | { kind: "error" };
+
 // ---------------------------------------------------------------------------
 // 응답 payload 타입, api/_lib/goal/repo.ts buildXxxPayload()/api/goal/*.ts 응답 조립과
 // 실제 select 컬럼(카멜 변환 후)에 맞춰 정의한다.
@@ -112,12 +205,6 @@ export type {
 // 응답 본문 shape은 엔드포인트별로 다르고 파싱 실패 시 {}로 접히므로 any로 둔다 —
 // 각 호출부가 옵셔널 체이닝으로 안전하게 좁혀 쓴다(아래 discriminated union 반환
 // 타입이 실제 계약이고, 여기서는 그 값을 만드는 재료일 뿐이다).
-/** 화면은 컨디션, 항목, 방해 요인을 string 으로 들고 있다. 서버가 목록 밖의 값을 400 으로 막는다. */
-type SubmitDailyRecordBody = Omit<
-  DailyRecordInput,
-  "bodyCondition" | "reasons" | "tasks"
-> & { bodyCondition?: string; reasons?: string[]; tasks?: string[] };
-
 /** 응답 본문을 안전하게 JSON으로 파싱한다 — 파싱 실패는 빈 객체로 접는다. */
 // biome-ignore lint/suspicious/noExplicitAny: 엔드포인트마다 응답 모양이 다른 원시 JSON.
 async function parseJsonSafe(response: Response): Promise<any> {
@@ -291,15 +378,6 @@ export async function fetchGoalStudent(): Promise<FetchGoalStudentResult> {
 //   { kind: 'validation-error', detail } — 400. 정상 경로에선 나오지 않아야 하는 방어적 분기.
 //   { kind: 'error' }                  — 500 / 네트워크 오류 / 예상 밖 상태코드. 재시도 가능,
 //                                         입력을 지우지 않는다.
-export type SubmitGoalIntakeResult =
-  | { kind: "no-session" }
-  | { kind: "not-allowed"; tenantReason: TenantBlockReason | null }
-  | { kind: "success"; student: GoalIntakeStudent }
-  | { kind: "already-onboarded" }
-  | { kind: "cuts-missing"; missing: string[] }
-  | { kind: "validation-error"; detail: string }
-  | { kind: "error" };
-
 // intake 설문 본문(7단계 폼) — 서버가 zod 계약(shared/goal/intake.ts intakeBody)으로 검증한다.
 // 화면의 작성 중 상태가 null 이나 느슨한 Record 를 들고 있어 여기서는 object 로 받는다(과잉 제약 방지, 판단 지점).
 export async function submitGoalIntake(
@@ -358,15 +436,6 @@ export async function submitGoalIntake(
 //
 // 내 정보 수정(QA 2차 시트 행25・31・32) — 목표대학/내신/모의고사 중 한 section만
 // 부분 수정한다. 반환 계약은 submitGoalIntake와 같은 관례를 따른다.
-export type SubmitGoalIntakeUpdateResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "success"; student: GoalIntakeStudent }
-  | { kind: "not-onboarded" }
-  | { kind: "cuts-missing"; missing: string[] }
-  | { kind: "validation-error"; detail: string }
-  | { kind: "error" };
-
 export async function submitGoalIntakeUpdate(
   body: IntakeUpdateInput,
 ): Promise<SubmitGoalIntakeUpdateResult> {
@@ -432,20 +501,6 @@ export async function submitGoalIntakeUpdate(
 //                                          쿨다운·잠금 패널 전용(둘 다 한 번도
 //                                          제출한 적 없으면 cooldown/summary는 null).
 //   { kind: 'error' }                   — 네트워크 오류·JSON 파싱 실패·5xx·예상 밖 상태코드.
-export type FetchTodayGoalRecordResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "not-active" }
-  | {
-      kind: "success";
-      record: GoalDailyRecord | null;
-      probs: GoalProbsBlock;
-      cooldown: GoalRecordCooldown | null;
-      summary: GoalRecordSummary | null;
-      tomorrowTargets: GoalTomorrowTargets;
-    }
-  | { kind: "error" };
-
 export async function fetchTodayGoalRecord(): Promise<FetchTodayGoalRecordResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
@@ -517,24 +572,6 @@ export async function fetchTodayGoalRecord(): Promise<FetchTodayGoalRecordResult
 //   { kind: 'validation-error', detail }    — 그 외 400(잘못된 컨디션·태그 코드 등).
 //   { kind: 'success', record, delta, probs, recordCount } — 200 {ok:true, ...}.
 //   { kind: 'error' }                       — 네트워크 오류·5xx·예상 밖 상태코드.
-export type SubmitDailyRecordResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "not-active" }
-  | { kind: "no-study-time" }
-  | { kind: "before-start-date" }
-  // QA3 행305 — 12시간 쿨다운 중 재제출. api/_routes/goal/daily-record.ts 409 {reason:'cooldown'}.
-  | { kind: "cooldown"; submittedAt: string | null; unlocksAt: string | null }
-  | { kind: "validation-error"; detail: string }
-  | {
-      kind: "success";
-      record: GoalDailyRecord;
-      delta: GoalProbsBlock;
-      probs: GoalProbsBlock;
-      recordCount: number;
-    }
-  | { kind: "error" };
-
 export async function submitDailyRecord(
   body: SubmitDailyRecordBody,
 ): Promise<SubmitDailyRecordResult> {
@@ -1090,17 +1127,6 @@ export async function fetchGoalRanking(): Promise<FetchGoalRankingResult> {
 //   { kind: 'ok', naesinRecords: [...], mockRecords: [...] }
 //     — 각 레코드 shape: { term, enteredAt|examDate, subjects:{korean,math,english,science},
 //       value, none:false, recordedAt } (api/_routes/goal/grades.js validateEntry 참고).
-export type FetchGoalGradesResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "not-onboarded" }
-  | { kind: "error" }
-  | {
-      kind: "ok";
-      naesinRecords: GoalGradeRecord[];
-      mockRecords: GoalGradeRecord[];
-    };
-
 export async function fetchGoalGrades(): Promise<FetchGoalGradesResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
@@ -1138,14 +1164,6 @@ export async function fetchGoalGrades(): Promise<FetchGoalGradesResult> {
   console.error("[goalApi] GET /api/goal/grades 예상 밖 응답 모양:", body);
   return { kind: "error" };
 }
-
-export type AddGoalGradeResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "not-onboarded" }
-  | { kind: "validation-error"; detail: string }
-  | { kind: "success"; record?: GoalGradeRecord; records: GoalGradeRecord[] }
-  | { kind: "error" };
 
 /**
  * 반환 계약:
@@ -1198,15 +1216,6 @@ export async function addGoalGrade(
   );
   return { kind: "error" };
 }
-
-export type UpdateGoalGradeResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "not-onboarded" }
-  | { kind: "not-found" }
-  | { kind: "validation-error"; detail: string }
-  | { kind: "success"; record?: GoalGradeRecord; records: GoalGradeRecord[] }
-  | { kind: "error" };
 
 /**
  * PUT /api/goal/grades — 회차 id(term) 기준 전체 갱신(api/_routes/goal/grades.ts handlePut 참고).
@@ -1273,14 +1282,6 @@ export async function updateGoalGrade(
   );
   return { kind: "error" };
 }
-
-export type DeleteGoalGradeResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "not-onboarded" }
-  | { kind: "not-found" }
-  | { kind: "success"; records: GoalGradeRecord[] }
-  | { kind: "error" };
 
 /**
  * DELETE /api/goal/grades — 회차 id(term) 기준 삭제(api/_routes/goal/grades.ts handleDelete 참고).
