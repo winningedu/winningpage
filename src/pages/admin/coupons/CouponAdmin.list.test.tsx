@@ -1,7 +1,7 @@
 // 쿠폰 목록 표. 헤더 범위, 고정 관리 칸, 아이콘 버튼 이름, 부가 조회 열화를 확인한다.
 
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 
 vi.mock(
@@ -183,5 +183,7 @@ test("쿠폰을 저장하면 옛 목록을 비우고 새로 받은 뒤 목록으
   await waitFor(() =>
     expect(router.state.location.pathname).toBe("/admin/coupons"),
   );
-  expect(await screen.findByText("new-slug")).toBeVisible();
+  // 폼이 아직 떠 있는 동안에는 슬러그 중복 안내에도 같은 글자가 나오므로 목록 영역 안에서만 찾는다.
+  const region = await screen.findByRole("region", { name: "쿠폰 목록" });
+  expect(await within(region).findByText("new-slug")).toBeVisible();
 });
