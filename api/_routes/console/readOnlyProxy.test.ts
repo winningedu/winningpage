@@ -19,10 +19,9 @@ vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
 }));
 
 import { routes } from "../manifest.js";
-import { routes as routes30 } from "../manifest-30.js";
 import { routes as routes60 } from "../manifest-60.js";
 
-const CONSOLE_ROUTES = Object.entries({ ...routes, ...routes30, ...routes60 })
+const CONSOLE_ROUTES = Object.entries({ ...routes, ...routes60 })
   .filter(([path]) => path.startsWith("console/"))
   .sort(([a], [b]) => a.localeCompare(b));
 const WRITE_METHODS = ["POST", "PUT", "PATCH", "DELETE"];

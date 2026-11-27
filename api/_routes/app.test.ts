@@ -10,7 +10,6 @@ import { config as entryConfig30 } from "../app-30.js";
 import { config as entryConfig60 } from "../app-60.js";
 import { app } from "./app.js";
 import { routes as defaultRoutes } from "./manifest.js";
-import { routes as routes30 } from "./manifest-30.js";
 import { routes as routes60 } from "./manifest-60.js";
 
 const methodRoutes = app.routes.filter((route) => route.method !== "ALL");
@@ -112,7 +111,7 @@ const apiRewrites = vercelJson.rewrites
 const destinationOf = (url: string) =>
   apiRewrites.find(({ pattern }) => pattern.test(url))?.destination;
 
-// maxDuration 이 있는 옮긴 경로. 없으면 /api/app 으로 간다(api/router-30, -60 과 같은 한도).
+// maxDuration 이 있는 옮긴 경로. 없으면 /api/app 으로 간다(30초는 api/app-30, 60초는 api/router-60 과 같은 한도).
 const MIGRATED_30: string[] = [
   "/api/admin/knowledge-search",
   "/api/selfeval/reports",
@@ -149,7 +148,7 @@ describe("vercel.json rewrite", () => {
   });
 
   test("안 옮긴 관리자, 자기평가서 경로는 새 진입 함수로 가지 않는다", () => {
-    const keys = [defaultRoutes, routes30, routes60]
+    const keys = [defaultRoutes, routes60]
       .flatMap((routes) => Object.keys(routes))
       .filter(
         (key) =>

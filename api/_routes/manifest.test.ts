@@ -5,18 +5,15 @@ import path from "node:path";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { describe, expect, test } from "vitest";
 import { config as config10 } from "../router.js";
-import { config as config30 } from "../router-30.js";
 import { config as config60 } from "../router-60.js";
 import { dispatch } from "./dispatch.js";
 import { routes as defaultRoutes } from "./manifest.js";
-import { routes as routes30 } from "./manifest-30.js";
 import { routes as routes60 } from "./manifest-60.js";
 
 const ROUTES_DIR = import.meta.dirname;
 
 const manifests = {
   "manifest.ts": defaultRoutes,
-  "manifest-30.ts": routes30,
   "manifest-60.ts": routes60,
 };
 
@@ -142,11 +139,9 @@ describe("라우트 매니페스트", () => {
       const expected =
         declared === undefined
           ? "manifest.ts"
-          : declared === "30"
-            ? "manifest-30.ts"
-            : declared === "60"
-              ? "manifest-60.ts"
-              : undefined;
+          : declared === "60"
+            ? "manifest-60.ts"
+            : undefined;
       if (expected === undefined) {
         problems.push(
           `${key}: maxDuration ${declared} 는 지원하지 않는다. 새 한도는 새 진입 함수가 필요하다`,
@@ -222,12 +217,9 @@ const routerRewrites = vercelJson.rewrites.filter((rewrite) =>
 );
 
 describe("vercel.json 라우터 rewrite", () => {
-  test("router 로 가는 rewrite 는 30초, 60초, 기본 진입 함수 순서다", () => {
+  test("router 로 가는 rewrite 는 60초, 기본 진입 함수 순서다", () => {
     // 빈 매니페스트(라우트를 모두 Hono 로 옮긴 한도)는 rewrite 를 두지 않는다.
-    const limited = [
-      { routes: routes30, destination: "/api/router-30" },
-      { routes: routes60, destination: "/api/router-60" },
-    ]
+    const limited = [{ routes: routes60, destination: "/api/router-60" }]
       .filter(({ routes }) => Object.keys(routes).length > 0)
       .map(({ routes, destination }) => ({
         source: alternation(routes),
@@ -249,7 +241,6 @@ describe("vercel.json 라우터 rewrite", () => {
 describe("vercel.json rewrite 시뮬레이션", () => {
   const destinationManifests: Record<string, Record<string, unknown>> = {
     "/api/router": defaultRoutes,
-    "/api/router-30": routes30,
     "/api/router-60": routes60,
   };
   // Hono 진입 함수(/api/app)로 가는 rewrite 도 함께 둔다. 매니페스트 키가 그쪽에 먼저 걸리면 안 된다.
@@ -310,11 +301,7 @@ describe("vercel.json rewrite 시뮬레이션", () => {
 });
 
 describe("진입 함수 config", () => {
-  test("router-30 은 30초, router-60 은 60초, router 는 한도를 두지 않는다", () => {
-    expect(config30).toEqual({
-      runtime: "nodejs",
-      maxDuration: 30,
-    });
+  test("router-60 은 60초, router 는 한도를 두지 않는다", () => {
     expect(config60).toEqual({
       runtime: "nodejs",
       maxDuration: 60,
@@ -327,7 +314,6 @@ describe("api/ 직속 독립 함수", () => {
   test("라우터, 크론 대상, 예외 두 개 외에는 두지 않는다", () => {
     const allowed = new Set([
       "router.ts",
-      "router-30.ts",
       "router-60.ts",
       // Hono 루트 앱의 진입 함수(Web 표준 fetch, maxDuration 은 router 와 같다)
       "app.ts",

@@ -353,7 +353,7 @@ describe("check-http-legacy outsideHandler", () => {
   const wrapped = "export default defineHandler({ errorShape: 'problem' });\n";
   const plain = "export default function handler(req, res) {}\n";
 
-  test.each([["manifest.ts"], ["manifest-30.ts"], ["manifest-60.ts"]])(
+  test.each([["manifest.ts"], ["manifest-60.ts"]])(
     "%s 가 가리키는 파일이 defineHandler 를 안 부르면 1로 센다",
     (name) => {
       put(`api/_routes/${name}`, manifest([["a/b", "./a/b.js"]]));
@@ -385,7 +385,6 @@ describe("check-http-legacy outsideHandler", () => {
     put("api/performance/clean.ts", plain);
     put("api/cron/ok.ts", wrapped);
     put("api/router.ts", plain);
-    put("api/router-30.ts", plain);
     put("api/app.ts", plain);
     put("api/app-60.ts", plain);
     put("api/_lib/helper.ts", plain);
