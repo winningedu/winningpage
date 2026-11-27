@@ -57,13 +57,12 @@ import { validate } from "../../../_lib/hono/validate.js";
 import { maskPhone } from "../../../_lib/phoneCode.js";
 
 export type ResendKind = "daily" | "weekly" | "monthly";
-
-const DAILY_PERIOD_RE = /^\d{4}-\d{2}-\d{2}$/;
-const MONTHLY_PERIOD_RE = /^\d{4}-\d{2}$/;
-
 export type ResendPeriodValidation =
   | { ok: true; startYmd: string }
   | { ok: false; detail: string };
+
+const DAILY_PERIOD_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTHLY_PERIOD_RE = /^\d{4}-\d{2}$/;
 
 /**
  * kind·periodKey 형식 + "2주 이내(자동 발송일 기준)" 규칙을 검증한다. DB를
@@ -149,12 +148,10 @@ export function validateResendPeriod(
   return { ok: true, startYmd };
 }
 
-export type ResendReportResponse = ResendReportResult;
-
 /** sendXFor 결과 → 응답 규격. 전화번호는 여기서 마스킹한다(원본을 응답에 싣지 않는다). */
 export function buildResendResponse(
   result: ReportSendResult,
-): ResendReportResponse {
+): ResendReportResult {
   let sent = 0;
   let failed = 0;
   let skipped = 0;

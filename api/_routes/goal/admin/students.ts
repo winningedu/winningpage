@@ -28,6 +28,8 @@ import { methodNotAllowed, ProblemError } from "../../../_lib/hono/problem.js";
 import { validate } from "../../../_lib/hono/validate.js";
 import { TimeZoneRequiredError } from "../../../_lib/timeZone.js";
 
+type ListBody = z.input<typeof goalStudentsResponse>;
+
 // 검색 선행 조회 상한. 닿으면 초과분 학생이 조용히 빠지므로 searchTruncated 로 알린다.
 const PROFILE_SEARCH_LIMIT = 500;
 
@@ -40,8 +42,6 @@ const CUT_SLOTS = [
 ] as const;
 
 const trim = (value: unknown) => String(value ?? "").trim();
-
-type ListBody = z.input<typeof goalStudentsResponse>;
 
 const listGuard = admin({
   permission: { key: "goalStudents" },

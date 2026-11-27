@@ -188,8 +188,4 @@ export type GoalProbabilityLogRow = z.output<
 export type GoalDailyRecordRow = z.output<typeof goalDailyRecordRowSchema>;
 export type GoalUniversityCutRow = z.output<typeof goalUniversityCutRowSchema>;
 export type ResendReportResult = z.output<typeof resendReportResponse>;
-export type GoalListParams = {
-  page: number;
-  q: string;
-  filter: GoalStudentFilter;
-};
+export type GoalListParams = Required<z.output<typeof goalStudentsQuery>>;
