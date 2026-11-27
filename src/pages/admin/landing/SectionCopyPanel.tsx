@@ -4,6 +4,7 @@ import type { SectionKey } from "@/components/landing/useHomeSectionCopy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError, api } from "@/lib/http/client";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 
 // 랜딩에서 라벨(eyebrow)을 그리는 섹션만 라벨 입력창을 보인다.
@@ -74,6 +75,8 @@ function SectionCopyForm({
   const [status, setStatus] = useState<Status>(null);
   const hasEyebrow = SECTIONS_WITH_EYEBROW.includes(sectionKey);
   const queryClient = useQueryClient();
+  // view 권한이면 저장 버튼을 그리지 않는다.
+  const canEdit = useCanEditSection();
 
   const save = useMutation({
     mutationFn: (json: Omit<SectionCopy, "section_key">) =>
@@ -143,15 +146,17 @@ function SectionCopyForm({
         />
       </label>
       <div className="flex items-center gap-3">
-        <Button
-          type="button"
-          size="lg"
-          disabled={save.isPending}
-          onClick={handleSave}
-          className="font-semibold"
-        >
-          저장
-        </Button>
+        {canEdit && (
+          <Button
+            type="button"
+            size="lg"
+            disabled={save.isPending}
+            onClick={handleSave}
+            className="font-semibold"
+          >
+            저장
+          </Button>
+        )}
         {status && (
           <span
             role="status"
