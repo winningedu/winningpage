@@ -153,10 +153,29 @@ describe("없는 주소", () => {
     expect((await response.json()).code).toBe("NOT_FOUND");
   });
 
-  test("끝 슬래시는 같은 라우트로 간다", async () => {
-    const response = await app.request("/api/admin/demo/", { headers: AUTH });
-    expect(response.status).toBe(200);
-  });
+  test.each(["GET", "HEAD", "POST", "PATCH", "PUT", "DELETE"])(
+    "끝 슬래시 주소는 라우트가 있어도 %s 에 problem 404 다",
+    async (method) => {
+      const response = await app.request("/api/admin/demo/", {
+        method,
+        headers: AUTH,
+      });
+      expect(response.status).toBe(404);
+      expect(response.headers.get("content-type")).toBe(
+        "application/problem+json",
+      );
+      expect(response.headers.get("allow")).toBeNull();
+      if (method !== "HEAD") {
+        expect(await response.json()).toEqual({
+          type: "about:blank",
+          title: "Not Found",
+          status: 404,
+          detail: "요청한 주소를 찾을 수 없어요.",
+          code: "NOT_FOUND",
+        });
+      }
+    },
+  );
 });
 
 describe("admin() 기본 헤더와 404 헬퍼", () => {
