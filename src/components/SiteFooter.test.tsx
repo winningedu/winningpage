@@ -1,9 +1,10 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SiteConfig, SiteKey } from "@/config/sites";
 import type { FooterOperatorImage } from "@/hooks/useFooterOperatorImage";
+import { trackEvent } from "@/lib/analytics";
 import SiteFooter from "./SiteFooter";
 
 // 두 사이트가 같은 푸터를 쓴다. 사이트 값은 sites.ts 정본을 그대로 읽는다.
@@ -16,6 +17,8 @@ vi.mock("@/config/site", async () => {
     }),
   };
 });
+
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 
 const operatorImage = vi.hoisted(() => ({
   value: null as FooterOperatorImage | null,
@@ -247,6 +250,35 @@ describe("SiteFooter - 위닝 SNS 아이콘", () => {
       expect(link).toHaveAttribute("rel", "noopener noreferrer");
       expect(link.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     }
+  });
+});
+
+describe("SiteFooter - 위닝 카카오 문의 클릭 이벤트", () => {
+  beforeEach(() => {
+    siteState.key = "winning";
+    vi.mocked(trackEvent).mockClear();
+  });
+
+  it("카카오톡 채널 링크를 누르면 kakao_inquiry_click을 footer로 보낸다", () => {
+    renderFooter();
+
+    fireEvent.click(
+      screen.getAllByRole("link", { name: "카카오톡 채널" })[0] as HTMLElement,
+    );
+
+    expect(trackEvent).toHaveBeenCalledWith("kakao_inquiry_click", {
+      location: "footer",
+    });
+  });
+
+  it("다른 소셜 링크는 이벤트를 보내지 않는다", () => {
+    renderFooter();
+
+    fireEvent.click(
+      screen.getAllByRole("link", { name: "유튜브" })[0] as HTMLElement,
+    );
+
+    expect(trackEvent).not.toHaveBeenCalled();
   });
 });
 
