@@ -1,9 +1,7 @@
 // api/selfeval 의 단계 핸들러(analyze, write, verify, finalize)가 함께 쓰는 응답 조립.
 // 응답 코드 표는 runModelStep.outcomeToHttp 에 있고, 여기서는 그것을 HTTP 로 내보낸다.
 
-import type { VercelResponse } from "@vercel/node";
 import { ProblemError } from "../hono/problem.js";
-import { sendError } from "../httpResponse.js";
 import type { SessionRow } from "./rows.js";
 import {
   type Outcome,
@@ -12,33 +10,7 @@ import {
 } from "./runModelStep.js";
 
 /**
- * 성공이면 { ok: true, ...okBody(result) } 를 200 으로 보낸다. 모델 단계 성공에는 attempts 와
- * softIssues 가 함께 실린다. 그 밖은 { ok: false, code, message, ...extra } 로 보낸다.
- */
-export function sendOutcome<T>(
-  res: VercelResponse,
-  outcome: Outcome<T> | SimpleOutcome<T>,
-  okBody: (result: T) => Record<string, unknown>,
-): void {
-  if (outcome.kind === "done") {
-    res.status(200).json({ ok: true, ...okBody(outcome.result) });
-    return;
-  }
-  const http = outcomeToHttp(outcome);
-  if (outcome.kind === "ok") {
-    res
-      .status(200)
-      .json({ ok: true, ...okBody(outcome.result), ...http.extra });
-    return;
-  }
-  sendError(res, "coded", http.status, http.message, http.code, {
-    ok: false,
-    ...http.extra,
-  });
-}
-
-/**
- * Hono 라우트용 sendOutcome. 성공이면 본문(okBody, 모델 단계는 attempts 와 softIssues 를 더함)을 돌려주고,
+ * 단계 결과를 응답 본문으로 바꾼다. 성공이면 본문(okBody, 모델 단계는 attempts 와 softIssues 를 더함)을 돌려주고,
  * 그 밖은 같은 상태, 코드, 문구, 확장 멤버의 ProblemError 를 던진다. ok 필드는 싣지 않는다.
  */
 export function outcomeBody<T, B extends Record<string, unknown>>(
@@ -53,7 +25,7 @@ export function outcomeBody<T, B extends Record<string, unknown>>(
   throw new ProblemError(http.status, http.message, http.code, http.extra);
 }
 
-/** Hono 라우트용 checkSessionOpen. 거절이면 409 ProblemError 를 던진다. */
+/** 단계 조작을 받을 수 없는 세션이면 409 ProblemError 를 던진다. */
 export function assertSessionOpen(
   session: Pick<SessionRow, "status">,
   allowCompleted: boolean,

@@ -1,10 +1,10 @@
 // 자기평가서 API 클라이언트, /api/selfeval/* 엔드포인트의 호출 함수.
-// 성장설계 api.ts 와 같은 규칙이다: 모든 함수는 예외를 던지지 않고 ApiResult 로 돌려준다.
+// 모든 함수는 예외를 던지지 않고 ApiResult 로 돌려준다(성장설계 api.ts 와 같은 모양).
 //   { kind: "ok", data } | { kind: "error", status, code, message, extra? } | { kind: "timeout" }
 // 서버에 닿지 못한 실패는 status 0(세션 없음은 401 UNAUTHENTICATED, 네트워크는 NETWORK)이다.
 //
-// 결과 해석(normalizeApiResult)은 성장설계의 것을 그대로 쓴다. 오류 본문 모양이 같다.
-// 모델을 부르는 단계(analyze run, write generate, verify)는 `ai: true` 로 70초 타임아웃 경로를 쓴다.
+// 요청은 ky 클라이언트(src/lib/http/client.ts)로 보내고 응답은 계약 스키마(shared/selfeval)로 읽는다. 실패는 RFC 9457 problem 이다.
+// 모델을 부르는 단계(analyze run, write generate, verify 등)는 `ai: true` 로 70초 타임아웃을 쓴다.
 //
 // 타입은 types.ts 에 있고 이 파일이 다시 내보낸다. 화면은 이 파일 하나만 import 한다.
 
@@ -54,14 +54,10 @@ import {
   writeEditResponse,
   writeGenerateResponse,
 } from "../../../shared/selfeval/write.js";
-import { ApiFetchTimeoutError, apiFetch, getAuthHeader } from "../apiFetch";
-import {
-  type ApiResult,
-  GENERIC_ERROR_MESSAGE,
-  normalizeApiResult,
-} from "../growth/apiResult";
+import { getAuthHeader } from "../apiFetch";
+import { type ApiResult, GENERIC_ERROR_MESSAGE } from "../growth/apiResult";
 import { ApiError, api } from "../http/client";
-import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "../performance/apiClient";
+import { AI_CALL_TIMEOUT_MS } from "../performance/apiClient";
 import type { ReportPayload, ReportResponse } from "./reportTypes";
 import type {
   AnalysisField,
@@ -86,74 +82,7 @@ import type {
 } from "./types";
 
 export type { ApiResult } from "../growth/apiResult";
-export { normalizeApiResult } from "../growth/apiResult";
 export type * from "./types";
-
-const BASE = "/api/selfeval";
-
-type RequestOptions = {
-  method: "GET" | "POST";
-  body?: unknown;
-  /** true 면 모델 호출용 70초 타임아웃 경로를 쓴다. */
-  ai?: boolean;
-};
-
-function isTimeout(error: unknown): boolean {
-  if (error instanceof ApiFetchTimeoutError) return true;
-  // fetchWithTimeout 은 타임아웃을 code "TIMEOUT" 인 일반 Error 로 바꿔 던진다.
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as { code?: unknown }).code === "TIMEOUT"
-  );
-}
-
-export async function request<T>(
-  path: string,
-  { method, body, ai = false }: RequestOptions,
-): Promise<ApiResult<T>> {
-  const authHeader = await getAuthHeader();
-  if (!authHeader) {
-    return {
-      kind: "error",
-      status: 401,
-      code: "UNAUTHENTICATED",
-      message: "로그인이 필요해요.",
-    };
-  }
-
-  const init: RequestInit = {
-    method,
-    headers: {
-      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-      ...authHeader,
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  };
-
-  let response: Response;
-  try {
-    response = ai
-      ? await fetchWithTimeout(path, init, AI_CALL_TIMEOUT_MS)
-      : await apiFetch(path, init);
-  } catch (error) {
-    if (isTimeout(error)) return { kind: "timeout" };
-    return {
-      kind: "error",
-      status: 0,
-      code: "NETWORK",
-      message: GENERIC_ERROR_MESSAGE,
-    };
-  }
-
-  let json: unknown = null;
-  try {
-    json = await response.json();
-  } catch {
-    json = null;
-  }
-  return normalizeApiResult<T>(response.status, json);
-}
 
 // ── 옮긴 엔드포인트(Hono, RFC 9457 problem) ─────────────────────────────
 // 응답은 계약 스키마(shared/selfeval)로 읽고, 실패는 같은 ApiResult 로 돌려 화면이 그대로 쓴다.

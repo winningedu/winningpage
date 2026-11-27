@@ -26,13 +26,6 @@
   "api/_lib/qaAccount.ts": {
     "legacyError": 1
   },
-  "api/_lib/selfeval/access.ts": {
-    "legacyError": 1
-  },
-  "api/_lib/selfeval/stepResponse.ts": {
-    "legacyError": 1,
-    "okSuccess": 2
-  },
   "api/_routes/auth/login.ts": {
     "legacyError": 3,
     "legacyHandler": 1
@@ -888,9 +881,6 @@
   },
   "src/lib/queryClient.ts": {
     "legacyFetch": 2
-  },
-  "src/lib/selfeval/api.ts": {
-    "legacyFetch": 1
   },
   "src/lib/signupEmailAuth.ts": {
     "browserDb": 1

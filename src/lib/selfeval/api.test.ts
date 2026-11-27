@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-const { apiFetchMock, getAuthHeaderMock, fetchMock } = vi.hoisted(() => ({
-  apiFetchMock: vi.fn(),
+const { getAuthHeaderMock, fetchMock } = vi.hoisted(() => ({
   getAuthHeaderMock: vi.fn(),
   fetchMock: vi.fn(),
 }));
@@ -23,13 +22,11 @@ vi.mock("../apiFetch", async () => {
     await vi.importActual<typeof import("../apiFetch")>("../apiFetch");
   return {
     ...actual,
-    apiFetch: apiFetchMock,
     getAuthHeader: getAuthHeaderMock,
   };
 });
 
 import { TimeoutError } from "ky";
-import { ApiFetchTimeoutError } from "../apiFetch";
 import {
   analyzeResolveConflict,
   analyzeRun,
@@ -61,9 +58,6 @@ import {
   writeRepickEvidence,
 } from "./api";
 
-const json = (status: number, body: unknown) =>
-  ({ status, json: async () => body }) as Response;
-
 // Node 의 Request 는 상대 URL 을 해석하지 못해서 브라우저처럼 문서 주소 기준으로 풀어 준다.
 function stubBrowserRequest() {
   const NodeRequest = Request;
@@ -90,22 +84,12 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
-  apiFetchMock.mockReset();
   getAuthHeaderMock.mockReset();
   fetchMock.mockReset();
   vi.unstubAllGlobals();
 });
 
-function lastCall() {
-  const [path, init] = apiFetchMock.mock.calls.at(-1) as [string, RequestInit];
-  return {
-    path,
-    init,
-    body: init.body ? JSON.parse(init.body as string) : null,
-  };
-}
-
-// 옮긴 엔드포인트(reports, session)는 ky 클라이언트로 부른다. 진짜 ky 와 계약 스키마를 쓰고 fetch 만 가짜로 바꾼다.
+// 모든 엔드포인트는 ky 클라이언트로 부른다. 진짜 ky 와 계약 스키마를 쓰고 fetch 만 가짜로 바꾼다.
 function lastRequest() {
   const [request] = fetchMock.mock.calls.at(-1) as [Request];
   return request;

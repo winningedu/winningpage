@@ -1,9 +1,7 @@
-// api/selfeval 핸들러가 함께 쓰는 응답과 이용권 보조. growth/survey.ts 의 fail, readEntitlement 와 같은 모양이다.
+// api/selfeval 핸들러가 함께 쓰는 도메인 problem 과 이용권 보조.
 
-import type { VercelResponse } from "@vercel/node";
 import type { Db } from "../growth/intake/collectDb.js";
 import { ProblemError } from "../hono/problem.js";
-import { sendError } from "../httpResponse.js";
 import {
   findProgramAccessRow,
   hasPaidServiceAccess,
@@ -19,17 +17,7 @@ import {
   tenantReasonOf,
 } from "../tenantUsage.js";
 
-export function fail(
-  res: VercelResponse,
-  status: number,
-  code: string,
-  message: string,
-  extra: Record<string, unknown> = {},
-) {
-  sendError(res, "coded", status, message, code, { ok: false, ...extra });
-}
-
-/** Hono 라우트가 던지는 도메인 problem. 코드와 문구는 fail 과 같고 ok 는 싣지 않는다. extra 는 problem 확장 멤버다. */
+/** Hono 라우트가 던지는 도메인 problem. extra 는 problem 확장 멤버다. */
 export function selfevalProblem(
   status: number,
   code: string,
