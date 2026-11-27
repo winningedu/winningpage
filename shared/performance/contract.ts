@@ -70,15 +70,6 @@ export const sessionWriteResponse = z.looseObject({
   quotaRemaining: nullableNumber,
 });
 
-export const uploadUrlResponse = z.looseObject({
-  attachmentId: z.string(),
-  bucket: z.string(),
-  path: z.string(),
-  token: z.string(),
-  signedUrl: z.string(),
-  expiresAt: z.string(),
-});
-
 export const discardAttachmentResponse = z.looseObject({
   discarded: z.literal(true),
   attachmentId: z.string(),

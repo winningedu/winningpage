@@ -26,8 +26,8 @@ import { supabase } from "@/lib/supabase";
 import {
   analyzeGuideResponse,
   discardAttachmentResponse,
-  uploadUrlResponse,
 } from "../../../shared/performance/contract.js";
+import { uploadUrlResponse } from "../../../shared/performance/upload-url.js";
 import { api } from "../http/client";
 import {
   AI_CALL_TIMEOUT_MS,

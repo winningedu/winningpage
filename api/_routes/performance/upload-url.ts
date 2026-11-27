@@ -73,7 +73,11 @@
 
 import crypto from "node:crypto";
 import type { Context } from "hono";
-import { jsonObjectBody } from "../../../shared/performance/contract.js";
+import type { z } from "zod";
+import {
+  uploadUrlBody,
+  type uploadUrlResponse,
+} from "../../../shared/performance/upload-url.js";
 import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
@@ -142,7 +146,7 @@ const guard = user({
 
 export const uploadUrl = userFactory
   .createApp()
-  .post("/", guard, validate("json", jsonObjectBody), async (c) => {
+  .post("/", guard, validate("json", uploadUrlBody), async (c) => {
     const supabaseAdmin = c.var.supabaseAdmin;
     const userId = c.var.user.id;
 
@@ -165,19 +169,7 @@ export const uploadUrl = userFactory
     }
 
     const body = c.req.valid("json");
-    const sessionId =
-      typeof body.sessionId === "string" ? body.sessionId.trim() : "";
-    const mimeType =
-      typeof body.mimeType === "string"
-        ? body.mimeType.trim().toLowerCase()
-        : "";
-    const byteSize = Number(body.byteSize);
-
-    if (!sessionId) {
-      return fail(c, 400, "MISSING_FIELD", "sessionId는 필수입니다.", {
-        field: "sessionId",
-      });
-    }
+    const { sessionId, mimeType, byteSize } = body;
 
     // ① MIME 화이트리스트. HEIC를 고른 사용자는 여기까지 오기 전에 클라이언트가
     //    §8.8 지정 문구로 막지만, 파일 선택기 필터를 우회한 경우 이 검사가 정본이다.
@@ -186,22 +178,6 @@ export const uploadUrl = userFactory
       return fail(c, 415, "UNSUPPORTED_MIME", UNSUPPORTED_MIME_MESSAGE, {
         allowed: Object.keys(ALLOWED_MIME_EXT),
       });
-    }
-
-    if (
-      !Number.isFinite(byteSize) ||
-      !Number.isInteger(byteSize) ||
-      byteSize <= 0
-    ) {
-      return fail(
-        c,
-        400,
-        "INVALID_BYTE_SIZE",
-        "파일 크기 정보를 확인할 수 없습니다.",
-        {
-          field: "byteSize",
-        },
-      );
     }
 
     if (byteSize > MAX_FILE_BYTES) {
@@ -324,6 +300,6 @@ export const uploadUrl = userFactory
       expiresAt: new Date(
         Date.now() + UPLOAD_TOKEN_TTL_SECONDS * 1000,
       ).toISOString(),
-    });
+    } satisfies z.input<typeof uploadUrlResponse>);
   })
   .all("/", methodNotAllowed("POST"));
