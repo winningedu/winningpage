@@ -48,6 +48,10 @@ const WRITE_BODIES: Partial<Record<Route, unknown>> = {
     subject: "수학",
     durationMinutes: 30,
   },
+  grades: {
+    type: "naesin",
+    entry: { term: "고2 1학기", subjects: {} },
+  },
   schedules: {
     title: "수행평가",
     category: "exam",

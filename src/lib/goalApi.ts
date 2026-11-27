@@ -21,6 +21,17 @@ import {
   type GoalAdvicePayload,
 } from "../../shared/goal/advice.js";
 import {
+  type GoalGradeEntryInput,
+  type GoalGradeRecord,
+  type GoalGradeType,
+  type gradeCreateBody,
+  type gradeDeleteBody,
+  gradeDeleteResponse,
+  gradesListResponse,
+  type gradeUpdateBody,
+  gradeWriteResponse,
+} from "../../shared/goal/grades.js";
+import {
   type PlanTaskCreateInput,
   type PlanTasksQueryInput,
   type PlanTaskUpdateInput,
@@ -124,22 +135,6 @@ export interface GoalRecordSummary {
 export interface GoalTomorrowTargets {
   idealHours: number;
   minHours: number;
-}
-
-/** fetchGoalGrades()/addGoalGrade() 회차 레코드 — api/_routes/goal/grades.ts validateEntry 참고. */
-interface GoalGradeRecord {
-  term: string;
-  enteredAt?: string;
-  examDate?: string;
-  subjects: {
-    korean: number | string;
-    math: number | string;
-    english: number | string;
-    science: number | string;
-  };
-  value: number;
-  none: boolean;
-  recordedAt: string;
 }
 
 // 응답 본문 shape은 엔드포인트별로 다르고 파싱 실패 시 {}로 접히므로 any로 둔다 —
@@ -1137,9 +1132,11 @@ export async function fetchGoalGrades(): Promise<FetchGoalGradesResult> {
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/grades", {
-      method: "GET",
-    });
+    response = await goalRequest(
+      "goal/grades",
+      { method: "GET" },
+      gradesListResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/grades 호출 오류:", error);
     return { kind: "error" };
@@ -1167,18 +1164,6 @@ export async function fetchGoalGrades(): Promise<FetchGoalGradesResult> {
   return { kind: "error" };
 }
 
-interface GoalGradeEntryInput {
-  term: string;
-  enteredAt?: string;
-  examDate?: string;
-  subjects: {
-    korean: number | string;
-    math: number | string;
-    english: number | string;
-    science: number | string;
-  };
-}
-
 export type AddGoalGradeResult =
   | { kind: "no-session" }
   | NotAllowed
@@ -1195,7 +1180,7 @@ export type AddGoalGradeResult =
  *     (해당 type 전체를 그대로 교체해 쓸 수 있게, 서버가 upsertRecord 이후 값을 돌려준다).
  */
 export async function addGoalGrade(
-  type: "naesin" | "mock",
+  type: GoalGradeType,
   entry: GoalGradeEntryInput,
 ): Promise<AddGoalGradeResult> {
   const authHeader = await getAuthHeader();
@@ -1203,10 +1188,14 @@ export async function addGoalGrade(
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/grades", {
-      method: "POST",
-      json: { type, entry },
-    });
+    response = await goalRequest(
+      "goal/grades",
+      {
+        method: "POST",
+        json: { type, entry } satisfies z.input<typeof gradeCreateBody>,
+      },
+      gradeWriteResponse,
+    );
   } catch (error) {
     console.error("[goalApi] POST /api/goal/grades 호출 오류:", error);
     return { kind: "error" };
@@ -1259,7 +1248,7 @@ export type UpdateGoalGradeResult =
  *   { kind: 'success', record, records }                — 200. records = 갱신된 전체 배열.
  */
 export async function updateGoalGrade(
-  type: "naesin" | "mock",
+  type: GoalGradeType,
   originalTerm: string,
   entry: GoalGradeEntryInput,
 ): Promise<UpdateGoalGradeResult> {
@@ -1268,10 +1257,16 @@ export async function updateGoalGrade(
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/grades", {
-      method: "PUT",
-      json: { type, term: originalTerm, entry },
-    });
+    response = await goalRequest(
+      "goal/grades",
+      {
+        method: "PUT",
+        json: { type, term: originalTerm, entry } satisfies z.input<
+          typeof gradeUpdateBody
+        >,
+      },
+      gradeWriteResponse,
+    );
   } catch (error) {
     console.error("[goalApi] PUT /api/goal/grades 호출 오류:", error);
     return { kind: "error" };
@@ -1318,7 +1313,7 @@ export type DeleteGoalGradeResult =
  * 별도 바디 검증이 없다).
  */
 export async function deleteGoalGrade(
-  type: "naesin" | "mock",
+  type: GoalGradeType,
   term: string,
 ): Promise<DeleteGoalGradeResult> {
   const authHeader = await getAuthHeader();
@@ -1326,10 +1321,14 @@ export async function deleteGoalGrade(
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/grades", {
-      method: "DELETE",
-      json: { type, term },
-    });
+    response = await goalRequest(
+      "goal/grades",
+      {
+        method: "DELETE",
+        json: { type, term } satisfies z.input<typeof gradeDeleteBody>,
+      },
+      gradeDeleteResponse,
+    );
   } catch (error) {
     console.error("[goalApi] DELETE /api/goal/grades 호출 오류:", error);
     return { kind: "error" };
