@@ -103,16 +103,3 @@ export const finalizeResponse = z.looseObject({
   finalReportId: z.string().nullable(),
   charged: z.boolean(),
 });
-
-export const reportsListResponse = z.looseObject({
-  items: z.array(z.unknown()),
-  nextCursor: z.string().nullable(),
-});
-
-export const reportDetailResponse = z.looseObject({
-  session: z.unknown(),
-  design: z.unknown(),
-  evaluation: z.unknown(),
-  final: z.unknown(),
-  submissions: z.array(z.unknown()),
-});

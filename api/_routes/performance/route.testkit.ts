@@ -53,3 +53,34 @@ export function validationFailedFor(
     JSON.stringify(body.errors).includes(field)
   );
 }
+
+/**
+ * 이용권이 있는 사용자의 가짜에 테이블별 고정 행을 얹는다. 필터는 적용하지 않고 행을 그대로 돌려준다.
+ * 응답 모양(스키마 통과)을 보는 테스트용이다.
+ */
+export function rowsDb(tables: Record<string, Record<string, unknown>[]>) {
+  const from = (table: string) => {
+    const rows = tables[table] ?? [];
+    const q: Record<string, unknown> = {};
+    for (const method of [
+      "select",
+      "eq",
+      "in",
+      "or",
+      "order",
+      "limit",
+      "lt",
+      "is",
+      "not",
+    ]) {
+      q[method] = () => q;
+    }
+    q.maybeSingle = async () => ({ data: rows[0] ?? null, error: null });
+    q.single = async () => ({ data: rows[0] ?? null, error: null });
+    // biome-ignore lint/suspicious/noThenProperty: 쿼리 빌더 thenable 모킹
+    q.then = (ok: (v: unknown) => unknown, bad: (e: unknown) => unknown) =>
+      Promise.resolve({ data: rows, error: null }).then(ok, bad);
+    return q;
+  };
+  return { ...paidDb(), from };
+}
