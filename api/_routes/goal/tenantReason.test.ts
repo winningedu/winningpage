@@ -57,6 +57,11 @@ const WRITE_BODIES: Partial<Record<Route, unknown>> = {
   workbooks: { subject: "math", title: "수능특강", totalPages: 100 },
 };
 
+// 조회 요청의 쿼리도 형식 검사가 먼저 본다.
+const READ_QUERIES: Partial<Record<Route, Record<string, string>>> = {
+  "plan-tasks": { from: "2026-11-27", to: "2026-11-30" },
+};
+
 async function call(
   route: Route,
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
@@ -64,7 +69,7 @@ async function call(
   const { status, body } = await callGoal(route, {
     method,
     ...(method === "GET"
-      ? { query: { type: "weekly" } }
+      ? { query: READ_QUERIES[route] ?? { type: "weekly" } }
       : { body: WRITE_BODIES[route] ?? {} }),
   });
   return { status, body: body as Record<string, unknown> };

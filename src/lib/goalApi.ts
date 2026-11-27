@@ -15,6 +15,14 @@
 import type { Options } from "ky";
 import type { z } from "zod";
 import {
+  type PlanTaskCreateInput,
+  type PlanTasksQueryInput,
+  type PlanTaskUpdateInput,
+  planTaskDeleteResponse,
+  planTaskResponse,
+  planTasksListResponse,
+} from "../../shared/goal/plan-tasks.js";
+import {
   type GoalRankingEntry,
   rankingResponse,
 } from "../../shared/goal/ranking.js";
@@ -109,26 +117,6 @@ export interface GoalRecordSummary {
 export interface GoalTomorrowTargets {
   idealHours: number;
   minHours: number;
-}
-
-/**
- * api/_lib/goal/repo.ts buildPlanTaskPayload(). status가 단일 원본(QA 행305,
- * pending/done/fail) — done은 status에서 파생한 하위 호환 값이다.
- */
-export interface GoalPlanTask {
-  id: number;
-  planDate: string;
-  title: string;
-  subject: string;
-  durationMinutes: number;
-  status: "pending" | "done" | "fail";
-  done: boolean;
-  sortOrder: number;
-  // 문제집 연결(QA 행286-B), 셋 다 선택 — 연결이 없으면 전부 null.
-  workbookId: number | null;
-  pageFrom: number | null;
-  pageTo: number | null;
-  workbookTitle: string | null;
 }
 
 /** fetchGoalGrades()/addGoalGrade() 회차 레코드 — api/_routes/goal/grades.ts validateEntry 참고. */
@@ -916,20 +904,26 @@ export async function deleteGoalSchedule({ id }: ScheduleDeleteInput) {
 //   subject는 한글 라벨('국어'/'수학'/'영어'/'탐구'/'기타') — 서버가 DB 코드와
 //   왕복 변환하므로 클라이언트는 항상 이 라벨만 다룬다(AddTaskModal 과목 칩과 동일).
 
-type RequestPlanTasksResult =
+type RequestPlanTasksResult<Body> =
   | { kind: "no-session" }
   | NotAllowed
   | { kind: "not-found" }
   | { kind: "validation-error"; detail: string }
   | { kind: "error" }
-  // biome-ignore lint/suspicious/noExplicitAny: 안전 파싱된 원시 JSON 그대로 넘긴다 — 각 wrapper가 필요한 필드만 좁혀 쓴다.
-  | { kind: "success"; body: any };
+  | { kind: "success"; body: Body };
 
-/** 공용 요청 실행기 — 인증 헤더 부착 + JSON 직렬화 + 안전 파싱까지 4개 함수가 공유. */
-async function requestPlanTasks(
+/** 공용 요청 실행기: 인증 헤더 부착 + JSON 직렬화 + 계약 스키마로 성공 본문 검증까지 4개 함수가 공유. */
+async function requestPlanTasks<S extends z.ZodType>(
   method: string,
-  { query, body }: { query?: Record<string, string>; body?: object } = {},
-): Promise<RequestPlanTasksResult> {
+  schema: S,
+  {
+    query,
+    body,
+  }: {
+    query?: PlanTasksQueryInput;
+    body?: PlanTaskCreateInput | PlanTaskUpdateInput | { id: number };
+  } = {},
+): Promise<RequestPlanTasksResult<z.output<S>>> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
@@ -937,10 +931,11 @@ async function requestPlanTasks(
 
   let response: GoalResponse;
   try {
-    response = await goalRequest(`goal/plan-tasks${qs}`, {
-      method,
-      ...(body ? { json: body } : {}),
-    });
+    response = await goalRequest(
+      `goal/plan-tasks${qs}`,
+      { method, ...(body ? { json: body } : {}) },
+      schema,
+    );
   } catch (error) {
     console.error(`[goalApi] ${method} /api/goal/plan-tasks 호출 오류:`, error);
     return { kind: "error" };
@@ -968,44 +963,23 @@ async function requestPlanTasks(
 
 /**
  * 기간(from~to, YYYY-MM-DD, 양끝 포함) 과제 목록.
- *   { kind: 'success', tasks }  — 200 {ok:true, tasks:[...]}.
+ *   { kind: 'success', tasks }  — 200 {tasks:[...]}.
  *   { kind: 'not-allowed' }     — 200 {allowed:false}. 이용권 없음(조회형 규약).
  *   그 외 kind는 requestPlanTasks 공통 계약(no-session/validation-error/error).
  */
-export async function fetchGoalPlanTasks({
-  from,
-  to,
-}: {
-  from: string;
-  to: string;
-}) {
-  const result = await requestPlanTasks("GET", { query: { from, to } });
+export async function fetchGoalPlanTasks({ from, to }: PlanTasksQueryInput) {
+  const result = await requestPlanTasks("GET", planTasksListResponse, {
+    query: { from, to },
+  });
   if (result.kind !== "success") return result;
-  if (result.body?.allowed === false) return notAllowed(result.body);
-  return {
-    kind: "success" as const,
-    tasks: (result.body?.tasks || []) as GoalPlanTask[],
-  };
+  if ("allowed" in result.body) return notAllowed(result.body);
+  return { kind: "success" as const, tasks: result.body.tasks };
 }
 
-interface GoalPlanTaskInput {
-  planDate: string;
-  title: string;
+// 화면은 과목을 string 으로 들고 있다. 서버가 라벨 밖의 값을 400 으로 막는다.
+type GoalPlanTaskInput = Omit<PlanTaskCreateInput, "subject"> & {
   subject: string;
-  durationMinutes: number;
-  // 문제집 연결(QA 행286-B) — 셋 다 선택. workbookId만 보내면 페이지 없이 연결,
-  // 셋 다 보내면 페이지 범위까지 연결(api/_routes/goal/plan-tasks.ts validateWorkbookLinkFields
-  // 검증 규약과 동일). null은 연결 해제(updateGoalPlanTask 전용, 생성 시엔 안 씀).
-  workbookId?: number | null;
-  pageFrom?: number | null;
-  pageTo?: number | null;
-  // 여러 plan_date로 펼쳐지는 호출(schedule !== "오늘만")임을 서버에 알린다
-  // (QA 행286-B 정정, 2026-09-02) — 문제집이 연결된 과제는 완전히 단일 날짜
-  // 1건만 허용한다("이번 주만"의 7일 복제도 포함해서 막는다). 모달이 이미 이
-  // 조합을 못 고르게(일정 select 자체를 비활성) 막지만, 서버도 같은 규칙을 한
-  // 번 더 확인한다. true일 때만 보낸다 — 그 외 호출부는 이 필드를 몰라도 된다.
-  repeatSchedule?: boolean;
-}
+};
 
 /** 과제 1건 생성. 성공 시 { kind:'success', task }. */
 export async function createGoalPlanTask({
@@ -1018,11 +992,11 @@ export async function createGoalPlanTask({
   pageTo,
   repeatSchedule,
 }: GoalPlanTaskInput) {
-  const result = await requestPlanTasks("POST", {
+  const result = await requestPlanTasks("POST", planTaskResponse, {
     body: {
       planDate,
       title,
-      subject,
+      subject: subject as PlanTaskCreateInput["subject"],
       durationMinutes,
       ...(workbookId !== undefined ? { workbookId } : {}),
       ...(pageFrom !== undefined ? { pageFrom } : {}),
@@ -1031,10 +1005,7 @@ export async function createGoalPlanTask({
     },
   });
   if (result.kind !== "success") return result;
-  return {
-    kind: "success" as const,
-    task: result.body?.task as GoalPlanTask,
-  };
+  return { kind: "success" as const, task: result.body.task };
 }
 
 /**
@@ -1043,22 +1014,20 @@ export async function createGoalPlanTask({
  */
 export async function updateGoalPlanTask(
   id: number,
-  patch: Partial<GoalPlanTaskInput> & {
-    status?: "pending" | "done" | "fail";
-    sortOrder?: number;
-  },
+  patch: Partial<GoalPlanTaskInput> & Pick<PlanTaskUpdateInput, "status">,
 ) {
-  const result = await requestPlanTasks("PUT", { body: { id, ...patch } });
+  const result = await requestPlanTasks("PUT", planTaskResponse, {
+    body: { id, ...patch } as PlanTaskUpdateInput,
+  });
   if (result.kind !== "success") return result;
-  return {
-    kind: "success" as const,
-    task: result.body?.task as GoalPlanTask,
-  };
+  return { kind: "success" as const, task: result.body.task };
 }
 
 /** 과제 1건 삭제. */
 export async function deleteGoalPlanTask(id: number) {
-  const result = await requestPlanTasks("DELETE", { body: { id } });
+  const result = await requestPlanTasks("DELETE", planTaskDeleteResponse, {
+    body: { id },
+  });
   if (result.kind !== "success") return result;
   return { kind: "success" as const };
 }
