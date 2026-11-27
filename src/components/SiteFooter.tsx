@@ -80,7 +80,7 @@ function SocialLinks({
   ].filter((item) => item.href);
 
   return (
-    <div className={`items-center gap-4 ${className}`}>
+    <div className={`items-center gap-[0.5625rem] ${className}`}>
       {items.map(({ label, href, Icon, badgeClassName, style }) => (
         <a
           key={label}
@@ -89,7 +89,7 @@ function SocialLinks({
           rel="noopener noreferrer"
           aria-label={label}
           style={style}
-          className={`inline-flex size-8 items-center justify-center rounded-full transition hover:opacity-90 ${badgeClassName}`}
+          className={`inline-flex size-[1.875rem] items-center justify-center rounded-lg transition hover:opacity-90 ${badgeClassName}`}
         >
           <Icon className="size-4" aria-hidden="true" />
         </a>

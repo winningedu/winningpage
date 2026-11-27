@@ -254,6 +254,33 @@ describe("SiteFooter - 위닝 SNS 아이콘", () => {
   });
 });
 
+describe("SiteFooter - 위닝 아이콘 배지", () => {
+  beforeEach(() => {
+    siteState.key = "winning";
+  });
+
+  it("배지는 원이 아니라 둥근 사각형이고 시안 브랜드 색을 쓴다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    for (const [label, color] of [
+      ["네이버 블로그", "bg-[#03c75a]"],
+      ["네이버 클립", "bg-[#6f4dce]"],
+      ["유튜브", "bg-[#ff0000]"],
+    ] as const) {
+      const badge = within(footer).getAllByRole("link", { name: label })[0];
+      expect(badge).toHaveClass("size-[1.875rem]", "rounded-lg", color);
+      expect(badge).not.toHaveClass("rounded-full");
+    }
+    const instagram = within(footer).getAllByRole("link", {
+      name: "인스타그램",
+    })[0];
+    expect(instagram).toHaveClass("size-[1.875rem]", "rounded-lg");
+    expect(instagram).not.toHaveClass("rounded-full");
+    expect(instagram?.style.background).toContain("linear-gradient");
+  });
+});
+
 describe("SiteFooter - 위닝 데스크톱 로고 줄", () => {
   beforeEach(() => {
     siteState.key = "winning";
