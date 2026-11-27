@@ -72,6 +72,8 @@ export function rowsDb(tables: Record<string, Record<string, unknown>[]>) {
       "lt",
       "is",
       "not",
+      "update",
+      "insert",
     ]) {
       q[method] = () => q;
     }

@@ -231,8 +231,11 @@ describe("[4] §8.6 엔드포인트 표 실패 코드", () => {
     ).toBe(true);
   });
   test("submission.ts — mode는 draft/submit 2종", () => {
-    expect(SUBMISSION_API.includes('body.mode === "submit"')).toBe(true);
-    expect(SUBMISSION_API.includes('body.mode === "draft"')).toBe(true);
+    expect(
+      read("shared/performance/submission.ts").includes(
+        'z.enum(["draft", "submit"])',
+      ),
+    ).toBe(true);
   });
 
   test("evaluate.ts — 제출물 게이트 → 재평가 상한 → 시도 카운터 순서", () => {

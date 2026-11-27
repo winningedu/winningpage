@@ -78,18 +78,6 @@ export const designReportResponse = z.looseObject({
   maxGenerations: z.number(),
 });
 
-export const submissionFormResponse = z.looseObject({
-  schema: z.unknown(),
-  submission: z.unknown(),
-  minChars: z.number(),
-  maxRevisions: z.number(),
-});
-
-export const submissionSaveResponse = z.looseObject({
-  mode: z.enum(["draft", "submit"]),
-  schema: z.unknown(),
-});
-
 export const finalizeResponse = z.looseObject({
   submission: z.unknown(),
   finalReportId: z.string().nullable(),
