@@ -2,16 +2,24 @@
 // 라우트마다 하위 앱을 여기서 .route() 로 잇는다. Hono 로 옮긴 경로는 vercel.json 에서 /api/app 진입 함수로 보낸다(api/_routes/app.test.ts 가 본다).
 
 import { userFactory } from "../../_lib/hono/factory.js";
+import { analyze } from "./analyze.js";
+import { finalize } from "./finalize.js";
 import { manualLogs } from "./manual-logs.js";
 import { pickRecords } from "./pick-records.js";
 import { report } from "./report.js";
 import { reports } from "./reports.js";
 import { session } from "./session.js";
+import { verify } from "./verify.js";
+import { write } from "./write.js";
 
 export const selfeval = userFactory
   .createApp()
+  .route("/analyze", analyze)
+  .route("/finalize", finalize)
   .route("/manual-logs", manualLogs)
   .route("/pick-records", pickRecords)
   .route("/report", report)
   .route("/reports", reports)
-  .route("/session", session);
+  .route("/session", session)
+  .route("/verify", verify)
+  .route("/write", write);

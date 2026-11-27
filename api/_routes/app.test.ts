@@ -117,9 +117,13 @@ const MIGRATED_60: string[] = [
   "/api/admin/knowledge-dedupe",
   "/api/admin/knowledge-eval",
   "/api/admin/premium-book/apply",
+  "/api/selfeval/analyze",
+  "/api/selfeval/finalize",
   "/api/selfeval/manual-logs",
   "/api/selfeval/pick-records",
   "/api/selfeval/report",
+  "/api/selfeval/verify",
+  "/api/selfeval/write",
 ];
 const entryFor = (pattern: string) =>
   MIGRATED_30.includes(pattern)

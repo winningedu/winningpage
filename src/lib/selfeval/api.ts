@@ -11,11 +11,14 @@
 import { SchemaValidationError } from "ky";
 import { z } from "zod";
 import {
-  pickLinkResponseSchema,
-  pickListResponseSchema,
-  pickManualResponseSchema,
-  pickSelectResponseSchema,
-} from "../../../shared/selfeval/pick.js";
+  type AnalyzeBodyInput,
+  analyzeEditResponse,
+  analyzeRunResponse,
+} from "../../../shared/selfeval/analyze.js";
+import {
+  type FinalizeBodyInput,
+  finalizeResponse,
+} from "../../../shared/selfeval/finalize.js";
 import {
   type ManualLogsListResponse,
   type ManualLogsMemoResponse,
@@ -27,6 +30,12 @@ import {
   manualLogsUploadResponseSchema,
 } from "../../../shared/selfeval/manual-logs.js";
 import {
+  pickLinkResponseSchema,
+  pickListResponseSchema,
+  pickManualResponseSchema,
+  pickSelectResponseSchema,
+} from "../../../shared/selfeval/pick.js";
+import {
   reportResponseSchema,
   reportViewSchema,
 } from "../../../shared/selfeval/report.js";
@@ -36,6 +45,15 @@ import {
   sessionDiscardResponseSchema,
   sessionResponseSchema,
 } from "../../../shared/selfeval/session.js";
+import {
+  type VerifyBodyInput,
+  verifyResponse,
+} from "../../../shared/selfeval/verify.js";
+import {
+  type WriteBodyInput,
+  writeEditResponse,
+  writeGenerateResponse,
+} from "../../../shared/selfeval/write.js";
 import { ApiFetchTimeoutError, apiFetch, getAuthHeader } from "../apiFetch";
 import {
   type ApiResult,
@@ -464,24 +482,30 @@ export function manualLogsDelete(sessionId: string, memoId: string) {
   });
 }
 
+// 검증 리포트의 sections 는 계약이 total 만 본다. 점수 항목, 형식 검사 같은 세부 모양은 hand type 이 맡는다.
+const verifySchema = verifyResponse.transform((data) => data as VerifyResponse);
+
 // ── 분석 ──────────────────────────────────────────────────────────────
 /** 모델로 11항목을 분석한다. 직접 입력 활동은 모델 없이 바로 돌아온다. */
 export function analyzeRun(sessionId: string) {
-  return request<AnalyzeRunResponse>(`${BASE}/analyze`, {
-    method: "POST",
-    body: { sessionId, action: "run" },
-    ai: true,
-  });
+  const body: AnalyzeBodyInput = { sessionId, action: "run" };
+  return requestJson<AnalyzeRunResponse>(
+    "selfeval/analyze",
+    analyzeRunResponse,
+    { method: "POST", body, ai: true },
+  );
 }
 
 export function analyzeSave(
   sessionId: string,
   edits: Partial<Record<AnalysisField, string>>,
 ) {
-  return request<AnalyzeEditResponse>(`${BASE}/analyze`, {
-    method: "POST",
-    body: { sessionId, action: "save", edits },
-  });
+  const body: AnalyzeBodyInput = { sessionId, action: "save", edits };
+  return requestJson<AnalyzeEditResponse>(
+    "selfeval/analyze",
+    analyzeEditResponse,
+    { method: "POST", body },
+  );
 }
 
 export function analyzeResolveConflict(
@@ -489,32 +513,54 @@ export function analyzeResolveConflict(
   index: number,
   choice: ConflictChoice,
 ) {
-  return request<AnalyzeEditResponse>(`${BASE}/analyze`, {
-    method: "POST",
-    body: { sessionId, action: "resolve-conflict", index, choice },
-  });
+  const body: AnalyzeBodyInput = {
+    sessionId,
+    action: "resolve-conflict",
+    index,
+    choice,
+  };
+  return requestJson<AnalyzeEditResponse>(
+    "selfeval/analyze",
+    analyzeEditResponse,
+    { method: "POST", body },
+  );
 }
 
 // ── 생성 ──────────────────────────────────────────────────────────────
+// 본문의 sections 는 계약이 paragraphs 만 본다. 문단, 문장, 근거의 세부 모양은 hand type 이 맡는다.
+const writeGenerateSchema = writeGenerateResponse.transform(
+  (data) => data as WriteGenerateResponse,
+);
+const writeEditSchema = writeEditResponse.transform(
+  (data) => data as WriteEditResponse,
+);
+
 export function writeGenerate(sessionId: string) {
-  return request<WriteGenerateResponse>(`${BASE}/write`, {
-    method: "POST",
-    body: { sessionId, action: "generate" },
-    ai: true,
-  });
+  const body: WriteBodyInput = { sessionId, action: "generate" };
+  return requestJson<WriteGenerateResponse>(
+    "selfeval/write",
+    writeGenerateSchema,
+    { method: "POST", body, ai: true },
+  );
 }
 
 export function writeEdit(sessionId: string, paragraphs: string[]) {
-  return request<WriteEditResponse>(`${BASE}/write`, {
+  const body: WriteBodyInput = { sessionId, action: "edit", paragraphs };
+  return requestJson<WriteEditResponse>("selfeval/write", writeEditSchema, {
     method: "POST",
-    body: { sessionId, action: "edit", paragraphs },
+    body,
   });
 }
 
 export function writeConfirmFeeling(sessionId: string, sentenceId: string) {
-  return request<WriteEditResponse>(`${BASE}/write`, {
+  const body: WriteBodyInput = {
+    sessionId,
+    action: "confirm-feeling",
+    sentenceId,
+  };
+  return requestJson<WriteEditResponse>("selfeval/write", writeEditSchema, {
     method: "POST",
-    body: { sessionId, action: "confirm-feeling", sentenceId },
+    body,
   });
 }
 
@@ -524,17 +570,24 @@ export function writeRepickEvidence(
   sentenceId: string,
   picks: { refId: string; item: string }[],
 ) {
-  return request<WriteEditResponse>(`${BASE}/write`, {
+  const body: WriteBodyInput = {
+    sessionId,
+    action: "repick-evidence",
+    sentenceId,
+    picks,
+  };
+  return requestJson<WriteEditResponse>("selfeval/write", writeEditSchema, {
     method: "POST",
-    body: { sessionId, action: "repick-evidence", sentenceId, picks },
+    body,
   });
 }
 
 // ── 검증과 최종 저장 ──────────────────────────────────────────────────
 export function verifySession(sessionId: string) {
-  return request<VerifyResponse>(`${BASE}/verify`, {
+  const body: VerifyBodyInput = { sessionId };
+  return requestJson<VerifyResponse>("selfeval/verify", verifySchema, {
     method: "POST",
-    body: { sessionId },
+    body,
     ai: true,
   });
 }
@@ -545,13 +598,14 @@ export function finalizeSession(
   fulfillsPlanItem?: boolean,
   acknowledgeMandatory?: boolean,
 ) {
-  return request<FinalizeResponse>(`${BASE}/finalize`, {
+  const body: FinalizeBodyInput = {
+    sessionId,
+    promoted,
+    ...(fulfillsPlanItem === undefined ? {} : { fulfillsPlanItem }),
+    ...(acknowledgeMandatory === true ? { acknowledgeMandatory } : {}),
+  };
+  return requestJson<FinalizeResponse>("selfeval/finalize", finalizeResponse, {
     method: "POST",
-    body: {
-      sessionId,
-      promoted,
-      ...(fulfillsPlanItem === undefined ? {} : { fulfillsPlanItem }),
-      ...(acknowledgeMandatory === true ? { acknowledgeMandatory } : {}),
-    },
+    body,
   });
 }

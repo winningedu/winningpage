@@ -477,20 +477,65 @@ describe("활동 선택", () => {
   });
 });
 
+const ANALYSIS_FIELDS = [
+  "motive",
+  "concept",
+  "action",
+  "method",
+  "result",
+  "role",
+  "collaboration",
+  "learning",
+  "career",
+  "limitation",
+  "next",
+];
+const ANALYSIS = {
+  values: Object.fromEntries(ANALYSIS_FIELDS.map((k) => [k, "값"])),
+  sources: Object.fromEntries(ANALYSIS_FIELDS.map((k) => [k, "record"])),
+  conflicts: [],
+};
+
+const WRITTEN = {
+  id: "r1",
+  revision: 1,
+  sections: { paragraphs: [{ sentences: [] }] },
+  charCount: { withSpace: 10, withoutSpace: 8 },
+};
+
 describe("분석, 생성, 검증, 최종 저장", () => {
   test("분석은 action 으로 run, save, resolve-conflict 가 갈린다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
-    await analyzeRun("s1");
-    expect(lastCall().path).toBe("/api/selfeval/analyze");
-    expect(lastCall().body).toEqual({ sessionId: "s1", action: "run" });
-    await analyzeSave("s1", { result: "고친 값" });
-    expect(lastCall().body).toEqual({
+    fetchMock.mockImplementation(async () =>
+      jsonResponse(
+        lastBody().action === "run"
+          ? {
+              analysis: ANALYSIS,
+              conflicts: [],
+              analysisSource: "model",
+              currentStep: 3,
+              attempts: 1,
+              softIssues: [],
+            }
+          : { analysis: ANALYSIS },
+      ),
+    );
+    const run = await analyzeRun("s1");
+    expect(new URL(lastRequest().url).pathname).toBe("/api/selfeval/analyze");
+    expect(lastRequest().method).toBe("POST");
+    expect(await lastBody()).toEqual({ sessionId: "s1", action: "run" });
+    expect(run).toMatchObject({
+      kind: "ok",
+      data: { analysisSource: "model", currentStep: 3, attempts: 1 },
+    });
+    const save = await analyzeSave("s1", { result: "고친 값" });
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       action: "save",
       edits: { result: "고친 값" },
     });
+    expect(save).toEqual({ kind: "ok", data: { analysis: ANALYSIS } });
     await analyzeResolveConflict("s1", 1, "b");
-    expect(lastCall().body).toEqual({
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       action: "resolve-conflict",
       index: 1,
@@ -498,19 +543,85 @@ describe("분석, 생성, 검증, 최종 저장", () => {
     });
   });
 
+  test("분석 실패 problem 의 STEP_ORDER currentStep 과 STEP_VALIDATION_FAILED 확장 멤버는 extra 로 온다", async () => {
+    fetchMock.mockResolvedValueOnce(
+      problemResponse(409, {
+        code: "STEP_ORDER",
+        detail: "앞 단계가 아직 끝나지 않았어요.",
+        currentStep: 1,
+      }),
+    );
+    expect(await analyzeRun("s1")).toEqual({
+      kind: "error",
+      status: 409,
+      code: "STEP_ORDER",
+      message: "앞 단계가 아직 끝나지 않았어요.",
+      extra: { currentStep: 1 },
+    });
+    fetchMock.mockResolvedValueOnce(
+      problemResponse(422, {
+        code: "STEP_VALIDATION_FAILED",
+        detail: "분석 결과를 확인하지 못했어요.",
+        attempts: 3,
+        terminal: true,
+        issues: [{ code: "EMPTY", message: "비었어요" }],
+      }),
+    );
+    expect(await analyzeRun("s1")).toMatchObject({
+      kind: "error",
+      status: 422,
+      code: "STEP_VALIDATION_FAILED",
+      extra: {
+        attempts: 3,
+        terminal: true,
+        issues: [{ code: "EMPTY", message: "비었어요" }],
+      },
+    });
+  });
+
+  test("분석 응답이 계약과 어긋나면 INVALID_RESPONSE 다", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ analysis: "x" }));
+    expect(await analyzeRun("s1")).toMatchObject({
+      kind: "error",
+      code: "INVALID_RESPONSE",
+    });
+  });
+
   test("생성은 generate, edit, confirm-feeling 이 /write 하나로 간다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
-    await writeGenerate("s1");
-    expect(lastCall().path).toBe("/api/selfeval/write");
-    expect(lastCall().body).toEqual({ sessionId: "s1", action: "generate" });
-    await writeEdit("s1", ["a", "b"]);
-    expect(lastCall().body).toEqual({
+    fetchMock.mockImplementation(async () =>
+      jsonResponse(
+        lastBody().action === "generate"
+          ? {
+              report: WRITTEN,
+              charged: true,
+              regenerationsLeft: 2,
+              currentStep: 4,
+              attempts: 1,
+              softIssues: [],
+            }
+          : { report: WRITTEN },
+      ),
+    );
+    const generated = await writeGenerate("s1");
+    expect(new URL(lastRequest().url).pathname).toBe("/api/selfeval/write");
+    expect(lastRequest().method).toBe("POST");
+    expect(await lastBody()).toEqual({ sessionId: "s1", action: "generate" });
+    expect(generated).toMatchObject({
+      kind: "ok",
+      data: { charged: true, regenerationsLeft: 2, report: { id: "r1" } },
+    });
+    const edited = await writeEdit("s1", ["a", "b"]);
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       action: "edit",
       paragraphs: ["a", "b"],
     });
+    expect(edited).toMatchObject({
+      kind: "ok",
+      data: { report: { id: "r1" } },
+    });
     await writeConfirmFeeling("s1", "p1s2");
-    expect(lastCall().body).toEqual({
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       action: "confirm-feeling",
       sentenceId: "p1s2",
@@ -518,10 +629,10 @@ describe("분석, 생성, 검증, 최종 저장", () => {
   });
 
   test("근거 다시 고르기는 repick-evidence 로 문장 id 와 picks 를 보낸다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
+    fetchMock.mockResolvedValue(jsonResponse({ report: WRITTEN }));
     await writeRepickEvidence("s1", "p1s2", [{ refId: "a1", item: "method" }]);
-    expect(lastCall().path).toBe("/api/selfeval/write");
-    expect(lastCall().body).toEqual({
+    expect(new URL(lastRequest().url).pathname).toBe("/api/selfeval/write");
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       action: "repick-evidence",
       sentenceId: "p1s2",
@@ -529,11 +640,109 @@ describe("분석, 생성, 검증, 최종 저장", () => {
     });
   });
 
-  test("검증은 sessionId 만, 최종 저장은 승격 7항목과 과제 완료 여부를 보낸다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
-    await verifySession("s1");
-    expect(lastCall().path).toBe("/api/selfeval/verify");
-    expect(lastCall().body).toEqual({ sessionId: "s1" });
+  test("생성 실패 problem 의 확장 멤버(tenantReason, currentStep, attempts, terminal)는 extra 로 온다", async () => {
+    fetchMock.mockResolvedValueOnce(
+      problemResponse(409, {
+        code: "QUOTA_EXHAUSTED",
+        detail: "이용 횟수를 모두 썼어요.",
+        tenantReason: "month_cap",
+      }),
+    );
+    expect(await writeGenerate("s1")).toEqual({
+      kind: "error",
+      status: 409,
+      code: "QUOTA_EXHAUSTED",
+      message: "이용 횟수를 모두 썼어요.",
+      extra: { tenantReason: "month_cap" },
+    });
+    fetchMock.mockResolvedValueOnce(
+      problemResponse(409, {
+        code: "STEP_ORDER",
+        detail: "본문을 먼저 생성해 주세요.",
+        currentStep: 3,
+      }),
+    );
+    expect(await writeEdit("s1", ["a"])).toMatchObject({
+      kind: "error",
+      code: "STEP_ORDER",
+      extra: { currentStep: 3 },
+    });
+    fetchMock.mockResolvedValueOnce(
+      problemResponse(409, {
+        code: "ATTEMPTS_EXHAUSTED",
+        detail: "시도를 모두 썼어요.",
+        terminal: true,
+      }),
+    );
+    expect(await writeGenerate("s1")).toMatchObject({
+      kind: "error",
+      code: "ATTEMPTS_EXHAUSTED",
+      extra: { terminal: true },
+    });
+  });
+
+  test("본문 응답이 계약과 어긋나면 INVALID_RESPONSE 다", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ report: { id: "r1" } }));
+    expect(await writeEdit("s1", ["a"])).toMatchObject({
+      kind: "error",
+      code: "INVALID_RESPONSE",
+    });
+  });
+
+  test("검증은 sessionId 만 보내고 검증 리포트와 차감 여부를 받는다", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        verification: {
+          id: "v1",
+          revision: 2,
+          sections: { total: 80, items: [], submittable: true },
+          score: 80,
+          mandatoryFixes: [],
+        },
+        charged: true,
+        currentStep: 5,
+        attempts: 1,
+        softIssues: [],
+      }),
+    );
+    const result = await verifySession("s1");
+    expect(new URL(lastRequest().url).pathname).toBe("/api/selfeval/verify");
+    expect(lastRequest().method).toBe("POST");
+    expect(await lastBody()).toEqual({ sessionId: "s1" });
+    expect(result).toMatchObject({
+      kind: "ok",
+      data: { charged: true, currentStep: 5, verification: { score: 80 } },
+    });
+  });
+
+  test("검증 실패 problem 의 reversed, attempts, issues 는 extra 로 온다", async () => {
+    fetchMock.mockResolvedValue(
+      problemResponse(502, {
+        code: "MODEL_UPSTREAM_FAILED",
+        detail: "잠시 뒤 다시 시도해 주세요.",
+        reversed: true,
+        attempts: 1,
+        issues: [],
+      }),
+    );
+    expect(await verifySession("s1")).toEqual({
+      kind: "error",
+      status: 502,
+      code: "MODEL_UPSTREAM_FAILED",
+      message: "잠시 뒤 다시 시도해 주세요.",
+      extra: { reversed: true, attempts: 1, issues: [] },
+    });
+  });
+
+  test("최종 저장은 승격 7항목과 과제 완료 여부를 보내고 회신 결과를 받는다", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        activityRecordId: "a1",
+        finalRevision: 3,
+        reply: { status: "failed", code: "UPSTREAM" },
+        currentStep: 6,
+      }),
+    );
     const promoted = {
       topic: "t",
       concept: "c",
@@ -543,12 +752,43 @@ describe("분석, 생성, 검증, 최종 저장", () => {
       numbers: [],
       sources: [],
     };
-    await finalizeSession("s1", promoted, true);
-    expect(lastCall().path).toBe("/api/selfeval/finalize");
-    expect(lastCall().body).toEqual({
+    const result = await finalizeSession("s1", promoted, true);
+    expect(new URL(lastRequest().url).pathname).toBe("/api/selfeval/finalize");
+    expect(lastRequest().method).toBe("POST");
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       promoted,
       fulfillsPlanItem: true,
+    });
+    expect(result).toEqual({
+      kind: "ok",
+      data: {
+        activityRecordId: "a1",
+        finalRevision: 3,
+        reply: { status: "failed", code: "UPSTREAM" },
+        currentStep: 6,
+      },
+    });
+    await finalizeSession("s1", promoted, undefined, true);
+    expect(await lastBody()).toEqual({
+      sessionId: "s1",
+      promoted,
+      acknowledgeMandatory: true,
+    });
+  });
+
+  test("승격 항목 오류(400 PROMOTED_INVALID)는 문구를 그대로 message 로 준다", async () => {
+    fetchMock.mockResolvedValue(
+      problemResponse(400, {
+        code: "PROMOTED_INVALID",
+        detail: "활동 기록으로 남길 7항목을 확인해 주세요.",
+      }),
+    );
+    expect(await finalizeSession("s1", {} as never)).toEqual({
+      kind: "error",
+      status: 400,
+      code: "PROMOTED_INVALID",
+      message: "활동 기록으로 남길 7항목을 확인해 주세요.",
     });
   });
 });

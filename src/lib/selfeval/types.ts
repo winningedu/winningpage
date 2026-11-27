@@ -760,7 +760,11 @@ export type PickManualResponse = {
 // 분석, 생성, 검증, 최종 저장 API 계약(api/selfeval/analyze, write, verify, finalize)
 // ---------------------------------------------------------------------------
 
-export type StepIssueView = { code?: string; message: string; path?: string };
+export type StepIssueView = {
+  code?: string;
+  message: string;
+  path?: string | undefined;
+};
 
 /** 모델 단계 성공 응답이 공통으로 싣는 값. */
 export type StepMeta = {
@@ -769,14 +773,13 @@ export type StepMeta = {
 };
 
 export type AnalyzeRunResponse = StepMeta & {
-  ok: true;
   analysis: Analysis;
   conflicts: ConflictRow[];
   analysisSource: AnalysisSource;
   currentStep: SessionStep;
 };
 
-export type AnalyzeEditResponse = { ok: true; analysis: Analysis };
+export type AnalyzeEditResponse = { analysis: Analysis };
 
 export type ConflictChoice = "a" | "b";
 
@@ -788,17 +791,15 @@ export type WrittenReport = {
 };
 
 export type WriteGenerateResponse = StepMeta & {
-  ok: true;
   report: WrittenReport;
   charged: boolean;
   regenerationsLeft: number;
   currentStep: SessionStep;
 };
 
-export type WriteEditResponse = { ok: true; report: WrittenReport };
+export type WriteEditResponse = { report: WrittenReport };
 
 export type VerifyResponse = StepMeta & {
-  ok: true;
   verification: {
     id: string;
     revision: number;
@@ -812,11 +813,10 @@ export type VerifyResponse = StepMeta & {
 
 export type FinalizeReply = {
   status: "sent" | "skipped" | "failed";
-  code?: string;
+  code?: string | undefined;
 };
 
 export type FinalizeResponse = {
-  ok: true;
   activityRecordId: string;
   finalRevision: number;
   reply: FinalizeReply;

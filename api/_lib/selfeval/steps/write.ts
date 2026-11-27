@@ -44,8 +44,6 @@ import {
   activeGrowth,
   activityNameOf,
   careerOf,
-  isRecord,
-  isUuid,
   readAnalysis,
   reportRowOut,
   splitActivities,
@@ -54,8 +52,6 @@ import {
 
 /** 생성 완료 단계. 이 값 이상이어야 편집하고 느낌 문장을 확인할 수 있다. */
 const GENERATED_STEP = 4;
-const MAX_EDIT_PARAGRAPHS = 6;
-const MAX_REPICKS = 30;
 
 export type WriteResult = {
   report: ReturnType<typeof reportRowOut>;
@@ -65,83 +61,6 @@ export type WriteResult = {
 };
 
 type ModelWrite = { sections: GenerationSections; charCount: CharCount };
-
-// ---------------------------------------------------------------------------
-// 요청 본문
-// ---------------------------------------------------------------------------
-
-export type WriteBody =
-  | { sessionId: string; action: "generate" }
-  | { sessionId: string; action: "edit"; paragraphs: string[] }
-  | { sessionId: string; action: "confirm-feeling"; sentenceId: string }
-  | {
-      sessionId: string;
-      action: "repick-evidence";
-      sentenceId: string;
-      picks: { refId: string; item: string }[];
-    };
-
-export function validateWriteBody(
-  body: unknown,
-): { ok: true; body: WriteBody } | { ok: false; message: string } {
-  const bad = (message: string) => ({ ok: false as const, message });
-  if (!isRecord(body)) return bad("요청 형식이 올바르지 않아요.");
-  const { sessionId, action } = body;
-  if (!isUuid(sessionId)) return bad("sessionId 형식이 올바르지 않아요.");
-  if (action === "generate") return { ok: true, body: { sessionId, action } };
-  if (action === "edit") {
-    const { paragraphs } = body;
-    if (
-      !Array.isArray(paragraphs) ||
-      paragraphs.length === 0 ||
-      paragraphs.length > MAX_EDIT_PARAGRAPHS ||
-      paragraphs.some((p) => typeof p !== "string")
-    ) {
-      return bad("paragraphs 형식이 올바르지 않아요.");
-    }
-    return {
-      ok: true,
-      body: { sessionId, action, paragraphs: paragraphs as string[] },
-    };
-  }
-  if (action === "confirm-feeling") {
-    const { sentenceId } = body;
-    if (typeof sentenceId !== "string" || sentenceId === "") {
-      return bad("sentenceId 가 필요해요.");
-    }
-    return { ok: true, body: { sessionId, action, sentenceId } };
-  }
-  if (action === "repick-evidence") {
-    const { sentenceId, picks } = body;
-    if (typeof sentenceId !== "string" || sentenceId === "") {
-      return bad("sentenceId 가 필요해요.");
-    }
-    if (
-      !Array.isArray(picks) ||
-      picks.length > MAX_REPICKS ||
-      picks.some(
-        (p) =>
-          !isRecord(p) ||
-          typeof p.refId !== "string" ||
-          typeof p.item !== "string",
-      )
-    ) {
-      return bad("picks 형식이 올바르지 않아요.");
-    }
-    return {
-      ok: true,
-      body: {
-        sessionId,
-        action,
-        sentenceId,
-        picks: picks.map((p) => ({ refId: p.refId, item: p.item })),
-      },
-    };
-  }
-  return bad(
-    "action 은 generate, edit, confirm-feeling, repick-evidence 중 하나여야 해요.",
-  );
-}
 
 // ---------------------------------------------------------------------------
 // 입력 조립(순수)

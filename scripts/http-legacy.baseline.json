@@ -598,22 +598,6 @@
     "okSuccess": 2,
     "legacyHandler": 1
   },
-  "api/_routes/selfeval/analyze.ts": {
-    "legacyError": 1,
-    "legacyHandler": 1
-  },
-  "api/_routes/selfeval/finalize.ts": {
-    "legacyError": 1,
-    "legacyHandler": 1
-  },
-  "api/_routes/selfeval/verify.ts": {
-    "legacyError": 1,
-    "legacyHandler": 1
-  },
-  "api/_routes/selfeval/write.ts": {
-    "legacyError": 1,
-    "legacyHandler": 1
-  },
   "api/_routes/send-phone-code.ts": {
     "legacyError": 7,
     "okSuccess": 1,

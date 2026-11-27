@@ -14,8 +14,4 @@ export const routes: Record<string, RouteLoader> = {
   "performance/evaluate": () => import("./performance/evaluate.js"),
   "performance/recommend-topics": () =>
     import("./performance/recommend-topics.js"),
-  "selfeval/analyze": () => import("./selfeval/analyze.js"),
-  "selfeval/finalize": () => import("./selfeval/finalize.js"),
-  "selfeval/verify": () => import("./selfeval/verify.js"),
-  "selfeval/write": () => import("./selfeval/write.js"),
 };

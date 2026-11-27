@@ -39,12 +39,7 @@ import {
   type GenerationSections,
 } from "../types.js";
 import type { SessionActivityWithRecord } from "../view.js";
-import {
-  buildVerifyInput,
-  buildVerifySpec,
-  runVerify,
-  validateVerifyBody,
-} from "./verify.js";
+import { buildVerifyInput, buildVerifySpec, runVerify } from "./verify.js";
 
 const db = {} as never;
 const callStructured = vi.fn();
@@ -767,16 +762,5 @@ describe("runVerify", () => {
     expect(callStructured.mock.calls[0]?.[1]).toContain(
       "학생이 고친 문장이다.",
     );
-  });
-});
-
-describe("validateVerifyBody", () => {
-  it("sessionId 만 받는다", () => {
-    expect(
-      validateVerifyBody({ sessionId: "3f2b8c1e-9d4a-4b6e-8a1c-0e5d7f9a2b3c" })
-        .ok,
-    ).toBe(true);
-    expect(validateVerifyBody({ sessionId: "x" }).ok).toBe(false);
-    expect(validateVerifyBody(null).ok).toBe(false);
   });
 });

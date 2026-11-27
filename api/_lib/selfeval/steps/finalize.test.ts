@@ -12,7 +12,7 @@ vi.mock("../db.js", () => ({
 
 import type { ReportRow, SessionRow } from "../rows.js";
 import type { GenerationSections } from "../types.js";
-import { canFinalize, runFinalize, validateFinalizeBody } from "./finalize.js";
+import { canFinalize, runFinalize } from "./finalize.js";
 
 const db = {} as never;
 const sid = "3f2b8c1e-9d4a-4b6e-8a1c-0e5d7f9a2b3c";
@@ -61,96 +61,6 @@ const ver = (submittable = true, at = "2026-10-06T00:10:00Z") =>
     sections: { submittable },
     created_at: at,
   });
-
-describe("validateFinalizeBody", () => {
-  it("승격 7항목이 있으면 통과하고 fulfillsPlanItem 기본값은 true 다", () => {
-    expect(validateFinalizeBody({ sessionId: sid, promoted })).toEqual({
-      ok: true,
-      body: {
-        sessionId: sid,
-        promoted,
-        fulfillsPlanItem: true,
-        acknowledgeMandatory: false,
-      },
-    });
-  });
-
-  it("fulfillsPlanItem 을 false 로 줄 수 있다", () => {
-    const r = validateFinalizeBody({
-      sessionId: sid,
-      promoted,
-      fulfillsPlanItem: false,
-    });
-    expect(r.ok && r.body.fulfillsPlanItem).toBe(false);
-  });
-
-  it("acknowledgeMandatory 를 주면 본문에 실리고 기본값은 false 다", () => {
-    const r = validateFinalizeBody({
-      sessionId: sid,
-      promoted,
-      acknowledgeMandatory: true,
-    });
-    expect(r.ok && r.body.acknowledgeMandatory).toBe(true);
-    const d = validateFinalizeBody({ sessionId: sid, promoted });
-    expect(d.ok && d.body.acknowledgeMandatory).toBe(false);
-  });
-
-  it("acknowledgeMandatory 가 boolean 이 아니면 INVALID_BODY 다", () => {
-    expect(
-      validateFinalizeBody({
-        sessionId: sid,
-        promoted,
-        acknowledgeMandatory: "yes",
-      }),
-    ).toMatchObject({ ok: false, code: "INVALID_BODY" });
-  });
-
-  it("topic 이 비어 있으면 PROMOTED_INVALID 다", () => {
-    expect(
-      validateFinalizeBody({
-        sessionId: sid,
-        promoted: { ...promoted, topic: "  " },
-      }),
-    ).toMatchObject({ ok: false, code: "PROMOTED_INVALID" });
-  });
-
-  it("승격 항목 형식이 틀리면 PROMOTED_INVALID 다", () => {
-    expect(
-      validateFinalizeBody({
-        sessionId: sid,
-        promoted: { ...promoted, numbers: "x" },
-      }),
-    ).toMatchObject({ ok: false, code: "PROMOTED_INVALID" });
-    expect(
-      validateFinalizeBody({
-        sessionId: sid,
-        promoted: { ...promoted, method: undefined },
-      }),
-    ).toMatchObject({ ok: false, code: "PROMOTED_INVALID" });
-    expect(validateFinalizeBody({ sessionId: sid })).toMatchObject({
-      ok: false,
-      code: "PROMOTED_INVALID",
-    });
-  });
-
-  it("sessionId 나 fulfillsPlanItem 형식이 틀리면 INVALID_BODY 다", () => {
-    expect(validateFinalizeBody({ sessionId: "x", promoted })).toMatchObject({
-      ok: false,
-      code: "INVALID_BODY",
-    });
-    expect(
-      validateFinalizeBody({
-        sessionId: sid,
-        promoted,
-        fulfillsPlanItem: "yes",
-      }),
-    ).toMatchObject({ ok: false, code: "INVALID_BODY" });
-    expect(validateFinalizeBody(null)).toMatchObject({
-      ok: false,
-      code: "INVALID_BODY",
-    });
-  });
-});
 
 describe("canFinalize", () => {
   it("검증 완료(단계 5) 전이면 STEP_ORDER 다", () => {

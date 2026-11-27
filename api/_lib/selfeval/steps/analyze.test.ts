@@ -31,7 +31,6 @@ import {
   resolveAnalysisConflict,
   runAnalyze,
   saveAnalysis,
-  validateAnalyzeBody,
 } from "./analyze.js";
 
 const db = {} as never;
@@ -352,79 +351,5 @@ describe("resolveAnalysisConflict", () => {
       "a",
     );
     expect(out.kind).toBe("order");
-  });
-});
-
-describe("validateAnalyzeBody", () => {
-  const sid = "3f2b8c1e-9d4a-4b6e-8a1c-0e5d7f9a2b3c";
-  it("run 은 sessionId 만 있으면 된다", () => {
-    expect(validateAnalyzeBody({ sessionId: sid, action: "run" })).toEqual({
-      ok: true,
-      body: { sessionId: sid, action: "run" },
-    });
-  });
-
-  it("sessionId 형식이 틀리거나 action 을 모르면 거절한다", () => {
-    expect(validateAnalyzeBody({ sessionId: "x", action: "run" }).ok).toBe(
-      false,
-    );
-    expect(validateAnalyzeBody({ sessionId: sid, action: "zzz" }).ok).toBe(
-      false,
-    );
-    expect(validateAnalyzeBody(null).ok).toBe(false);
-  });
-
-  it("save 는 알려진 항목의 문자열 edits 만 받는다", () => {
-    expect(
-      validateAnalyzeBody({
-        sessionId: sid,
-        action: "save",
-        edits: { method: "a" },
-      }).ok,
-    ).toBe(true);
-    expect(
-      validateAnalyzeBody({
-        sessionId: sid,
-        action: "save",
-        edits: { nope: "a" },
-      }).ok,
-    ).toBe(false);
-    expect(
-      validateAnalyzeBody({
-        sessionId: sid,
-        action: "save",
-        edits: { method: 1 },
-      }).ok,
-    ).toBe(false);
-    expect(validateAnalyzeBody({ sessionId: sid, action: "save" }).ok).toBe(
-      false,
-    );
-  });
-
-  it("resolve-conflict 는 0 이상 정수 index 와 a 또는 b 를 받는다", () => {
-    expect(
-      validateAnalyzeBody({
-        sessionId: sid,
-        action: "resolve-conflict",
-        index: 0,
-        choice: "a",
-      }).ok,
-    ).toBe(true);
-    expect(
-      validateAnalyzeBody({
-        sessionId: sid,
-        action: "resolve-conflict",
-        index: -1,
-        choice: "a",
-      }).ok,
-    ).toBe(false);
-    expect(
-      validateAnalyzeBody({
-        sessionId: sid,
-        action: "resolve-conflict",
-        index: 0,
-        choice: "c",
-      }).ok,
-    ).toBe(false);
   });
 });
