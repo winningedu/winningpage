@@ -33,9 +33,6 @@
     "legacyError": 1,
     "okSuccess": 2
   },
-  "api/_routes/admin/access-logs.ts": {
-    "legacyHandler": 2
-  },
   "api/_routes/admin/admission/active-year.ts": {
     "legacyHandler": 1
   },
@@ -49,27 +46,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/admission/results/rows.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/ai-telemetry-pricing.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/ai-telemetry.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/growth-grant.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/growth-recover.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/growth-reports.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/growth-reports/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/home-section-copy/[sectionKey].ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/hq-dashboard/b2c.ts": {
@@ -90,42 +66,6 @@
   "api/_routes/admin/hq-dashboard/usage.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/inquiry-grant.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/inquiry-recover.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/inquiry-sessions.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/inquiry-sessions/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/invite-member.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-bulk.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-dedupe.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-eval.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-eval/queries.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-eval/queries/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-items/titles.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/knowledge-search.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/learning-diagnosis/options.ts": {
     "legacyHandler": 1
   },
@@ -142,15 +82,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/learning-diagnosis/questions/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/me/activate.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/me/permissions.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/members.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/members/[id].ts": {
@@ -171,9 +102,6 @@
   "api/_routes/admin/members/[id]/tenant.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/mentor-applications.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/mentor-applications/[id].ts": {
     "legacyHandler": 1
   },
@@ -189,16 +117,10 @@
   "api/_routes/admin/premium-book/pages/[id].ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/revenue.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/revenue/pending.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/revenue/services.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/roles.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/roles/[id].ts": {
@@ -222,49 +144,13 @@
   "api/_routes/admin/sections/[key]/export.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/selfeval-grant.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/selfeval-recover.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/selfeval-sessions.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/selfeval-sessions/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/send-message.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/service-credit-adjust.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/service-credit-summary.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/staff.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/staff/[profileId].ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/staff/[profileId]/permissions.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/students/search.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/tenant-options.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/uploads.ts": {
-    "legacyHandler": 2
-  },
   "api/_routes/admin/uploads/preview.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/web-analytics.ts": {
     "legacyHandler": 1
   },
   "api/_routes/auth/login.ts": {

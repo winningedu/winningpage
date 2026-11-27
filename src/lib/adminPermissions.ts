@@ -1,10 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
-import { z } from "zod";
 import { site } from "@/config/site";
-import {
-  ADMIN_LEVELS,
-  type AdminLevel,
-} from "../../shared/admin-permission/menu.js";
+import { adminPermissionsSchema } from "../../shared/admin-me/contract.js";
+import type { AdminLevel } from "../../shared/admin-permission/menu.js";
 import {
   isSuperOnlySection,
   permissionKeyFor,
@@ -36,11 +33,6 @@ export type AdminPermissionMap = Map<string, AdminLevel>;
 
 const PERMISSIONS_STALE_MS = 15_000;
 
-const permissionsResponseSchema = z.object({
-  permissions: z.record(z.string(), z.enum(ADMIN_LEVELS)),
-  isSuper: z.boolean(),
-});
-
 /**
  * GET /api/admin/me/permissions: 내 최종 권한 맵과 최고 관리자 여부.
  *
@@ -56,7 +48,7 @@ export function adminPermissionsQueryOptions(userId: string) {
     }): Promise<{ permissions: AdminPermissionMap; isSuper: boolean }> => {
       const body = await api
         .get("admin/me/permissions", { signal })
-        .json(permissionsResponseSchema);
+        .json(adminPermissionsSchema);
       return {
         permissions: new Map(Object.entries(body.permissions)),
         isSuper: body.isSuper,

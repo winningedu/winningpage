@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { describe, expect, test, vi } from "vitest";
 import { dispatch } from "./dispatch.js";
+import { routes as manifestRoutes } from "./manifest.js";
 
 const makeReq = (url: string | undefined, query: object = {}) =>
   ({ url, query }) as unknown as VercelRequest;
@@ -183,6 +184,43 @@ describe("경로 파라미터", () => {
     });
 
     expect(req.query).toEqual({ key: "q" });
+  });
+});
+
+// 기관 경로는 모두 Hono 로 옮겨 vercel.json 이 /api/app 으로 보낸다. 옛 라우터에 오더라도 어떤 핸들러에도 닿지 않는다.
+// 글자 그대로인 경로와 /:id 의 순서는 api/_routes/admin/tenants.routing.test.ts 가 루트 앱에서 본다.
+describe("기관 경로는 옛 라우터 매니페스트에 없다", () => {
+  const TENANT = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
+
+  test("매니페스트에 admin/tenants 키가 없다", () => {
+    expect(
+      Object.keys(manifestRoutes).filter((key) =>
+        key.startsWith("admin/tenants"),
+      ),
+    ).toEqual([]);
+  });
+
+  test.each([
+    "/api/admin/tenants",
+    "/api/admin/tenants/member-purge",
+    "/api/admin/tenants/school-admins",
+    "/api/admin/tenants/student-usage",
+    `/api/admin/tenants/${TENANT}`,
+    `/api/admin/tenants/${TENANT}/service-settings`,
+  ])("%s 는 옛 라우터의 어떤 핸들러에도 닿지 않는다", async (url) => {
+    const hit: string[] = [];
+    const routes = Object.fromEntries(
+      Object.keys(manifestRoutes).map((key) => [
+        key,
+        async () => ({ default: () => void hit.push(key) }),
+      ]),
+    );
+    const res = makeRes();
+
+    await dispatch(routes as never, makeReq(url, {}), res);
+
+    expect(hit).toEqual([]);
+    expect(res.status).toHaveBeenCalledWith(404);
   });
 });
 

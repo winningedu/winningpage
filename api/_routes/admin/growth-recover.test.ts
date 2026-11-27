@@ -16,7 +16,10 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./growth-recover.js";
+import { growthRecoverResultSchema } from "../../../shared/growth-ops/contract.js";
+import { app } from "../app.js";
+
+const endpoint = { app, path: "/api/admin/growth-recover" };
 
 const SOURCE_ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 const PROFILE = "5b1e7f3c-2a10-4c55-9a52-0f6d1f8f9b11";
@@ -74,7 +77,7 @@ afterEach(() => {
 });
 
 const post = (body: unknown = { reportId: SOURCE_ID }) =>
-  callRoute(handler, { method: "POST", body });
+  callRoute(endpoint, { method: "POST", body });
 
 const tables = (admin: { queries: { table: string }[] }) =>
   admin.queries.map((q) => q.table);
@@ -84,8 +87,9 @@ describe("POST /api/admin/growth-recover", () => {
     const admin = setup();
     const r = await post();
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
     expect(r.body).toEqual({ newReportId: NEW_ID });
+    expect(growthRecoverResultSchema.safeParse(r.body).success).toBe(true);
     const queries = admin.queries.filter((q) => q.table === "growth_reports");
     const update = queries.find((q) => argsOf(q, "update"));
     expect(argsOf(update as never, "update")).toEqual([
@@ -212,8 +216,9 @@ describe("POST /api/admin/growth-recover", () => {
 
   test("GET 은 405 METHOD_NOT_ALLOWED 다", async () => {
     setup();
-    const r = await callRoute(handler, { method: "GET" });
+    const r = await callRoute(endpoint, { method: "GET" });
     expect(r.status).toBe(405);
     expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
+    expect(r.headers.allow).toBe("POST");
   });
 });

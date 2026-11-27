@@ -2,8 +2,6 @@ import type { RouteLoader } from "./dispatch.js";
 
 // 라우트 키(/api/ 뒤 경로)별 핸들러 지연 로더. 정적 문자열 지정자여야 Vercel 파일 추적기가 따라간다.
 export const routes: Record<string, RouteLoader> = {
-  "admin/access-logs": () => import("./admin/access-logs.js"),
-  "admin/me/activate": () => import("./admin/me/activate.js"),
   "admin/admission/active-year": () =>
     import("./admin/admission/active-year.js"),
   "admin/admission/results/count": () =>
@@ -14,8 +12,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/admission/results/bulk.js"),
   "admin/admission/guidelines/bulk": () =>
     import("./admin/admission/guidelines/bulk.js"),
-  "admin/ai-telemetry": () => import("./admin/ai-telemetry.js"),
-  "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
   "admin/learning-diagnosis/questions": () =>
     import("./admin/learning-diagnosis/questions.js"),
   "admin/learning-diagnosis/questions/[id]": () =>
@@ -28,38 +24,16 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/learning-diagnosis/programs.js"),
   "admin/learning-diagnosis/programs/[id]": () =>
     import("./admin/learning-diagnosis/programs/[id].js"),
-  "admin/mentor-applications": () => import("./admin/mentor-applications.js"),
   "admin/mentor-applications/[id]": () =>
     import("./admin/mentor-applications/[id].js"),
   "admin/mentor-applications/[id]/proof-url": () =>
     import("./admin/mentor-applications/[id]/proof-url.js"),
-  "admin/growth-grant": () => import("./admin/growth-grant.js"),
-  "admin/home-section-copy/[sectionKey]": () =>
-    import("./admin/home-section-copy/[sectionKey].js"),
   "admin/hq-dashboard/summary": () => import("./admin/hq-dashboard/summary.js"),
   "admin/hq-dashboard/tenants": () => import("./admin/hq-dashboard/tenants.js"),
   "admin/hq-dashboard/usage": () => import("./admin/hq-dashboard/usage.js"),
-  "admin/growth-recover": () => import("./admin/growth-recover.js"),
-  "admin/growth-reports": () => import("./admin/growth-reports.js"),
-  "admin/growth-reports/[id]": () => import("./admin/growth-reports/[id].js"),
   "admin/hq-dashboard/logins": () => import("./admin/hq-dashboard/logins.js"),
   "admin/hq-dashboard/b2c": () => import("./admin/hq-dashboard/b2c.js"),
   "admin/hq-dashboard/trends": () => import("./admin/hq-dashboard/trends.js"),
-  "admin/inquiry-grant": () => import("./admin/inquiry-grant.js"),
-  "admin/inquiry-recover": () => import("./admin/inquiry-recover.js"),
-  "admin/inquiry-sessions": () => import("./admin/inquiry-sessions.js"),
-  "admin/inquiry-sessions/[id]": () =>
-    import("./admin/inquiry-sessions/[id].js"),
-  "admin/invite-member": () => import("./admin/invite-member.js"),
-  "admin/me/permissions": () => import("./admin/me/permissions.js"),
-  "admin/knowledge-bulk": () => import("./admin/knowledge-bulk.js"),
-  "admin/knowledge-items/titles": () =>
-    import("./admin/knowledge-items/titles.js"),
-  "admin/knowledge-eval/queries": () =>
-    import("./admin/knowledge-eval/queries.js"),
-  "admin/knowledge-eval/queries/[id]": () =>
-    import("./admin/knowledge-eval/queries/[id].js"),
-  "admin/members": () => import("./admin/members.js"),
   "admin/members/[id]": () => import("./admin/members/[id].js"),
   "admin/members/[id]/tenant": () => import("./admin/members/[id]/tenant.js"),
   "admin/members/[id]/messages": () =>
@@ -76,35 +50,18 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/sections/[key]/[id]/reviewed.js"),
   "admin/sections/[key]/export": () =>
     import("./admin/sections/[key]/export.js"),
-  "admin/selfeval-grant": () => import("./admin/selfeval-grant.js"),
-  "admin/selfeval-recover": () => import("./admin/selfeval-recover.js"),
-  "admin/selfeval-sessions": () => import("./admin/selfeval-sessions.js"),
-  "admin/selfeval-sessions/[id]": () =>
-    import("./admin/selfeval-sessions/[id].js"),
   "admin/premium-book/pages": () => import("./admin/premium-book/pages.js"),
   "admin/premium-book/pages/[id]": () =>
     import("./admin/premium-book/pages/[id].js"),
-  "admin/revenue": () => import("./admin/revenue.js"),
   "admin/revenue/pending": () => import("./admin/revenue/pending.js"),
   "admin/revenue/services": () => import("./admin/revenue/services.js"),
-  "admin/roles": () => import("./admin/roles.js"),
   "admin/roles/[id]": () => import("./admin/roles/[id].js"),
   "admin/roles/[id]/permissions": () =>
     import("./admin/roles/[id]/permissions.js"),
-  "admin/send-message": () => import("./admin/send-message.js"),
-  "admin/service-credit-adjust": () =>
-    import("./admin/service-credit-adjust.js"),
-  "admin/service-credit-summary": () =>
-    import("./admin/service-credit-summary.js"),
-  "admin/staff": () => import("./admin/staff.js"),
   "admin/staff/[profileId]": () => import("./admin/staff/[profileId].js"),
   "admin/staff/[profileId]/permissions": () =>
     import("./admin/staff/[profileId]/permissions.js"),
-  "admin/students/search": () => import("./admin/students/search.js"),
-  "admin/tenant-options": () => import("./admin/tenant-options.js"),
-  "admin/uploads": () => import("./admin/uploads.js"),
   "admin/uploads/preview": () => import("./admin/uploads/preview.js"),
-  "admin/web-analytics": () => import("./admin/web-analytics.js"),
   "auth/login": () => import("./auth/login.js"),
   "auth/teacher-reset-password": () =>
     import("./auth/teacher-reset-password.js"),

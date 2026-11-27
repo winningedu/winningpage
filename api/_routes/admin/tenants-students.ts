@@ -1,5 +1,5 @@
 // /api/admin/tenants 아래 학생 라우트(move-student, student-usage). 관리자 앱이 .route("/tenants", tenantsStudents) 로 붙인다.
-// 글자 그대로인 경로라 tenants.ts 의 /:id 보다 먼저 붙인다. 요청 검증과 응답 모양은 shared/tenant/contract.ts 를 따른다.
+// 글자 그대로인 경로라 tenants-detail.ts 의 /:id 보다 먼저 붙인다. 요청 검증과 응답 모양은 shared/tenants/students.ts 를 따른다.
 //
 // POST /move-student { profileId, tenantId, grade, groupName?, className?, number? }: 스쿨멘토 본사 관리자가 학생을 다른 기관으로 옮긴다(사 결정 r4 4번, 결정 96, 101, 102). 소속만 바꾸던
 //   fn_admin_set_profile_tenant 와 달리 옛 기관 학적과 대기 신청을 정리하고 대상 기관 학적을 만든다
@@ -17,10 +17,10 @@ import {
   type MovedStudent,
   moveStudentBody,
   putStudentUsageBody,
+  STUDENT_MOVE_ERROR,
   type StudentUsage,
   studentUsageQuery,
-  TENANT_ERROR,
-} from "../../../shared/tenant/contract.js";
+} from "../../../shared/tenants/students.js";
 import { assertSectionPermission } from "../../_lib/adminPermission.js";
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
 import { enrollmentRpcProblem } from "../../_lib/console/enrollmentErrors.js";
@@ -168,7 +168,7 @@ export const tenantsStudents = adminFactory
           throw new ProblemError(
             404,
             "기관을 찾을 수 없어요.",
-            TENANT_ERROR.TENANT_NOT_FOUND,
+            STUDENT_MOVE_ERROR.TENANT_NOT_FOUND,
           );
         }
         // WC100: 올해 학적이 다른 기관에 남아 있다(기관마다 학년도 전환 시점이 달랐던 경우). 본사가 먼저 확인해야 한다.
@@ -176,7 +176,7 @@ export const tenantsStudents = adminFactory
           throw new ProblemError(
             409,
             "이 학생의 올해 학적이 다른 기관에 남아 있어요. 그 기관의 학적을 먼저 확인해 주세요.",
-            TENANT_ERROR.OTHER_TENANT_ENROLLMENT,
+            STUDENT_MOVE_ERROR.OTHER_TENANT_ENROLLMENT,
           );
         }
         // WC077 의 점유 학생 이름은 가려서 싣는다(본사는 담임이 아니다).

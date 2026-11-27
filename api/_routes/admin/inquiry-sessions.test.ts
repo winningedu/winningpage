@@ -17,7 +17,10 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./inquiry-sessions.js";
+import { inquirySessionsPage } from "../../../shared/inquiry-session/contract.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/inquiry-sessions" };
 
 const PROFILE = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
 
@@ -80,7 +83,8 @@ describe("GET /api/admin/inquiry-sessions", () => {
     const admin = setup();
     const r = await get({ page: "2", pageSize: "10", status: "archived" });
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(inquirySessionsPage.parse(r.body)).toEqual(r.body);
     const body = r.body as Record<string, unknown>;
     expect(body).not.toHaveProperty("ok");
     expect(body).toMatchObject({ total: 41, page: 2, pageSize: 10 });
@@ -162,6 +166,7 @@ describe("GET /api/admin/inquiry-sessions", () => {
     setup("edit");
     const r = await callRoute(handler, { method: "POST" });
     expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe("GET, HEAD");
     expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
   });
 

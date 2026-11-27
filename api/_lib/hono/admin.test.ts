@@ -4,12 +4,20 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 import { createAdminFake } from "../adminRoute.testkit.js";
 
-const kit = vi.hoisted(() => ({ admin: null as unknown }));
+const kit = vi.hoisted(() => ({
+  admin: null as unknown,
+  audit: vi.fn(),
+}));
 
 vi.mock("../supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
+}));
+
+vi.mock("../accessLog/adminWrite.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../accessLog/adminWrite.js")>()),
+  scheduleAdminAudit: kit.audit,
 }));
 
 import { admin, createAdminApp, user } from "./admin.js";
@@ -51,6 +59,18 @@ const app = createRootApp().route(
       (c) => c.json(c.req.valid("json")),
     )
     .all("/api/admin/demo", methodNotAllowed("GET", "POST"))
+    // 본문 값으로 메뉴 키를 정하는 라우트: 키 함수가 본문을 읽어도 뒤의 validate 가 같은 본문을 다시 읽는다.
+    .post(
+      "/api/admin/demo/body-key",
+      admin({
+        ...OPTIONS,
+        permission: {
+          key: async (c) => String((await c.req.json()).section),
+        },
+      }),
+      validate("json", z.object({ section: z.string() })),
+      (c) => c.json(c.req.valid("json")),
+    )
     .post(
       "/api/admin/me",
       user({
@@ -59,7 +79,16 @@ const app = createRootApp().route(
       }),
       (c) => c.json({ userId: c.var.userId, token: c.var.token }),
     )
-    .all("/api/admin/me", methodNotAllowed("POST")),
+    .all("/api/admin/me", methodNotAllowed("POST"))
+    .get(
+      "/api/admin/own",
+      admin({
+        permission: "none",
+        unhandledMessage: "x",
+        logLabel: "[admin/own]",
+      }),
+      (c) => c.json({ userId: c.var.userId }),
+    ),
 );
 
 const problem = async (response: Response) => ({
@@ -231,6 +260,26 @@ describe("요청 로그", () => {
   });
 });
 
+describe("비동기 메뉴 키 함수", () => {
+  const post = (section: string) =>
+    app.request("/api/admin/demo/body-key", {
+      method: "POST",
+      headers: { ...AUTH, "content-type": "application/json" },
+      body: JSON.stringify({ section }),
+    });
+
+  test("본문을 읽어 정한 키로 권한을 보고, 같은 본문을 뒤 검증이 다시 읽는다", async () => {
+    const ok = await post("coupons");
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ section: "coupons" });
+  });
+
+  test("권한이 없는 키는 403 이다", async () => {
+    const denied = await post("members");
+    expect(denied.status).toBe(403);
+  });
+});
+
 describe("메뉴 키 타입", () => {
   test("목록에 없는 리터럴 키는 컴파일 오류다(키 함수는 string 을 돌려도 된다)", () => {
     admin({
@@ -244,6 +293,47 @@ describe("메뉴 키 타입", () => {
       unhandledMessage: "x",
       logLabel: "[x]",
     });
+  });
+});
+
+describe('permission "none"', () => {
+  test("메뉴 권한 행이 없는 관리자도 통과하고 감사 행을 예약하지 않는다", async () => {
+    kit.admin = createAdminFake({ permissions: [] });
+    kit.audit.mockClear();
+    const response = await app.request("/api/admin/own", { headers: AUTH });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ userId: "admin-1" });
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(kit.audit).not.toHaveBeenCalled();
+  });
+
+  test("토큰이 없으면 401 이다", async () => {
+    const r = await problem(await app.request("/api/admin/own"));
+    expect(r.status).toBe(401);
+    expect(r.body.code).toBe("UNAUTHENTICATED");
+  });
+
+  test("관리자가 아니면 403 FORBIDDEN 이다", async () => {
+    const fake = createAdminFake({ permissions: [] });
+    const from = (table: string) =>
+      table === "profiles"
+        ? {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: { role: "user" },
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        : fake.from(table);
+    kit.admin = { ...fake, from };
+    const r = await problem(
+      await app.request("/api/admin/own", { headers: AUTH }),
+    );
+    expect(r.status).toBe(403);
+    expect(r.body.code).toBe("FORBIDDEN");
   });
 });
 

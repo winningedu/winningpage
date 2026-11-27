@@ -1,30 +1,39 @@
-// 본사 기관 화면의 서버 호출. 기관, 서비스 설정, 전체 관리자는 api(ky)로 부르고 응답을 shared/tenant/contract.ts 의 스키마로 검사한다.
+// 본사 기관 화면의 서버 호출. 기관, 서비스 설정, 전체 관리자는 api(ky)로 부르고 응답을 shared/tenants/ 의 계약 스키마로 검사한다.
 
 import { api } from "@/lib/http/client";
 import {
   type CreateTenantInput,
-  type IssuedSchoolAdmin,
-  type IssueSchoolAdminInput,
-  issuedSchoolAdminSchema,
+  type TenantList,
+  type TenantRow,
+  tenantListSchema,
+  tenantRowSchema,
+} from "../../../../shared/tenants/contract.js";
+import {
   type PatchTenantInput,
   type PutServiceSettingInput,
-  type SchoolAdminList,
   type ServiceSettings,
-  schoolAdminListSchema,
   serviceSettingsSchema,
   settingRowSchema,
   type TenantDetailRow,
-  type TenantList,
-  type TenantRow,
   type TenantSaved,
   tenantDetailSchema,
-  tenantListSchema,
-  tenantRowSchema,
   tenantSavedSchema,
-} from "../../../../shared/tenant/contract.js";
+} from "../../../../shared/tenants/detail.js";
+import {
+  type IssuedSchoolAdmin as IssuedSchoolAdminResponse,
+  type IssueSchoolAdminInput,
+  issuedSchoolAdminSchema,
+  type SchoolAdminList,
+  schoolAdminListSchema,
+} from "../../../../shared/tenants/school-admins.js";
+
+/** 화면은 발급한 계정의 로그인 아이디와 임시 비밀번호만 쓴다. */
+export type IssuedSchoolAdmin = Pick<
+  IssuedSchoolAdminResponse,
+  "loginId" | "tempPassword"
+>;
 
 export type {
-  IssuedSchoolAdmin,
   IssueSchoolAdminInput,
   SchoolAdminList,
   TenantDetailRow,
@@ -73,7 +82,7 @@ export function fetchServiceSettings(
 /** 한 행의 upsert 본문. 변경자(updated_by)는 서버가 세션에서 채운다. tenant_id 는 경로로 가고 본문에는 싣지 않는다. */
 export type ServiceSettingBody = PutServiceSettingInput & { tenant_id: string };
 
-export function putServiceSetting(body: ServiceSettingBody) {
+export function putServiceSetting(body: ServiceSettingBody): Promise<unknown> {
   const { tenant_id: tenantId, ...json } = body;
   return api
     .put(`admin/tenants/${encodeURIComponent(tenantId)}/service-settings`, {

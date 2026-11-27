@@ -1,8 +1,9 @@
 // GET, POST /api/admin/roles 계약 검증. 최고 관리자 전용 메뉴(adminRoles)다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { roleSchema, rolesListSchema } from "../../../shared/roles/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
@@ -16,7 +17,9 @@ vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import roles from "./roles.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/roles" };
 
 const ROLE_COLUMNS =
   "id, name, description, is_super, is_system, created_at, updated_at";
@@ -42,8 +45,8 @@ function superAdmin(isSuper: boolean) {
   kit.state.rpc.fn_is_super_admin = () => ({ data: isSuper, error: null });
 }
 
-const get = () => callHandler(roles, undefined, "GET");
-const post = (body: unknown) => callHandler(roles, body, "POST");
+const get = () => callRoute(route);
+const post = (body: unknown) => callRoute(route, { method: "POST", body });
 const inserts = () =>
   kit.state.inserts.filter((x) => x.table === "admin_roles");
 
@@ -93,10 +96,21 @@ describe("GET /api/admin/roles", () => {
       resources: RESOURCES,
     });
     expect(r.body).not.toHaveProperty("ok");
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(rolesListSchema.safeParse(r.body).success).toBe(true);
     const read = kit.state.reads.find((x) => x.table === "admin_roles");
     expect(read?.select).toBe(ROLE_COLUMNS);
     expect(read?.orderBy).toEqual({ column: "created_at", ascending: true });
+  });
+});
+
+describe("GET, POST 가 아닌 메서드", () => {
+  test("405 이고 Allow 가 GET, HEAD, POST 다", async () => {
+    const r = await callRoute(route, { method: "DELETE" });
+
+    expect(r.status).toBe(405);
+    expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
+    expect(r.headers.allow).toBe("GET, HEAD, POST");
   });
 });
 
@@ -119,6 +133,8 @@ describe("POST /api/admin/roles", () => {
 
     expect(r.status).toBe(201);
     expect(r.body).toEqual(ROLE_B);
+    expect(roleSchema.safeParse(r.body).success).toBe(true);
+    expect(r.headers["cache-control"]).toBe("no-store");
     expect(r.body).not.toHaveProperty("ok");
     expect(inserts()).toEqual([
       { table: "admin_roles", row: { name: "추가", description: "설명" } },

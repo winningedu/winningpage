@@ -11,10 +11,8 @@ const SCAN_DIRS = ["admin", "goal/admin"];
 
 // 규칙 밖에 두는 라우트와 그 이유.
 const ALLOWLIST: Record<string, string> = {
-  "admin/me/activate.ts":
-    "초대받은 사용자는 관리자가 되기 전에 활성화하므로 auth user 다",
-  "admin/me/permissions.ts":
-    "호출자 자신의 권한 맵을 읽는 라우트라 메뉴 권한이 없다",
+  "admin/me.ts":
+    "호출자 자신의 권한 맵을 읽고(permission none) 관리자가 되기 전에 활성화한다(auth user)",
 };
 
 /**
@@ -28,9 +26,13 @@ function checkAdminRouteSource(source: string): string[] {
       .split("admin({")
       .slice(1)
       .flatMap((chunk, index) =>
-        /permission:/.test(chunk)
-          ? []
-          : [`admin #${index + 1}: permission 이 없다`],
+        !/permission:/.test(chunk)
+          ? [`admin #${index + 1}: permission 이 없다`]
+          : /permission:\s*"none"/.test(chunk)
+            ? [
+                `admin #${index + 1}: permission "none" 은 허용 목록의 파일만 쓴다`,
+              ]
+            : [],
       );
   }
   const chunks = source.split("defineHandler({").slice(1);
@@ -134,6 +136,24 @@ describe("checkAdminRouteSource", () => {
     expect(
       checkAdminRouteSource("export default function handler() {}"),
     ).toHaveLength(1);
+  });
+
+  test('Hono 앱 파일의 permission: "none" 은 실패한다', () => {
+    const hono = `
+      const app = adminFactory.createApp();
+      const own = admin({ permission: "none", logLabel: "[x]" });
+    `;
+    expect(checkAdminRouteSource(hono)).toEqual([
+      'admin #1: permission "none" 은 허용 목록의 파일만 쓴다',
+    ]);
+  });
+
+  test("Hono 앱 파일의 메뉴 키 permission 은 통과한다", () => {
+    const hono = `
+      const app = adminFactory.createApp();
+      const guard = admin({ permission: { key: "coupons" }, logLabel: "[x]" });
+    `;
+    expect(checkAdminRouteSource(hono)).toEqual([]);
   });
 
   test("호출이 둘이면 하나라도 어긋날 때 실패한다", () => {

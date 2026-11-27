@@ -8,7 +8,7 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { tenantSaveErrorMessage } from "@/pages/admin/tenants/saveError";
-import { movedStudentSchema } from "../../../../shared/tenant/contract.js";
+import { movedStudentSchema } from "../../../../shared/tenants/students.js";
 
 // 스쿨멘토 본사의 학생 기관 이동(사 결정 r4 4번, 결정 102). 소속만이 아니라 학적(학년, 그룹, 반, 번호)도
 // 대상 기관에 만들어야 학생이 새 기관 콘솔에 보이므로 POST /api/admin/tenants/move-student 를 부른다.

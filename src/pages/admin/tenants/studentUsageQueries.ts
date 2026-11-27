@@ -7,7 +7,7 @@ import {
   type StudentUsage,
   studentUsageSavedSchema,
   studentUsageSchema,
-} from "../../../../shared/tenant/contract.js";
+} from "../../../../shared/tenants/students.js";
 
 export type { StudentUsage };
 

@@ -3,6 +3,12 @@
 // 학생 요청 경로(knowledge.ts)의 함수를 그대로 가져다 쓴다.
 
 import {
+  SEARCH_PREVIEW_DEFAULT_LIMIT,
+  SEARCH_PREVIEW_MAX_LIMIT,
+  type SearchPreviewItem,
+  type SearchPreviewMode,
+} from "../../../shared/knowledge/contract.js";
+import {
   buildKnowledgeKeywordQueryFor,
   getBaseGradeForRpc,
   type KnowledgeRow,
@@ -17,14 +23,13 @@ import {
 } from "../performance/knowledge.js";
 import { type BulkKnowledgeType, isBulkKnowledgeType } from "./dedupe.js";
 
-/** 검색 테스트가 한 번에 돌려주는 행 수 기본값. */
-export const SEARCH_PREVIEW_DEFAULT_LIMIT = 20;
-
-/** 검색 테스트 행 수 상한. */
-export const SEARCH_PREVIEW_MAX_LIMIT = 50;
-
-/** 검색 방식. hybrid 는 학생 요청 경로의 1차 경로이고 vector 는 폴백 비교용이다. */
-export type SearchPreviewMode = "vector" | "hybrid";
+// 행 수 한도, 검색 방식, 응답 행의 모양은 shared/knowledge/contract.ts 가 정하고 여기서 다시 내보낸다.
+export {
+  SEARCH_PREVIEW_DEFAULT_LIMIT,
+  SEARCH_PREVIEW_MAX_LIMIT,
+  type SearchPreviewItem,
+  type SearchPreviewMode,
+};
 
 export type SearchPreviewBody = {
   knowledgeType: BulkKnowledgeType;
@@ -105,24 +110,6 @@ export function validateSearchPreviewBody(
     },
   };
 }
-
-export type SearchPreviewItem = {
-  rank: number;
-  id: string;
-  title: string;
-  grade: string;
-  subject: string;
-  career_field: string;
-  similarity: number;
-  passesThreshold: boolean;
-  wouldBeInjected: boolean;
-  /** hybrid 만. 의미 순위, 의미 쪽 threshold 아래라 순위가 없으면 null. */
-  semanticRank?: number | null;
-  /** hybrid 만. 단어 순위, 단어가 걸리지 않았으면 null. */
-  keywordRank?: number | null;
-  /** hybrid 만. RRF 합산 점수(결과 순서의 기준). */
-  rrfScore?: number | null;
-};
 
 /** 하이브리드 RPC 행. 벡터 RPC 행에는 세 순위 컬럼이 없다. */
 export type SearchPreviewRow = KnowledgeRow & {

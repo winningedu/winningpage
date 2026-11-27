@@ -1,5 +1,5 @@
 // /api/admin/tenants 아래 계약 종료 회원 삭제 라우트(member-purge, member-purge-preview, purge-logs). 관리자 앱이 .route("/tenants", tenantsPurge) 로 붙인다.
-// 글자 그대로인 경로라 tenants.ts 의 /:id 보다 먼저 붙인다. 요청 검증과 응답 모양은 shared/tenant/contract.ts 를 따른다.
+// 글자 그대로인 경로라 tenants-detail.ts 의 /:id 보다 먼저 붙인다. 요청 검증과 응답 모양은 shared/tenants/purge.ts 를 따른다.
 //
 // POST /member-purge { tenantId, targetIds }: 본사 관리자가 계약 종료 기관 하나의 학생 개인정보 삭제(익명화)를 수동으로 실행한다(사 #162, #176).
 //   크론은 하지 않는다. 유예 종료일이 지나지 않았으면 409 NOT_YET 과 그 날짜를 돌려주고, 유료 전환 학생은
@@ -18,13 +18,13 @@ import { PROBLEM_CODE } from "../../../shared/http/codes.js";
 import {
   memberPurgeBody,
   memberPurgePreviewQuery,
+  PURGE_ERROR,
   PURGE_LOG_LIMIT,
   type PurgeLogEntry,
   type PurgePreview,
   type PurgeResult,
   purgeLogsQuery,
-  TENANT_ERROR,
-} from "../../../shared/tenant/contract.js";
+} from "../../../shared/tenants/purge.js";
 import { maskName } from "../../_lib/console/maskName.js";
 import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
@@ -114,7 +114,7 @@ export const tenantsPurge = adminFactory
         throw new ProblemError(
           409,
           "아직 삭제할 수 없는 기관입니다. 유예 종료일 다음 날부터 삭제할 수 있습니다.",
-          TENANT_ERROR.NOT_YET,
+          PURGE_ERROR.NOT_YET,
           { graceEndsOn: result.grace_end },
         );
       }

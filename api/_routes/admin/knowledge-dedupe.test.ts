@@ -1,6 +1,7 @@
 // POST /api/admin/knowledge-dedupe 계약 검증. 권한, 본문 검증, 응답 모양.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { knowledgeDedupeResultSchema } from "../../../shared/knowledge/contract.js";
 import {
   argsOf,
   callRoute,
@@ -41,7 +42,9 @@ vi.mock("../../_lib/performance/embeddings.js", () => ({
   }),
 }));
 
-import handler from "./knowledge-dedupe.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/knowledge-dedupe" };
 
 const ITEM = {
   rowNo: 2,
@@ -74,7 +77,7 @@ function setup(
 }
 
 const post = (body: unknown = BODY) =>
-  callRoute(handler, { method: "POST", body });
+  callRoute(route, { method: "POST", body });
 
 beforeEach(() => {
   knowledge = () => ({ data: [], error: null });
@@ -115,6 +118,7 @@ describe("POST /api/admin/knowledge-dedupe", () => {
       filter_knowledge_type: "topic_pattern",
     });
     expect(kit.embedded).toEqual(["검색:마찰력 실험"]);
+    expect(knowledgeDedupeResultSchema.safeParse(r.body).success).toBe(true);
   });
 
   test("응답 뒤에 trace flush 를 scheduleAfterResponse 로 넘긴다", async () => {
@@ -169,5 +173,13 @@ describe("POST /api/admin/knowledge-dedupe", () => {
     const r = await post();
     expect(r.status).toBe(500);
     expect(problemCode(r.body)).toBe("INTERNAL_ERROR");
+  });
+
+  test("GET 은 405 METHOD_NOT_ALLOWED 이고 Allow 는 POST 다", async () => {
+    setup();
+    const r = await callRoute(route, { method: "GET" });
+    expect(r.status).toBe(405);
+    expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
+    expect(r.headers.allow).toBe("POST");
   });
 });

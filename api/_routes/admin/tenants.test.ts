@@ -3,6 +3,11 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
+  tenantListSchema,
+  tenantRowSchema,
+} from "../../../shared/tenants/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
+import {
   createFakeAdmin,
   createKitState,
   type KitState,
@@ -44,13 +49,12 @@ vi.mock("../../../src/config/sites.js", () => ({
   },
 }));
 
-import { callHandler } from "../../_lib/tenantRoute.testkit.js";
 import { app } from "../app.js";
 
-const handler = { app, path: "/api/admin/tenants" };
+const route = { app, path: "/api/admin/tenants" };
 
-const get = () => callHandler(handler, undefined, "GET");
-const post = (body: unknown) => callHandler(handler, body, "POST");
+const get = () => callRoute(route);
+const post = (body: unknown) => callRoute(route, { method: "POST", body });
 
 const TENANT_ROW = {
   id: "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b",
@@ -114,6 +118,8 @@ describe("GET /api/admin/tenants", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ items: [TENANT_ROW], graceDays: 30 });
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(tenantListSchema.safeParse(r.body).success).toBe(true);
     const read = kit.state.reads.find((x) => x.table === "tenants");
     expect(read?.orderBy).toEqual({ column: "created_at", ascending: false });
   });
@@ -192,6 +198,7 @@ describe("POST /api/admin/tenants", () => {
 
     expect(r.status).toBe(201);
     expect(r.body).toEqual(TENANT_ROW);
+    expect(tenantRowSchema.safeParse(r.body).success).toBe(true);
     expect(args).toEqual({
       p_name: "한빛고",
       p_region: "서울",
@@ -199,7 +206,7 @@ describe("POST /api/admin/tenants", () => {
       p_tier: "W",
     });
     // fn_create_tenant 가 auth.uid() 로 최고 관리자를 보고 created_by 를 채우므로 service_role 로 부르지 않는다.
-    expect(kit.userClientTokens).toEqual(["token"]);
+    expect(kit.userClientTokens).toEqual(["admin-token"]);
     expect(kit.state.events).not.toContain("rpc:fn_create_tenant");
   });
 
@@ -258,8 +265,10 @@ describe("POST /api/admin/tenants", () => {
   });
 
   test("GET, POST 이외의 메서드는 405 이다", async () => {
-    const r = await callHandler(handler, CREATE, "DELETE");
+    const r = await callRoute(route, { method: "DELETE", body: CREATE });
 
     expect(r.status).toBe(405);
+    expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
+    expect(r.headers.allow).toBe("GET, HEAD, POST");
   });
 });

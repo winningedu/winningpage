@@ -1,5 +1,5 @@
 // /api/admin/tenants 아래 전체 관리자(학교 관리자) 라우트(school-admin, school-admins). 관리자 앱이 .route("/tenants", tenantsSchoolAdmins) 로 붙인다.
-// 글자 그대로인 경로라 tenants.ts 의 /:id 보다 먼저 붙인다. 요청 검증과 응답 모양은 shared/tenant/contract.ts 를 따른다.
+// 글자 그대로인 경로라 tenants-detail.ts 의 /:id 보다 먼저 붙인다. 요청 검증과 응답 모양은 shared/tenants/school-admins.ts 를 따른다.
 //
 // POST /school-admin { tenantId, name, phone, position?, email?, landline? }: 본사가 기관 관리 화면에서 학교 관리자를 발급한다(사 #132, #159, D9). 같은 사람(기관, 이름, 전화번호)이
 //   이미 담임이면 그 행을 학교 관리자로 승격한다. 임시 비밀번호는 응답에 한 번만 싣는다. 대행 세션은 필요 없다. 권한: 메뉴 tenants edit.
@@ -7,12 +7,14 @@
 //   주소(기관 주소), 발급일, 등록취소일은 읽기 전용 값이다. 취소와 재발급은 본사 대행으로 하므로 쓰기 길은 없다.
 //   teachers 는 authenticated 에 막혀 있어 service_role 로 읽는다. 권한: 메뉴 tenants view 이상.
 
+import { PROBLEM_CODE } from "../../../shared/http/codes.js";
 import {
+  type IssuedSchoolAdmin,
   issueSchoolAdminBody,
   SCHOOL_ADMIN_LIMIT,
   type SchoolAdminList,
   schoolAdminsQuery,
-} from "../../../shared/tenant/contract.js";
+} from "../../../shared/tenants/school-admins.js";
 import {
   parseRegisterBody,
   registerResponseBody,
@@ -112,7 +114,7 @@ export const tenantsSchoolAdmins = adminFactory
         throw new ProblemError(
           400,
           "기관, 이름, 전화번호, 직책, 이메일, 일반전화를 확인해 주세요.",
-          "VALIDATION_FAILED",
+          PROBLEM_CODE.VALIDATION_FAILED,
         );
       }
 
@@ -149,7 +151,7 @@ export const tenantsSchoolAdmins = adminFactory
           },
         );
         const { ok: _ok, ...created } = registerResponseBody(result);
-        return c.json(created);
+        return c.json(created satisfies IssuedSchoolAdmin);
       } catch (error) {
         const problem = teacherDbProblem(error);
         if (problem) throw problem;

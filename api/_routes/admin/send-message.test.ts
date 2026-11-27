@@ -1,8 +1,9 @@
 // POST /api/admin/send-message 계약 검증. members 수정 권한이 있는 관리자만 회원에게 자유 문구 문자를 보낸다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { sendMessageResultSchema } from "../../../shared/send-message/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
@@ -43,10 +44,12 @@ vi.mock("../../_lib/messaging/aligo.js", () => ({
   sendPlainMessage: (args: Record<string, unknown>) => kit.send(args),
 }));
 
-import handler from "./send-message.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/send-message" };
 
 const post = (body: unknown, method = "POST") =>
-  callHandler(handler, body, method);
+  callRoute(handler, { method, body });
 
 const sent: Record<string, unknown>[] = [];
 
@@ -87,7 +90,9 @@ describe("POST /api/admin/send-message", () => {
     const r = await post({ profileId: "p-1", text: " 안녕하세요 " });
 
     expect(r.status).toBe(200);
+    expect(r.headers["cache-control"]).toBe("no-store");
     expect(r.body).toEqual({ channel: "sms", logId: 42 });
+    expect(sendMessageResultSchema.safeParse(r.body).success).toBe(true);
     expect(r.body).not.toHaveProperty("ok");
     expect(sent).toEqual([
       { phone: "01012345678", text: "안녕하세요", subject: "위닝에듀 안내" },
@@ -218,8 +223,11 @@ describe("POST /api/admin/send-message", () => {
     });
   });
 
-  test("POST 이외의 메서드는 405", async () => {
-    expect((await post({ text: "x" }, "GET")).status).toBe(405);
+  test("POST 이외의 메서드는 405 이고 Allow 가 POST 다", async () => {
+    const r = await post(undefined, "GET");
+
+    expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe("POST");
     expect(sent).toHaveLength(0);
   });
 });

@@ -69,6 +69,27 @@ describe("기관 경로: 글자 그대로인 경로가 /:id 보다 먼저다", (
     expect((await send("GET", "/api/admin/tenants")).status).toBe(403);
   });
 
+  test("/:id/service-settings 는 GET, PUT 만 받는다", async () => {
+    const response = await send(
+      "DELETE",
+      `/api/admin/tenants/${TENANT}/service-settings`,
+    );
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("GET, HEAD, PUT");
+  });
+
+  test.each([
+    ["POST", "/api/admin/tenants/purge-logs", "GET, HEAD"],
+    ["DELETE", "/api/admin/tenants/school-admins", "GET, HEAD"],
+    ["GET", "/api/admin/tenants/move-student", "POST"],
+  ])("%s %s 는 그 경로의 Allow 로 405 다", async (method, path, allow) => {
+    const response = await send(method, path);
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe(allow);
+  });
+
   test("/:id 는 GET, PATCH 만 받는다", async () => {
     const response = await send("DELETE", `/api/admin/tenants/${TENANT}`);
 

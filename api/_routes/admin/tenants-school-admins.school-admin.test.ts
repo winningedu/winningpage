@@ -18,7 +18,7 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import { issuedSchoolAdminSchema } from "../../../shared/tenant/contract.js";
+import { issuedSchoolAdminSchema } from "../../../shared/tenants/school-admins.js";
 import { callHandler } from "../../_lib/tenantRoute.testkit.js";
 import { app } from "../app.js";
 
@@ -94,7 +94,8 @@ describe("POST /api/admin/tenants/school-admin", () => {
     });
     expect(body.tempPassword).toHaveLength(10);
     // 브라우저가 검증하는 응답 계약을 지킨다.
-    expect(issuedSchoolAdminSchema.safeParse(body).success).toBe(true);
+    // 서버가 보내는 칸을 스키마가 하나도 버리지 않는다(버리면 계약이 서버와 어긋난 것이다).
+    expect(issuedSchoolAdminSchema.parse(body)).toEqual(body);
     expect(registerArgs).toMatchObject({
       p_tenant_id: "tenant-7",
       p_name: "박관리",
