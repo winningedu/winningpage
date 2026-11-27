@@ -75,7 +75,7 @@ function SectionCopyForm({
   const [status, setStatus] = useState<Status>(null);
   const hasEyebrow = SECTIONS_WITH_EYEBROW.includes(sectionKey);
   const queryClient = useQueryClient();
-  // view 권한이면 저장 버튼을 그리지 않는다.
+  // view 권한이면 저장 버튼을 그리지 않고 입력창도 읽기 전용으로 둔다.
   const canEdit = useCanEditSection();
 
   const save = useMutation({
@@ -124,6 +124,7 @@ function SectionCopyForm({
             className={INPUT_CLASS}
             value={eyebrow}
             onChange={(e) => setEyebrow(e.target.value)}
+            readOnly={!canEdit}
           />
         </label>
       )}
@@ -134,6 +135,7 @@ function SectionCopyForm({
           className={INPUT_CLASS}
           value={titleMain}
           onChange={(e) => setTitleMain(e.target.value)}
+          readOnly={!canEdit}
         />
       </label>
       <label htmlFor={titleSubId} className="block">
@@ -143,6 +145,7 @@ function SectionCopyForm({
           className={INPUT_CLASS}
           value={titleSub}
           onChange={(e) => setTitleSub(e.target.value)}
+          readOnly={!canEdit}
         />
       </label>
       <div className="flex items-center gap-3">
