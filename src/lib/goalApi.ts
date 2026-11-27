@@ -15,6 +15,15 @@
 import type { Options } from "ky";
 import type { z } from "zod";
 import {
+  type GoalRankingEntry,
+  rankingResponse,
+} from "../../shared/goal/ranking.js";
+import {
+  type GoalStudentPayload,
+  type GoalTargets,
+  studentResponse,
+} from "../../shared/goal/student.js";
+import {
   type TimerBodyInput,
   type TimerSubject,
   type TimerSummary,
@@ -27,97 +36,12 @@ import { getAuthHeader } from "./apiFetch";
 import { ApiError, api } from "./http/client";
 import { parseTenantReason, type TenantBlockReason } from "./tenantBlock";
 
+export type { GoalStudentPayload };
+
 // ---------------------------------------------------------------------------
 // 응답 payload 타입, api/_lib/goal/repo.ts buildXxxPayload()/api/goal/*.ts 응답 조립과
 // 실제 select 컬럼(카멜 변환 후)에 맞춰 정의한다.
 // ---------------------------------------------------------------------------
-
-interface GoalTargetBlock {
-  university: string;
-  department: string;
-  naesinCut: number | null;
-  jungsiCut: number | null;
-}
-
-interface GoalTargets {
-  ideal: GoalTargetBlock;
-  min: GoalTargetBlock;
-}
-
-interface GoalProbabilityHistoryEntry {
-  recordedAt: string;
-  idealSusi: number | null;
-  idealJungsi: number | null;
-  minSusi: number | null;
-  minJungsi: number | null;
-}
-
-/** GET /api/goal/student 200 본문(온보딩 완료 학생), api/_lib/goal/repo.ts buildStudentPayload(). */
-export interface GoalStudentPayload {
-  onboarded: true;
-  /** 학생 시간대(IANA). 학생 화면의 "오늘"은 이 시간대의 달력 날짜다. */
-  timeZone: string;
-  status: string;
-  profile: {
-    name: string | null;
-    schoolType: string;
-    grade: string;
-    schoolCutType: string;
-  };
-  targets: GoalTargets;
-  scores: {
-    currentScore: number | null;
-    convertedGrade: number | null;
-    currentMogo: number | null;
-    remainNaesin: number | null;
-    remainMogo: number | null;
-    lastNaesinExam: string;
-    lastMogoExam: string;
-  };
-  baseProbs: {
-    idealSusi: number | null;
-    idealJungsi: number | null;
-    minSusi: number | null;
-    minJungsi: number | null;
-  };
-  rates: {
-    idealSusiBonus: number | null;
-    idealJungsiBonus: number | null;
-    minSusiBonus: number | null;
-    minJungsiBonus: number | null;
-  };
-  cumulativeBonus: {
-    idealSusi: number;
-    idealJungsi: number;
-    minSusi: number;
-    minJungsi: number;
-  };
-  probs: {
-    idealSusi: number | null;
-    idealJungsi: number | null;
-    minSusi: number | null;
-    minJungsi: number | null;
-  };
-  weeklySchedule: Record<string, unknown>;
-  weekIdeal: number;
-  weekMin: number;
-  actualStartDate: string | null;
-  recordCount: number;
-  lastRecordDate: string | null;
-  jungsiAvailable: boolean;
-  probabilityHistory: GoalProbabilityHistoryEntry[];
-  /** 최근 7일 goal_daily_records 순공시간 평균. 기록 0건이면 null(억지 산출 금지). */
-  recentAvgStudyHours: number | null;
-  /** 내 정보 수정(내 목표 대학·내 정보 수정 화면) 폼 hydration 전용 — 원본 입력값. */
-  targetInput: {
-    ideal: { university: string; department: string };
-    min: { university: string; department: string };
-  };
-  /** naesin_scores 원본(intake.ts 저장 모양) — 없으면 아직 저장된 적 없음. */
-  naesinInput: Record<string, unknown> | null;
-  /** mock_exam_scores 원본(intake.ts 저장 모양) — 없으면 아직 저장된 적 없음. */
-  mockInput: Record<string, unknown> | null;
-}
 
 /** 오늘 확률 스냅샷 — api/_routes/goal/daily-record.ts buildProbsPayload(). */
 interface GoalProbsBlock {
@@ -345,9 +269,11 @@ export async function fetchGoalStudent(): Promise<FetchGoalStudentResult> {
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/student", {
-      method: "GET",
-    });
+    response = await goalRequest(
+      "goal/student",
+      { method: "GET" },
+      studentResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/student 호출 오류:", error);
     return { kind: "error" };
@@ -1148,12 +1074,6 @@ export async function deleteGoalPlanTask(id: number) {
 //                                          본인이 오늘 기록을 제출했을 때만
 //                                          {rank,name,hours}이고 그 외엔 null
 //                                          (api/_routes/goal/ranking.js 참고).
-interface GoalRankingEntry {
-  rank: number;
-  name: string;
-  hours: number;
-}
-
 export type FetchGoalRankingResult =
   | { kind: "no-session" }
   | { kind: "error" }
@@ -1173,9 +1093,11 @@ export async function fetchGoalRanking(): Promise<FetchGoalRankingResult> {
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/ranking", {
-      method: "GET",
-    });
+    response = await goalRequest(
+      "goal/ranking",
+      { method: "GET" },
+      rankingResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/ranking 호출 오류:", error);
     return { kind: "error" };
