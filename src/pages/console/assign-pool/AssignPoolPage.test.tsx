@@ -459,7 +459,7 @@ describe("W12 휴대폰", () => {
 });
 
 describe("W12 확인 필요", () => {
-  const CONFIRM_URL = "POST /api/console/assign-pool/confirm";
+  const CONFIRM_URL = "POST /api/console/assign-pool";
   const u1 = poolStudent("u1", {
     name: "가*다",
     enrollmentVersion: 2,

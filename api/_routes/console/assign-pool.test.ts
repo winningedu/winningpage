@@ -208,7 +208,9 @@ describe("GET /api/console/assign-pool", () => {
     const r = await get({ pageSize: "2", page: "2" });
     expect(ids(r)).toHaveLength(1);
     expect(r.body).toMatchObject({ total: 3, page: 2, pageSize: 2 });
-    expect((await get({ page: "x" })).status).toBe(400);
+    const bad = await get({ page: "x" });
+    expect(bad.status).toBe(400);
+    expect(bad.body).toMatchObject({ status: 400, code: "BAD_REQUEST" });
   });
 
   test("pool students with the same name keep the plain real name", async () => {

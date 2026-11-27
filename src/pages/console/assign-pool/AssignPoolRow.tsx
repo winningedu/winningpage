@@ -158,7 +158,7 @@ export default function AssignPoolRow({
     setMessage(null);
     setSaving(true);
     try {
-      const res = await consoleRequest("/api/console/assign-pool/confirm", {
+      const res = await consoleRequest("/api/console/assign-pool", {
         method: "POST",
         body: {
           studentId: student.studentId,

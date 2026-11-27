@@ -11,8 +11,6 @@ export const routes: Record<string, RouteLoader> = {
   "confirm-payment": () => import("./confirm-payment.js"),
   "console/admission-coaching": () => import("./console/admission-coaching.js"),
   "console/assign-pool": () => import("./console/assign-pool.js"),
-  "console/assign-pool/confirm": () =>
-    import("./console/assign-pool/confirm.js"),
   "console/change-password": () => import("./console/change-password.js"),
   "console/classes": () => import("./console/classes.js"),
   "console/classes/capacity": () => import("./console/classes/capacity.js"),

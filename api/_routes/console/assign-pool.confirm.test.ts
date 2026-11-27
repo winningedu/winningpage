@@ -1,4 +1,4 @@
-// POST /api/console/assign-pool/confirm 계약 검증. 확인 필요 학생을 확인하면 미배정 목록에서 빠진다.
+// POST /api/console/assign-pool 계약 검증. 확인 필요 학생을 확인하면 미배정 목록에서 빠진다.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -7,17 +7,17 @@ import {
   createKitState,
   type KitState,
   schoolAdminActor,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../../_lib/supabaseAdmin.js")>()),
+vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../_lib/supabaseAdmin.js")>()),
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./confirm.js";
+import handler from "./assign-pool.js";
 
 const post = (body: unknown) => callHandler(handler, body, "POST");
 const confirmArgs: Record<string, unknown>[] = [];
@@ -38,7 +38,7 @@ beforeEach(() => {
 const audits = () =>
   kit.state.inserts.filter((i) => i.table === "admin_access_logs");
 
-describe("POST /api/console/assign-pool/confirm", () => {
+describe("POST /api/console/assign-pool", () => {
   test("a school admin confirms any class in the tenant, with the version and an audit row", async () => {
     const r = await post({ studentId: "s1", expectedVersion: 2 });
 
