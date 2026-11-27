@@ -255,6 +255,144 @@ describe("pick-records list", () => {
   });
 });
 
+describe("pick-records link edits", () => {
+  const stored = {
+    fromId: "core",
+    toId: "a",
+    type: "background",
+    strength: "implicit",
+    source: "model",
+    confirmed: false,
+    deleted: false,
+    note: null,
+    quoteFrom: "x",
+    quoteTo: "y",
+  };
+  beforeEach(() => {
+    m.loadSession.mockResolvedValue(session(okState));
+    m.loadRecordLinks.mockResolvedValue([stored]);
+  });
+
+  test("delete-link marks the pair deleted and returns the list body", async () => {
+    const res = await call({
+      action: "delete-link",
+      fromId: "a",
+      toId: "core",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty("ok");
+    pickLinkResponseSchema.parse(res.body);
+    expect(m.saveRecordLink).toHaveBeenCalledWith(
+      expect.anything(),
+      "s1",
+      expect.objectContaining({ fromId: "core", toId: "a", deleted: true }),
+    );
+  });
+
+  test("confirm-link confirms an implicit link", async () => {
+    await call({ action: "confirm-link", fromId: "core", toId: "a" });
+    expect(m.saveRecordLink).toHaveBeenCalledWith(
+      expect.anything(),
+      "s1",
+      expect.objectContaining({ confirmed: true }),
+    );
+  });
+
+  test("add-link needs a note and stores a confirmed explicit student link", async () => {
+    const bad = await call({
+      action: "add-link",
+      fromId: "core",
+      toId: "b",
+      type: "complement",
+      note: " ",
+    });
+    expect(bad.status).toBe(400);
+    expect(bad.body).toMatchObject({ code: "NOTE_REQUIRED" });
+    expect(m.saveRecordLink).not.toHaveBeenCalled();
+    const ok = await call({
+      action: "add-link",
+      fromId: "core",
+      toId: "b",
+      type: "complement",
+      note: "국어에서 같은 소재를 다뤘어요",
+    });
+    expect(ok.status).toBe(200);
+    expect(m.saveRecordLink).toHaveBeenCalledWith(
+      expect.anything(),
+      "s1",
+      expect.objectContaining({
+        source: "student",
+        strength: "explicit",
+        confirmed: true,
+        note: "국어에서 같은 소재를 다뤘어요",
+      }),
+    );
+  });
+
+  test("add-link with an unknown type or the same activity keeps its own code", async () => {
+    const type = await call({
+      action: "add-link",
+      fromId: "core",
+      toId: "b",
+      type: "nope",
+      note: "x",
+    });
+    expect(type.status).toBe(400);
+    expect(type.body).toMatchObject({ code: "INVALID_LINK_TYPE" });
+    const same = await call({
+      action: "add-link",
+      fromId: "core",
+      toId: "core",
+      type: "complement",
+      note: "x",
+    });
+    expect(same.status).toBe(400);
+    expect(same.body).toMatchObject({ code: "SAME_ACTIVITY" });
+  });
+
+  test("add-link keeps the unchecked list status when the link check failed", async () => {
+    m.loadSession.mockResolvedValue(
+      session({
+        steps: {
+          link: { ...okState.steps.link, status: "failed" },
+        },
+      }),
+    );
+    m.loadRecordLinks.mockResolvedValue([]);
+    const res = await call({
+      action: "add-link",
+      fromId: "core",
+      toId: "b",
+      type: "complement",
+      note: "국어에서 같은 소재를 다뤘어요",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ linkStatus: "unchecked" });
+  });
+
+  test("delete-link on a missing pair is 404 LINK_NOT_FOUND", async () => {
+    const res = await call({ action: "delete-link", fromId: "a", toId: "b" });
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ code: "LINK_NOT_FOUND" });
+  });
+
+  test("a link edit after the analysis started is 409 SESSION_LOCKED", async () => {
+    m.loadSession.mockResolvedValue({ ...session(okState), current_step: 3 });
+    const res = await call({
+      action: "confirm-link",
+      fromId: "core",
+      toId: "a",
+    });
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({
+      code: "SESSION_LOCKED",
+      detail:
+        "분석을 시작한 뒤에는 활동을 바꿀 수 없어요. 파기하고 새로 시작해 주세요.",
+    });
+    expect(m.saveRecordLink).not.toHaveBeenCalled();
+  });
+});
+
 describe("pick-records guards", () => {
   test("without a token it is a 401 UNAUTHENTICATED problem with no-store", async () => {
     const res = await callRoute(route, {

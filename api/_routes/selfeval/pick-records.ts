@@ -199,6 +199,47 @@ async function handleList(
   return c.json(await listPayload(db, userId, session));
 }
 
+async function handleLinkEdit(
+  c: Context<UserEnv>,
+  db: Db,
+  userId: string,
+  session: SessionRow,
+  body: Extract<
+    PickBody,
+    { action: "delete-link" | "confirm-link" | "add-link" }
+  >,
+) {
+  const stored = await loadRecordLinks(db, session.id);
+  const result =
+    body.action === "delete-link"
+      ? applyDeleteLink(stored, body.fromId, body.toId)
+      : body.action === "confirm-link"
+        ? applyConfirmLink(stored, body.fromId, body.toId)
+        : applyAddLink(
+            stored,
+            body,
+            new Set(
+              (await loadCandidates(db, userId, session)).candidates
+                .filter((r) => r.fit !== null)
+                .map((r) => r.activity.id),
+            ),
+          );
+  if (!result.ok) {
+    throw selfevalProblem(
+      result.code === "LINK_NOT_FOUND" ? 404 : 400,
+      result.code,
+      result.message,
+    );
+  }
+  await saveRecordLink(db, session.id, result.link);
+  await updateSession(db, userId, session.id, {
+    last_activity_at: new Date().toISOString(),
+  });
+  return c.json(
+    await listPayload(db, userId, session, linkStatusOf(session.step_state)),
+  );
+}
+
 /** 연계 판정. 이미 판정을 마쳤으면 저장된 연계를 돌려주고 모델을 다시 부르지 않는다(명세 No.180). */
 async function handleLink(
   c: Context<UserEnv>,
@@ -265,6 +306,13 @@ export const pickRecords = userFactory
       throw selfevalProblem(409, "SESSION_LOCKED", LOCKED_MESSAGE);
     }
     if (body.action === "link") return handleLink(c, db, me.id, session);
+    if (
+      body.action === "delete-link" ||
+      body.action === "confirm-link" ||
+      body.action === "add-link"
+    ) {
+      return handleLinkEdit(c, db, me.id, session, body);
+    }
     throw new Error(`아직 옮기지 않은 action: ${body.action}`);
   })
   .all("/", methodNotAllowed("POST"));
