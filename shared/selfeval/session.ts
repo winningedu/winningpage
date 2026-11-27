@@ -123,7 +123,7 @@ export type SessionBasics = z.output<typeof sessionBasicsSchema>;
 // 응답
 // ---------------------------------------------------------------------------
 
-const stepIssueSchema = z.looseObject({
+export const stepIssueSchema = z.looseObject({
   code: z.string(),
   message: z.string(),
   path: z.string().optional(),
@@ -207,7 +207,7 @@ export const sessionViewSchema = z.looseObject({
 });
 
 const analysisFieldSchema = z.enum(ANALYSIS_FIELDS);
-const analysisSchema = z.looseObject({
+export const analysisSchema = z.looseObject({
   values: z.record(analysisFieldSchema, z.string()),
   sources: z.record(
     analysisFieldSchema,
