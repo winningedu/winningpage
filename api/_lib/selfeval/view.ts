@@ -31,8 +31,6 @@ import {
 } from "./types.js";
 
 const GRADES: readonly HighGrade[] = ["고1", "고2", "고3"];
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ---------------------------------------------------------------------------
 // 목록
@@ -281,21 +279,4 @@ export function detailBody(
     regenerationsLeft: MAX_REGENERATIONS - session.regenerate_count,
     current: view(current),
   };
-}
-
-// ---------------------------------------------------------------------------
-// 쿼리
-// ---------------------------------------------------------------------------
-
-export type ReportsQuery =
-  | { ok: true; sessionId?: string }
-  | { ok: false; reason: string };
-
-export function parseReportsQuery(query: unknown): ReportsQuery {
-  const q = (query ?? {}) as Record<string, unknown>;
-  if (q.sessionId === undefined) return { ok: true };
-  if (typeof q.sessionId !== "string" || !UUID_RE.test(q.sessionId)) {
-    return { ok: false, reason: "sessionId 형식이 올바르지 않아요." };
-  }
-  return { ok: true, sessionId: q.sessionId };
 }

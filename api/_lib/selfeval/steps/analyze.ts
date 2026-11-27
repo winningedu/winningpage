@@ -19,21 +19,14 @@ import {
   type StepSpec,
 } from "../runModelStep.js";
 import { guardStep } from "../session.js";
-import {
-  type ActivityRecordLike,
-  ANALYSIS_FIELDS,
-  type Analysis,
-  type AnalysisField,
-  type AnalysisSource,
+import type {
+  ActivityRecordLike,
+  Analysis,
+  AnalysisField,
+  AnalysisSource,
 } from "../types.js";
 import { validateAnalyzeResponse } from "../validation.js";
-import {
-  isRecord,
-  isUuid,
-  readAnalysis,
-  splitActivities,
-  touchSession,
-} from "./shared.js";
+import { readAnalysis, splitActivities, touchSession } from "./shared.js";
 
 /** 분석 완료 단계. 이 값 이상이어야 분석을 고치거나 충돌을 정할 수 있다. */
 const ANALYZED_STEP = 3;
@@ -43,62 +36,6 @@ export type AnalyzeResult = {
   analysisSource: AnalysisSource;
   currentStep: number;
 };
-
-// ---------------------------------------------------------------------------
-// 요청 본문
-// ---------------------------------------------------------------------------
-
-export type AnalyzeBody =
-  | { sessionId: string; action: "run" }
-  | {
-      sessionId: string;
-      action: "save";
-      edits: Partial<Record<AnalysisField, string>>;
-    }
-  | {
-      sessionId: string;
-      action: "resolve-conflict";
-      index: number;
-      choice: "a" | "b";
-    };
-
-export function validateAnalyzeBody(
-  body: unknown,
-): { ok: true; body: AnalyzeBody } | { ok: false; message: string } {
-  const bad = (message: string) => ({ ok: false as const, message });
-  if (!isRecord(body)) return bad("요청 형식이 올바르지 않아요.");
-  const { sessionId, action } = body;
-  if (!isUuid(sessionId)) return bad("sessionId 형식이 올바르지 않아요.");
-  if (action === "run") return { ok: true, body: { sessionId, action } };
-  if (action === "save") {
-    const { edits } = body;
-    if (!isRecord(edits)) return bad("edits 가 필요해요.");
-    const clean: Partial<Record<AnalysisField, string>> = {};
-    for (const [key, value] of Object.entries(edits)) {
-      if (
-        !(ANALYSIS_FIELDS as readonly string[]).includes(key) ||
-        typeof value !== "string"
-      ) {
-        return bad("edits 항목 형식이 올바르지 않아요.");
-      }
-      clean[key as AnalysisField] = value;
-    }
-    return { ok: true, body: { sessionId, action, edits: clean } };
-  }
-  if (action === "resolve-conflict") {
-    const { index, choice } = body;
-    if (
-      typeof index !== "number" ||
-      !Number.isInteger(index) ||
-      index < 0 ||
-      (choice !== "a" && choice !== "b")
-    ) {
-      return bad("index 와 choice 형식이 올바르지 않아요.");
-    }
-    return { ok: true, body: { sessionId, action, index, choice } };
-  }
-  return bad("action 은 run, save, resolve-conflict 중 하나여야 해요.");
-}
 
 // ---------------------------------------------------------------------------
 // 입력 조립(순수)

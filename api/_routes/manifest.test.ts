@@ -223,9 +223,18 @@ const routerRewrites = vercelJson.rewrites.filter((rewrite) =>
 
 describe("vercel.json 라우터 rewrite", () => {
   test("router 로 가는 rewrite 는 30초, 60초, 기본 진입 함수 순서다", () => {
+    // 빈 매니페스트(라우트를 모두 Hono 로 옮긴 한도)는 rewrite 를 두지 않는다.
+    const limited = [
+      { routes: routes30, destination: "/api/router-30" },
+      { routes: routes60, destination: "/api/router-60" },
+    ]
+      .filter(({ routes }) => Object.keys(routes).length > 0)
+      .map(({ routes, destination }) => ({
+        source: alternation(routes),
+        destination,
+      }));
     expect(routerRewrites).toEqual([
-      { source: alternation(routes30), destination: "/api/router-30" },
-      { source: alternation(routes60), destination: "/api/router-60" },
+      ...limited,
       // Vercel 은 원본 경로로 source 를 맞춰 보고 함수에는 정규화된 req.url 을 넘긴다.
       // 그래서 /api/goal/../change-phone 이 catch-all 에 걸린 뒤 /api/change-phone 으로 도착한다.
       // catch-all 은 . 과 .. 구간이 있는 경로를 받지 않아야 한다.
@@ -286,7 +295,7 @@ describe("vercel.json rewrite 시뮬레이션", () => {
   });
 
   test("점이 들어 있어도 구간 전체가 점이 아니면 catch-all 에 걸린다", () => {
-    const catchAll = new RegExp(`^${routerRewrites[2]?.source}$`);
+    const catchAll = new RegExp(`^${routerRewrites.at(-1)?.source}$`);
     const missed = [
       "/api/change-phone",
       "/api/change-phone/",

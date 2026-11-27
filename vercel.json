@@ -6,8 +6,12 @@
       "destination": "/api/app-30"
     },
     {
-      "source": "/api/((?:selfeval/reports|selfeval/session)/?)",
-      "destination": "/api/router-30"
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))selfeval/(?:reports|session)/?)",
+      "destination": "/api/app-30"
+    },
+    {
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))selfeval/(?:analyze|finalize|manual-logs|pick-records|report|verify|write)/?)",
+      "destination": "/api/app-60"
     },
     {
       "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/(?:knowledge-dedupe/?))",
@@ -26,7 +30,7 @@
       "destination": "/api/app"
     },
     {
-      "source": "/api/((?:goal/admin/cuts/backfill|growth/collect|growth/report|inquiry/evaluate-report|inquiry/plan-report|inquiry/recommend-topics|performance/admin-embed|performance/analyze-guide|performance/design-report|performance/evaluate|performance/recommend-topics|selfeval/analyze|selfeval/finalize|selfeval/manual-logs|selfeval/pick-records|selfeval/report|selfeval/verify|selfeval/write)/?)",
+      "source": "/api/((?:goal/admin/cuts/backfill|growth/collect|growth/report|inquiry/evaluate-report|inquiry/plan-report|inquiry/recommend-topics|performance/admin-embed|performance/analyze-guide|performance/design-report|performance/evaluate|performance/recommend-topics)/?)",
       "destination": "/api/router-60"
     },
     {

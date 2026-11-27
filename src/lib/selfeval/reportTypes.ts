@@ -239,10 +239,9 @@ export type ReportView = {
   payload: ReportPayload | null;
 };
 
-/** GET, POST /api/selfeval/report 성공 본문. */
+/** GET, POST /api/selfeval/report 성공 본문. 서버 계약은 shared/selfeval/report.ts 다. */
 export type ReportResponse = {
-  ok: true;
   /** POST 에서만. 같은 리비전의 완성본을 다시 만들지 않고 돌려줬는지. */
-  reused?: boolean;
+  reused?: boolean | undefined;
   report: ReportView;
 };

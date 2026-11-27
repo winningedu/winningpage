@@ -50,7 +50,6 @@ import {
   repickSentenceEvidence,
   runWrite,
   saveEdit,
-  validateWriteBody,
 } from "./write.js";
 
 const db = {} as never;
@@ -784,74 +783,5 @@ describe("repickSentenceEvidence", () => {
       [],
     );
     expect(early.kind).toBe("order");
-  });
-});
-
-describe("validateWriteBody repick-evidence", () => {
-  const sidR = "3f2b8c1e-9d4a-4b6e-8a1c-0e5d7f9a2b3c";
-  it("repick-evidence 는 sentenceId 와 refId, item 문자열 목록이 필요하다", () => {
-    const ok = validateWriteBody({
-      sessionId: sidR,
-      action: "repick-evidence",
-      sentenceId: "p1-s1",
-      picks: [{ refId: "c1", item: "method" }],
-    });
-    expect(ok.ok).toBe(true);
-    for (const bad of [
-      { sentenceId: "p1-s1" },
-      { sentenceId: "", picks: [] },
-      { sentenceId: "p1-s1", picks: [{ refId: 1, item: "method" }] },
-      {
-        sentenceId: "p1-s1",
-        picks: new Array(31).fill({ refId: "c1", item: "method" }),
-      },
-    ]) {
-      expect(
-        validateWriteBody({
-          sessionId: sidR,
-          action: "repick-evidence",
-          ...bad,
-        }).ok,
-      ).toBe(false);
-    }
-  });
-});
-
-describe("validateWriteBody", () => {
-  const sid = "3f2b8c1e-9d4a-4b6e-8a1c-0e5d7f9a2b3c";
-  it("generate 는 sessionId 만 있으면 된다", () => {
-    expect(validateWriteBody({ sessionId: sid, action: "generate" }).ok).toBe(
-      true,
-    );
-  });
-  it("edit 는 문자열 문단 배열이 필요하다", () => {
-    expect(
-      validateWriteBody({ sessionId: sid, action: "edit", paragraphs: ["a"] })
-        .ok,
-    ).toBe(true);
-    expect(
-      validateWriteBody({ sessionId: sid, action: "edit", paragraphs: [] }).ok,
-    ).toBe(false);
-    expect(
-      validateWriteBody({ sessionId: sid, action: "edit", paragraphs: [1] }).ok,
-    ).toBe(false);
-  });
-  it("confirm-feeling 은 sentenceId 가 필요하다", () => {
-    expect(
-      validateWriteBody({
-        sessionId: sid,
-        action: "confirm-feeling",
-        sentenceId: "p1-s1",
-      }).ok,
-    ).toBe(true);
-    expect(
-      validateWriteBody({ sessionId: sid, action: "confirm-feeling" }).ok,
-    ).toBe(false);
-  });
-  it("sessionId 나 action 이 틀리면 거절한다", () => {
-    expect(validateWriteBody({ sessionId: "x", action: "generate" }).ok).toBe(
-      false,
-    );
-    expect(validateWriteBody({ sessionId: sid, action: "zzz" }).ok).toBe(false);
   });
 });

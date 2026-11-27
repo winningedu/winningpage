@@ -11,29 +11,37 @@
 //   manual        직접 입력 활동 1건을 만들어 핵심으로 확정한다(current_step 3).
 //
 //   list, link, delete-link, confirm-link, add-link 는 같은 본문을 돌려준다.
-//     200 { ok, candidates[CandidateRow], selection:{coreId,supportIds}|null,
+//     200 { candidates[CandidateRow], selection:{coreId,supportIds}|null,
 //           auto:{coreId,supportIds,coreMismatch,noneAboveThreshold}|null,
 //           links[RecordLink], linkStatus:"pending"|"ok"|"unchecked", linkUnchecked,
 //           maxSelect, excludedIds[], sourceCounts, direction, planCandidates[], planItem,
 //           growthApplied, currentStep }
 //     link 는 { cached, attempts?, linkError? } 를 더한다. 호출 실패나 시도 소진이면 200 으로
 //     linkUnchecked true 와 적합도 상위 3건 추천을 돌려주고 세션은 닫지 않는다(명세 No.196).
-//   select 200 { ok, selection, coreMismatch, warnings[], excludedIds[], maxSelect, currentStep:2 }
-//   manual 200 { ok, activityRecordId, selection:{coreId,supportIds:[]}, currentStep:3 }
+//   select 200 { selection, coreMismatch, warnings[], excludedIds[], maxSelect, currentStep:2 }
+//   manual 200 { activityRecordId, selection:{coreId,supportIds:[]}, currentStep:3 }
 //
-//   400 INVALID_BODY / ACTIVITY_NAME_REQUIRED / SUBJECT_REQUIRED
+//   400 VALIDATION_FAILED / ACTIVITY_NAME_REQUIRED / SUBJECT_REQUIRED
 //       / CORE_REQUIRED / UNAVAILABLE / UNKNOWN_ACTIVITY / TOO_MANY_SUPPORT
 //       / NOTE_REQUIRED / INVALID_LINK_TYPE / SAME_ACTIVITY
 //   403 NO_ENTITLEMENT
 //   404 SESSION_NOT_FOUND / LINK_NOT_FOUND
 //   409 SESSION_NOT_OPEN / STEP_ORDER { requiredStep } / SESSION_LOCKED / STEP_RUNNING
 //
+// 요청 형식은 validate 가 먼저 거르고(계약은 shared/selfeval/pick.ts), 직접 입력의 필수 항목, 이용권, 세션 순으로 본다.
 // 규칙은 pick.ts, pickList.ts, pickBody.ts, link*.ts, steps/link.ts 에서 검증한다.
 
-import type { VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
+import { type PickBody, pickBody } from "../../../shared/selfeval/pick.js";
 import { callStructured } from "../../_lib/ai/gemini.js";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { fail, readSelfevalAccess } from "../../_lib/selfeval/access.js";
+import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
+import {
+  readSelfevalAccess,
+  selfevalProblem,
+} from "../../_lib/selfeval/access.js";
 import {
   type Db,
   insertManualActivity,
@@ -58,6 +66,7 @@ import {
 import {
   manualToAnalysis,
   manualToRecordInsert,
+  validateManualInput,
 } from "../../_lib/selfeval/manual.js";
 import {
   applySelection,
@@ -70,10 +79,8 @@ import {
   manualSelectionRow,
   nextStepAfterManualPick,
   nextStepAfterPick,
-  type PickBody,
   pickContextFrom,
   selectionRows,
-  validatePickBody,
 } from "../../_lib/selfeval/pickBody.js";
 import {
   composePickList,
@@ -85,7 +92,10 @@ import {
 import type { SessionRow } from "../../_lib/selfeval/rows.js";
 import { outcomeToHttp } from "../../_lib/selfeval/runModelStep.js";
 import { guardStep } from "../../_lib/selfeval/session.js";
-import { sendOutcome } from "../../_lib/selfeval/stepResponse.js";
+import {
+  assertSessionOpen,
+  outcomeBody,
+} from "../../_lib/selfeval/stepResponse.js";
 import { runLinkStep } from "../../_lib/selfeval/steps/link.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
@@ -93,6 +103,12 @@ const NOT_FOUND = "자기평가서 세션을 찾을 수 없어요.";
 const UNLINKED_WARNING = "다른 기록과 이어지는 지점을 찾지 못했어요";
 const LOCKED_MESSAGE =
   "분석을 시작한 뒤에는 활동을 바꿀 수 없어요. 파기하고 새로 시작해 주세요.";
+
+const guard = user({
+  unhandledMessage: "자기평가서 활동 선택에 실패했습니다.",
+  logLabel: "selfeval/pick-records",
+  headers: { "Cache-Control": "no-store" },
+});
 
 /** 후보 계산에 필요한 읽기. list 와 select 와 연계 편집이 같은 후보를 보도록 한곳에서 만든다. */
 async function loadCandidates(db: Db, userId: string, session: SessionRow) {
@@ -150,7 +166,6 @@ async function listPayload(
   };
   const planCandidates = snapshot ? matchPlanItems(snapshot, matchCtx) : [];
   return {
-    ok: true,
     ...composed,
     selection,
     sourceCounts: sourceCounts(records),
@@ -165,31 +180,31 @@ async function listPayload(
   };
 }
 
+/** 선택 단계(단계 1 이상)인지 본다. 아니면 409 STEP_ORDER 를 던진다. */
+function requirePickStep(session: SessionRow): void {
+  const step = guardStep(session.current_step, "pick");
+  if (step.ok) return;
+  throw selfevalProblem(409, step.code, "기본 입력을 먼저 저장해 주세요.", {
+    requiredStep: step.requiredStep,
+  });
+}
+
 async function handleList(
-  res: VercelResponse,
+  c: Context<UserEnv>,
   db: Db,
   userId: string,
   session: SessionRow,
 ) {
-  if (!requirePickStep(res, session)) return;
-  res.status(200).json(await listPayload(db, userId, session));
-}
-
-function requirePickStep(res: VercelResponse, session: SessionRow): boolean {
-  const guard = guardStep(session.current_step, "pick");
-  if (guard.ok) return true;
-  fail(res, 409, guard.code, "기본 입력을 먼저 저장해 주세요.", {
-    requiredStep: guard.requiredStep,
-  });
-  return false;
+  requirePickStep(session);
+  return c.json(await listPayload(db, userId, session));
 }
 
 async function handleSelect(
-  res: VercelResponse,
+  c: Context<UserEnv>,
   db: Db,
   userId: string,
   session: SessionRow,
-  body: { coreId: string; supportIds: string[] },
+  body: Extract<PickBody, { action: "select" }>,
 ) {
   const { candidates, ctx } = await loadCandidates(db, userId, session);
   const status = linkStatusOf(session.step_state);
@@ -202,10 +217,7 @@ async function handleSelect(
     targetChars: session.target_chars,
   });
   const applied = applySelection(candidates, body, ctx, maxSelect);
-  if (!applied.ok) {
-    fail(res, 400, applied.code, applied.message);
-    return;
-  }
+  if (!applied.ok) throw selfevalProblem(400, applied.code, applied.message);
   await replaceSessionActivities(
     db,
     userId,
@@ -228,8 +240,7 @@ async function handleSelect(
     status === "ok" || links.length > 0
       ? unlinkedIds(links, applied.supportIds)
       : [];
-  res.status(200).json({
-    ok: true,
+  return c.json({
     selection: { coreId: applied.coreId, supportIds: applied.supportIds },
     coreMismatch: applied.coreMismatch,
     warnings: [
@@ -242,61 +253,39 @@ async function handleSelect(
   });
 }
 
-/** 연계 판정. 이미 판정을 마쳤으면 저장된 연계를 돌려주고 모델을 다시 부르지 않는다(명세 No.180). */
-async function handleLink(
-  res: VercelResponse,
+async function handleManual(
+  c: Context<UserEnv>,
   db: Db,
   userId: string,
   session: SessionRow,
+  input: Extract<PickBody, { action: "manual" }>["input"],
 ) {
-  if (!requirePickStep(res, session)) return;
-  const listed = async (extra: Record<string, unknown>, status?: LinkStatus) =>
-    res
-      .status(200)
-      .json({ ...(await listPayload(db, userId, session, status)), ...extra });
-  if (linkStatusOf(session.step_state) === "ok") {
-    await listed({ cached: true });
-    return;
-  }
-  const { candidates } = await loadCandidates(db, userId, session);
-  const { coreId } = autoSelect(candidates);
-  if (coreId === null) {
-    await listed({ cached: false });
-    return;
-  }
-  const out = await runLinkStep(
+  const activityRecordId = await insertManualActivity(
     db,
-    userId,
-    session,
-    {
-      callStructured,
-      now: () => new Date().toISOString(),
-      startedAt: Date.now(),
-    },
-    candidates,
-    coreId,
+    manualToRecordInsert(input, userId),
   );
-  if (out.kind === "skipped") {
-    await listed({ cached: false });
-    return;
-  }
-  if (out.kind === "ok") {
-    await listed({ cached: false, attempts: out.attempts }, "ok");
-    return;
-  }
-  if (out.kind === "failure" || out.kind === "exhausted") {
-    // 연계 확인이 안 돼도 세션은 이어간다. 적합도 상위 3건 추천으로 돌아간다(명세 No.196).
-    await listed(
-      { cached: false, linkError: outcomeToHttp(out).code },
-      "unchecked",
-    );
-    return;
-  }
-  sendOutcome(res, out, () => ({}));
+  await replaceSessionActivities(db, userId, session.id, [
+    manualSelectionRow(
+      session.id,
+      userId,
+      activityRecordId,
+      manualToAnalysis(input),
+    ),
+  ]);
+  const step = nextStepAfterManualPick(session.current_step);
+  await updateSession(db, userId, session.id, {
+    current_step: step,
+    last_activity_at: new Date().toISOString(),
+  });
+  return c.json({
+    activityRecordId,
+    selection: { coreId: activityRecordId, supportIds: [] },
+    currentStep: step,
+  });
 }
 
 async function handleLinkEdit(
-  res: VercelResponse,
+  c: Context<UserEnv>,
   db: Db,
   userId: string,
   session: SessionRow,
@@ -321,124 +310,103 @@ async function handleLinkEdit(
             ),
           );
   if (!result.ok) {
-    fail(
-      res,
+    throw selfevalProblem(
       result.code === "LINK_NOT_FOUND" ? 404 : 400,
       result.code,
       result.message,
     );
-    return;
   }
   await saveRecordLink(db, session.id, result.link);
   await updateSession(db, userId, session.id, {
     last_activity_at: new Date().toISOString(),
   });
-  res
-    .status(200)
-    .json(
-      await listPayload(db, userId, session, linkStatusOf(session.step_state)),
-    );
+  return c.json(
+    await listPayload(db, userId, session, linkStatusOf(session.step_state)),
+  );
 }
 
-async function handleManual(
-  res: VercelResponse,
+/** 연계 판정. 이미 판정을 마쳤으면 저장된 연계를 돌려주고 모델을 다시 부르지 않는다(명세 No.180). */
+async function handleLink(
+  c: Context<UserEnv>,
   db: Db,
   userId: string,
   session: SessionRow,
-  input: Parameters<typeof manualToRecordInsert>[0],
 ) {
-  const activityRecordId = await insertManualActivity(
+  requirePickStep(session);
+  const listed = async (extra: Record<string, unknown>, status?: LinkStatus) =>
+    c.json({ ...(await listPayload(db, userId, session, status)), ...extra });
+  if (linkStatusOf(session.step_state) === "ok") {
+    return listed({ cached: true });
+  }
+  const { candidates } = await loadCandidates(db, userId, session);
+  const { coreId } = autoSelect(candidates);
+  if (coreId === null) return listed({ cached: false });
+  const out = await runLinkStep(
     db,
-    manualToRecordInsert(input, userId),
+    userId,
+    session,
+    {
+      callStructured,
+      now: () => new Date().toISOString(),
+      startedAt: Date.now(),
+    },
+    candidates,
+    coreId,
   );
-  await replaceSessionActivities(db, userId, session.id, [
-    manualSelectionRow(
-      session.id,
-      userId,
-      activityRecordId,
-      manualToAnalysis(input),
-    ),
-  ]);
-  const step = nextStepAfterManualPick(session.current_step);
-  await updateSession(db, userId, session.id, {
-    current_step: step,
-    last_activity_at: new Date().toISOString(),
-  });
-  res.status(200).json({
-    ok: true,
-    activityRecordId,
-    selection: { coreId: activityRecordId, supportIds: [] },
-    currentStep: step,
-  });
+  if (out.kind === "skipped") return listed({ cached: false });
+  if (out.kind === "ok") {
+    return listed({ cached: false, attempts: out.attempts }, "ok");
+  }
+  if (out.kind === "failure" || out.kind === "exhausted") {
+    // 연계 확인이 안 돼도 세션은 이어간다. 적합도 상위 3건 추천으로 돌아간다(명세 No.196).
+    return listed(
+      { cached: false, linkError: outcomeToHttp(out).code },
+      "unchecked",
+    );
+  }
+  return c.json(outcomeBody(out, () => ({})));
 }
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  authFailureExtra: { ok: false },
-  unhandledMessage: "자기평가서 활동 선택에 실패했습니다.",
-  unhandledCode: "INTERNAL",
-  unhandledExtra: { ok: false },
-  logLabel: "selfeval/pick-records",
-  headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const userId = requireUserId(ctx);
-    const db = ctx.supabaseAdmin;
-    const parsed = validatePickBody(req.body);
-    if (!parsed.ok) {
-      fail(res, 400, parsed.code, parsed.message);
-      return;
+export const pickRecords = userFactory
+  .createApp()
+  .post("/", guard, validate("json", pickBody), async (c) => {
+    const body: PickBody = c.req.valid("json");
+    const { supabaseAdmin: db, user: me } = c.var;
+    // 직접 입력의 필수 항목은 도메인 규칙이라 이용권과 세션을 보기 전에 거른다.
+    if (body.action === "manual") {
+      const checked = validateManualInput(body.input);
+      if (!checked.ok) {
+        throw selfevalProblem(400, checked.code, checked.message);
+      }
     }
-    const access = await readSelfevalAccess(db, userId);
+    const access = await readSelfevalAccess(db, me.id);
     if (!access.allowed) {
-      fail(
-        res,
+      throw selfevalProblem(
         403,
         "NO_ENTITLEMENT",
         "이용권이 없어요. 자기평가서는 이용권 1회로 하나를 만들어요.",
         tenantReasonExtra(access.tenantReason),
       );
-      return;
     }
-    const { body } = parsed;
-    const session = await loadSession(db, userId, body.sessionId);
+    const session = await loadSession(db, me.id, body.sessionId);
     if (!session) {
-      fail(res, 404, "SESSION_NOT_FOUND", NOT_FOUND);
-      return;
+      throw selfevalProblem(404, "SESSION_NOT_FOUND", NOT_FOUND);
     }
-    if (session.status !== "draft" && session.status !== "in_progress") {
-      fail(res, 409, "SESSION_NOT_OPEN", "이미 닫힌 세션이에요.");
-      return;
-    }
-    if (body.action === "list") {
-      await handleList(res, db, userId, session);
-      return;
-    }
+    assertSessionOpen(session, false);
+    if (body.action === "list") return handleList(c, db, me.id, session);
     if (!canChangeSelection(session)) {
-      fail(res, 409, "SESSION_LOCKED", LOCKED_MESSAGE);
-      return;
+      throw selfevalProblem(409, "SESSION_LOCKED", LOCKED_MESSAGE);
     }
-    if (body.action === "select") {
-      await handleSelect(res, db, userId, session, body);
-      return;
-    }
-    if (body.action === "link") {
-      await handleLink(res, db, userId, session);
-      return;
-    }
+    if (body.action === "select")
+      return handleSelect(c, db, me.id, session, body);
+    if (body.action === "link") return handleLink(c, db, me.id, session);
     if (
       body.action === "delete-link" ||
       body.action === "confirm-link" ||
       body.action === "add-link"
     ) {
-      await handleLinkEdit(res, db, userId, session, body);
-      return;
+      return handleLinkEdit(c, db, me.id, session, body);
     }
-    await handleManual(res, db, userId, session, body.input);
-  },
-});
-
-export const config = { runtime: "nodejs", maxDuration: 60 };
+    return handleManual(c, db, me.id, session, body.input);
+  })
+  .all("/", methodNotAllowed("POST"));

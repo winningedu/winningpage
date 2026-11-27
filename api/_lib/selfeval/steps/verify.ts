@@ -51,8 +51,6 @@ import {
   activeGrowth,
   activityNameOf,
   careerOf,
-  isRecord,
-  isUuid,
   readAnalysis,
   splitActivities,
 } from "./shared.js";
@@ -73,17 +71,6 @@ export type VerifyResult = {
 };
 
 type ModelVerify = { sections: VerificationSections };
-
-export type VerifyBody = { sessionId: string };
-
-export function validateVerifyBody(
-  body: unknown,
-): { ok: true; body: VerifyBody } | { ok: false; message: string } {
-  if (!isRecord(body) || !isUuid(body.sessionId)) {
-    return { ok: false, message: "sessionId 형식이 올바르지 않아요." };
-  }
-  return { ok: true, body: { sessionId: body.sessionId } };
-}
 
 // ---------------------------------------------------------------------------
 // 입력 조립(순수)

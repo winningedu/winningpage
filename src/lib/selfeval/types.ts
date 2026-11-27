@@ -140,13 +140,13 @@ export type ActivityRecordLike = {
   sources: unknown;
   createdAt: string;
   /** 제출일. 서버가 createdAt 으로 대신한 값은 CandidateRow.submittedAt 에 있다. */
-  submittedAt?: string | null;
-  recordStatus?: RecordStatus | null;
-  summary?: string | null;
-  reflection?: string | null;
-  parentRecordId?: string | null;
-  courseName?: string | null;
-  entryKind?: "performance" | "deep" | "activity" | null;
+  submittedAt?: string | null | undefined;
+  recordStatus?: RecordStatus | null | undefined;
+  summary?: string | null | undefined;
+  reflection?: string | null | undefined;
+  parentRecordId?: string | null | undefined;
+  courseName?: string | null | undefined;
+  entryKind?: "performance" | "deep" | "activity" | null | undefined;
 };
 
 export type RecordStatus = "completed" | "in_progress" | "plan";
@@ -187,17 +187,17 @@ export type CandidateRow = {
   alreadyUsed: boolean;
   role: ActivityRole | null;
   /** 기록 상태. 없으면 completed 로 본다. */
-  recordStatus?: RecordStatus;
+  recordStatus?: RecordStatus | undefined;
   /** 제출일(createdAt 으로 대신한 값 포함). */
-  submittedAt?: string;
+  submittedAt?: string | undefined;
   /** 핵심과의 연계 상태. 연계 확인 전이거나 실패했으면 null. */
-  linkState?: CandidateLinkState | null;
+  linkState?: CandidateLinkState | null | undefined;
   /** 연계 가점. 선택 순서에만 쓰고 적합도 점수에는 넣지 않는다. */
-  bonus?: number;
+  bonus?: number | undefined;
   /** 이미 고른 기록에 없는 11항목 칸 수. 0 이면 중복이다. */
-  contribution?: number;
+  contribution?: number | undefined;
   /** 학생이 읽는 선정 이유. 쓸 수 있는 기록은 한 줄 이상이다. */
-  selectionReasons?: string[];
+  selectionReasons?: string[] | undefined;
 };
 
 // 활동 기록 연계(명세 No.174~196)
@@ -485,15 +485,18 @@ export type PromotedRecord = {
 // 상수
 // ---------------------------------------------------------------------------
 
-export const SESSION_EXPIRY_DAYS = 90;
+// 세션 만료 일수, 단계 선점 만료, 단계 시간 예산은 서버와 함께 쓰는 계약 값이다.
+export {
+  CLAIM_STALE_SECONDS,
+  SESSION_EXPIRY_DAYS,
+  STEP_BUDGET_MS,
+} from "../../../shared/selfeval/contract.js";
 export const GROWTH_STALE_DAYS = 180;
 export const FIT_AUTO_SELECT_THRESHOLD = 40;
 export const CANDIDATE_LIMIT = 20;
 export const MAX_SUPPORT_ACTIVITIES = 2;
 export const MAX_REGENERATIONS = 3;
 export const MAX_MODEL_ATTEMPTS_PER_STEP = 10;
-export const CLAIM_STALE_SECONDS = 120;
-export const STEP_BUDGET_MS = 50_000;
 export const DEFAULT_TARGET_CHARS = 500;
 export const TARGET_TOLERANCE = 0.05;
 export const MIN_LENGTH_CHARS = 400;
@@ -574,12 +577,11 @@ export type SessionListItem = {
 };
 
 export type EntryResponse = {
-  ok: true;
   entry: {
     quota: QuotaSnapshot | null;
     allowed: boolean;
     /** 스쿨멘토에서만 있다. 기관 거부 사유(한도 소진 포함). */
-    tenantReason?: string;
+    tenantReason?: string | undefined;
     activityCount: number;
     openSession: OpenSessionSummary | null;
     growth: EntryGrowth | null;
@@ -646,7 +648,6 @@ export type EvidenceMemoView = {
 };
 
 export type SessionDetailResponse = {
-  ok: true;
   session: SessionView;
   activities: SessionActivityView[];
   memos: EvidenceMemoView[];
@@ -677,7 +678,7 @@ export type SessionInput = {
   planItemId: string | null;
 };
 
-export type SessionResponse = { ok: true; session: SessionView };
+export type SessionResponse = { session: SessionView };
 
 export type ManualInput = {
   activityName: string;
@@ -711,7 +712,6 @@ export type SourceCounts = {
 };
 
 export type PickListResponse = {
-  ok: true;
   candidates: CandidateRow[];
   selection: PickSelection | null;
   auto: PickAuto | null;
@@ -735,14 +735,13 @@ export type PickListResponse = {
 /** link, delete-link, confirm-link, add-link 의 응답. list 와 같은 본문이다. */
 export type PickLinkResponse = PickListResponse & {
   /** link 만. 이미 판정을 마쳐 모델을 부르지 않았으면 true. */
-  cached?: boolean;
-  attempts?: number;
+  cached?: boolean | undefined;
+  attempts?: number | undefined;
   /** 연계 판정이 실패하거나 시도를 소진했을 때의 코드. */
-  linkError?: string;
+  linkError?: string | undefined;
 };
 
 export type PickSelectResponse = {
-  ok: true;
   selection: PickSelection;
   coreMismatch: boolean;
   warnings: string[];
@@ -752,7 +751,6 @@ export type PickSelectResponse = {
 };
 
 export type PickManualResponse = {
-  ok: true;
   activityRecordId: string;
   selection: PickSelection;
   currentStep: 3;
@@ -762,7 +760,11 @@ export type PickManualResponse = {
 // 분석, 생성, 검증, 최종 저장 API 계약(api/selfeval/analyze, write, verify, finalize)
 // ---------------------------------------------------------------------------
 
-export type StepIssueView = { code?: string; message: string; path?: string };
+export type StepIssueView = {
+  code?: string;
+  message: string;
+  path?: string | undefined;
+};
 
 /** 모델 단계 성공 응답이 공통으로 싣는 값. */
 export type StepMeta = {
@@ -771,14 +773,13 @@ export type StepMeta = {
 };
 
 export type AnalyzeRunResponse = StepMeta & {
-  ok: true;
   analysis: Analysis;
   conflicts: ConflictRow[];
   analysisSource: AnalysisSource;
   currentStep: SessionStep;
 };
 
-export type AnalyzeEditResponse = { ok: true; analysis: Analysis };
+export type AnalyzeEditResponse = { analysis: Analysis };
 
 export type ConflictChoice = "a" | "b";
 
@@ -790,17 +791,15 @@ export type WrittenReport = {
 };
 
 export type WriteGenerateResponse = StepMeta & {
-  ok: true;
   report: WrittenReport;
   charged: boolean;
   regenerationsLeft: number;
   currentStep: SessionStep;
 };
 
-export type WriteEditResponse = { ok: true; report: WrittenReport };
+export type WriteEditResponse = { report: WrittenReport };
 
 export type VerifyResponse = StepMeta & {
-  ok: true;
   verification: {
     id: string;
     revision: number;
@@ -814,11 +813,10 @@ export type VerifyResponse = StepMeta & {
 
 export type FinalizeReply = {
   status: "sent" | "skipped" | "failed";
-  code?: string;
+  code?: string | undefined;
 };
 
 export type FinalizeResponse = {
-  ok: true;
   activityRecordId: string;
   finalRevision: number;
   reply: FinalizeReply;
