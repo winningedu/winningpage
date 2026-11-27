@@ -56,7 +56,6 @@ interface SignupAgreements {
   privacyOptional: boolean;
   marketing: boolean;
   ads: boolean;
-  dbTransfer: boolean; // 스쿨멘토: 서비스 전환 시 위닝에듀로 정보를 옮기는 것에 관한 안내
 }
 
 // 소속 확인 결과. isCatchAll이면 코드를 비운 '기타 소속'이라 id/name/orgType이 없다.
@@ -146,7 +145,6 @@ const INITIAL_AGREEMENTS: SignupAgreements = {
   privacyOptional: false, // 선택(레거시 호환용 — 시안엔 없으나 기존 스키마 대응)
   marketing: false, // 선택: 마케팅 목적의 개인정보 수집 및 이용
   ads: false, // 선택(학생만): 광고성 정보 수신 동의
-  dbTransfer: false, // 필수(스쿨멘토): DB 전환 안내
 };
 
 const INITIAL_VERIFICATION: SignupVerification = {

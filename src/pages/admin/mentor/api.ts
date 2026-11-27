@@ -2,7 +2,6 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { z } from "zod";
 import { api } from "@/lib/http/client";
 import { toastError } from "@/pages/admin/shared/adminToast";
 import {
@@ -10,6 +9,10 @@ import {
   mentorApplicationListSchema,
   mentorApplicationSchema,
 } from "../../../../shared/mentor-application/contract.js";
+import {
+  type ApplicationStatusInput,
+  proofUrlSchema,
+} from "../../../../shared/mentor-application/detail.js";
 
 export type MentorApplicationRow = MentorApplication;
 
@@ -51,9 +54,11 @@ export function useResetMentorList() {
 export function useSaveMentorStatus(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (status: string) =>
+    mutationFn: (status: ApplicationStatusInput["status"]) =>
       api
-        .patch(`${BASE}/${encodeURIComponent(id)}`, { json: { status } })
+        .patch(`${BASE}/${encodeURIComponent(id)}`, {
+          json: { status } satisfies ApplicationStatusInput,
+        })
         .json(mentorApplicationSchema),
     onSuccess: () => queryClient.resetQueries({ queryKey: keys.all }),
   });
@@ -65,7 +70,7 @@ export function useMentorProofUrl(id: string) {
     mutationFn: () =>
       api
         .post(`${BASE}/${encodeURIComponent(id)}/proof-url`)
-        .json(z.object({ url: z.string() })),
+        .json(proofUrlSchema),
   });
 }
 

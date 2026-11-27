@@ -2,46 +2,6 @@ import type { RouteLoader } from "./dispatch.js";
 
 // 라우트 키(/api/ 뒤 경로)별 핸들러 지연 로더. 정적 문자열 지정자여야 Vercel 파일 추적기가 따라간다.
 export const routes: Record<string, RouteLoader> = {
-  "admin/admission/active-year": () =>
-    import("./admin/admission/active-year.js"),
-  "admin/admission/results/count": () =>
-    import("./admin/admission/results/count.js"),
-  "admin/admission/results/rows": () =>
-    import("./admin/admission/results/rows.js"),
-  "admin/admission/results/bulk": () =>
-    import("./admin/admission/results/bulk.js"),
-  "admin/admission/guidelines/bulk": () =>
-    import("./admin/admission/guidelines/bulk.js"),
-  "admin/learning-diagnosis/questions": () =>
-    import("./admin/learning-diagnosis/questions.js"),
-  "admin/learning-diagnosis/questions/[id]": () =>
-    import("./admin/learning-diagnosis/questions/[id].js"),
-  "admin/learning-diagnosis/options": () =>
-    import("./admin/learning-diagnosis/options.js"),
-  "admin/learning-diagnosis/options/[id]": () =>
-    import("./admin/learning-diagnosis/options/[id].js"),
-  "admin/learning-diagnosis/programs": () =>
-    import("./admin/learning-diagnosis/programs.js"),
-  "admin/learning-diagnosis/programs/[id]": () =>
-    import("./admin/learning-diagnosis/programs/[id].js"),
-  "admin/mentor-applications/[id]": () =>
-    import("./admin/mentor-applications/[id].js"),
-  "admin/mentor-applications/[id]/proof-url": () =>
-    import("./admin/mentor-applications/[id]/proof-url.js"),
-  "admin/sections/[key]": () => import("./admin/sections/[key].js"),
-  "admin/sections/[key]/[id]": () => import("./admin/sections/[key]/[id].js"),
-  "admin/sections/[key]/[id]/meta": () =>
-    import("./admin/sections/[key]/[id]/meta.js"),
-  "admin/sections/[key]/[id]/reviewed": () =>
-    import("./admin/sections/[key]/[id]/reviewed.js"),
-  "admin/sections/[key]/export": () =>
-    import("./admin/sections/[key]/export.js"),
-  "admin/premium-book/pages": () => import("./admin/premium-book/pages.js"),
-  "admin/premium-book/pages/[id]": () =>
-    import("./admin/premium-book/pages/[id].js"),
-  "admin/revenue/pending": () => import("./admin/revenue/pending.js"),
-  "admin/revenue/services": () => import("./admin/revenue/services.js"),
-  "admin/uploads/preview": () => import("./admin/uploads/preview.js"),
   "auth/login": () => import("./auth/login.js"),
   "auth/teacher-reset-password": () =>
     import("./auth/teacher-reset-password.js"),

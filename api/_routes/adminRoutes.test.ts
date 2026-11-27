@@ -70,15 +70,16 @@ const AUDIT_EXPECTATIONS: Record<string, string> = {
   "admin/tenants-students.ts": AUDIT_OFF,
   // 발급 회수, 사용 이력 무효화 둘 다 기존 행을 바꾼다.
   "admin/coupons.ts": 'audit: { action: "update" }',
-  "admin/sections/[key]/[id]/reviewed.ts": 'audit: { action: "update" }',
+  // 검토 완료(POST /:key/:id/reviewed)만 기존 행을 바꾸는 수정으로 남긴다.
+  "admin/sections.ts": 'audit: { action: "update" }',
   "admin/growth-recover.ts": 'audit: { action: "update" }',
   "admin/inquiry-recover.ts": 'audit: { action: "update" }',
   "admin/selfeval-recover.ts": 'audit: { action: "update" }',
   "goal/admin/reset-student.ts": 'audit: { action: "update" }',
   "admin/knowledge-search.ts": 'audit: { action: "view" }',
   "admin/knowledge-dedupe.ts": 'audit: { action: "view" }',
-  "admin/uploads/preview.ts": 'audit: { action: "view" }',
-  "admin/mentor-applications/[id]/proof-url.ts": 'audit: { action: "view" }',
+  "admin/uploads-preview.ts": 'audit: { action: "view" }',
+  "admin/mentor-applications-detail.ts": 'audit: { action: "view" }',
 };
 
 // 조회(GET)는 기본으로 남긴다. GET 을 받는 defineHandler 에서 audit:false 를 쓰려면 여기에 한 줄 이유를 둔다.

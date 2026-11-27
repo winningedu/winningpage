@@ -169,6 +169,15 @@ describe("site - 이용안내 노출 플래그", () => {
   });
 });
 
+describe("site - 교사, 기관관리자 이용약관 링크 플래그", () => {
+  it("winning은 교사 약관 행이 없어 끄고 schoolmentor는 켠다", async () => {
+    expect((await loadSite("winning")).site.features.teacherTerms).toBe(false);
+    expect((await loadSite("schoolmentor")).site.features.teacherTerms).toBe(
+      true,
+    );
+  });
+});
+
 describe("site - 배너 빈 상태 안내 플래그", () => {
   it("winning은 배너가 없으면 영역을 숨긴다(안내 문구 없음)", async () => {
     const { site } = await loadSite("winning");

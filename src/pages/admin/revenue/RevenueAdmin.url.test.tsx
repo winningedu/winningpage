@@ -26,8 +26,8 @@ vi.mock("@/lib/http/client", async (importOriginal) => ({
 import { ApiError } from "@/lib/http/client";
 import RevenueAdmin from "./RevenueAdmin";
 
-const item = (id: string, service: string, name: string) => ({
-  order_item_id: Number(id),
+const item = (id: number, service: string, name: string) => ({
+  order_item_id: id,
   order_id: `o-${id}`,
   paid_at: "2026-11-02T03:00:00Z",
   payer_name: name,
@@ -50,7 +50,7 @@ const routes: Record<string, () => unknown> = {};
 
 function resetRoutes() {
   routes["admin/revenue"] = () => ({
-    items: [item("1", "goal", "목표결제자"), item("2", "mentor", "멘토결제자")],
+    items: [item(1, "goal", "목표결제자"), item(2, "mentor", "멘토결제자")],
   });
   routes["admin/revenue/services"] = () => ({
     items: [

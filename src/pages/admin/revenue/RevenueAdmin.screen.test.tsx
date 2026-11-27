@@ -12,8 +12,8 @@ import {
 import { MemoryRouter } from "react-router";
 import { afterEach, expect, test, vi } from "vitest";
 
-const row = (id: string, service: string, name: string) => ({
-  order_item_id: Number(id),
+const row = (id: number, service: string, name: string) => ({
+  order_item_id: id,
   order_id: `o-${id}`,
   paid_at: "2026-11-02T03:00:00Z",
   payer_name: name,
@@ -41,10 +41,7 @@ let revenueItems: unknown[] = [];
 let hold: Promise<void> | null = null;
 
 function mockApi() {
-  revenueItems = [
-    row("1", "goal", "목표결제자"),
-    row("2", "mentor", "멘토결제자"),
-  ];
+  revenueItems = [row(1, "goal", "목표결제자"), row(2, "mentor", "멘토결제자")];
   get.mockImplementation((path: string) => ({
     json: async () => {
       if (path === "admin/revenue") {
@@ -173,7 +170,7 @@ test("새로고침을 누르면 스켈레톤을 보인 뒤 새 행을 보인다"
   await screen.findByText("목표결제자");
 
   const release = holdResponses();
-  revenueItems = [row("3", "goal", "새결제자")];
+  revenueItems = [row(3, "goal", "새결제자")];
   fireEvent.click(screen.getByRole("button", { name: "새로고침" }));
   expect(
     await screen.findByRole("status", { name: TABLE_LABEL }),
@@ -190,7 +187,7 @@ test("같은 기간으로 조회를 다시 눌러도 스켈레톤을 거쳐 새 
   await screen.findByText("목표결제자");
 
   const release = holdResponses();
-  revenueItems = [row("4", "goal", "다시결제자")];
+  revenueItems = [row(4, "goal", "다시결제자")];
   fireEvent.click(screen.getByRole("button", { name: "조회" }));
   expect(
     await screen.findByRole("status", { name: TABLE_LABEL }),
@@ -206,7 +203,7 @@ test("다른 기간으로 조회하면 스켈레톤을 보인 뒤 그 기간 행
   await screen.findByText("목표결제자");
 
   const release = holdResponses();
-  revenueItems = [row("5", "goal", "지난달결제자")];
+  revenueItems = [row(5, "goal", "지난달결제자")];
   fireEvent.change(screen.getByLabelText("조회 시작일"), {
     target: { value: "2026-10-01" },
   });

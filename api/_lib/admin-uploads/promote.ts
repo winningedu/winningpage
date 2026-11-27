@@ -2,15 +2,14 @@
 // 공개 URL 로 바꾼다. 브라우저는 업로드 직후 받은 임시 읽기 URL 을 폼 값으로 들고 있다가 그대로 보낸다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { VercelResponse } from "@vercel/node";
 import type { SectionEntry } from "../admin-sections/registry.js";
 import { RouteParamError } from "../handler.js";
 import {
   destinationPath,
   PUBLIC_BUCKET,
   parseTempName,
-  sendUploadExpired,
   TMP_BUCKET,
+  uploadExpired,
   validateUpload,
 } from "./tmp.js";
 
@@ -114,21 +113,16 @@ export async function promoteTempUploads<T>(
   return replaceUrls(payload, urls) as T;
 }
 
-/**
- * 라우트용 묶음: 만료면 409 를 보내고 null, 아니면 바뀐 payload. 그 밖의 오류는 그대로 던진다.
- * 호출은 쓰기 쿼리 전에 해서 만료 때 DB 를 건드리지 않는다.
- */
-export async function promoteForWrite<T>(
-  res: VercelResponse,
+/** 라우트용 묶음: 만료면 409 UPLOAD_EXPIRED 를 던지고, 아니면 바뀐 payload 를 돌려준다. 쓰기 쿼리 전에 불러 만료 때 DB 를 건드리지 않는다. */
+export async function promoteForSave<T>(
   admin: SupabaseClient,
   entry: Pick<SectionEntry, "uploads">,
   payload: T,
-): Promise<T | null> {
+): Promise<T> {
   try {
     return await promoteTempUploads(admin, entry, payload);
   } catch (error) {
-    if (!(error instanceof UploadExpiredError)) throw error;
-    sendUploadExpired(res);
-    return null;
+    if (error instanceof UploadExpiredError) throw uploadExpired();
+    throw error;
   }
 }

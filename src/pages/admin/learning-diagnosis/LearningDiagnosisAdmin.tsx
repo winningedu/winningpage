@@ -303,7 +303,8 @@ export default function LearningDiagnosisAdmin() {
       json: {
         title,
         description: newQuestion.description || "",
-        input_type: newQuestion.input_type || "single",
+        input_type:
+          newQuestion.input_type === "multiple" ? "multiple" : "single",
         is_required: boolValue(newQuestion.is_required),
         is_active: boolValue(newQuestion.is_active),
         sort_order: sortOrder,
@@ -329,7 +330,7 @@ export default function LearningDiagnosisAdmin() {
       json: {
         title: question.title,
         description: question.description || "",
-        input_type: question.input_type || "single",
+        input_type: question.input_type === "multiple" ? "multiple" : "single",
         is_required: boolValue(question.is_required),
         is_active: boolValue(question.is_active),
         sort_order: Number(question.sort_order || 1),

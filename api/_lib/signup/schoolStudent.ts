@@ -28,8 +28,9 @@ export interface SchoolStudentInput {
   identityRequestId: string | null;
   agreeService: boolean;
   agreePrivacy: boolean;
-  agreeDbTransfer: boolean;
   agreeMarketing: boolean;
+  /** 학생 가입약관 4-2 선택 개인정보(privacy_additional). */
+  agreePrivacyAdditional: boolean;
 }
 
 export type ParseResult =
@@ -146,7 +147,6 @@ export function parseSchoolStudentBody(body: unknown): ParseResult {
 
   if (raw.agreeService !== true) return fail("agreeService");
   if (raw.agreePrivacy !== true) return fail("agreePrivacy");
-  if (raw.agreeDbTransfer !== true) return fail("agreeDbTransfer");
 
   return {
     ok: true,
@@ -167,8 +167,8 @@ export function parseSchoolStudentBody(body: unknown): ParseResult {
       identityRequestId,
       agreeService: true,
       agreePrivacy: true,
-      agreeDbTransfer: true,
       agreeMarketing: raw.agreeMarketing === true,
+      agreePrivacyAdditional: raw.agreePrivacyAdditional === true,
     },
   };
 }

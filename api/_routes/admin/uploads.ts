@@ -1,5 +1,5 @@
 // /api/admin/uploads 루트 경로. 관리자 앱(api/_routes/admin/app.ts)이 .route("/uploads", uploads) 로 붙인다.
-// 하위 경로(/preview)는 아직 라우터가 받는다.
+// 하위 경로(/preview)는 api/_routes/admin/uploads-preview.ts 가 맡는다.
 //
 // POST, DELETE /api/admin/uploads
 //
@@ -10,7 +10,6 @@
 // 요청 검증과 응답 모양은 shared/uploads/contract.ts 를 따른다.
 
 import { randomUUID } from "node:crypto";
-import type { Context } from "hono";
 import {
   type IssuedUpload,
   issueUploadBody,
@@ -22,11 +21,10 @@ import {
   isDeletablePath,
   PUBLIC_BUCKET,
   TMP_BUCKET,
+  uploadSectionKey,
   validateUpload,
 } from "../../_lib/admin-uploads/tmp.js";
-import { RouteParamError } from "../../_lib/handler.js";
 import { admin } from "../../_lib/hono/admin.js";
-import type { AdminEnv } from "../../_lib/hono/factory.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, validationFailed } from "../../_lib/hono/problem.js";
 import { validate } from "../../_lib/hono/validate.js";
@@ -34,24 +32,14 @@ import { validate } from "../../_lib/hono/validate.js";
 const BAD_FIELD = "업로드할 수 없는 항목입니다.";
 const BAD_PATH = "삭제할 수 없는 경로입니다.";
 
-// 본문 section 이 알려진 섹션이면 그 키를 권한 키로 쓴다. 아니면 권한을 보기 전에 400 이다(uploadSectionKey 와 같다).
-async function sectionKey(c: Context<AdminEnv>): Promise<string> {
-  const body: unknown = await c.req.json().catch(() => undefined);
-  const key = (body as { section?: unknown } | null | undefined)?.section;
-  if (typeof key !== "string" || !uploadRulesFor(key)) {
-    throw new RouteParamError("section", "알 수 없는 섹션입니다.");
-  }
-  return key;
-}
-
 const issueGuard = admin({
-  permission: { key: sectionKey },
+  permission: { key: uploadSectionKey },
   unhandledMessage: "업로드 주소를 만들지 못했습니다.",
   logLabel: "[admin/uploads]",
 });
 
 const removeGuard = admin({
-  permission: { key: sectionKey },
+  permission: { key: uploadSectionKey },
   unhandledMessage: "파일을 지우지 못했습니다.",
   logLabel: "[admin/uploads]",
 });

@@ -3,6 +3,7 @@
 
 import { createAdminApp } from "../../_lib/hono/admin.js";
 import { accessLogs } from "./access-logs.js";
+import { admission } from "./admission.js";
 import { aiTelemetry } from "./ai-telemetry.js";
 import { aiTelemetryPricing } from "./ai-telemetry-pricing.js";
 import { coupons } from "./coupons.js";
@@ -20,13 +21,19 @@ import { knowledgeDedupe } from "./knowledge-dedupe.js";
 import { knowledgeEval } from "./knowledge-eval.js";
 import { knowledgeItems } from "./knowledge-items.js";
 import { knowledgeSearch } from "./knowledge-search.js";
+import { learningDiagnosis } from "./learning-diagnosis.js";
 import { me } from "./me.js";
 import { members } from "./members.js";
 import { membersDetail } from "./members-detail.js";
 import { mentorApplications } from "./mentor-applications.js";
+import { mentorApplicationsDetail } from "./mentor-applications-detail.js";
+import { premiumBook } from "./premium-book.js";
 import { revenue } from "./revenue.js";
+import { revenuePending } from "./revenue-pending.js";
+import { revenueServices } from "./revenue-services.js";
 import { roles } from "./roles.js";
 import { rolesDetail } from "./roles-detail.js";
+import { sections } from "./sections.js";
 import { selfevalGrant } from "./selfeval-grant.js";
 import { selfevalRecover } from "./selfeval-recover.js";
 import { selfevalSessions } from "./selfeval-sessions.js";
@@ -43,36 +50,49 @@ import { tenantsPurge } from "./tenants-purge.js";
 import { tenantsSchoolAdmins } from "./tenants-school-admins.js";
 import { tenantsStudents } from "./tenants-students.js";
 import { uploads } from "./uploads.js";
+import { uploadsPreview } from "./uploads-preview.js";
 import { webAnalytics } from "./web-analytics.js";
 
 export const admin = createAdminApp()
-  .route("/coupons", coupons)
-  .route("/tenant-options", tenantOptions)
-  .route("/send-message", sendMessage)
-  .route("/web-analytics", webAnalytics)
-  .route("/invite-member", inviteMember)
   .route("/access-logs", accessLogs)
+  .route("/admission", admission)
   .route("/ai-telemetry", aiTelemetry)
   .route("/ai-telemetry-pricing", aiTelemetryPricing)
-  .route("/service-credit-adjust", serviceCreditAdjust)
-  .route("/service-credit-summary", serviceCreditSummary)
+  .route("/coupons", coupons)
   .route("/growth-grant", growthGrant)
   .route("/growth-recover", growthRecover)
+  .route("/growth-reports", growthReports)
+  .route("/home-section-copy", homeSectionCopy)
   .route("/inquiry-grant", inquiryGrant)
   .route("/inquiry-recover", inquiryRecover)
-  .route("/selfeval-grant", selfevalGrant)
-  .route("/selfeval-recover", selfevalRecover)
+  .route("/inquiry-sessions", inquirySessions)
+  .route("/invite-member", inviteMember)
   .route("/knowledge-bulk", knowledgeBulk)
   .route("/knowledge-dedupe", knowledgeDedupe)
+  .route("/knowledge-eval", knowledgeEval)
+  .route("/knowledge-items", knowledgeItems)
   .route("/knowledge-search", knowledgeSearch)
-  .route("/mentor-applications", mentorApplications)
-  .route("/revenue", revenue)
+  .route("/learning-diagnosis", learningDiagnosis)
   .route("/members", members)
   .route("/members", membersDetail)
-  .route("/staff", staff)
-  .route("/staff", staffDetail)
+  .route("/mentor-applications", mentorApplications)
+  .route("/mentor-applications", mentorApplicationsDetail)
+  .route("/premium-book", premiumBook)
+  .route("/revenue", revenue)
+  .route("/revenue", revenuePending)
+  .route("/revenue", revenueServices)
   .route("/roles", roles)
   .route("/roles", rolesDetail)
+  .route("/sections", sections)
+  .route("/selfeval-grant", selfevalGrant)
+  .route("/selfeval-recover", selfevalRecover)
+  .route("/selfeval-sessions", selfevalSessions)
+  .route("/send-message", sendMessage)
+  .route("/service-credit-adjust", serviceCreditAdjust)
+  .route("/service-credit-summary", serviceCreditSummary)
+  .route("/staff", staff)
+  .route("/staff", staffDetail)
+  .route("/tenant-options", tenantOptions)
   // /tenants 는 글자 그대로인 경로를 가진 앱을 /:id 가 있는 tenantsDetail 보다 먼저 붙인다. 순서가 바뀌면 /:id 의 405 가 그 경로를 가로챈다(api/_routes/admin/tenants.routing.test.ts).
   .route("/tenants", tenants)
   .route("/tenants", tenantsPurge)
@@ -80,12 +100,8 @@ export const admin = createAdminApp()
   .route("/tenants", tenantsStudents)
   .route("/tenants", tenantsDetail)
   .route("/uploads", uploads)
-  .route("/growth-reports", growthReports)
-  .route("/home-section-copy", homeSectionCopy)
-  .route("/inquiry-sessions", inquirySessions)
-  .route("/knowledge-eval", knowledgeEval)
-  .route("/knowledge-items", knowledgeItems)
-  .route("/selfeval-sessions", selfevalSessions)
+  .route("/uploads", uploadsPreview)
+  .route("/web-analytics", webAnalytics)
   .route("/hq-dashboard", hqDashboard)
   .route("/me", me)
   .route("/students", students);
