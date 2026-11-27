@@ -58,12 +58,6 @@ export const bootstrapResponse = z.looseObject({
   latestDraft: sessionSummarySchema.nullable(),
 });
 
-export const analyzeGuideResponse = z.looseObject({
-  guide: z.unknown(),
-  attachments: z.array(z.unknown()),
-  charged: z.boolean(),
-});
-
 export const recommendTopicsResponse = z.looseObject({
   round: z.number(),
   topics: z.array(z.unknown()),

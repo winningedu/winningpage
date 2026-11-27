@@ -97,7 +97,11 @@
 //    모델 호출이 재시도로 3번 나가도 마찬가지다(재시도는 gemini.js 계층 안, 차감은 밖).
 
 import type { Context } from "hono";
-import { jsonObjectBody } from "../../../shared/performance/contract.js";
+import type { z } from "zod";
+import {
+  analyzeGuideBody,
+  type analyzeGuideResponse,
+} from "../../../shared/performance/analyze-guide.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { callVision, PERFORMANCE_MODEL } from "../../_lib/ai/gemini.js";
 import {
@@ -127,7 +131,6 @@ import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 import {
   ALLOWED_MIME_EXT,
   BUCKET,
-  MAX_ATTACHMENTS,
   MAX_FILE_BYTES,
   MAX_TOTAL_BYTES,
   UNSUPPORTED_MIME_MESSAGE,
@@ -147,9 +150,6 @@ const MAX_ANALYSIS_PER_SESSION = 10;
  * 전에 `markAttachmentsFailed` + 502 응답을 반드시 돌려줄 여유(다운로드/마감 처리)를 남긴다.
  */
 const VISION_TIMEOUT_MS = 45 * 1000;
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type SupabaseAdmin = ReturnType<typeof createSupabaseAdmin>;
 
@@ -181,11 +181,6 @@ type MeasuredItem = {
   mimeType: string;
 };
 
-type ReadAttachmentIdsResult =
-  | { present: false }
-  | { present: true; ok: false; message: string }
-  | { present: true; ok: true; ids: string[] };
-
 function fail(
   c: Context,
   status: number,
@@ -211,43 +206,6 @@ function stepPatch(sessionRow: SessionRow) {
   };
 }
 
-/** 요청 본문에서 `attachmentIds`를 꺼내 형식 검증한다. 경로 문자열은 쳐다보지도 않는다. */
-function readAttachmentIds(
-  body: Record<string, unknown>,
-): ReadAttachmentIdsResult {
-  const raw = body.attachmentIds;
-  if (raw === undefined || raw === null) return { present: false };
-  if (!Array.isArray(raw) || raw.length === 0) {
-    return {
-      present: true,
-      ok: false,
-      message: "attachmentIds는 1개 이상의 배열이어야 합니다.",
-    };
-  }
-  if (raw.length > MAX_ATTACHMENTS) {
-    return {
-      present: true,
-      ok: false,
-      message: `안내문 사진은 최대 ${MAX_ATTACHMENTS}장까지 분석할 수 있어요.`,
-    };
-  }
-
-  const ids: string[] = [];
-  for (const value of raw) {
-    const id = typeof value === "string" ? value.trim() : "";
-    if (!UUID_RE.test(id)) {
-      return {
-        present: true,
-        ok: false,
-        message: "attachmentIds 형식이 올바르지 않습니다.",
-      };
-    }
-    if (!ids.includes(id)) ids.push(id);
-  }
-
-  return { present: true, ok: true, ids };
-}
-
 const guard = user({
   unhandledMessage: "안내문 분석에 실패했습니다.",
   logLabel: "performance/analyze-guide",
@@ -256,7 +214,7 @@ const guard = user({
 
 export const analyzeGuide = userFactory
   .createApp()
-  .post("/", guard, validate("json", jsonObjectBody), async (c) => {
+  .post("/", guard, validate("json", analyzeGuideBody), async (c) => {
     const supabaseAdmin = c.var.supabaseAdmin;
     const userId = c.var.user.id;
 
@@ -287,25 +245,14 @@ export const analyzeGuide = userFactory
         );
       }
 
-      const body = c.req.valid("json");
-      const sessionId =
-        typeof body.sessionId === "string" ? body.sessionId.trim() : "";
-      const freetext =
-        typeof body.freetext === "string" ? body.freetext.trim() : "";
-      const force = body.force === true;
-      const attachments = readAttachmentIds(body);
-
-      if (!sessionId) {
-        return fail(c, 400, "MISSING_FIELD", "sessionId는 필수입니다.", {
-          field: "sessionId",
-        });
-      }
-
-      if (attachments.present && attachments.ok === false) {
-        return fail(c, 400, "INVALID_ATTACHMENT_IDS", attachments.message, {
-          field: "attachmentIds",
-        });
-      }
+      const {
+        sessionId,
+        attachmentIds: requestedIds,
+        freetext = "",
+        force = false,
+      } = c.req.valid("json");
+      // 같은 첨부를 두 번 보내도 한 번만 센다.
+      const attachmentIds = requestedIds ? [...new Set(requestedIds)] : null;
 
       // 프론트 `maxLength`는 신뢰값이 아니다(요청 본문은 클라이언트가 직접 조립할 수
       // 있다) — 실제 저장 전 서버가 같은 상한(QA 행 194)을 재확인한다.
@@ -321,21 +268,12 @@ export const analyzeGuide = userFactory
 
       // 두 분기는 배타다 — 한 요청이 둘 다 들고 오면 어느 쪽이 세션의 정본인지 계약이
       // 정하지 않으므로 서버가 임의로 고르지 않고 거절한다.
-      if (attachments.present && freetext) {
+      if (attachmentIds && freetext) {
         return fail(
           c,
           400,
           "AMBIGUOUS_INPUT",
           "attachmentIds와 freetext는 함께 보낼 수 없습니다.",
-        );
-      }
-
-      if (!attachments.present && !freetext) {
-        return fail(
-          c,
-          400,
-          "MISSING_FIELD",
-          "attachmentIds 또는 freetext가 필요합니다.",
         );
       }
 
@@ -371,7 +309,7 @@ export const analyzeGuide = userFactory
       // `guide_json`은 **null로 둔다.** §8.3이 그 컬럼에 준 정의는 "안내문 분석 구조화
       // 결과"이고 이 분기에는 분석이 없다. 자유서술 원문의 자리는 `guide_freetext`다.
       // 하류(P8 주제 추천)는 `guide_input_mode`를 보고 어느 컬럼을 읽을지 정한다.
-      if (!attachments.present) {
+      if (!attachmentIds) {
         const { error: manualError } = await supabaseAdmin
           .from("performance_sessions")
           .update({
@@ -391,19 +329,12 @@ export const analyzeGuide = userFactory
           promptVersion: null, // 모델을 부르지 않았으므로 프롬프트 버전도 없다
           model: null,
           charged: false,
-        });
+        } satisfies z.input<typeof analyzeGuideResponse>);
       }
 
       // ─────────────────────────────────────────────────────────────
       // ⓐ 업로드 분기 — 단일 vision 호출
       // ─────────────────────────────────────────────────────────────
-
-      // 위 검증에서 present:true·ok:true 외 분기는 전부 return했다. TS는 이 다단계
-      // 판별 유니온을 여기까지 좁히지 못해(strict:false) `attachments.ids` 접근이
-      // 타입 오류가 되므로, 이미 검증된 사실을 캐스트로 명시한다(런타임 동작 없음).
-      const attachmentIds = (
-        attachments as { present: true; ok: true; ids: string[] }
-      ).ids;
 
       // 첨부 조회는 **세션에 묶어서** 한다. 이 `.eq('session_id', ...)`가 IDOR 차단의 핵심이다.
       // 정렬은 업로드 순서(`created_at`)로 고정한다 — 요청 배열 순서를 따르면 클라이언트가
@@ -452,7 +383,7 @@ export const analyzeGuide = userFactory
 
       if (!force && alreadyAnalyzed && storedGuide?.mode === "upload") {
         return c.json({
-          guide: storedGuide,
+          guide: { ...storedGuide, mode: storedGuide.mode },
           attachments: rows.map((row) => ({
             attachmentId: row.id,
             deleted: false,
@@ -462,7 +393,7 @@ export const analyzeGuide = userFactory
           charged: false,
           // 저장분을 그대로 돌려줬다는 표시. 호출부가 "다시 분석됐다"고 오해하지 않게 한다.
           reused: true,
-        });
+        } satisfies z.input<typeof analyzeGuideResponse>);
       }
 
       // ── 호출 상한 (무차감 엔드포인트의 비용 증폭 차단, sql/55 (3))
@@ -709,7 +640,7 @@ export const analyzeGuide = userFactory
         model: PERFORMANCE_MODEL,
         charged: false,
         reused: false,
-      });
+      } satisfies z.input<typeof analyzeGuideResponse>);
     } catch (error) {
       // 원 예외 메시지를 응답에 싣지 않는다(§8.6 공통 규약 「실패 응답」).
       console.error("performance/analyze-guide error:", error);

@@ -23,9 +23,18 @@
 //   최후 수단으로 24시간 고아 스윕이 같은 자리를 치운다.
 
 import { supabase } from "@/lib/supabase";
-import { analyzeGuideResponse } from "../../../shared/performance/contract.js";
-import { discardAttachmentResponse } from "../../../shared/performance/discard-attachment.js";
-import { uploadUrlResponse } from "../../../shared/performance/upload-url.js";
+import {
+  type AnalyzeGuideBodyInput,
+  analyzeGuideResponse,
+} from "../../../shared/performance/analyze-guide.js";
+import {
+  type DiscardAttachmentBodyInput,
+  discardAttachmentResponse,
+} from "../../../shared/performance/discard-attachment.js";
+import {
+  type UploadUrlBodyInput,
+  uploadUrlResponse,
+} from "../../../shared/performance/upload-url.js";
 import { api } from "../http/client";
 import {
   AI_CALL_TIMEOUT_MS,
@@ -60,7 +69,7 @@ const RESPONSE_SCHEMA = {
 async function postJson<Path extends keyof typeof RESPONSE_SCHEMA>(
   path: Path,
   accessToken: string,
-  body: Record<string, unknown>,
+  body: UploadUrlBodyInput | AnalyzeGuideBodyInput | DiscardAttachmentBodyInput,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ) {
   try {
