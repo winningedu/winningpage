@@ -31,9 +31,6 @@ export const routes: Record<string, RouteLoader> = {
   "admin/members/[id]/links": () => import("./admin/members/[id]/links.js"),
   "admin/selfeval-grant": () => import("./admin/selfeval-grant.js"),
   "admin/selfeval-recover": () => import("./admin/selfeval-recover.js"),
-  "admin/premium-book/pages": () => import("./admin/premium-book/pages.js"),
-  "admin/premium-book/pages/[id]": () =>
-    import("./admin/premium-book/pages/[id].js"),
   "admin/revenue": () => import("./admin/revenue.js"),
   "admin/roles": () => import("./admin/roles.js"),
   "admin/roles/[id]": () => import("./admin/roles/[id].js"),

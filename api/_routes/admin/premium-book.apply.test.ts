@@ -1,7 +1,7 @@
 // POST /api/admin/premium-book/apply 계약 검증: 변환한 PDF 와 페이지 이미지를 한 번에 적용한다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { createFakeStorage } from "../../../_lib/admin-uploads/storageTestKit.js";
+import { createFakeStorage } from "../../_lib/admin-uploads/storageTestKit.js";
 import {
   argsOf,
   callRoute,
@@ -9,17 +9,20 @@ import {
   problemCode,
   type Query,
   type Respond,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./apply.js";
+import { pageListSchema } from "../../../shared/premium-book/contract.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/premium-book/apply" };
 
 const U = (n: number) => `123e4567-e89b-12d3-a456-42661417400${n}`;
 const PDF = `${U(0)}.booklet_pdf.booklet.pdf`;
@@ -180,6 +183,8 @@ describe("적용", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ items: finalRows });
+    // 서버 응답이 브라우저가 검증하는 계약을 통과한다.
+    expect(pageListSchema.safeParse(r.body).success).toBe(true);
 
     const options = (contentType: string) => ({
       upsert: true,

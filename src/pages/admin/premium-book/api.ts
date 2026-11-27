@@ -1,18 +1,16 @@
-// 프리미엄 책자 화면의 서버 호출. 응답 모양은 zod 로 검증하고, 조회는 react-query 키로 묶는다.
+// 프리미엄 책자 화면의 서버 호출. 응답 모양은 서버와 같은 계약(shared/premium-book/contract.ts)의 zod 로 검증하고, 조회는 react-query 키로 묶는다.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { z } from "zod";
 import { api } from "@/lib/http/client";
+import {
+  type ApplyInput,
+  type PageInput,
+  type PremiumBookPage,
+  pageListSchema,
+  pageSchema,
+} from "../../../../shared/premium-book/contract.js";
 
-// 쓰는 컬럼만 명시하고 나머지는 통과시킨다. premium_book_pages.id 는 identity 정수다.
-export const pageSchema = z.looseObject({
-  id: z.number(),
-  sort_order: z.number(),
-  image_url: z.string(),
-});
-export type PremiumBookPageRow = z.infer<typeof pageSchema>;
-
-const pageListSchema = z.object({ items: z.array(pageSchema) });
+export type PremiumBookPageRow = PremiumBookPage;
 
 export const premiumBookKeys = {
   all: ["admin", "premium-book"] as const,
@@ -23,10 +21,7 @@ export const premiumBookKeys = {
 const PAGES = "admin/premium-book/pages";
 
 /** 서버가 받는 두 컬럼. 이미지는 임시 읽기 URL 이어도 되고 서버가 저장 때 공개 URL 로 바꾼다. */
-export interface PagePayload {
-  sort_order: number;
-  image_url: string;
-}
+export type PagePayload = PageInput;
 
 export function usePageList() {
   return useQuery({
@@ -63,8 +58,6 @@ export function useSavePage(id: string | undefined) {
   });
 }
 
-const appliedSchema = z.object({ items: z.array(pageSchema) });
-
 /**
  * 변환한 PDF 와 페이지 이미지를 한 번에 반영한다. 본문은 POST admin/uploads 가 돌려준 임시 객체 이름이다.
  * 끝나면 목록을 다시 받는다.
@@ -72,8 +65,8 @@ const appliedSchema = z.object({ items: z.array(pageSchema) });
 export function useApplyBook() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { pdf: string; pages: string[] }) =>
-      api.post("admin/premium-book/apply", { json: body }).json(appliedSchema),
+    mutationFn: (body: ApplyInput) =>
+      api.post("admin/premium-book/apply", { json: body }).json(pageListSchema),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: premiumBookKeys.list() }),
   });

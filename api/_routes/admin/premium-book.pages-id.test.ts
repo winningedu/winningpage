@@ -1,7 +1,7 @@
 // GET, PATCH, DELETE /api/admin/premium-book/pages/:id 계약 검증.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { createFakeStorage } from "../../../../_lib/admin-uploads/storageTestKit.js";
+import { createFakeStorage } from "../../_lib/admin-uploads/storageTestKit.js";
 import {
   argsOf,
   callRoute,
@@ -9,17 +9,20 @@ import {
   firstQuery,
   problemCode,
   type Respond,
-} from "../../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./[id].js";
+import { pageSchema } from "../../../shared/premium-book/contract.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/premium-book/pages/:id" };
 
 const UUID = "123e4567-e89b-12d3-a456-426614174000";
 const SUPA = "https://storage.test/storage/v1/object";
@@ -74,6 +77,8 @@ describe("GET /api/admin/premium-book/pages/:id", () => {
     const r = await get();
     expect(r.status).toBe(200);
     expect(r.body).toEqual(ROW);
+    // 서버 응답이 브라우저가 검증하는 계약을 통과한다.
+    expect(pageSchema.safeParse(r.body).success).toBe(true);
     const q = firstQuery(admin, "premium_book_pages");
     expect(argsOf(q, "select")).toEqual(["*"]);
     expect(argsOf(q, "eq")).toEqual(["id", 7]);
@@ -87,8 +92,8 @@ describe("GET /api/admin/premium-book/pages/:id", () => {
     expect(problemCode(r.body)).toBe("NOT_FOUND");
   });
 
+  // 빈 id 는 /pages/ 가 되어 목록 경로로 간다(끝 슬래시는 같은 경로). :id 경로에는 닿지 않는다.
   test.each([
-    ["id 없음", {}],
     ["숫자가 아닌 id", { id: "abc" }],
     ["0", { id: "0" }],
     ["음수", { id: "-1" }],

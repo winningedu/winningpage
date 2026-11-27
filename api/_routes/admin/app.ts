@@ -11,6 +11,7 @@ import { knowledgeEval } from "./knowledge-eval.js";
 import { knowledgeItems } from "./knowledge-items.js";
 import { learningDiagnosis } from "./learning-diagnosis.js";
 import { mentorApplicationsDetail } from "./mentor-applications-detail.js";
+import { premiumBook } from "./premium-book.js";
 import { revenuePending } from "./revenue-pending.js";
 import { revenueServices } from "./revenue-services.js";
 import { sections } from "./sections.js";
@@ -27,6 +28,7 @@ export const admin = createAdminApp()
   .route("/knowledge-items", knowledgeItems)
   .route("/learning-diagnosis", learningDiagnosis)
   .route("/mentor-applications", mentorApplicationsDetail)
+  .route("/premium-book", premiumBook)
   .route("/revenue", revenuePending)
   .route("/revenue", revenueServices)
   .route("/sections", sections)

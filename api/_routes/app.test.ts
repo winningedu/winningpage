@@ -74,7 +74,10 @@ const destinationOf = (url: string) =>
 
 // maxDuration 이 있는 옮긴 경로. 없으면 /api/app 으로 간다(api/router-30, -60 과 같은 한도).
 const MIGRATED_30: string[] = [];
-const MIGRATED_60: string[] = ["/api/admin/knowledge-eval"];
+const MIGRATED_60: string[] = [
+  "/api/admin/knowledge-eval",
+  "/api/admin/premium-book/apply",
+];
 const entryFor = (pattern: string) =>
   MIGRATED_30.includes(pattern)
     ? "/api/app-30"

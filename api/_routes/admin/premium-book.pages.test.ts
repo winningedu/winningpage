@@ -1,7 +1,7 @@
 // GET, POST /api/admin/premium-book/pages 계약 검증: 책자 페이지 목록과 등록.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { createFakeStorage } from "../../../_lib/admin-uploads/storageTestKit.js";
+import { createFakeStorage } from "../../_lib/admin-uploads/storageTestKit.js";
 import {
   argsOf,
   callRoute,
@@ -9,17 +9,23 @@ import {
   firstQuery,
   problemCode,
   type Respond,
-} from "../../../_lib/adminRoute.testkit.js";
+} from "../../_lib/adminRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./pages.js";
+import {
+  pageListSchema,
+  pageSchema,
+} from "../../../shared/premium-book/contract.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/premium-book/pages" };
 
 const UUID = "123e4567-e89b-12d3-a456-426614174000";
 const SUPA = "https://storage.test/storage/v1/object";
@@ -65,6 +71,8 @@ describe("GET /api/admin/premium-book/pages", () => {
     expect(r.body).toEqual({
       items: [{ id: 1, sort_order: 1, image_url: "a" }],
     });
+    // 서버 응답이 브라우저가 검증하는 계약을 통과한다.
+    expect(pageListSchema.safeParse(r.body).success).toBe(true);
     const query = firstQuery(admin, "premium_book_pages");
     expect(argsOf(query, "select")).toEqual(["*"]);
     expect(argsOf(query, "order")).toEqual(["sort_order", { ascending: true }]);
@@ -107,6 +115,7 @@ describe("POST /api/admin/premium-book/pages", () => {
     const r = await post(BODY);
     expect(r.status).toBe(201);
     expect(r.body).toEqual({ id: 9, ...BODY });
+    expect(pageSchema.safeParse(r.body).success).toBe(true);
     const query = firstQuery(admin, "premium_book_pages");
     expect(argsOf(query, "insert")).toEqual([BODY]);
     expect(argsOf(query, "select")).toEqual(["*"]);

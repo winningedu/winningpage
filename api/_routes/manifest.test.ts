@@ -353,40 +353,6 @@ describe("api/ 직속 독립 함수", () => {
 });
 
 // 실제 매니페스트 키로 요청이 어느 라우트에 닿고 경로 값이 어떻게 담기는지 본다.
-describe("경로 파라미터", () => {
-  const resolve = async (url: string) => {
-    const hit: { key?: string; query?: unknown } = {};
-    const stubs = Object.fromEntries(
-      Object.keys(defaultRoutes).map((key) => [
-        key,
-        async () => ({
-          default: (req: VercelRequest) => {
-            hit.key = key;
-            hit.query = req.query;
-          },
-        }),
-      ]),
-    );
-    const res = { status: () => res, json: () => res };
-    await dispatch(
-      stubs,
-      { url, query: {} } as unknown as VercelRequest,
-      res as unknown as VercelResponse,
-    );
-    return hit;
-  };
-
-  test.each([
-    [
-      "/api/admin/premium-book/pages/7",
-      "admin/premium-book/pages/[id]",
-      { id: "7" },
-    ],
-  ])("%s 는 %s 로 가고 id 가 담긴다", async (url, key, query) => {
-    expect(await resolve(url)).toEqual({ key, query });
-  });
-});
-
 describe("학습진단, 멘토 신청 경로", () => {
   const ID = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
   const resolve = async (url: string) => {
