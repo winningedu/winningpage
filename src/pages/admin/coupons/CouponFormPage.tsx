@@ -137,8 +137,21 @@ function CouponFormView({
     const found = listQuery.data?.items.find((row) => row.slug === slug);
     if (!found) return null;
     if (editingRow && found.id === editingRow.id) return null;
+    // 저장이 끝나기 전에 목록이 다시 와서 방금 저장한 키가 들어 있다. 내가 저장한 키는 중복이 아니다.
+    if (
+      (save.isPending || save.isSuccess) &&
+      save.variables?.slug.trim() === slug
+    )
+      return null;
     return found;
-  }, [form.slug, listQuery.data, editingRow]);
+  }, [
+    form.slug,
+    listQuery.data,
+    editingRow,
+    save.isPending,
+    save.isSuccess,
+    save.variables,
+  ]);
 
   function patch(values: Record<string, unknown>) {
     setForm((prev) => ({ ...prev, ...values }));

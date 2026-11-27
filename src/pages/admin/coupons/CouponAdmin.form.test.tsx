@@ -153,6 +153,41 @@ test("등록 저장은 payload 를 POST 하고 목록으로 돌아온다", async
   );
 });
 
+test("저장에 성공하면 방금 저장한 쿠폰 키가 중복 안내로 한 번도 보이지 않는다", async () => {
+  // 저장 뒤 목록 재조회에는 방금 만든 쿠폰이 들어 있다.
+  let saved = false;
+  on("POST", "admin/coupons", () => {
+    saved = true;
+    return couponRow;
+  });
+  on("GET", "admin/coupons", () =>
+    saved
+      ? listBody({ items: [{ ...couponRow, slug: "new-slug" }] })
+      : listBody(),
+  );
+  const { router } = await openCreate();
+  fillRequired();
+
+  let flashed = false;
+  const observer = new MutationObserver(() => {
+    if (document.body.textContent?.includes("이미 사용 중인 쿠폰 키입니다."))
+      flashed = true;
+  });
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+  });
+  fireEvent.click(screen.getByRole("button", { name: "저장" }));
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe("/admin/coupons"),
+  );
+  await screen.findByRole("region", { name: "쿠폰 목록" });
+  observer.disconnect();
+
+  expect(flashed).toBe(false);
+});
+
 test("수정 쿠폰을 기다리는 동안 폼 스켈레톤을 보이고 오면 폼으로 바뀐다", async () => {
   let release: () => void = () => {};
   on("GET", "admin/coupons/c1", async () => {
