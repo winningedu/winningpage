@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -27,6 +26,7 @@ import {
   type ServiceTab,
 } from "@/pages/admin/revenue/api";
 import RevenueDashboard from "@/pages/admin/revenue/RevenueDashboard";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { downloadCsv } from "@/pages/admin/shared/csvExport";
 import { ActionButton } from "@/pages/admin/shared/formFields";
@@ -385,7 +385,10 @@ export default function RevenueAdmin() {
         />
       ) : (
         <div className="bg-white shadow-sm">
-          <Table className="min-w-[62.5rem]">
+          <AdminTableFrame
+            label="매출 및 결제 목록"
+            className="min-w-[62.5rem]"
+          >
             <TableHeader>
               <TableRow className="bg-muted text-left hover:bg-transparent">
                 <TableHead scope="col" className={HEAD}>
@@ -465,7 +468,7 @@ export default function RevenueAdmin() {
                 ))
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </div>

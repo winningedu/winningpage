@@ -3,7 +3,6 @@ import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -16,6 +15,7 @@ import {
 } from "@/lib/goal/goalCutBackfill";
 import { ApiError } from "@/lib/http/client";
 import { withDedupedKeys } from "@/lib/reactKeys";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   AdminChunkError,
   reportAdminError,
@@ -467,7 +467,10 @@ function GoalCutsBackfillPanel({ onReload }) {
                   <p className="font-semibold">
                     상위 {stats.samples.length}행 샘플
                   </p>
-                  <Table className="mt-1 min-w-150">
+                  <AdminTableFrame
+                    label={`상위 ${stats.samples.length}행 샘플`}
+                    className="mt-1 min-w-150"
+                  >
                     <TableHeader>
                       <TableRow className="hover:bg-transparent">
                         {["대학", "학과", "종류", "컷", "연도"].map((h) => (
@@ -506,7 +509,7 @@ function GoalCutsBackfillPanel({ onReload }) {
                         </TableRow>
                       ))}
                     </TableBody>
-                  </Table>
+                  </AdminTableFrame>
                 </div>
               )}
 

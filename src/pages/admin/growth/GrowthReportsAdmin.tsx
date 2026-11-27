@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -25,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   ActionButton,
   Field,
@@ -189,7 +189,10 @@ function GrowthReportsScreen({ config }: Props) {
           <div className="mb-4 text-sm font-medium text-gray-500">
             전체 <span className="text-blue-600">{total}</span>건
           </div>
-          <Table className="min-w-[60rem] border-collapse">
+          <AdminTableFrame
+            label={config.title}
+            className="min-w-[60rem] border-collapse"
+          >
             <TableHeader>
               <TableRow className="border-y border-gray-300 hover:bg-transparent">
                 {[
@@ -270,7 +273,7 @@ function GrowthReportsScreen({ config }: Props) {
                 ))
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
 
           <AdminPagination
             page={params.page}

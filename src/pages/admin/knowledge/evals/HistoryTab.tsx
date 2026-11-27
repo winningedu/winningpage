@@ -1,12 +1,12 @@
 import { useState } from "react";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/time/format";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import type { EvalRun } from "./api";
 import { diffMetrics } from "./form";
 import { formatMetric, formatParams, RECALL_KS } from "./format";
@@ -48,7 +48,7 @@ export default function HistoryTab({ runs }: { runs: EvalRun[] }) {
             앞 {formatDate(before.created_at)} / 뒤{" "}
             {formatDate(after.created_at)}
           </div>
-          <Table className="mt-4 max-w-[40rem]">
+          <AdminTableFrame label="두 실행 비교" className="mt-4 max-w-[40rem]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <Th>지표</Th>
@@ -71,7 +71,7 @@ export default function HistoryTab({ runs }: { runs: EvalRun[] }) {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
 
@@ -79,7 +79,7 @@ export default function HistoryTab({ runs }: { runs: EvalRun[] }) {
         <div className="mb-4 text-sm text-muted-foreground">
           최근 실행 {runs.length}건 / 두 건을 고르면 지표 차이를 보여 줍니다.
         </div>
-        <Table>
+        <AdminTableFrame label="최근 실행">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <Th>비교</Th>
@@ -131,7 +131,7 @@ export default function HistoryTab({ runs }: { runs: EvalRun[] }) {
               ))
             )}
           </TableBody>
-        </Table>
+        </AdminTableFrame>
       </div>
     </div>
   );

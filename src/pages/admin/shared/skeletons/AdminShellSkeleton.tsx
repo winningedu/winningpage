@@ -16,7 +16,7 @@ export function AdminShellSkeleton() {
       {/* 배경색은 Admin.tsx ADMIN_SIDEBAR_THEME의 --sidebar 값(#101214) */}
       <aside
         data-part="sidebar"
-        className="fixed left-0 top-0 h-screen w-56 bg-[#101214]"
+        className="fixed left-0 top-0 hidden h-screen bg-[#101214] md:block md:w-56"
       >
         <div className="border-b border-white/10 px-5 py-5">
           <SkeletonBar className="h-8 w-24 bg-white/10" />
@@ -29,12 +29,12 @@ export function AdminShellSkeleton() {
       </aside>
       <header
         data-part="topbar"
-        className="fixed left-56 right-0 top-0 flex h-14 items-center border-b border-black/10 bg-white px-7 shadow-sm"
+        className="fixed left-0 right-0 top-0 flex h-14 items-center border-b border-black/10 bg-white px-4 shadow-sm md:left-56 xl:px-7"
       >
         <SkeletonBar className="h-4 w-40" />
       </header>
-      <main data-part="main" className="ml-56 pt-14">
-        <div className="min-h-[calc(100vh-3.5rem)] space-y-6 px-7 py-8">
+      <main data-part="main" className="pt-14 md:ml-56">
+        <div className="min-h-[calc(100vh-3.5rem)] space-y-6 px-4 py-8 xl:px-7">
           <SkeletonBar className="h-8 w-48" />
           <TableSkeletonGrid columns={6} rows={10} />
         </div>

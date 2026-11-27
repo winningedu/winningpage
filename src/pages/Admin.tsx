@@ -39,6 +39,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Toaster, toast } from "@/components/ui/toast";
 import { useAuth } from "@/context/AuthProvider";
@@ -77,6 +78,7 @@ import MemberPurgeAdmin from "@/pages/admin/tenants/MemberPurgeAdmin";
 import PurgeLogsAdmin from "@/pages/admin/tenants/PurgeLogsAdmin";
 import TenantsAdmin from "@/pages/admin/tenants/TenantsAdmin";
 import AccessLogsAdmin from "./admin/access-logs/AccessLogsAdmin";
+import { ADMIN_GROUP_ICONS } from "./admin/adminMenuIcons";
 import {
   ADMIN_DEFAULT_SECTION_KEY,
   ADMIN_SECTION_KEYS,
@@ -482,8 +484,8 @@ export async function requestWinningEmbedding(row) {
   }
 }
 
-// 어드민 사이드바는 어두운 배경을 유지한다. ui 사이드바 토큰을 이 래퍼에서만 덮어쓰고
-// 전역(:root)은 건드리지 않는다. 앱 셸 사이드바(AppShellSidebar)는 전역 값을 그대로 쓴다.
+// 어드민 사이드바는 어두운 배경을 유지한다. ui 사이드바 토큰을 SidebarProvider 래퍼에서만
+// 덮어쓰고 전역(:root)은 건드리지 않는다. 앱 셸 사이드바(AppShellSidebar)는 전역 값을 그대로 쓴다.
 const ADMIN_SIDEBAR_THEME = {
   "--sidebar": "#101214",
   "--sidebar-foreground": "#ffffff",
@@ -496,6 +498,9 @@ const ADMIN_SIDEBAR_THEME = {
 } as CSSProperties;
 
 function AdminSidebar({ activeKey }: { activeKey: string }) {
+  // 모바일에서는 Sheet 로 열려 항상 전체 목록을 그리므로 접힘(아이콘) 표시는 데스크톱만이다.
+  const { state, isMobile, setOpen: setSidebarOpen } = useSidebar();
+  const collapsed = state === "collapsed" && !isMobile;
   // 자식 탭(acceptanceRates/admissionCaseLogos)에 있을 때도 사이드바에서는
   // 탭 목록의 첫 번째 key(admissionSusiJungsi)를 기준으로 활성 항목을 매칭한다.
   const sidebarActiveKey = CONFIGS[activeKey]?.tabs
@@ -548,6 +553,12 @@ function AdminSidebar({ activeKey }: { activeKey: string }) {
     setOpen(allOpen ? new Set() : new Set(menuGroups.map((g) => g.title)));
   }
 
+  // 접힌 사이드바에서 대분류 아이콘을 누르면 사이드바를 펼치고 그 대분류를 연다.
+  function expandGroup(title: string) {
+    setSidebarOpen(true);
+    setOpen((prev) => new Set(prev).add(title));
+  }
+
   function toggle(title) {
     setOpen((prev) => {
       const next = new Set(prev);
@@ -558,16 +569,37 @@ function AdminSidebar({ activeKey }: { activeKey: string }) {
   }
 
   return (
-    <aside
-      className="fixed left-0 top-0 z-40 h-screen w-56 text-white"
-      style={ADMIN_SIDEBAR_THEME}
-    >
-      <Sidebar collapsible="none">
-        <SidebarHeader className="border-b border-white/10 px-5 py-5 text-2xl font-bold">
-          관리자
-        </SidebarHeader>
+    <Sidebar collapsible="icon">
+      <SidebarHeader
+        className={`border-b border-white/10 py-5 font-bold ${
+          collapsed ? "px-0 text-center text-lg" : "px-5 text-2xl"
+        }`}
+      >
+        {collapsed ? "관" : "관리자"}
+      </SidebarHeader>
 
-        <SidebarContent className="overflow-hidden">
+      <SidebarContent className="overflow-hidden">
+        {collapsed ? (
+          <SidebarMenu className="gap-1 px-2 py-3">
+            {menuGroups.map((group) => {
+              const Icon = ADMIN_GROUP_ICONS[group.title];
+
+              return (
+                <SidebarMenuItem key={group.title}>
+                  <SidebarMenuButton
+                    isActive={group.title === activeGroupTitle}
+                    aria-label={group.title}
+                    title={group.title}
+                    onClick={() => expandGroup(group.title)}
+                    className="justify-center text-white/70 data-active:text-white"
+                  >
+                    {Icon ? <Icon /> : group.title.charAt(0)}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        ) : (
           <ScrollArea className="min-h-0 flex-1">
             <div className="px-2 py-3">
               {menuGroups.length > 0 && (
@@ -641,9 +673,9 @@ function AdminSidebar({ activeKey }: { activeKey: string }) {
               })}
             </div>
           </ScrollArea>
-        </SidebarContent>
-      </Sidebar>
-    </aside>
+        )}
+      </SidebarContent>
+    </Sidebar>
   );
 }
 
@@ -1756,25 +1788,29 @@ export function AdminLayout() {
 
   return (
     <Toaster limit={5}>
-      {/* 어드민은 데스크톱 전용이라 사이드바는 접히지 않는다(collapsible="none").
-          open 을 true 로 고정하고 onOpenChange 를 비워, SidebarProvider 의 Cmd/Ctrl+B
-          단축키가 눌려도 상태가 바뀌지 않는다. 다만 Cmd/Ctrl+B 는 아무도 읽지 않는
-          sidebar_state=false 쿠키를 쓰고, 프로바이더가 어드민에서 브라우저 자체의
-          Ctrl+B 를 막는다. */}
+      {/* 사이드바는 아이콘만 남게 접힌다(collapsible="icon"). 접힘 상태는 저장하지 않아
+          항상 펼친 채로 열린다(AdminShellSkeleton 이 펼친 14rem 기준). 프로바이더의
+          Cmd/Ctrl+B 단축키도 같은 상태를 바꾼다. 사이드바 색 토큰은 이 래퍼에서 덮어쓴다. */}
       <SidebarProvider
-        open
-        onOpenChange={() => {}}
-        style={{ "--sidebar-width": "14rem" } as CSSProperties}
-        className="block min-h-screen bg-[#f4f4f4] text-[#111827]"
+        style={
+          {
+            "--sidebar-width": "14rem",
+            ...ADMIN_SIDEBAR_THEME,
+          } as CSSProperties
+        }
+        className="min-h-screen bg-[#f4f4f4] text-[#111827]"
       >
         <AdminSidebar activeKey={activeKey} />
-        <AdminTopbar onLogout={logout} />
 
-        <main className="ml-56 pt-14">
-          <div className="min-h-[calc(100vh-3.5rem)] px-7 py-8">
-            <Outlet />
-          </div>
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <AdminTopbar onLogout={logout} />
+
+          <main>
+            <div className="min-h-[calc(100vh-3.5rem)] px-4 py-8 xl:px-7">
+              <Outlet />
+            </div>
+          </main>
+        </div>
       </SidebarProvider>
       <ConfirmAdminHost />
     </Toaster>

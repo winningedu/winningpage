@@ -8,6 +8,10 @@ import type { VercelResponse } from "@vercel/node";
 import { MAX_PASSWORD_LENGTH, SYNTHETIC_DOMAIN } from "../auth/login.js";
 import { ProblemError } from "../hono/problem.js";
 import { type ErrorShape, sendError } from "../httpResponse.js";
+import {
+  type AlimtalkSendOutcome,
+  sendAndLog,
+} from "../messaging/alimtalkSend.js";
 import { type ConsoleAuditCtx, writeConsoleAuditLog } from "./audit.js";
 import { loadTenant } from "./directory.js";
 
@@ -210,6 +214,62 @@ export async function readIssueDedupeKey(
 
 export const TEACHERS_RESOURCE_KEY = "console.teachers";
 
+/** teachers.role 을 계정 안내의 계정종류 문구로. */
+const ACCOUNT_KIND: Record<string, string> = {
+  homeroom: "선생님",
+  school_admin: "학교 관리자",
+};
+
+/**
+ * 계정 안내 알림톡(teacherAccount)을 선생님 본인 번호로 보낸다. 발급(또는 재발급)의 DB 쓰기와 감사 로그가
+ * 끝난 뒤에 부른다. 발송 실패는 발급을 되돌리지 않으므로 던지지 않고 결과로만 돌려준다.
+ * 임시 비밀번호는 알리고로만 가고 발송 로그에는 가려진다(템플릿 secretVars).
+ */
+export async function sendTeacherAccountNotice(
+  admin: SupabaseClient,
+  teacherId: string,
+  tempPassword: string,
+  dedupeKey: string,
+): Promise<AlimtalkSendOutcome> {
+  try {
+    const { data: teacher, error } = await admin
+      .from("teachers")
+      .select("tenant_id, name, phone, role, login_id, profile_id")
+      .eq("id", teacherId)
+      .maybeSingle();
+    if (error || !teacher?.login_id) throw new Error("teacher read failed");
+    const kind = ACCOUNT_KIND[teacher.role as string];
+    if (!kind) throw new Error("unknown teacher role");
+    const { data: tenant, error: tenantError } = await admin
+      .from("tenants")
+      .select("name")
+      .eq("id", teacher.tenant_id)
+      .maybeSingle();
+    if (tenantError || !tenant) throw new Error("tenant read failed");
+
+    return await sendAndLog({
+      supabaseAdmin: admin,
+      templateKey: "teacherAccount",
+      phone: teacher.phone,
+      profileId: teacher.profile_id,
+      variables: {
+        이름: teacher.name,
+        계정종류: kind,
+        소속: tenant.name,
+        아이디: teacher.login_id,
+        임시비밀번호: tempPassword,
+      },
+      dedupeKey,
+    });
+  } catch (error) {
+    console.error(
+      "[teacherAccounts] account notice not sent",
+      (error as Error).message,
+    );
+    return { status: "failed", reason: "notice_not_sent" };
+  }
+}
+
 export interface RegisterInput {
   tenantId: string;
   name: string;
@@ -233,6 +293,8 @@ export interface RegisterResult {
   verdict: string;
   /** 이번 호출에서 계정을 새로 만들었거나 임시 비밀번호를 다시 준 경우에만 있다. */
   issued: IssuedAccount | null;
+  /** 계정 안내 알림톡 결과. 발급하지 않았으면 null. */
+  send: AlimtalkSendOutcome | null;
 }
 
 /**
@@ -292,11 +354,21 @@ export async function registerTeacherWithAccount(
     },
   });
 
+  const send = issued
+    ? await sendTeacherAccountNotice(
+        admin,
+        registered.teacher_id,
+        issued.tempPassword,
+        issued.dedupeKey,
+      )
+    : null;
+
   return {
     teacherId: registered.teacher_id,
     loginId: teacher.login_id,
     verdict: registered.verdict,
     issued,
+    send,
   };
 }
 
@@ -467,7 +539,12 @@ export function parseRegisterBody(body: unknown): ParsedRegisterBody | null {
 export type IssueExistingResult =
   | { status: "not_found" }
   | { status: "account_exists" }
-  | { status: "issued"; loginId: string; issued: IssuedAccount };
+  | {
+      status: "issued";
+      loginId: string;
+      issued: IssuedAccount;
+      send: AlimtalkSendOutcome;
+    };
 
 /**
  * 이미 등록된 교사(계정 없음)에게 계정을 발급한다(W16b). 다른 기관이거나 삭제된 교사는 not_found 로
@@ -507,10 +584,16 @@ export async function issueAccountForExistingTeacher(
     targetId: teacherId,
     meta: { loginId: teacher.login_id, sendDedupeKey: issued.dedupeKey },
   });
-  return { status: "issued", loginId: teacher.login_id, issued };
+  const send = await sendTeacherAccountNotice(
+    admin,
+    teacherId,
+    issued.tempPassword,
+    issued.dedupeKey,
+  );
+  return { status: "issued", loginId: teacher.login_id, issued, send };
 }
 
-/** 등록 응답 본문. 임시 비밀번호는 이번에 새로 발급한 경우에만 싣는다. */
+/** 등록 응답 본문. 임시 비밀번호와 안내 발송 결과(sendStatus)는 이번에 새로 발급한 경우에만 싣는다. */
 export function registerResponseBody(result: RegisterResult) {
   return {
     ok: true,
@@ -518,6 +601,7 @@ export function registerResponseBody(result: RegisterResult) {
     loginId: result.loginId,
     verdict: result.verdict,
     ...(result.issued ? { tempPassword: result.issued.tempPassword } : {}),
+    ...(result.send ? { sendStatus: result.send.status } : {}),
   };
 }
 

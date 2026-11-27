@@ -4,14 +4,15 @@ import { useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { toastError, toastSuccess } from "@/pages/admin/shared/adminToast";
+import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   mappedErrorText,
@@ -91,7 +92,12 @@ export default function CouponHistory() {
           <h1 className="text-xl font-semibold">{TITLE}</h1>
         </div>
 
-        {/* 어느 쿠폰의 이력인지, 값(데이터)만으로 식별한다. */}
+        {/* 어느 쿠폰의 이력인지, 값(데이터)만으로 식별한다. 받는 동안은 그 자리에 막대를 둔다. */}
+        {couponQuery.isPending && (
+          <div className="mt-3">
+            <AdminLineSkeleton label="쿠폰 정보를 불러오는 중입니다." />
+          </div>
+        )}
         {coupon && (
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-bold">
             <span className="font-mono text-[0.8125rem]">{coupon.slug}</span>
@@ -115,7 +121,7 @@ export default function CouponHistory() {
             전체 <span className="text-blue-600">{historyRows.length}</span>건
           </div>
 
-          <Table className="min-w-250">
+          <AdminTableFrame label="사용 이력" className="min-w-250">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead
@@ -142,7 +148,7 @@ export default function CouponHistory() {
                 ))}
                 <TableHead
                   scope="col"
-                  className="w-24 px-3 py-3 text-center font-semibold whitespace-normal"
+                  className="sticky right-0 border-l border-gray-200 bg-white w-24 px-3 py-3 text-center font-semibold whitespace-normal"
                 >
                   관리
                 </TableHead>
@@ -205,7 +211,7 @@ export default function CouponHistory() {
                         {row.void_reason || "-"}
                       </TableCell>
 
-                      <TableCell className="px-3 py-3 whitespace-normal">
+                      <TableCell className="sticky right-0 border-l border-gray-100 bg-white px-3 py-3 whitespace-normal">
                         {voided ? (
                           <div className="text-center text-gray-300">-</div>
                         ) : voidingId === row.id ? (
@@ -270,7 +276,7 @@ export default function CouponHistory() {
                 })
               )}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </>

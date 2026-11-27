@@ -14,7 +14,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -40,6 +39,7 @@ import { withDedupedKeys } from "@/lib/reactKeys";
 import { putSignedUpload } from "@/lib/storage/signedUpload";
 import { issueUpload, previewUpload, removeUploads } from "../engine/api";
 import AdminPagination from "./AdminPagination";
+import { AdminTableFrame } from "./AdminTableFrame";
 import { reportAdminError } from "./adminErrors";
 import { toastSuccess, toastWarning } from "./adminToast";
 import { confirmAdmin } from "./confirmAdmin";
@@ -1630,6 +1630,15 @@ export function AdminConfigTabs({
   );
 }
 
+// 목록 셀의 열 타입별 정렬과 줄바꿈. 금액은 오른쪽 정렬 고정폭 숫자, 날짜와 전화번호는
+// 한 줄로 둔다. 나머지는 단어 단위로 줄바꿈한다(whitespace-normal + 표의 break-keep).
+const CELL_TYPE_CLASS: Partial<Record<AdminFieldType, string>> = {
+  money: "whitespace-nowrap text-right tabular-nums",
+  date: "whitespace-nowrap",
+  datetime: "whitespace-nowrap",
+  maskedPhone: "whitespace-nowrap",
+};
+
 export function AdminTable<T extends AdminRow = AdminRow>({
   config: rawConfig,
   rows,
@@ -1732,7 +1741,10 @@ export function AdminTable<T extends AdminRow = AdminRow>({
         전체 <span className="text-blue-600">{total.toLocaleString()}</span>건
       </div>
 
-      <Table className="min-w-[62.5rem] break-keep border-collapse">
+      <AdminTableFrame
+        label={config.title}
+        className="min-w-[62.5rem] border-collapse"
+      >
         <TableHeader>
           <TableRow className="border-y border-gray-300 hover:bg-transparent">
             <TableHead
@@ -1745,14 +1757,20 @@ export function AdminTable<T extends AdminRow = AdminRow>({
               <TableHead
                 scope="col"
                 key={column.key}
-                className="whitespace-normal px-3 py-3 text-left font-semibold"
+                className={`whitespace-normal px-3 py-3 font-semibold ${
+                  column.type === "money"
+                    ? "text-right tabular-nums"
+                    : "text-left"
+                }`}
               >
                 {column.label}
               </TableHead>
             ))}
+            {/* 관리 열은 오른쪽에 고정한다. 열이 많아 표가 가로로 넘쳐도 수정,삭제
+                진입점이 첫 화면에 보인다(CouponList 와 같은 방식). */}
             <TableHead
               scope="col"
-              className="w-24 whitespace-normal px-3 py-3 text-center font-semibold"
+              className="sticky right-0 w-24 whitespace-normal border-l border-gray-200 bg-white px-3 py-3 text-center font-semibold"
             >
               관리
             </TableHead>
@@ -1779,7 +1797,10 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                 {config.columns.map((column) => (
                   <TableCell
                     key={column.key}
-                    className="whitespace-normal px-3 py-3"
+                    className={`px-3 py-3 ${
+                      (column.type && CELL_TYPE_CLASS[column.type]) ||
+                      "whitespace-normal"
+                    }`}
                   >
                     {/* 대학명 = 메타 수정 다이얼로그 진입점.
                           공개 목록에서 대학명을 누르면 그 대학 입시 홈페이지로
@@ -1950,7 +1971,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                   </TableCell>
                 ))}
 
-                <TableCell className="whitespace-normal px-3 py-3">
+                <TableCell className="sticky right-0 whitespace-normal border-l border-gray-100 bg-white px-3 py-3">
                   <div className="flex justify-center gap-3">
                     {/* config.hideRowEdit: 행 전체 폼(✏️/👁)으로 들어가는
                           진입점을 끈다. AdminTable 은 36개 config 가 공유하는
@@ -2035,7 +2056,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
             ))
           )}
         </TableBody>
-      </Table>
+      </AdminTableFrame>
 
       <AdminPagination
         page={page}

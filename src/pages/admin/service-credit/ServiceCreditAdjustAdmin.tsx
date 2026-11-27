@@ -9,7 +9,6 @@ import {
   useSearchParams,
 } from "react-router";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -17,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ApiError } from "@/lib/http/client";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   ActionButton,
   Field,
@@ -382,7 +382,7 @@ function StudentCredits({ studentId }: { studentId: string }) {
         {student.email || "-"}
       </p>
       {items.length > 0 && (
-        <Table className="border-collapse">
+        <AdminTableFrame label="서비스 이용횟수" className="border-collapse">
           <TableHeader>
             <TableRow className="border-b border-gray-300 hover:bg-transparent">
               {["서비스", "총", "사용", "잔여", "만료", "조정"].map((label) => (
@@ -423,7 +423,7 @@ function StudentCredits({ studentId }: { studentId: string }) {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+        </AdminTableFrame>
       )}
     </div>
   );

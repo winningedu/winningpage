@@ -121,3 +121,29 @@ describe("TrendSection", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("추이 실패");
   });
 });
+
+function expectNumericColumn(table: HTMLElement, name: string) {
+  const headers = within(table).getAllByRole("columnheader");
+  const index = headers.findIndex((h) =>
+    h.textContent?.trim().startsWith(name),
+  );
+  expect(index, name).toBeGreaterThanOrEqual(0);
+  expect(headers[index]).toHaveClass("text-right");
+  const cells = within(table)
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => row.querySelectorAll("td")[index]);
+  expect(cells.length).toBeGreaterThan(0);
+  for (const cell of cells) {
+    expect(cell).toHaveClass("text-right", "tabular-nums");
+  }
+}
+
+test("기간별 가입과 결제 표의 새 가입, 결제 주문 열은 오른쪽 정렬 고정폭 숫자다", async () => {
+  renderPage();
+  const table = await screen.findByRole("table", {
+    name: "기간별 가입과 결제",
+  });
+  expectNumericColumn(table, "새 가입");
+  expectNumericColumn(table, "결제 주문");
+});

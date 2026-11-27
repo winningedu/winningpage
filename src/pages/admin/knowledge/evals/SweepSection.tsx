@@ -1,12 +1,12 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import {
   ActionButton,
   Field,
@@ -118,7 +118,7 @@ export default function SweepSection({
           <div className="mb-2 text-sm text-muted-foreground">
             질의 {result.queryCount}건 / 굵은 행이 운영값 조합입니다.
           </div>
-          <Table>
+          <AdminTableFrame label="조합 비교">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <Th>RRF k</Th>
@@ -164,7 +164,7 @@ export default function SweepSection({
                 );
               })}
             </TableBody>
-          </Table>
+          </AdminTableFrame>
         </div>
       )}
     </div>

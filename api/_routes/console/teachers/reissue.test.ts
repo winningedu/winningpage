@@ -1,4 +1,4 @@
-// POST /api/console/teachers/reissue 계약 검증. 비밀번호 설정 전이고 마지막 발송이 실패한 계정에만 새 임시 비밀번호를 준다.
+// POST /api/console/teachers/reissue 계약 검증. 비밀번호 설정 전이고 마지막 발송이 실패했거나 발송 기록이 없는 계정에만 새 임시 비밀번호를 준다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -144,10 +144,17 @@ describe("POST /api/console/teachers/reissue", () => {
     },
   );
 
-  test("발송 기록이 아직 없으면 마지막 발송이 성공한 것이 아니므로 재발급할 수 있다", async () => {
+  test("발송 기록이 없으면 재발급하고 새 임시 비밀번호를 돌려준다(2026-11-27 결정)", async () => {
     kit.state.rows.alimtalk_send_logs = () => [];
 
-    expect((await post({ teacherId: "teacher-1" })).status).toBe(200);
+    const r = await post({ teacherId: "teacher-1" });
+
+    expect(r.status).toBe(200);
+    const password = (r.body as { tempPassword: string }).tempPassword;
+    expect(password).toHaveLength(10);
+    expect(kit.state.auth.updateUserById).toHaveBeenCalledWith("profile-t1", {
+      password,
+    });
   });
 
   test.each([
@@ -173,13 +180,14 @@ describe("POST /api/console/teachers/reissue", () => {
     },
   );
 
-  test("알림톡을 아직 연결하지 않았으므로 발송 기록과 상관없이 재발급한다(결정 16)", async () => {
+  test("마지막 발송이 성공이면 409 SEND_NOT_FAILED 이고 비밀번호를 바꾸지 않는다(결정 16)", async () => {
     kit.state.rows.alimtalk_send_logs = () => [{ status: "sent" }];
 
     const r = await post({ teacherId: "teacher-1" });
 
-    expect(r.status).toBe(200);
-    expect(kit.state.auth.updateUserById).toHaveBeenCalled();
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { code: "SEND_NOT_FAILED" } });
+    expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
   });
 
   test("Auth 비밀번호 교체가 실패하면 502 AUTH_SYNC_FAILED 이고 평문을 돌려주지 않는다", async () => {

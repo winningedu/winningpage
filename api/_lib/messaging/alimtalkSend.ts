@@ -17,7 +17,26 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getChannel, isDryRun, sendTemplateMessage } from "./aligo.js";
-import type { AlimtalkTemplateKey } from "./alimtalkTemplates.js";
+import {
+  ALIMTALK_TEMPLATES,
+  type AlimtalkTemplateKey,
+} from "./alimtalkTemplates.js";
+
+const HIDDEN = "(비공개)";
+
+/** 템플릿의 비밀 변수 값을 (비공개)로 바꾸는 함수. 로그 행, meta, 돌려주는 사유에 쓴다. */
+function secretMasker(
+  templateKey: AlimtalkTemplateKey,
+  variables: Record<string, string>,
+): (text: string) => string {
+  const secrets = (ALIMTALK_TEMPLATES[templateKey].secretVars ?? [])
+    .map((key) => variables[key])
+    .filter((value): value is string => Boolean(value))
+    // meta 는 JSON 문자열로 바꿔 가리므로 JSON 이스케이프된 모양도 함께 찾는다.
+    .flatMap((value) => [value, JSON.stringify(value).slice(1, -1)]);
+  return (text) =>
+    secrets.reduce((out, secret) => out.split(secret).join(HIDDEN), text);
+}
 
 export type AlimtalkSendOutcome =
   | { status: "sent"; logId: number | null }
@@ -77,6 +96,8 @@ export async function sendAndLog({
   }
 
   const ok = Boolean(result?.ok);
+  const hide = secretMasker(templateKey, variables);
+  const providerMessage = result?.providerMessage || thrown || null;
 
   // 3) 기록. 로그 실패가 발송 결과를 뒤집지는 않는다(이미 나갔다).
   const { data: inserted, error: logError } = await supabaseAdmin
@@ -89,13 +110,16 @@ export async function sendAndLog({
       subject: result?.subject || templateKey,
       // 발송 자체가 실패해 본문이 없으면 사유를 본문 자리에 남긴다 — 나중에
       // "왜 안 갔나"를 이 표 하나로 답할 수 있어야 한다.
-      message: result?.message || `(발송 실패) ${thrown || "알 수 없는 오류"}`,
+      // 비밀 변수는 (비공개)로 남긴다. 알리고에는 실제 값이 이미 나갔다.
+      message: hide(
+        result?.message || `(발송 실패) ${thrown || "알 수 없는 오류"}`,
+      ),
       status: ok ? "sent" : "failed",
       provider_code: result ? String(result.providerCode) : null,
-      provider_message: result?.providerMessage || thrown || null,
+      provider_message: providerMessage === null ? null : hide(providerMessage),
       provider_msg_id: result?.messageId || null,
       dedupe_key: dedupeKey || null,
-      meta,
+      meta: JSON.parse(hide(JSON.stringify(meta))),
     })
     .select("id")
     .maybeSingle();
@@ -111,7 +135,7 @@ export async function sendAndLog({
   if (!ok) {
     return {
       status: "failed",
-      reason: thrown || result?.providerMessage || "발송 실패",
+      reason: hide(thrown || result?.providerMessage || "발송 실패"),
     };
   }
 

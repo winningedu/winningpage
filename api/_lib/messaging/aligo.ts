@@ -61,7 +61,7 @@ function isTestMode(): boolean {
  */
 export function buildAlimtalkMessage(code: string): string {
   return [
-    "안녕하세요, 위닝에듀입니다.",
+    `안녕하세요, ${siteBrand()}입니다.`,
     "",
     "본인 확인을 위한 인증번호를 입력해주세요.",
     `인증번호: ${code}`,
@@ -82,7 +82,7 @@ const SMS_BYTE_LIMIT = 90;
  * 알림톡 실패 시 대체 발송(failover)에도 이 문구를 쓴다.
  */
 export function buildSmsMessage(code: string): string {
-  return `[위닝에듀] 인증번호 ${code}`;
+  return `[${siteBrand()}] 인증번호 ${code}`;
 }
 
 /** EUC-KR 기준 바이트 수 — 한글/전각 2바이트, 그 외 1바이트. */
@@ -284,6 +284,7 @@ export async function sendVerificationCode({
 import {
   ALIMTALK_TEMPLATES,
   type AlimtalkTemplateKey,
+  siteBrand,
 } from "./alimtalkTemplates.js";
 
 export type TemplateSendResult = SendResult & {
@@ -313,7 +314,7 @@ export async function sendTemplateMessage({
 }): Promise<TemplateSendResult> {
   const template = ALIMTALK_TEMPLATES[templateKey];
   const message = template.build(variables);
-  const smsText = template.smsFallback(variables);
+  const smsText = template.smsFallback?.(variables);
 
   if (isDryRun()) {
     // 운영에서 켜지 말 것 — 본문이 전부 로그에 남는다.
@@ -334,6 +335,11 @@ export async function sendTemplateMessage({
   }
 
   if (getChannel() === "sms") {
+    if (!smsText) {
+      throw new Error(
+        `${templateKey} 템플릿은 대체 문자가 없어 SMS 채널로 보낼 수 없습니다.`,
+      );
+    }
     const params = {
       key: getEnv("ALIGO_API_KEY"),
       user_id: getEnv("ALIGO_USER_ID"),
@@ -381,13 +387,17 @@ export async function sendTemplateMessage({
     receiver_1: phone,
     subject_1: template.subject,
     message_1: message,
-    // 카카오 미사용자에게는 알리고가 SMS 로 자동 대체한다. 본문을 그대로 쓰면
-    // 리포트처럼 긴 문구가 LMS 로 나가 단가가 뛴다 — 축약 문구를 쓴다.
-    failover: "Y",
-    fsubject_1: template.subject,
-    fmessage_1: smsText,
     testMode: isTestMode() ? "Y" : "N",
   };
+
+  // 카카오 미사용자에게는 알리고가 SMS 로 자동 대체한다. 본문을 그대로 쓰면
+  // 리포트처럼 긴 문구가 LMS 로 나가 단가가 뛴다, 축약 문구를 쓴다.
+  // 대체 문자가 없는 템플릿(비밀 변수가 있는 안내)은 failover 를 켜지 않는다.
+  if (smsText) {
+    params.failover = "Y";
+    params.fsubject_1 = template.subject;
+    params.fmessage_1 = smsText;
+  }
 
   // 알리고는 버튼을 JSON 문자열로 받는다. 승인 시 등록한 버튼과 이름·타입·주소가
   // 맞아야 하며, 어긋나면 카카오가 발송을 거부한다.
