@@ -11,6 +11,16 @@
 import { SchemaValidationError } from "ky";
 import { z } from "zod";
 import {
+  type ManualLogsListResponse,
+  type ManualLogsMemoResponse,
+  type ManualLogsUploadResponse,
+  type manualLogsBody,
+  manualLogsDeleteResponseSchema,
+  manualLogsListResponseSchema,
+  manualLogsMemoResponseSchema,
+  manualLogsUploadResponseSchema,
+} from "../../../shared/selfeval/manual-logs.js";
+import {
   reportResponseSchema,
   reportViewSchema,
 } from "../../../shared/selfeval/report.js";
@@ -366,56 +376,56 @@ export function pickManual(sessionId: string, input: ManualInput) {
 }
 
 // ── 수기 수행보고 메모(명세 No.158~161) ───────────────────────────────
-export type ManualMemo = {
-  id: string;
-  writtenAt: string | null;
-  text: string;
-  ocr: boolean;
-  confirmed: boolean;
-  included: boolean;
-  /** 사람 이름이나 학교 이름이 보여 지우거나 바꾸라고 안내해야 하는 메모. */
-  nameNotice: boolean;
-};
-
-export type ManualLogsListResponse = { ok: true; memos: ManualMemo[] };
-export type ManualLogsUploadResponse = {
-  ok: true;
-  memos: ManualMemo[];
-  personNameDetected: boolean;
-};
-export type ManualLogsMemoResponse = { ok: true; memo: ManualMemo };
+export type {
+  ManualLogsListResponse,
+  ManualLogsMemoResponse,
+  ManualLogsUploadResponse,
+  ManualMemo,
+} from "../../../shared/selfeval/manual-logs.js";
 
 export type ManualUploadInput =
   | { text: string }
   | { file: { mimeType: string; data: string } };
 
-const MANUAL_LOGS = `${BASE}/manual-logs`;
+type ManualLogsInput = z.input<typeof manualLogsBody>;
+type ManualMemoPatch = Omit<
+  Extract<ManualLogsInput, { action: "update" }>,
+  "sessionId" | "action" | "memoId"
+>;
+
+const MANUAL_LOGS = "selfeval/manual-logs";
 
 export function manualLogsList(sessionId: string) {
-  return request<ManualLogsListResponse>(MANUAL_LOGS, {
-    method: "POST",
-    body: { sessionId, action: "list" },
-  });
+  return requestJson<ManualLogsListResponse>(
+    MANUAL_LOGS,
+    manualLogsListResponseSchema,
+    { method: "POST", body: { sessionId, action: "list" } },
+  );
 }
 
 /** 글자를 읽는 모델을 한 번 부른다. 이용 횟수는 쓰지 않는다. */
 export function manualLogsUpload(sessionId: string, input: ManualUploadInput) {
-  return request<ManualLogsUploadResponse>(MANUAL_LOGS, {
-    method: "POST",
-    body: { sessionId, action: "upload", ...input },
-    ai: true,
-  });
+  return requestJson<ManualLogsUploadResponse>(
+    MANUAL_LOGS,
+    manualLogsUploadResponseSchema,
+    {
+      method: "POST",
+      body: { sessionId, action: "upload", ...input },
+      ai: true,
+    },
+  );
 }
 
 export function manualLogsUpdate(
   sessionId: string,
   memoId: string,
-  patch: { writtenAt?: string; text?: string; confirmed?: boolean },
+  patch: ManualMemoPatch,
 ) {
-  return request<ManualLogsMemoResponse>(MANUAL_LOGS, {
-    method: "POST",
-    body: { sessionId, action: "update", memoId, ...patch },
-  });
+  return requestJson<ManualLogsMemoResponse>(
+    MANUAL_LOGS,
+    manualLogsMemoResponseSchema,
+    { method: "POST", body: { sessionId, action: "update", memoId, ...patch } },
+  );
 }
 
 export function manualLogsSetIncluded(
@@ -423,14 +433,18 @@ export function manualLogsSetIncluded(
   memoId: string,
   included: boolean,
 ) {
-  return request<ManualLogsMemoResponse>(MANUAL_LOGS, {
-    method: "POST",
-    body: { sessionId, action: "set-included", memoId, included },
-  });
+  return requestJson<ManualLogsMemoResponse>(
+    MANUAL_LOGS,
+    manualLogsMemoResponseSchema,
+    {
+      method: "POST",
+      body: { sessionId, action: "set-included", memoId, included },
+    },
+  );
 }
 
 export function manualLogsDelete(sessionId: string, memoId: string) {
-  return request<{ ok: true }>(MANUAL_LOGS, {
+  return requestJson(MANUAL_LOGS, manualLogsDeleteResponseSchema, {
     method: "POST",
     body: { sessionId, action: "delete", memoId },
   });

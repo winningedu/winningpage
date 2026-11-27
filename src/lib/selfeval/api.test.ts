@@ -422,33 +422,71 @@ describe("분석, 생성, 검증, 최종 저장", () => {
 
 describe("manualLogs", () => {
   const SID = "s1";
+  const MEMO = {
+    id: "m1",
+    writtenAt: "2026-04-03",
+    text: "광합성 실험",
+    ocr: false,
+    confirmed: false,
+    included: true,
+    nameNotice: false,
+  };
 
-  test("list 는 manual-logs 로 POST 한다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true, memos: [] }));
+  function expectPost() {
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(new URL(request.url).pathname).toBe("/api/selfeval/manual-logs");
+    return lastBody();
+  }
+
+  test("list 는 manual-logs 로 POST 하고 ok 없는 목록을 받는다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ memos: [MEMO] }));
     const r = await manualLogsList(SID);
-    expect(r).toEqual({ kind: "ok", data: { ok: true, memos: [] } });
-    const c = lastCall();
-    expect(c.path).toBe("/api/selfeval/manual-logs");
-    expect(c.body).toEqual({ sessionId: SID, action: "list" });
+    expect(r).toEqual({ kind: "ok", data: { memos: [MEMO] } });
+    expect(expectPost()).toEqual({ sessionId: SID, action: "list" });
   });
 
-  test("upload 는 글이나 파일 하나를 싣는다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true, memos: [] }));
-    await manualLogsUpload(SID, { text: "글" });
-    expect(lastCall().body).toEqual({
+  test("upload 는 글이나 파일 하나를 싣고 사람 이름 표시를 받는다", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ memos: [MEMO], personNameDetected: false }),
+    );
+    const r = await manualLogsUpload(SID, { text: "글" });
+    expect(r).toEqual({
+      kind: "ok",
+      data: { memos: [MEMO], personNameDetected: false },
+    });
+    expect(expectPost()).toEqual({
       sessionId: SID,
       action: "upload",
       text: "글",
     });
+    await manualLogsUpload(SID, {
+      file: { mimeType: "image/png", data: "AA" },
+    });
+    expect(lastBody()).toEqual({
+      sessionId: SID,
+      action: "upload",
+      file: { mimeType: "image/png", data: "AA" },
+    });
   });
 
-  test("update, set-included, delete 본문", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
-    await manualLogsUpdate(SID, "m1", {
+  test("upload 의 타임아웃은 timeout 이다", async () => {
+    fetchMock.mockImplementationOnce(async (request: Request) => {
+      throw new TimeoutError(request);
+    });
+    expect(await manualLogsUpload(SID, { text: "글" })).toEqual({
+      kind: "timeout",
+    });
+  });
+
+  test("update, set-included 는 메모 한 건을, delete 는 빈 본문을 받는다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ memo: MEMO }));
+    const updated = await manualLogsUpdate(SID, "m1", {
       writtenAt: "2026-04-03",
       confirmed: true,
     });
-    expect(lastCall().body).toEqual({
+    expect(updated).toEqual({ kind: "ok", data: { memo: MEMO } });
+    expect(expectPost()).toEqual({
       sessionId: SID,
       action: "update",
       memoId: "m1",
@@ -456,14 +494,18 @@ describe("manualLogs", () => {
       confirmed: true,
     });
     await manualLogsSetIncluded(SID, "m1", false);
-    expect(lastCall().body).toEqual({
+    expect(lastBody()).toEqual({
       sessionId: SID,
       action: "set-included",
       memoId: "m1",
       included: false,
     });
-    await manualLogsDelete(SID, "m1");
-    expect(lastCall().body).toEqual({
+    fetchMock.mockResolvedValue(jsonResponse({}));
+    expect(await manualLogsDelete(SID, "m1")).toEqual({
+      kind: "ok",
+      data: {},
+    });
+    expect(lastBody()).toEqual({
       sessionId: SID,
       action: "delete",
       memoId: "m1",
@@ -471,15 +513,26 @@ describe("manualLogs", () => {
   });
 
   test("서버 오류 코드와 메시지를 그대로 돌려준다", async () => {
-    apiFetchMock.mockResolvedValue(
-      json(422, { ok: false, code: "RECORD_BOOK_DETECTED", message: "거절" }),
+    fetchMock.mockResolvedValue(
+      problemResponse(422, {
+        code: "RECORD_BOOK_DETECTED",
+        detail: "거절",
+      }),
     );
     const r = await manualLogsUpload(SID, { text: "x" });
-    expect(r).toMatchObject({
+    expect(r).toEqual({
       kind: "error",
       status: 422,
       code: "RECORD_BOOK_DETECTED",
       message: "거절",
+    });
+  });
+
+  test("계약과 맞지 않는 메모는 INVALID_RESPONSE 다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ memos: [{ id: "m1" }] }));
+    expect(await manualLogsList(SID)).toMatchObject({
+      kind: "error",
+      code: "INVALID_RESPONSE",
     });
   });
 });
