@@ -30,6 +30,7 @@ const row = (over: Record<string, unknown>) => ({
   class_id: null,
   number: null,
   version: 1,
+  needs_confirm: false,
   ...over,
 });
 
@@ -207,7 +208,9 @@ describe("GET /api/console/assign-pool", () => {
     const r = await get({ pageSize: "2", page: "2" });
     expect(ids(r)).toHaveLength(1);
     expect(r.body).toMatchObject({ total: 3, page: 2, pageSize: 2 });
-    expect((await get({ page: "x" })).status).toBe(400);
+    const bad = await get({ page: "x" });
+    expect(bad.status).toBe(400);
+    expect(bad.body).toMatchObject({ status: 400, code: "BAD_REQUEST" });
   });
 
   test("pool students with the same name keep the plain real name", async () => {
@@ -259,5 +262,115 @@ describe("GET /api/console/assign-pool", () => {
     expect(r.body).toMatchObject({
       items: [{ studentId: "p1", sameNameCount: 0, sameNameEnrolled: [] }],
     });
+  });
+});
+
+describe("GET /api/console/assign-pool: 확인 필요 학생", () => {
+  const UNCONFIRMED = [
+    row({
+      student_id: "u1",
+      grade: "고1",
+      class_id: "c-G",
+      number: 5,
+      needs_confirm: true,
+      version: 2,
+    }),
+    row({
+      student_id: "u2",
+      grade: "고2",
+      class_id: "c-A",
+      number: 9,
+      needs_confirm: true,
+    }),
+  ];
+  beforeEach(() => {
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows([...ENROLLMENTS, ...UNCONFIRMED], f);
+    const base = kit.state.rows.profiles;
+    kit.state.rows.profiles = (f) => [
+      ...((base?.(f) as unknown[]) ?? []),
+      ...matchRows(
+        [
+          { id: "u1", name: "가나다" },
+          { id: "u2", name: "하윤" },
+        ],
+        f,
+      ),
+    ];
+  });
+
+  test("lists unconfirmed students first, with the class they typed", async () => {
+    const r = await get();
+    const body = r.body as { total: number; items: Record<string, unknown>[] };
+
+    expect(r.status).toBe(200);
+    expect(body.total).toBe(5);
+    expect(body.items.slice(0, 2).map((i) => i.studentId)).toEqual([
+      "u1",
+      "u2",
+    ]);
+    expect(body.items[0]).toMatchObject({
+      studentId: "u1",
+      name: "가나다",
+      needsConfirm: true,
+      canConfirm: true,
+      enrollmentVersion: 2,
+      grade: "고1",
+      classId: "c-G",
+      groupName: "A레벨",
+      className: "1",
+      number: 5,
+    });
+  });
+
+  test("classless students keep their shape with needsConfirm false and no class", async () => {
+    const r = await get({ q: "노윤서" });
+    expect(r.body).toMatchObject({
+      items: [
+        {
+          studentId: "p2",
+          needsConfirm: false,
+          classId: null,
+          groupName: null,
+          className: null,
+          number: null,
+        },
+      ],
+    });
+  });
+
+  test("grade, q and paging work for unconfirmed students too", async () => {
+    expect(ids(await get({ grade: "고2" }))).toEqual(["u2", "p2"]);
+    expect(ids(await get({ q: "가나" }))).toEqual(["u1"]);
+    const page2 = await get({ pageSize: "2", page: "2" });
+    expect(page2.body).toMatchObject({ total: 5, page: 2 });
+    expect(ids(page2)).not.toContain("u1");
+  });
+
+  test("a homeroom teacher can confirm only students in own classes", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-A"],
+    });
+    const r = await get();
+    const items = (r.body as { items: Record<string, unknown>[] }).items;
+    expect(items.find((i) => i.studentId === "u1")?.canConfirm).toBe(false);
+    expect(items.find((i) => i.studentId === "u2")?.canConfirm).toBe(true);
+  });
+
+  test("an unconfirmed student is not their own same-name enrolled student", async () => {
+    kit.state.rows.profiles = (f) =>
+      matchRows(
+        [
+          { id: "u1", name: "김하늘" },
+          { id: "e1", name: "김하늘" },
+        ],
+        f,
+      );
+    const r = await get({ q: "김하늘" });
+    const u1 = (
+      r.body as { items: { studentId: string; sameNameCount: number }[] }
+    ).items.find((i) => i.studentId === "u1");
+    expect(u1?.sameNameCount).toBe(1);
   });
 });

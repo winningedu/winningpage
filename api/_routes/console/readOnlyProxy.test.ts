@@ -58,8 +58,11 @@ describe("읽기 전용 대행의 쓰기 메서드", () => {
       for (const method of WRITE_METHODS) {
         const r = await callHandler(handler, {}, method);
         if (r.status === 405) continue;
-        const code = (r.body as { error?: { code?: string } } | undefined)
-          ?.error?.code;
+        // coded 는 error.code, problem+json 은 최상위 code 에 싣는다.
+        const body = r.body as
+          | { code?: string; error?: { code?: string } }
+          | undefined;
+        const code = body?.error?.code ?? body?.code;
         if (r.status === 403 && code === "READ_ONLY_PROXY") continue;
         passed.push(`${method} ${path}`);
       }

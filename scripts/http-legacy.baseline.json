@@ -63,7 +63,6 @@
     "legacyHandler": 1
   },
   "api/_routes/console/assign-pool.ts": {
-    "legacyError": 2,
     "legacyHandler": 1
   },
   "api/_routes/console/change-password.ts": {
