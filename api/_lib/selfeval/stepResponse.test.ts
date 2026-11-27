@@ -11,8 +11,8 @@ vi.mock("../httpResponse.js", () => ({
   ) => res.status(status).json({ ...extra, code, message }),
 }));
 
-import type { SessionRow } from "./rows.js";
 import { ProblemError } from "../hono/problem.js";
+import type { SessionRow } from "./rows.js";
 import {
   assertSessionOpen,
   checkSessionOpen,
