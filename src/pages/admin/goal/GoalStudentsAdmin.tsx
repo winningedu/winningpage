@@ -45,6 +45,15 @@ import {
 import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
+import type {
+  GoalDailyRecordRow,
+  GoalListRow,
+  GoalProbabilityLogRow,
+  GoalStateRow,
+  GoalStudentRow,
+  GoalUniversityCutRow,
+  ResendReportResult,
+} from "../../../../shared/goal/admin-students.js";
 import { listResendCandidates, type ResendKind } from "./reportResendOptions";
 import {
   fetchGoalStudentDetail,
@@ -55,106 +64,6 @@ import {
   resendGoalReport,
   resetGoalStudent,
 } from "./studentsApi";
-
-// 이 파일 로컬 전용 타입(새 전역 타입 파일 없음). goal_students/goal_student_state는
-// 파생·원자료 컬럼이 매우 많은 넓은 테이블/뷰라 실제로 읽는 필드만 명시하고
-// 나머지(rate_*/base_*/cum_* 등 GOAL_GAUGE_ROWS·GOAL_CUT_SLOTS가 동적으로 읽는
-// 파생 컬럼)는 인덱스 시그니처로 연다.
-export interface GoalStudentRow {
-  profile_id: string;
-  grade?: string | null;
-  school_type?: string | null;
-  status?: string | null;
-  ideal_university?: string | null;
-  ideal_department?: string | null;
-  min_university?: string | null;
-  min_department?: string | null;
-  current_mogo?: number | string | null;
-  current_score?: number | string | null;
-  converted_grade?: number | string | null;
-  remain_naesin?: number | string | null;
-  remain_mogo?: number | string | null;
-  last_naesin_exam?: string | null;
-  last_mogo_exam?: string | null;
-  week_ideal?: number | string | null;
-  week_min?: number | string | null;
-  naesin_scores?: { priorNaesinGrade?: number | string | null } | null;
-  mock_exam_scores?: unknown;
-  study_schedule?: Record<
-    string,
-    { ideal?: number | string | null; min?: number | string | null } | undefined
-  > | null;
-  onboarded_at?: string | null;
-  actual_start_date?: string | null;
-  [key: string]: unknown;
-}
-
-export interface GoalStateRow {
-  profile_id: string;
-  status?: string | null;
-  record_count?: number | null;
-  last_record_date?: string | null;
-  onboarded_at?: string | null;
-  ideal_susi?: number | null;
-  ideal_jungsi?: number | null;
-  min_susi?: number | null;
-  min_jungsi?: number | null;
-  [key: string]: unknown;
-}
-
-export interface GoalProfileRow {
-  id: string;
-  name?: string | null;
-  phone?: string | null;
-  email?: string | null;
-}
-
-// 목록 1행 — 뷰(goal_student_state) + goal_students/profiles 조인 결과를 이
-// 컴포넌트가 클라이언트에서 합성한다(loadList 참고).
-export interface GoalListRow extends GoalStateRow {
-  student: GoalStudentRow | null;
-  profile: GoalProfileRow | null;
-}
-
-export interface GoalProbabilityLogRow {
-  // goal_probability_logs.id는 identity 정수 PK다(생성 타입 대조 결과).
-  id: number;
-  created_at?: string | null;
-  reason?: string | null;
-  ideal_susi?: number | null;
-  ideal_jungsi?: number | null;
-  min_susi?: number | null;
-  min_jungsi?: number | null;
-  source_record_id?: string | number | null;
-  [key: string]: unknown;
-}
-
-export interface GoalDailyRecordRow {
-  // goal_daily_records.id도 identity 정수 PK다(생성 타입 대조 결과).
-  id: number;
-  record_index?: number | null;
-  record_date?: string | null;
-  submitted_on?: string | null;
-  virtual_day_index?: number | null;
-  study_hours?: number | string | null;
-  target_ideal_hours?: number | string | null;
-  target_min_hours?: number | string | null;
-  body_condition?: string | null;
-  tasks?: string[] | null;
-  memo?: string | null;
-  delta_ideal_susi?: number | null;
-  delta_ideal_jungsi?: number | null;
-  delta_min_susi?: number | null;
-  delta_min_jungsi?: number | null;
-  [key: string]: unknown;
-}
-
-export interface GoalUniversityCutRow {
-  avg_cut?: number | null;
-  source?: string | null;
-  source_year?: number | string | null;
-  updated_at?: string | null;
-}
 
 interface GoalCutSlot {
   key: string;
@@ -1037,18 +946,6 @@ const GOAL_RECORD_PAGE = 30;
 // api/_routes/goal/admin/resend-report.ts 의 ResendReportResponse와 같은 모양이다(그
 // 서버 타입은 api/ 전용 tsconfig 아래라 여기서 직접 import하지 않는다 — 대신
 // 이 화면이 실제로 읽는 필드만 로컬로 좁게 선언한다).
-export interface ResendReportResult {
-  sent: number;
-  failed: number;
-  skipped: number;
-  recipients: Array<{
-    parentProfileId: string;
-    phone: string;
-    status: "sent" | "failed" | "skipped";
-    reason?: string;
-  }>;
-}
-
 interface GoalStudentDetailProps {
   profileId: string;
   onBack: () => void;

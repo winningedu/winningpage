@@ -21,15 +21,19 @@
 // 응답 규격
 //   200 { action, ... }   정상. 대상 아님/캐시 적중은 에러가 아니라 status:'skipped'다.
 //   오류는 problem 형식(RFC 9457, 항상 code)이다.
-//   400 ID_REQUIRED / UNKNOWN_ACTION   action·id 누락 등 요청 오류.
+//   400 ID_REQUIRED                    embed-one 에 id 가 없다.
+//   400 VALIDATION_FAILED              action, id, limit, force 의 형식 오류(알 수 없는 action 포함).
 //   401, 403, 405                      토큰 없음/무효, 관리자 아님, POST 아님.
 //   500 EMBED_FAILED                   임베딩 실패(detail 은 원인 문구).
 
+import { adminEmbedBody } from "../../../shared/performance/admin-embed.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { performanceTraceContext } from "../../_lib/ai/telemetry/performanceContext.js";
 import { type AiTrace, createAiTrace } from "../../_lib/ai/telemetry/trace.js";
-import { defineHandler } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { admin } from "../../_lib/hono/admin.js";
+import { adminFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   buildKnowledgeSearchText,
   embedText,
@@ -336,15 +340,18 @@ async function backfill(
   };
 }
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "admin",
-  errorShape: "problem",
+// 관리자 판정만 보고 메뉴 권한은 보지 않는다(예전 라우트도 메뉴 권한 없이 관리자 인증만 했다). 그래서 감사 행도 남지 않는다.
+const guard = admin({
+  permission: "none",
   unhandledMessage: "임베딩 처리 중 오류가 발생했습니다.",
   logLabel: "admin-embed",
-  handler: async (req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const { action = "embed-one", id, limit, force = false } = req.body || {};
+});
+
+export const adminEmbed = adminFactory
+  .createApp()
+  .post("/", guard, validate("json", adminEmbedBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const { action, id, limit, force = false } = c.req.valid("json");
     const forceFlag = force === true || force === "true";
 
     // 계기판 기록. 요청 하나에 trace 하나이고, 응답 뒤 finally 에서 한 번 내보낸다.
@@ -355,7 +362,7 @@ export default defineHandler({
           : {
               feature: "embed_one",
               targetKind: "knowledge_item",
-              targetId: typeof id === "string" ? id : null,
+              targetId: id ?? null,
             },
       ),
     );
@@ -363,16 +370,14 @@ export default defineHandler({
     try {
       if (action === "embed-one") {
         if (!id) {
-          sendError(res, "problem", 400, "id가 필요합니다.", "ID_REQUIRED");
-          return;
+          return problemResponse(c, 400, "id가 필요합니다.", "ID_REQUIRED");
         }
 
         const result = await embedOne(supabaseAdmin, id, {
           force: forceFlag,
           telemetry: trace,
         });
-        res.status(200).json({ action, ...result });
-        return;
+        return c.json({ action, ...result });
       }
 
       if (action === "backfill") {
@@ -382,31 +387,17 @@ export default defineHandler({
           telemetry: trace,
         });
 
-        res.status(200).json({
+        return c.json({
           action,
           embedding_dimension: getEmbeddingDimension(),
           ...result,
         });
-        return;
       }
-
-      sendError(
-        res,
-        "problem",
-        400,
-        "알 수 없는 action입니다. 'embed-one' 또는 'backfill'.",
-        "UNKNOWN_ACTION",
-      );
     } catch (error) {
       console.error("admin-embed error:", error);
-      sendError(res, "problem", 500, errorMessage(error), "EMBED_FAILED");
+      return problemResponse(c, 500, errorMessage(error), "EMBED_FAILED");
     } finally {
       scheduleAfterResponse(() => trace.flush(supabaseAdmin));
     }
-  },
-});
-
-// Gemini 호출이 붙어 있어 기본 10초로는 백필이 잘린다(1건당 수백ms~수초 ×
-// 최대 50건). maxDuration은 Vercel Hobby 상한이 60초다 — 그 이상이 필요하면
-// limit을 줄여 여러 번 호출한다(위 backfill 정렬 계약이 반복 호출을 전제한다).
-export const config = { runtime: "nodejs", maxDuration: 60 };
+  })
+  .all("/", methodNotAllowed("POST"));

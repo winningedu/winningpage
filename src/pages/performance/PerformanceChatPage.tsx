@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { useParams } from "react-router";
+import type { z } from "zod";
 import AiLoadingBubble from "@/components/performance/chat/AiLoadingBubble";
 import ChatTimeline, {
   type PerformanceChatMessage,
@@ -37,7 +38,8 @@ import SubmissionForm, {
 import { usePerformanceShell } from "@/context/PerformanceShellContext";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
-import { apiFetch } from "@/lib/apiFetch";
+import { api } from "@/lib/http/client";
+import { performanceRequest } from "@/lib/performance/apiClient";
 import { requestDesignReport } from "@/lib/performance/designReport";
 import {
   finalizeSubmission,
@@ -63,6 +65,13 @@ import {
   entitlementDeniedMessage,
   type TenantBlockReason,
 } from "@/lib/tenantBlock";
+import type { finalizeResponse } from "../../../shared/performance/finalize.js";
+import {
+  type sessionSchema,
+  sessionWriteResponse,
+} from "../../../shared/performance/session.js";
+
+type PerformanceSession = z.output<typeof sessionSchema>;
 
 // STEP1~STEP5 채팅 화면 — docs/수행평가-상세-명세.md §5.5(`3754:3206`) / §5.6(`3754:3261`) /
 // §5.7(`3754:3315`) / §5.8(`3754:3370`·`3754:3431`) / §5.9(`3754:3562`·`3754:3493`) /
@@ -370,25 +379,6 @@ function buildResumeChoiceCopy(profileName, lastSession) {
 // 말풍선을 재생하지 않는다(저장된 안내문 원문·업로드 장수를 bootstrap이 안 준다, 위
 // 파일 상단 주석). 대신 다리 역할의 안내 한 줄만 남긴다.
 const RESUME_CONTINUE_COPY = "이전 진행 기록을 불러왔어요. 이어서 진행할게요.";
-
-// ── 이 파일 전용 로컬 타입 ────────────────────────────────────────────────────
-// `GET /api/performance/session`·bootstrap 등 서버 응답을 화면이 실제로 쓰는 필드만 좁혀서
-// 담는다(§8.6 계약은 그대로이고 타입만 좁힌다 — `session.ts` 상단 주석과 같은 판단).
-type PerformanceSession = {
-  id: string;
-  status?: string;
-  currentStep?: number;
-  completedSteps?: unknown;
-  gradeLabel?: string;
-  semester?: string;
-  schoolType?: string | null;
-  subjectGroup?: string;
-  subject?: string;
-  careerGoal?: string;
-  previousTopic?: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
 
 // bootstrap.ts summaryOf가 실제로 내려주는 값은 DB 컬럼 원본이라 값 없음이 null로
 // 온다(undefined가 아니다) — performanceBootstrapQueryOptions(src/lib/queryClient.ts)의
@@ -991,17 +981,14 @@ export default function PerformanceChatPage() {
 
   /** 세션 생성/이어받기 1회. `action`은 `sessionStartMode`가 정한다(아래 주석). */
   async function postSession(values, action) {
-    const response = await apiFetch("/api/performance/session", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ action, basicInfo: values }),
-    });
-
-    const data = await response.json().catch(() => null);
-    return { response, data };
+    return performanceRequest(
+      api
+        .post("performance/session", {
+          json: { action, basicInfo: values },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        .json(sessionWriteResponse),
+    );
   }
 
   async function handleSubmit(values) {
@@ -1015,23 +1002,23 @@ export default function PerformanceChatPage() {
       // 기본은 `'create'`다. `추가 수행평가 진행하기`로 되돌아온 직후에만 `'resume'`인데,
       // 그때는 finalize가 이미 미차감 세션을 하나 준비해 뒀으므로(§9.3 동시 1개 제한 때문에
       // `create`는 `409 UNCHARGED_SESSION_EXISTS`로 막힌다) 그것을 이어받아야 한다.
-      let { response, data } = await postSession(values, sessionStartMode);
+      let result = await postSession(values, sessionStartMode);
 
       // 그 미차감 세션이 그 사이에 사라진 경우(다른 탭에서 소비·폐기)에는 `resume`이
       // `404 NO_UNCHARGED_SESSION`으로 떨어진다 — create로 **한 번만** 되돌린다. 그러지
       // 않으면 새 수행평가를 시작할 길이 화면에서 사라진다.
       if (
-        !response.ok &&
+        !result.ok &&
         sessionStartMode === "resume" &&
-        data?.error?.code === "NO_UNCHARGED_SESSION"
+        result.code === "NO_UNCHARGED_SESSION"
       ) {
-        ({ response, data } = await postSession(values, "create"));
+        result = await postSession(values, "create");
       }
 
-      if (!response.ok) {
+      if (!result.ok) {
         if (
-          response.status === 409 &&
-          data?.error?.code === "UNCHARGED_SESSION_EXISTS"
+          result.status === 409 &&
+          result.code === "UNCHARGED_SESSION_EXISTS"
         ) {
           // 저장 리포트로는 못 돌아간다 — 미차감 세션은 정의상 산출물이 없어 그 목록에
           // 뜨지 않는다(api/_routes/performance/reports.js). 대신 재개 선택 카드로 돌아가는
@@ -1043,10 +1030,9 @@ export default function PerformanceChatPage() {
         } else {
           setSubmitError(
             entitlementDeniedMessage(
-              data?.error?.code,
-              data?.error?.message ||
-                "세션을 생성하지 못했어요. 다시 시도해 주세요.",
-              data?.tenantReason,
+              result.code,
+              result.message || "세션을 생성하지 못했어요. 다시 시도해 주세요.",
+              result.extra.tenantReason,
             ),
           );
         }
@@ -1055,7 +1041,7 @@ export default function PerformanceChatPage() {
 
       // 이어받기는 1회성이다 — 세션을 손에 넣은 뒤로는 다시 기본값으로 돌린다.
       setSessionStartMode("create");
-      setCreatedSession(data.session);
+      setCreatedSession(result.data.session);
     } catch (error) {
       console.error("[performance] 세션 생성 실패:", error);
       setSubmitError(
@@ -1103,7 +1089,8 @@ export default function PerformanceChatPage() {
         sessionId: activeSession.id,
       });
 
-      setTopics(Array.isArray(data?.topics) ? data.topics : []);
+      // 태그와 상세는 모델 산출물이라 스키마가 좁히지 않는다. 카드 컴포넌트가 Topic 으로 좁혀 읽는다.
+      setTopics(Array.isArray(data?.topics) ? (data.topics as Topic[]) : []);
       setTopicRound(Number(data?.round) || 1);
       if (Number(data?.maxRounds) > 0)
         setTopicMaxRounds(Number(data.maxRounds));
@@ -1264,7 +1251,8 @@ export default function PerformanceChatPage() {
         topicId: topic.id,
       });
 
-      setDesignReport(data);
+      // 섹션과 구조는 모델 산출물이라 스키마가 좁히지 않는다. 리포트 컴포넌트가 DesignReport 로 좁혀 읽는다.
+      setDesignReport(data as DesignReport);
       setDesignPhase("ready");
       // §5.13 흐름도(`DesignLoading --> DesignReport`)대로 완성 즉시 모달을 연다.
       setDesignModalOpen(true);
@@ -1370,7 +1358,10 @@ export default function PerformanceChatPage() {
         submissionId: targetSubmissionId,
       });
 
-      setEvaluationReport(data?.report || null);
+      // 섹션 안쪽은 모델 산출물이라 스키마가 좁히지 않는다. 리포트 컴포넌트가 EvaluationReport 로 좁혀 읽는다.
+      setEvaluationReport(
+        (data?.report as EvaluationReport | undefined) ?? null,
+      );
       // 확정이 겨냥할 제출본은 **평가에 성공한** 것이다(위 `evaluatedSubmissionId` 주석).
       setEvaluatedSubmissionId(targetSubmissionId);
       if (Number(data?.evaluationCount) > 0)
@@ -1568,9 +1559,7 @@ export default function PerformanceChatPage() {
     let keptPointer = false;
 
     try {
-      // finalizeSubmission은 §8.6 성공 응답 전체를 그대로 돌려주는 postJson 위임이라 정본
-      // 타입이 없다 — 이 화면이 실제로 읽는 필드(nextSessionId)만 좁혀서 갖는다.
-      let data: { nextSessionId?: string } | undefined;
+      let data: z.output<typeof finalizeResponse> | undefined;
       try {
         data = await finalizeSubmission({
           accessToken,

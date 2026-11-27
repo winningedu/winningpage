@@ -23,7 +23,24 @@
 //   최후 수단으로 24시간 고아 스윕이 같은 자리를 치운다.
 
 import { supabase } from "@/lib/supabase";
-import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "./apiClient";
+import {
+  type AnalyzeGuideBodyInput,
+  analyzeGuideResponse,
+} from "../../../shared/performance/analyze-guide.js";
+import {
+  type DiscardAttachmentBodyInput,
+  discardAttachmentResponse,
+} from "../../../shared/performance/discard-attachment.js";
+import {
+  type UploadUrlBodyInput,
+  uploadUrlResponse,
+} from "../../../shared/performance/upload-url.js";
+import { api } from "../http/client";
+import {
+  AI_CALL_TIMEOUT_MS,
+  DEFAULT_TIMEOUT_MS,
+  performanceRequest,
+} from "./apiClient";
 
 /** 서버 메시지가 없을 때만 쓰는 폴백. 서버가 준 문구가 있으면 항상 그쪽이 우선이다. */
 const GENERIC_UPLOAD_ERROR =
@@ -41,36 +58,33 @@ function userError(message: string, cause?: unknown) {
   return error;
 }
 
-async function postJson(
-  path: string,
-  accessToken: string,
-  body: Record<string, unknown>,
-  timeoutMs?: number,
-) {
-  let response: Response;
+const RESPONSE_SCHEMA = {
+  "performance/upload-url": uploadUrlResponse,
+  "performance/analyze-guide": analyzeGuideResponse,
+  "performance/discard-attachment": discardAttachmentResponse,
+};
 
+// 실패는 던지지 않고 돌려준다. 플랫폼이 함수를 죽인 경우(504 등) 서버 문구가 없어 message 가 null 이고,
+// 그때도 화면에는 무언가 말해야 하므로 호출부가 폴백 문구를 쓴다.
+async function postJson<Path extends keyof typeof RESPONSE_SCHEMA>(
+  path: Path,
+  accessToken: string,
+  body: UploadUrlBodyInput | AnalyzeGuideBodyInput | DiscardAttachmentBodyInput,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+) {
   try {
-    response = await fetchWithTimeout(
-      path,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(body),
-      },
-      timeoutMs,
+    return await performanceRequest(
+      api
+        .post(path, {
+          json: body,
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: timeoutMs,
+        })
+        .json(RESPONSE_SCHEMA[path]),
     );
   } catch (error) {
     throw userError(NETWORK_ERROR, error);
   }
-
-  // 플랫폼이 함수를 죽인 경우(504 등) 본문이 비어 있어 파싱이 실패한다 — 그때도
-  // 화면에는 무언가 말해야 하므로 null로 받고 폴백 문구를 쓴다.
-  const data = await response.json().catch(() => null);
-
-  return { response, data };
 }
 
 /**
@@ -94,19 +108,16 @@ export async function uploadGuidePhotos({
   try {
     for (const file of files) {
       // ① 토큰 발급 — 이 시점에 `pending` 행이 생긴다(= 자리 점유 시작).
-      const { response, data } = await postJson(
-        "/api/performance/upload-url",
-        accessToken,
-        {
-          sessionId,
-          mimeType: file.type,
-          byteSize: file.size,
-        },
-      );
+      const result = await postJson("performance/upload-url", accessToken, {
+        sessionId,
+        mimeType: file.type,
+        byteSize: file.size,
+      });
 
-      if (!response.ok || !data?.token || !data?.path) {
-        throw userError(data?.error?.message || GENERIC_UPLOAD_ERROR);
+      if (!result.ok) {
+        throw userError(result.message || GENERIC_UPLOAD_ERROR);
       }
+      const data = result.data;
 
       // 행은 이미 만들어졌으므로, 아래 PUT이 실패해도 회수 대상에 들어가야 한다.
       uploaded.push(data.attachmentId);
@@ -148,18 +159,18 @@ export async function analyzeGuideUpload({
   sessionId: string;
   attachmentIds: string[];
 }) {
-  const { response, data } = await postJson(
-    "/api/performance/analyze-guide",
+  const result = await postJson(
+    "performance/analyze-guide",
     accessToken,
     { sessionId, attachmentIds },
     AI_CALL_TIMEOUT_MS,
   );
 
-  if (!response.ok) {
-    throw userError(data?.error?.message || GENERIC_ANALYZE_ERROR);
+  if (!result.ok) {
+    throw userError(result.message || GENERIC_ANALYZE_ERROR);
   }
 
-  return data;
+  return result.data;
 }
 
 /**
@@ -176,20 +187,16 @@ export async function submitManualGuide({
   sessionId: string;
   freetext: string;
 }) {
-  const { response, data } = await postJson(
-    "/api/performance/analyze-guide",
-    accessToken,
-    {
-      sessionId,
-      freetext,
-    },
-  );
+  const result = await postJson("performance/analyze-guide", accessToken, {
+    sessionId,
+    freetext,
+  });
 
-  if (!response.ok) {
-    throw userError(data?.error?.message || GENERIC_ANALYZE_ERROR);
+  if (!result.ok) {
+    throw userError(result.message || GENERIC_ANALYZE_ERROR);
   }
 
-  return data;
+  return result.data;
 }
 
 /**
@@ -208,7 +215,7 @@ async function discardAttachments({
 }) {
   for (const attachmentId of attachmentIds) {
     try {
-      await postJson("/api/performance/discard-attachment", accessToken, {
+      await postJson("performance/discard-attachment", accessToken, {
         sessionId,
         attachmentId,
       });

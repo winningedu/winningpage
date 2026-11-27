@@ -23,17 +23,17 @@
 // 카멜 케이스로 옮기기만 한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
 import { getSchoolCutType } from "../../../src/lib/goal/calc/index.js";
 import { addDaysYMD } from "../../../src/lib/goal/calc/virtualDate.js";
 import { computeAvgStudyHours } from "../../../src/lib/goal/report/aggregate.js";
 import { ymdIn } from "../../../src/lib/time/day.js";
-
 import {
   computeJungsiRecalc,
   needsJungsiRecalcAttempt,
   resolveJungsiEffectiveGrade,
 } from "../../_lib/goal/jungsiProb.js";
+import { goalFail } from "../../_lib/goal/problem.js";
 import {
   buildAwaitingCutsPayload,
   buildStudentPayload,
@@ -49,7 +49,9 @@ import {
   openGoalSession,
   updateStudentJungsiProb,
 } from "../../_lib/goal/repo.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
 /**
@@ -110,87 +112,86 @@ async function maybeRecalcJungsi(
 // (recentAvgStudyHours). 리포트 주간 경계(월~일)와는 무관한 단순 롤링 윈도우다.
 const RECENT_STUDY_HOURS_WINDOW_DAYS = 7;
 
-export const config = { runtime: "nodejs" };
+const guard = user({
+  unhandledMessage: "처리 중 오류가 발생했습니다.",
+  logLabel: "goal/student",
+});
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "GET") {
-    return sendError(res, "detail", 405, "Method not allowed");
-  }
+export const student = userFactory
+  .createApp()
+  .get("/", guard, async (c) => {
+    try {
+      const session = await openGoalSession(c);
 
-  try {
-    const session = await openGoalSession(req);
-    if (session.error) {
-      return sendError(
-        res,
-        "detail",
-        session.error.status,
-        session.error.body.detail as string,
+      const { allowed } = session;
+
+      // 조회형 규약 — 미결제는 에러가 아니다.
+      if (!allowed) {
+        return c.json({
+          allowed: false,
+          ...tenantReasonExtra(session.tenantReason),
+        });
+      }
+
+      const { supabaseAdmin, profileId } = narrowGoalSession(session);
+      let row = await fetchStudentRow(supabaseAdmin, profileId);
+
+      // 아직 온보딩을 시작하지 않았다.
+      if (!row) {
+        return c.json({ onboarded: false });
+      }
+
+      // 목표 대학 컷을 찾지 못해 확률이 아직 산출되지 않은 상태.
+      // 확률 필드를 전부 생략해서, UI 가 "0%"가 아니라 "목표 대학 재선택"을
+      // 그리도록 한다(calcNaesinProb 은 컷 누락을 확률 0 으로 접어버린다 —
+      // primitives.js:119 — 그래서 0 과 미산출을 API 레벨에서 갈라 준다).
+      if (row.status === "awaiting_cuts" || !row.onboarded_at) {
+        return c.json(buildAwaitingCutsPayload(row));
+      }
+
+      const now = new Date();
+
+      // 행296·332 지연 재계산(§9-5 결정3) — 온보딩 뒤에 정시 컷이 새로 생긴
+      // 학생을 이 조회에서 채운다. stateRow(뷰) 를 읽기 전에 먼저 끝내야
+      // 뷰가 갱신된 base_ideal_jungsi/rate_ideal_jungsi 를 곧바로 반영한다.
+      row = await maybeRecalcJungsi(supabaseAdmin, profileId, row, now);
+
+      const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+      const todayYmd = ymdIn(now, timeZone);
+      const recentFromYmd = addDaysYMD(
+        todayYmd,
+        -(RECENT_STUDY_HOURS_WINDOW_DAYS - 1),
+        now,
       );
-    }
 
-    const { allowed } = session;
+      const [stateRow, historyRows, profileName, recentRecords] =
+        await Promise.all([
+          fetchStudentStateRow(supabaseAdmin, profileId),
+          fetchProbabilityHistory(supabaseAdmin, profileId),
+          fetchProfileName(supabaseAdmin, profileId),
+          fetchRecordsInRange(
+            supabaseAdmin,
+            profileId,
+            recentFromYmd,
+            todayYmd,
+          ),
+        ]);
 
-    // 조회형 규약 — 미결제는 에러가 아니다.
-    if (!allowed) {
-      return res.status(200).json({
-        allowed: false,
-        ...tenantReasonExtra(session.tenantReason),
+      // schoolCutType 은 DB 에 저장하지 않고 school_type 에서 매번 파생한다(§7-2).
+      return c.json({
+        ...buildStudentPayload(
+          row,
+          stateRow,
+          getSchoolCutType(row.school_type),
+          historyRows,
+          profileName,
+          computeAvgStudyHours(recentRecords),
+        ),
+        timeZone,
       });
+    } catch (error) {
+      console.error("goal/student error:", error);
+      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
     }
-
-    const { supabaseAdmin, profileId } = narrowGoalSession(session);
-    let row = await fetchStudentRow(supabaseAdmin, profileId);
-
-    // 아직 온보딩을 시작하지 않았다.
-    if (!row) {
-      return res.status(200).json({ onboarded: false });
-    }
-
-    // 목표 대학 컷을 찾지 못해 확률이 아직 산출되지 않은 상태.
-    // 확률 필드를 전부 생략해서, UI 가 "0%"가 아니라 "목표 대학 재선택"을
-    // 그리도록 한다(calcNaesinProb 은 컷 누락을 확률 0 으로 접어버린다 —
-    // primitives.js:119 — 그래서 0 과 미산출을 API 레벨에서 갈라 준다).
-    if (row.status === "awaiting_cuts" || !row.onboarded_at) {
-      return res.status(200).json(buildAwaitingCutsPayload(row));
-    }
-
-    const now = new Date();
-
-    // 행296·332 지연 재계산(§9-5 결정3) — 온보딩 뒤에 정시 컷이 새로 생긴
-    // 학생을 이 조회에서 채운다. stateRow(뷰) 를 읽기 전에 먼저 끝내야
-    // 뷰가 갱신된 base_ideal_jungsi/rate_ideal_jungsi 를 곧바로 반영한다.
-    row = await maybeRecalcJungsi(supabaseAdmin, profileId, row, now);
-
-    const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
-    const todayYmd = ymdIn(now, timeZone);
-    const recentFromYmd = addDaysYMD(
-      todayYmd,
-      -(RECENT_STUDY_HOURS_WINDOW_DAYS - 1),
-      now,
-    );
-
-    const [stateRow, historyRows, profileName, recentRecords] =
-      await Promise.all([
-        fetchStudentStateRow(supabaseAdmin, profileId),
-        fetchProbabilityHistory(supabaseAdmin, profileId),
-        fetchProfileName(supabaseAdmin, profileId),
-        fetchRecordsInRange(supabaseAdmin, profileId, recentFromYmd, todayYmd),
-      ]);
-
-    // schoolCutType 은 DB 에 저장하지 않고 school_type 에서 매번 파생한다(§7-2).
-    return res.status(200).json({
-      ...buildStudentPayload(
-        row,
-        stateRow,
-        getSchoolCutType(row.school_type),
-        historyRows,
-        profileName,
-        computeAvgStudyHours(recentRecords),
-      ),
-      timeZone,
-    });
-  } catch (error) {
-    console.error("goal/student error:", error);
-    return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");
-  }
-}
+  })
+  .all("/", methodNotAllowed("GET"));

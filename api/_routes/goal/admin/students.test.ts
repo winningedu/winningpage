@@ -4,9 +4,10 @@
 // is_winning_admin() 읽기만 있고 쓰기 정책이 없었다. 이 라우트는 읽기 전용이라 쓰기 호출이 0이어야 한다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { goalStudentsResponse } from "../../../../shared/goal/admin-students.js";
 import { seedAdmin } from "../../../_lib/admin-sections/sectionTestKit.js";
+import { callRoute } from "../../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
 } from "../../../_lib/console/consoleTestKit.js";
@@ -22,25 +23,27 @@ const kit = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createGoalAdmin(kit.state, kit.db),
 }));
 
-import handler from "./students.js";
+import { app } from "../../app.js";
+
+const handler = { app, path: "/api/goal/admin/students" };
 
 const get = (
   query: Record<string, string> = {},
   zone: string | null = "Asia/Seoul",
 ) =>
-  callHandler(
-    (req, res) => {
-      if (zone) req.headers["x-time-zone"] = zone;
-      return handler(req, res);
-    },
-    undefined,
-    "GET",
+  callRoute(handler, {
+    method: "GET",
     query,
-  );
+    headers: {
+      authorization: "Bearer token",
+      ...(zone ? { "x-time-zone": zone } : {}),
+    },
+  });
 
 const stateRow = (id: string, over: Record<string, unknown> = {}) => ({
   profile_id: id,
@@ -75,6 +78,7 @@ describe("GET /api/goal/admin/students", () => {
       { id: "s1", name: "김학생", phone: "01012345678", email: "a@b.c" },
     ];
     const r = await get();
+    expect(() => goalStudentsResponse.parse(r.body)).not.toThrow();
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
       items: [

@@ -71,9 +71,16 @@
 // 실패하면 `nextSessionId:null`로 돌려주고 클라이언트가 `POST /api/performance/session`
 // 으로 이어가면 된다(아래 「실패 경로별 잔여 상태」).
 
-import type { VercelResponse } from "@vercel/node";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import type { Context } from "hono";
+import type { z } from "zod";
+import {
+  finalizeBody,
+  type finalizeResponse,
+} from "../../../shared/performance/finalize.js";
+import { userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import { resolveSessionSubmissionSchema } from "../../_lib/performance/submission-schema.js";
 import { chargedPerformanceSessionIds } from "../../_lib/performance/tenantCredit.js";
 import {
@@ -85,13 +92,8 @@ import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
 const SERVICE_KEY = "suhaeng";
 
-const FINALIZE_ACTIONS = new Set(["confirm", "new_assessment"]);
-
 /** 미차감 후보로 볼 상태. `session.js`의 `UNCHARGED_CANDIDATE_STATUSES`와 같은 축이다. */
 const UNCHARGED_CANDIDATE_STATUSES = ["draft", "in_progress"];
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const SESSION_COLUMNS = [
   "id",
@@ -118,13 +120,13 @@ type SessionRow = {
 };
 
 function fail(
-  res: VercelResponse,
+  c: Context,
   status: number,
   code: string,
   message: string,
   extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code, extra);
+  return problemResponse(c, status, message, code, extra);
 }
 
 const trimmed = (value: unknown) => String(value ?? "").trim();
@@ -234,19 +236,17 @@ async function resolveNextSession(
   return { sessionId: created.id, created: true };
 }
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+const guard = user({
   unhandledMessage: "최종본 저장에 실패했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "performance/finalize",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const userId = requireUserId(ctx);
+});
+
+export const finalize = userFactory
+  .createApp()
+  .post("/", guard, validate("json", finalizeBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
 
     // ── 이용권 재판정(§8.6 공통 규약). 잔여 회차는 보지 않는다(§9.3 정정).
     const { allowed: hasAccess, reason: accessReason } =
@@ -258,7 +258,7 @@ export default defineHandler({
       );
     if (!hasAccess) {
       return fail(
-        res,
+        c,
         403,
         "NO_ENTITLEMENT",
         "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
@@ -268,47 +268,11 @@ export default defineHandler({
 
     // 아래 본문 처리 중 던져지는 예외는 원래(마이그레이션 전)와 동일하게
     // `{charged:false}` extra를 실은 채 500으로 응답해야 한다 — 공통
-    // defineHandler 최상위 catch는 그 extra를 모른다(고정 unhandledMessage/
+    // 루트 앱 onError(api/_lib/hono/error.ts)는 그 extra를 모른다(고정 unhandledMessage/
     // unhandledCode만 보냄). 그래서 이 지점부터는 로컬 try/catch로 감싸
     // 기존 catch 블록의 동작을 그대로 재현한다(배치-2 이슈로 별도 기록).
     try {
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const sessionId =
-        typeof body.sessionId === "string" ? body.sessionId.trim() : "";
-      const submissionId =
-        typeof body.submissionId === "string" ? body.submissionId.trim() : "";
-      const action =
-        typeof body.action === "string" ? body.action.trim() : "confirm";
-
-      if (!UUID_RE.test(sessionId)) {
-        return fail(
-          res,
-          400,
-          "INVALID_SESSION_ID",
-          "sessionId가 올바르지 않습니다.",
-          { charged: false },
-        );
-      }
-      if (!UUID_RE.test(submissionId)) {
-        return fail(
-          res,
-          400,
-          "INVALID_SUBMISSION_ID",
-          "submissionId가 올바르지 않습니다.",
-          { charged: false },
-        );
-      }
-      if (!FINALIZE_ACTIONS.has(action)) {
-        return fail(
-          res,
-          400,
-          "INVALID_ACTION",
-          "action은 'confirm' 또는 'new_assessment'여야 합니다.",
-          {
-            charged: false,
-          },
-        );
-      }
+      const { sessionId, submissionId, action } = c.req.valid("json");
 
       // ── 세션 소유권. 없는 세션과 남의 세션을 같은 응답으로 묶는다.
       const { data: sessionRow, error: sessionError } = await supabaseAdmin
@@ -321,7 +285,7 @@ export default defineHandler({
       if (sessionError)
         throw new Error(`세션 조회 실패: ${sessionError.message}`);
       if (!sessionRow) {
-        return fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
+        return fail(c, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
           charged: false,
         });
       }
@@ -346,7 +310,7 @@ export default defineHandler({
         throw new Error(`제출본 조회 실패: ${submissionError.message}`);
       if (!submissionRow) {
         return fail(
-          res,
+          c,
           404,
           "SUBMISSION_NOT_IN_SESSION",
           "이 수행평가의 제출물이 아니에요.",
@@ -400,7 +364,7 @@ export default defineHandler({
 
       if (commitError) {
         console.error("performance/finalize 커밋 RPC 실패:", commitError);
-        return fail(res, 500, "INTERNAL", "최종본 저장에 실패했습니다.", {
+        return fail(c, 500, "INTERNAL", "최종본 저장에 실패했습니다.", {
           charged: false,
         });
       }
@@ -411,13 +375,13 @@ export default defineHandler({
       const commitStatus = String(commit.status || "");
 
       if (commitStatus === "session_not_found") {
-        return fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
+        return fail(c, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
           charged: false,
         });
       }
       if (commitStatus === "submission_not_in_session") {
         return fail(
-          res,
+          c,
           404,
           "SUBMISSION_NOT_IN_SESSION",
           "이 수행평가의 제출물이 아니에요.",
@@ -430,7 +394,7 @@ export default defineHandler({
         // §8.6 `400 NO_EVALUATION_YET`. 평가 리포트가 **이 제출본을 대상으로** 있어야 한다
         // (sql/58 (1) `submission_id`). 다른 revision을 평가한 리포트로는 확정할 수 없다.
         return fail(
-          res,
+          c,
           400,
           "NO_EVALUATION_YET",
           "평가 리포트를 먼저 받아 주세요.",
@@ -442,7 +406,7 @@ export default defineHandler({
       if (commitStatus === "already_finalized_other") {
         // §8.6 `409 ALREADY_FINALIZED_OTHER`. Q67 결정의 뒷부분 — 최종본은 1건만 고정된다.
         return fail(
-          res,
+          c,
           409,
           "ALREADY_FINALIZED_OTHER",
           "이미 다른 제출본을 최종본으로 확정했어요.",
@@ -457,7 +421,7 @@ export default defineHandler({
           "performance/finalize 알 수 없는 커밋 상태:",
           commitStatus,
         );
-        return fail(res, 500, "INTERNAL", "최종본 저장에 실패했습니다.", {
+        return fail(c, 500, "INTERNAL", "최종본 저장에 실패했습니다.", {
           charged: false,
         });
       }
@@ -480,7 +444,7 @@ export default defineHandler({
         }
       }
 
-      res.status(200).json({
+      return c.json({
         submission: {
           submissionId: submissionRow.id,
           revision: commit.revision ?? submissionRow.revision,
@@ -502,24 +466,9 @@ export default defineHandler({
     } catch (error) {
       // 원 예외 메시지를 응답에 싣지 않는다(§8.6 공통 규약 「실패 응답」).
       console.error("performance/finalize error:", error);
-      return fail(res, 500, "INTERNAL", "최종본 저장에 실패했습니다.", {
+      return fail(c, 500, "INTERNAL", "최종본 저장에 실패했습니다.", {
         charged: false,
       });
     }
-  },
-});
-
-// ─────────────────────────────────────────────────────────────────────
-// 실패 경로별 잔여 상태 (전부 무차감 — 이 파일에는 차감 코드가 없다)
-// ─────────────────────────────────────────────────────────────────────
-//   인증/이용권/소유권/action 오류                → 아무것도 안 남음
-//   NO_EVALUATION_YET / ALREADY_FINALIZED_OTHER   → 아무것도 안 남음
-//        (RPC가 판정 후 즉시 반환한다 — is_final도 리포트도 건드리지 않는다)
-//   커밋 RPC 실패(500)                            → 아무것도 안 남음(단일 트랜잭션)
-//   확정 성공 + 다음 세션 준비 실패               → **확정은 성립**, nextSessionId:null.
-//        클라이언트가 `POST /api/performance/session {action:'create'}`로 이어간다.
-//   확정 성공 후 응답 직렬화 중 함수 종료         → 전부 커밋됨.
-//        재요청하면 `already_final`로 같은 200이 나온다(멱등 ②).
-//
-// 실행 시간: 모델을 부르지 않으므로 `maxDuration`을 선언하지 않는다(`submission.js`와 동일).
-export const config = { runtime: "nodejs" };
+  })
+  .all("/", methodNotAllowed("POST"));

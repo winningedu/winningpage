@@ -300,11 +300,7 @@ function analyze(file, text) {
   return { found, callsDefineHandler };
 }
 
-const MANIFESTS = [
-  "api/_routes/manifest.ts",
-  "api/_routes/manifest-30.ts",
-  "api/_routes/manifest-60.ts",
-];
+const MANIFESTS = ["api/_routes/manifest.ts", "api/_routes/manifest-60.ts"];
 const STANDALONE_ENDPOINT =
   /^api\/([^_/][^/]*|cron\/[^/]+|performance\/[^/]+)\.ts$/;
 

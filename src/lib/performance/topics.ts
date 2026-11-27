@@ -25,12 +25,22 @@
 //   모델 원문을 응답에 싣지 않으므로(`recommend-topics.js`의 `fail()`) 그대로 화면에 띄워도
 //   내부 정보가 새지 않는다. 서버 문구가 없을 때만 아래 폴백을 쓴다.
 
+import type { z } from "zod";
+import {
+  type RecommendTopicsBodyInput,
+  recommendTopicsResponse,
+} from "../../../shared/performance/recommend-topics.js";
+import { api } from "../http/client";
 import {
   entitlementDeniedMessage,
   parseTenantReason,
   type TenantBlockReason,
 } from "../tenantBlock";
-import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "./apiClient";
+import {
+  AI_CALL_TIMEOUT_MS,
+  type PerformanceResult,
+  performanceRequest,
+} from "./apiClient";
 
 const NETWORK_ERROR =
   "네트워크 오류가 발생했어요. 연결을 확인하고 다시 시도해 주세요.";
@@ -97,7 +107,6 @@ class TopicRequestError extends Error {
  * 그마저 서버가 기존 라운드 수를 세어 스스로 정하므로 의도 확인용으로만 보낸다(§8.6 `round?`).
  *
  * @param {{accessToken: string, sessionId: string, round?: number}} params
- * @returns {Promise<{round: number, topics: object[], quotaRemaining: number|null, charged: boolean, maxRounds: number}>}
  * @throws {TopicRequestError}
  */
 export async function recommendTopics({
@@ -109,20 +118,19 @@ export async function recommendTopics({
   sessionId: string;
   round?: number;
 }) {
-  let response: Response;
+  let result: PerformanceResult<z.output<typeof recommendTopicsResponse>>;
 
   try {
-    response = await fetchWithTimeout(
-      "/api/performance/recommend-topics",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(round ? { sessionId, round } : { sessionId }),
-      },
-      AI_CALL_TIMEOUT_MS,
+    result = await performanceRequest(
+      api
+        .post("performance/recommend-topics", {
+          json: (round
+            ? { sessionId, round }
+            : { sessionId }) satisfies RecommendTopicsBodyInput,
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: AI_CALL_TIMEOUT_MS,
+        })
+        .json(recommendTopicsResponse),
     );
   } catch (error) {
     const wrapped = new TopicRequestError("NETWORK", NETWORK_ERROR, {});
@@ -130,17 +138,15 @@ export async function recommendTopics({
     throw wrapped;
   }
 
-  // 플랫폼이 함수를 죽이면(504 등) 본문이 비어 파싱이 실패한다 — 그때도 화면에는 무언가
-  // 말해야 하므로 null로 받고 폴백으로 간다.
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const code = data?.error?.code || "UNKNOWN";
+  // 플랫폼이 함수를 죽이면(504 등) 본문이 비어 서버 문구가 없다. 그때도 화면에는 무언가
+  // 말해야 하므로 message 가 null 이면 폴백으로 간다.
+  if (!result.ok) {
+    const { code, extra: data } = result;
     throw new TopicRequestError(
       code,
       entitlementDeniedMessage(
         code,
-        data?.error?.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
+        result.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
         data?.tenantReason,
       ),
       {
@@ -153,5 +159,5 @@ export async function recommendTopics({
     );
   }
 
-  return data;
+  return result.data;
 }

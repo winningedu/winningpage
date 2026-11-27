@@ -2,8 +2,8 @@
 // 위닝 거부는 이전과 같은 모양(tenantReason 없음)이다. session 라우트로 대표 확인한다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createFakeDb,
   createFakeSupabase,
 } from "../../_lib/fakeSupabase.testkit.js";
@@ -16,7 +16,9 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => state.db,
 }));
 
-import handler from "./session.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/performance/session" };
 
 function setup(denyReason: string) {
   const db = createFakeDb({
@@ -56,7 +58,11 @@ function setup(denyReason: string) {
 }
 
 const call = () =>
-  callHandler(handler as never, {}, { authorization: "Bearer t" });
+  callRoute(route, {
+    method: "POST",
+    body: { action: "create" },
+    headers: { authorization: "Bearer t" },
+  });
 
 beforeEach(() => vi.spyOn(console, "warn").mockImplementation(() => {}));
 afterEach(() => {
@@ -71,7 +77,7 @@ describe("performance 이용 게이트", () => {
     const res = await call();
     expect(res.status).toBe(403);
     expect(res.body).toMatchObject({
-      error: { code: "NO_ENTITLEMENT" },
+      code: "NO_ENTITLEMENT",
       tenantReason: "catch_all",
     });
   });
@@ -81,6 +87,7 @@ describe("performance 이용 게이트", () => {
     setup("catch_all");
     const res = await call();
     expect(res.status).toBe(403);
-    expect(Object.keys(res.body as object)).toEqual(["error"]);
+    expect(res.body).toMatchObject({ code: "NO_ENTITLEMENT" });
+    expect(res.body).not.toHaveProperty("tenantReason");
   });
 });

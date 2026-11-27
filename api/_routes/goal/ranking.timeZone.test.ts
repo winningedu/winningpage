@@ -1,6 +1,5 @@
 // 랭킹의 "오늘"은 요청한 학생의 현지 하루다(서버 UTC 기준 아님).
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const repo = vi.hoisted(() => ({
@@ -12,7 +11,17 @@ vi.mock("../../_lib/goal/repo.js", async (importOriginal) => ({
   ...repo,
 }));
 
-import handler from "./ranking.js";
+vi.mock("../../_lib/httpAuth.js", () => ({
+  resolveUser: async () => ({ userId: "u1", user: { id: "u1" }, token: "t" }),
+}));
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({}),
+}));
+
+import { rankingResponse } from "../../../shared/goal/ranking.js";
+import { callGoal } from "../../_lib/goal/route.testkit.js";
 
 const submittedOnFilters: unknown[] = [];
 
@@ -35,19 +44,8 @@ function fakeAdmin() {
 }
 
 async function get() {
-  const out: { body?: Record<string, unknown> } = {};
-  const res = {
-    status: () => res,
-    json: (b: Record<string, unknown>) => {
-      out.body = b;
-      return res;
-    },
-  };
-  await handler(
-    { method: "GET", headers: {} } as unknown as VercelRequest,
-    res as unknown as VercelResponse,
-  );
-  return out.body;
+  const { body } = await callGoal("ranking");
+  return body as Record<string, unknown> | undefined;
 }
 
 beforeEach(() => {
@@ -76,5 +74,27 @@ describe("GET /api/goal/ranking 오늘", () => {
     const body = await get();
     expect(body?.date).toBe("2026-11-22");
     expect(submittedOnFilters).toEqual(["2026-11-22"]);
+  });
+});
+
+describe("GET /api/goal/ranking 응답 계약", () => {
+  test("활성 학생이 모자라면 visible false 를 ok 필드와 problem 필드 없이 준다", async () => {
+    repo.getStudentTimeZone.mockResolvedValue("Asia/Seoul");
+    const r = await callGoal("ranking");
+    expect(r.status).toBe(200);
+    expect(r.headers["content-type"]).toContain("application/json");
+    expect(r.body).not.toHaveProperty("ok");
+    expect(r.body).not.toHaveProperty("code");
+    expect(rankingResponse.parse(r.body)).toMatchObject({
+      visible: false,
+      top: [],
+      me: null,
+    });
+  });
+
+  test("이용권이 없으면 200 allowed false 다", async () => {
+    repo.openGoalSession.mockResolvedValue({ allowed: false });
+    const r = await callGoal("ranking");
+    expect(rankingResponse.parse(r.body)).toEqual({ allowed: false });
   });
 });

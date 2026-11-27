@@ -39,7 +39,6 @@ const SRC_TO_API_ALLOWLIST = new Set([
   "src/components/enrollment/EnrollmentForm.tsx",
   "src/components/enrollment/JoinTenantModal.tsx",
   "src/components/goal/studyRecordOptions.test.ts",
-  "src/components/goal/subjectTokens.test.ts",
   "src/components/growth/collect/ManualActivityCard.tsx",
   "src/components/growth/collect/manualActivity.ts",
   "src/components/growth/survey/surveyLabels.test.ts",

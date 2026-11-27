@@ -2,8 +2,18 @@
 // Postgres 는 upsert 의 INSERT 후보 행에 NOT NULL 을 ON CONFLICT 보다 먼저 검사한다.
 // 부분 행을 upsert 하면 school_type, grade 가 비어 매번 500 이 났다. 가짜 Supabase 가
 // 그 검사를 흉내 내고, 저장은 profile_id 로 거는 update 여야 함을 고정한다.
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { intakeUpdateResponse } from "../../../shared/goal/intake-update.js";
+import { callGoal } from "../../_lib/goal/route.testkit.js";
+
+vi.mock("../../_lib/httpAuth.js", () => ({
+  resolveUser: async () => ({ userId: "u1", user: { id: "u1" }, token: "t" }),
+}));
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({}),
+}));
 
 type Row = Record<string, unknown>;
 type Call = {
@@ -19,6 +29,7 @@ const existingRow: Row = {
   school_type: "일반고",
   grade: "고3",
   onboarded_at: "2026-09-01T00:00:00Z",
+  status: "active",
   ideal_university: "연세대",
   ideal_department: "경영학과",
   min_university: "고려대",
@@ -128,16 +139,11 @@ const targetBody = {
 };
 
 async function callRoute(body: unknown) {
-  const { default: handler } = await import("./intake-update.js");
-  const res = {
-    status: vi.fn().mockReturnThis(),
-    json: vi.fn().mockReturnThis(),
-  };
-  await handler(
-    { method: "POST", body } as unknown as VercelRequest,
-    res as unknown as VercelResponse,
-  );
-  return res;
+  const { status, body: resBody } = await callGoal("intake-update", {
+    method: "POST",
+    body,
+  });
+  return { status, body: resBody as Record<string, unknown> };
 }
 
 describe("intake-update 저장", () => {
@@ -150,10 +156,13 @@ describe("intake-update 저장", () => {
   it("목표 대학을 고치면 200 과 바뀐 학생 정보를 돌려준다", async () => {
     const res = await callRoute(targetBody);
 
-    expect(res.status).toHaveBeenCalledWith(200);
-    const body = res.json.mock.calls[0]?.[0];
-    expect(body.ok).toBe(true);
-    expect(body.student.targets.ideal).toMatchObject({
+    expect(res.status).toBe(200);
+    const body = res.body;
+    expect(body).not.toHaveProperty("ok");
+    expect(intakeUpdateResponse.parse(body).student.onboarded).toBe(true);
+    expect(
+      (body.student as { targets: { ideal: unknown } }).targets.ideal,
+    ).toMatchObject({
       university: "서울대",
       department: "경영학과",
     });

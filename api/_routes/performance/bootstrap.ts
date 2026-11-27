@@ -43,9 +43,12 @@
 //    언제나 `consume_performance_credit` RPC를 감싼 응답(409 QUOTA_EXHAUSTED)이다
 //    (sql/54_performance_app.sql (4), 명세서 §9.3).
 
-import type { VercelResponse } from "@vercel/node";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import type { Context } from "hono";
+import type { z } from "zod";
+import type { bootstrapResponse } from "../../../shared/performance/bootstrap.js";
+import { userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
 import { chargedPerformanceSessionIds } from "../../_lib/performance/tenantCredit.js";
 import {
   findProgramAccessRow,
@@ -103,8 +106,8 @@ const SESSION_COLUMNS = [
 type SessionRow = {
   id: string;
   status: string;
-  current_step: number | null;
-  completed_steps: unknown;
+  current_step: number;
+  completed_steps: number[] | null;
   grade_label: string | null;
   semester: string | null;
   school_type: string | null;
@@ -210,30 +213,28 @@ function toSessionSummary(session: SessionRow, ctx: SessionSummaryContext) {
 }
 
 function fail(
-  res: VercelResponse,
+  c: Context,
   status: number,
   code: string,
   message: string,
   extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code, extra);
+  return problemResponse(c, status, message, code, extra);
 }
 
-export default defineHandler({
-  methods: ["GET"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "GET만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+const guard = user({
   unhandledMessage: "초기 정보를 불러오지 못했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "performance/bootstrap",
   // 이용권·진행 상태가 담긴 개인화 응답이다. 중간 캐시에 남으면 다른 사용자에게
   // 새어 나갈 수 있으므로 저장 자체를 금지한다.
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const userId = requireUserId(ctx);
+});
+
+export const bootstrap = userFactory
+  .createApp()
+  .get("/", guard, async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
     // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
     const serviceConfig = SERVICE_CONFIGS[SERVICE_KEY]!;
 
@@ -242,7 +243,7 @@ export default defineHandler({
       await hasPaidServiceAccess(supabaseAdmin, userId, serviceConfig);
     if (!hasAccess) {
       return fail(
-        res,
+        c,
         403,
         "NO_ENTITLEMENT",
         "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
@@ -371,7 +372,7 @@ export default defineHandler({
     const latestDraftRow =
       sessions.find((row) => !chargedSessionIds.has(row.id)) || null;
 
-    res.status(200).json({
+    return c.json({
       profile: {
         id: userId,
         name: profileRow?.name || null,
@@ -390,9 +391,6 @@ export default defineHandler({
       },
       lastSession: lastSessionRow ? summaryOf(lastSessionRow) : null,
       latestDraft: latestDraftRow ? summaryOf(latestDraftRow) : null,
-    });
-  },
-});
-
-// 실행 시간: 모델을 부르지 않으므로 형제 라우트의 `maxDuration: 60`이 필요 없다.
-export const config = { runtime: "nodejs" };
+    } satisfies z.input<typeof bootstrapResponse>);
+  })
+  .all("/", methodNotAllowed("GET"));

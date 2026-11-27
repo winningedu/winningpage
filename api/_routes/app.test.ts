@@ -10,7 +10,6 @@ import { config as entryConfig30 } from "../app-30.js";
 import { config as entryConfig60 } from "../app-60.js";
 import { app } from "./app.js";
 import { routes as defaultRoutes } from "./manifest.js";
-import { routes as routes30 } from "./manifest-30.js";
 import { routes as routes60 } from "./manifest-60.js";
 
 const methodRoutes = app.routes.filter((route) => route.method !== "ALL");
@@ -22,6 +21,8 @@ const ADMIN_AUTH_ALLOWLIST: Record<string, ReturnType<typeof routeAuth>> = {
   "/api/admin/me/permissions": { auth: "admin", permission: "none" },
   // 초대받은 사람은 아직 관리자가 아니라 본인 행을 활성화할 때 user() 로 인증한다(admin/me.ts).
   "/api/admin/me/activate": { auth: "user" },
+  // 수행평가 지식 임베딩. 예전 defineHandler 도 관리자 판정만 하고 메뉴 권한을 보지 않았다(performance/admin-embed.ts).
+  "/api/performance/admin-embed": { auth: "admin", permission: "none" },
 };
 
 // 경로 패턴을 실제 주소로. 값은 검증 전에 끝나는 검사(405, rewrite)에만 쓰므로 아무 글자나 된다.
@@ -49,7 +50,13 @@ describe("라우트 표", () => {
     const seen = new Set<string>();
     const wrong: string[] = [];
     for (const route of methodRoutes) {
-      if (!route.path.startsWith("/api/admin/")) continue;
+      if (
+        !route.path.startsWith("/api/admin/") &&
+        !route.path.startsWith("/api/goal/admin/") &&
+        !(route.path in ADMIN_AUTH_ALLOWLIST)
+      ) {
+        continue;
+      }
       const key = `${route.method} ${route.path}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -107,7 +114,7 @@ const apiRewrites = vercelJson.rewrites
 const destinationOf = (url: string) =>
   apiRewrites.find(({ pattern }) => pattern.test(url))?.destination;
 
-// maxDuration 이 있는 옮긴 경로. 없으면 /api/app 으로 간다(api/router-30, -60 과 같은 한도).
+// maxDuration 이 있는 옮긴 경로. 없으면 /api/app 으로 간다(30초는 api/app-30, 60초는 api/router-60 과 같은 한도).
 const MIGRATED_30: string[] = [
   "/api/admin/knowledge-search",
   "/api/selfeval/reports",
@@ -117,6 +124,12 @@ const MIGRATED_60: string[] = [
   "/api/admin/knowledge-dedupe",
   "/api/admin/knowledge-eval",
   "/api/admin/premium-book/apply",
+  "/api/goal/admin/cuts/backfill",
+  "/api/performance/admin-embed",
+  "/api/performance/analyze-guide",
+  "/api/performance/design-report",
+  "/api/performance/evaluate",
+  "/api/performance/recommend-topics",
   "/api/selfeval/analyze",
   "/api/selfeval/finalize",
   "/api/selfeval/manual-logs",
@@ -143,9 +156,14 @@ describe("vercel.json rewrite", () => {
   });
 
   test("안 옮긴 관리자, 자기평가서 경로는 새 진입 함수로 가지 않는다", () => {
-    const keys = [defaultRoutes, routes30, routes60]
+    const keys = [defaultRoutes, routes60]
       .flatMap((routes) => Object.keys(routes))
-      .filter((key) => key.startsWith("admin/") || key.startsWith("selfeval/"));
+      .filter(
+        (key) =>
+          key.startsWith("admin/") ||
+          key.startsWith("goal/admin/") ||
+          key.startsWith("selfeval/"),
+      );
     const hijacked = keys
       .map((key) => `/api/${key.replace(/\[[A-Za-z]+\]/g, "1")}`)
       .filter((url) => destinationOf(url)?.startsWith("/api/app"));
@@ -159,17 +177,25 @@ describe("vercel.json rewrite", () => {
       knowledgeSearch: destinationOf("/api/admin/knowledge-search"),
       premiumBookApply: destinationOf("/api/admin/premium-book/apply"),
       goalAdmin: destinationOf("/api/goal/admin/cuts/backfill"),
+      goalAdminUnknown: destinationOf("/api/goal/admin/does-not-exist"),
     }).toEqual({
       unknown: "/api/app",
       nested: "/api/app",
       knowledgeSearch: "/api/app-30",
       premiumBookApply: "/api/app-60",
-      goalAdmin: "/api/router-60",
+      goalAdmin: "/api/app-60",
+      goalAdminUnknown: "/api/app",
     });
   });
 
   test("관리자 경로의 점 구간은 새 진입 함수 rewrite 에 걸리지 않는다", () => {
-    const dotted = ["/api/admin/../goal", "/api/admin/..", "/api/admin/x/../y"];
+    const dotted = [
+      "/api/admin/../goal",
+      "/api/admin/..",
+      "/api/admin/x/../y",
+      "/api/goal/admin/../student",
+      "/api/goal/admin/cuts/../../timer",
+    ];
     const hijacked = dotted.filter((url) =>
       destinationOf(url)?.startsWith("/api/app"),
     );

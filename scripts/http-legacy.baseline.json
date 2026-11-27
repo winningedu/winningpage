@@ -349,95 +349,6 @@
     "okSuccess": 2,
     "legacyHandler": 1
   },
-  "api/_routes/goal/admin/cuts/backfill.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/cuts/bulk.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/cuts/jungsi-missing.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/cuts/rows.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/cuts/summary.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/resend-report.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/reset-student.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/students.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/students/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/students/[id]/records.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/advice.ts": {
-    "legacyError": 7,
-    "outsideHandler": 1,
-    "okSuccess": 4
-  },
-  "api/_routes/goal/daily-record.ts": {
-    "legacyError": 16,
-    "outsideHandler": 1,
-    "okSuccess": 2
-  },
-  "api/_routes/goal/grades.ts": {
-    "legacyError": 22,
-    "outsideHandler": 1,
-    "okSuccess": 3
-  },
-  "api/_routes/goal/intake-update.ts": {
-    "legacyError": 8,
-    "outsideHandler": 1,
-    "okSuccess": 1
-  },
-  "api/_routes/goal/intake.ts": {
-    "legacyError": 7,
-    "outsideHandler": 1,
-    "okSuccess": 1
-  },
-  "api/_routes/goal/plan-tasks.ts": {
-    "legacyError": 32,
-    "outsideHandler": 1,
-    "okSuccess": 4
-  },
-  "api/_routes/goal/ranking.ts": {
-    "legacyError": 3,
-    "outsideHandler": 1,
-    "okSuccess": 2
-  },
-  "api/_routes/goal/report.ts": {
-    "legacyError": 8,
-    "outsideHandler": 1,
-    "okSuccess": 2
-  },
-  "api/_routes/goal/schedules.ts": {
-    "legacyError": 17,
-    "outsideHandler": 1,
-    "okSuccess": 4
-  },
-  "api/_routes/goal/student.ts": {
-    "legacyError": 3,
-    "outsideHandler": 1
-  },
-  "api/_routes/goal/timer.ts": {
-    "legacyError": 10,
-    "outsideHandler": 1,
-    "okSuccess": 5
-  },
-  "api/_routes/goal/workbooks.ts": {
-    "legacyError": 15,
-    "outsideHandler": 1,
-    "okSuccess": 6
-  },
   "api/_routes/growth/collect.ts": {
     "legacyError": 2,
     "okSuccess": 3,
@@ -533,53 +444,6 @@
   "api/_routes/nice-identity-start.ts": {
     "legacyError": 3,
     "okSuccess": 1,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/admin-embed.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/analyze-guide.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/bootstrap.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/design-report.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/discard-attachment.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/evaluate.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/finalize.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/recommend-topics.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/reports.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/session.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/submission.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/upload-url.ts": {
-    "legacyError": 2,
     "legacyHandler": 1
   },
   "api/_routes/request-enrollment.ts": {
@@ -833,9 +697,6 @@
   "src/lib/goal/universitySearch.ts": {
     "browserDb": 2
   },
-  "src/lib/goalApi.ts": {
-    "legacyFetch": 18
-  },
   "src/lib/growth/api.ts": {
     "legacyFetch": 1
   },
@@ -861,15 +722,6 @@
   "src/lib/performance/guideUpload.ts": {
     "browserDb": 1
   },
-  "src/lib/performance/reports.ts": {
-    "legacyFetch": 1
-  },
-  "src/lib/performance/session.ts": {
-    "legacyFetch": 1
-  },
-  "src/lib/performance/submission.ts": {
-    "legacyFetch": 2
-  },
   "src/lib/phoneVerification.ts": {
     "legacyFetch": 1
   },
@@ -880,7 +732,7 @@
     "browserDb": 1
   },
   "src/lib/queryClient.ts": {
-    "legacyFetch": 2
+    "legacyFetch": 1
   },
   "src/lib/signupEmailAuth.ts": {
     "browserDb": 1
@@ -966,9 +818,6 @@
   },
   "src/pages/mypage/usePendingOrderCount.ts": {
     "browserDb": 1
-  },
-  "src/pages/performance/PerformanceChatPage.tsx": {
-    "legacyFetch": 1
   },
   "src/pages/pricing/PricingSelling.tsx": {
     "browserDb": 1

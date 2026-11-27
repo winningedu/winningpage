@@ -1,14 +1,24 @@
 // api/_routes/goal/report.ts 순수 함수 검증 — advice.test.ts와 동일 방침: DB I/O가 있는 핸들러
 // 전체(openGoalSession/checkLinkedPair/buildGrowthReport 등)는 여기서 돌리지 않고,
-// 분리 가능한 순수 함수(parseStudentIdParam)만 검증한다. studentId 분기의 실제 인증·
+// 분리 가능한 순수 함수(snapshotBounds)와 요청 형식, 응답 계약을 검증한다. studentId 분기의 실제 인증·
 // 권한 게이트(본인 조회 200 / 연결된 자녀 200 / 미연결 403 NOT_LINKED)는 로컬 스택
 // QA로 확인한다(다른 goal 라우트도 같은 컨벤션 — 핸들러 단위 테스트 파일이 없다).
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+vi.mock("../../_lib/httpAuth.js", () => ({
+  resolveUser: async () => ({ userId: "u1", user: { id: "u1" }, token: "t" }),
+}));
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({}),
+}));
+
 const repo = vi.hoisted(() => ({
   student: {} as Record<string, unknown>,
   timeZone: "Asia/Seoul",
+  linked: true,
 }));
 
 vi.mock("../../_lib/goal/repo.js", () => ({
@@ -19,6 +29,8 @@ vi.mock("../../_lib/goal/repo.js", () => ({
   }),
   narrowGoalSession: (s: { supabaseAdmin: unknown; profileId: string }) => s,
   fetchStudentRow: async () => repo.student,
+  checkLinkedPair: async () => repo.linked,
+  hasGoalAccessFor: async () => true,
   getStudentTimeZone: async () => repo.timeZone,
   fetchRecordsInRange: async () => [],
   fetchTimerSessionsInRange: async () => [],
@@ -30,24 +42,16 @@ vi.mock("../../_lib/goal/repo.js", () => ({
   fetchEarliestProbabilityLog: async () => null,
 }));
 
-import handler, { parseStudentIdParam, snapshotBounds } from "./report.js";
+import { reportResponse } from "../../../shared/goal/report.js";
+import { callGoal } from "../../_lib/goal/route.testkit.js";
+import { snapshotBounds } from "./report.js";
 
 async function getReport(query: Record<string, string>) {
-  let status = 0;
-  let body: Record<string, unknown> = {};
-  const res = {
-    status(code: number) {
-      status = code;
-      return res;
-    },
-    json(payload: Record<string, unknown>) {
-      body = payload;
-      return res;
-    },
+  const { status, body } = await callGoal("report", { query });
+  return {
+    status,
+    report: (body as Record<string, unknown>).report as Record<string, unknown>,
   };
-  // biome-ignore lint/suspicious/noExplicitAny: 핸들러에 필요한 최소 req/res 모양만 만든다
-  await handler({ method: "GET", query } as any, res as any);
-  return { status, report: body.report as Record<string, unknown> };
 }
 
 describe("성장 리포트 기간 선택 목록", () => {
@@ -111,22 +115,66 @@ describe("성장 리포트 기간 선택 목록", () => {
   });
 });
 
-describe("parseStudentIdParam — 학부모 자녀 리포트 열람용 studentId 쿼리 파싱", () => {
-  test("문자열 값이면 그대로 돌려준다", () => {
-    expect(parseStudentIdParam({ studentId: "abc-123" })).toBe("abc-123");
+describe("리포트 요청 형식과 응답", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    repo.linked = true;
+    repo.timeZone = "Asia/Seoul";
+    repo.student = {
+      onboarded_at: "2026-10-01T00:00:00Z",
+      status: "active",
+      actual_start_date: "2026-11-04",
+    };
   });
 
-  test("studentId가 없으면(본인 조회 경로) undefined", () => {
-    expect(parseStudentIdParam({})).toBeUndefined();
-    expect(parseStudentIdParam(undefined)).toBeUndefined();
+  test.each([
+    ["type 이 없다", {}],
+    ["type 이 목록에 없다", { type: "yearly" }],
+    ["track 이 목록에 없다", { type: "direction", track: "x" }],
+    ["studentId 가 uuid 가 아니다", { type: "weekly", studentId: "abc-123" }],
+    ["studentId 가 비었다", { type: "weekly", studentId: "" }],
+  ])("%s 면 400 VALIDATION_FAILED 와 errors 다", async (_n, query) => {
+    const r = await callGoal("report", { query });
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect((r.body as { errors: unknown[] }).errors.length).toBeGreaterThan(0);
   });
 
-  test("빈 문자열은 없음으로 접는다", () => {
-    expect(parseStudentIdParam({ studentId: "" })).toBeUndefined();
+  test("direction 에 studentId 를 함께 보내면 400 이고 문구는 그대로다", async () => {
+    const r = await callGoal("report", {
+      query: {
+        type: "direction",
+        studentId: "123e4567-e89b-12d3-a456-426614174000",
+      },
+    });
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({
+      detail: "studentId는 weekly|monthly 조회에서만 사용할 수 있습니다.",
+    });
   });
 
-  test("중복 쿼리 키로 배열이 오면 방어적으로 무시한다", () => {
-    expect(parseStudentIdParam({ studentId: ["a", "b"] })).toBeUndefined();
+  test("연결되지 않은 자녀면 403 NOT_LINKED 다", async () => {
+    repo.linked = false;
+    const r = await callGoal("report", {
+      query: {
+        type: "weekly",
+        studentId: "123e4567-e89b-12d3-a456-426614174000",
+      },
+    });
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ code: "NOT_LINKED" });
+  });
+
+  test("주간 리포트를 계약으로 읽고 ok 필드가 없다", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-24T03:00:00Z"));
+    const r = await callGoal("report", { query: { type: "weekly" } });
+    vi.useRealTimers();
+    expect(r.status).toBe(200);
+    expect(r.body).not.toHaveProperty("ok");
+    expect(reportResponse.parse(r.body)).toMatchObject({
+      report: { activePeriod: "2026-11-23" },
+    });
   });
 });
 

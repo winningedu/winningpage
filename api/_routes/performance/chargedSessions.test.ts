@@ -2,7 +2,8 @@
 // 수행평가 라우트가 "이미 센 세션"을 이 기록으로 판단하는지 session 라우트의 이어받기로 확인한다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { callHandler } from "../../_lib/fakeSupabase.testkit.js";
+import { sessionWriteResponse } from "../../../shared/performance/session.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 
 type Row = Record<string, unknown>;
 
@@ -14,7 +15,9 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => state.db,
 }));
 
-import handler from "./session.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/performance/session" };
 
 function makeDb(tables: Record<string, Row[]>) {
   const from = (table: string) => {
@@ -69,15 +72,23 @@ const session = {
   status: "in_progress",
   current_step: 3,
   completed_steps: [1, 2],
+  grade_label: "고1",
+  semester: "1학기",
+  school_type: null,
+  subject_group: "과학",
+  subject: "물리",
+  career_goal: "연구원",
+  previous_topic: null,
+  created_at: "2026-11-05T00:00:00Z",
   updated_at: "2026-11-06T00:00:00Z",
 };
 
 const resume = () =>
-  callHandler(
-    handler as never,
-    { action: "resume" },
-    { authorization: "Bearer t" },
-  );
+  callRoute(route, {
+    method: "POST",
+    body: { action: "resume" },
+    headers: { authorization: "Bearer t" },
+  });
 
 beforeEach(() => vi.spyOn(console, "warn").mockImplementation(() => {}));
 afterEach(() => {
@@ -100,7 +111,7 @@ describe("스쿨멘토 센 세션 판정", () => {
     });
     const res = await resume();
     expect(res.status).toBe(404);
-    expect(res.body).toMatchObject({ error: { code: "NO_UNCHARGED_SESSION" } });
+    expect(res.body).toMatchObject({ code: "NO_UNCHARGED_SESSION" });
   });
 
   test("센 기록이 없는 세션은 이어받는다", async () => {
@@ -108,5 +119,6 @@ describe("스쿨멘토 센 세션 판정", () => {
     state.db = makeDb({ performance_sessions: [session] });
     const res = await resume();
     expect(res.status).toBe(201);
+    expect(() => sessionWriteResponse.parse(res.body)).not.toThrow();
   });
 });
