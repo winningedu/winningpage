@@ -63,6 +63,8 @@ export default function StudentUsageAdmin() {
     studentSearchQueryOptions("serviceCreditAdjust", submittedTerm),
   );
   const students = studentSearch.data?.items ?? [];
+  // 검색어가 비면 쿼리가 꺼져 있어 isPending 이 계속 true 이므로 검색을 누른 뒤에만 본다.
+  const searching = submittedTerm.trim() !== "" && studentSearch.isPending;
   const [selected, setSelected] = useState<string[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const viewedId = searchParams.get("student");
@@ -160,6 +162,10 @@ export default function StudentUsageAdmin() {
         </div>
         <ActionButton onClick={search}>검색</ActionButton>
       </div>
+
+      {searching && (
+        <AdminDetailSkeleton rows={3} label="학생을 검색하는 중입니다." />
+      )}
 
       {students.length > 0 && (
         <ul className="bg-white p-4 shadow-sm">

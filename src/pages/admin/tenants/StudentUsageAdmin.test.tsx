@@ -134,6 +134,38 @@ describe("StudentUsageAdmin 스켈레톤", () => {
     ).toBeNull();
   });
 
+  test("학생 검색을 기다리는 동안 스켈레톤을 보이고 오면 학생 목록으로 바뀐다", async () => {
+    let release: (body: unknown) => void = () => {};
+    const body = new Promise<unknown>((resolve) => {
+      release = resolve;
+    });
+    http.get.mockImplementation(() => ({
+      json: async (schema: { parse: (value: unknown) => unknown }) =>
+        schema.parse(await body),
+    }));
+    renderAt();
+    expect(
+      screen.queryByRole("status", { name: "학생을 검색하는 중입니다." }),
+    ).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("학생 검색"), {
+      target: { value: "김" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+
+    expect(
+      await screen.findByRole("status", { name: "학생을 검색하는 중입니다." }),
+    ).toBeTruthy();
+
+    release({
+      items: [{ id: "s-1", name: "김하늘", email: "a@x.kr", isAdmin: false }],
+    });
+    expect(await screen.findByText("김하늘")).toBeTruthy();
+    expect(
+      screen.queryByRole("status", { name: "학생을 검색하는 중입니다." }),
+    ).toBeNull();
+  });
+
   test("학생을 고르기 전에는 스켈레톤을 보이지 않는다", () => {
     renderAt();
 
