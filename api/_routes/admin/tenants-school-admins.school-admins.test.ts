@@ -3,16 +3,15 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
   matchRows,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: (...keys: string[]) => {
     for (const key of keys) if (process.env[key]) return process.env[key];
     return "";
@@ -21,7 +20,10 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./school-admins.js";
+import { callHandler } from "../../_lib/tenantRoute.testkit.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/tenants/school-admins" };
 
 const TENANT_7 = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 const TENANT_8 = "8a2d3b4c-5e6f-4071-9b8c-0d1e2f3a4b5c";
@@ -131,7 +133,7 @@ describe("GET /api/admin/tenants/school-admins", () => {
     const r = await get({ tenantId: TENANT_7 });
 
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
     const body = r.body as {
       address: string | null;
       items: { id: string }[];

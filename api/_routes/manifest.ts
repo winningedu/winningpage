@@ -102,20 +102,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/staff/[profileId]/permissions.js"),
   "admin/students/search": () => import("./admin/students/search.js"),
   "admin/tenant-options": () => import("./admin/tenant-options.js"),
-  "admin/tenants": () => import("./admin/tenants.js"),
-  "admin/tenants/[id]": () => import("./admin/tenants/[id].js"),
-  "admin/tenants/member-purge": () => import("./admin/tenants/member-purge.js"),
-  "admin/tenants/member-purge-preview": () =>
-    import("./admin/tenants/member-purge-preview.js"),
-  "admin/tenants/move-student": () => import("./admin/tenants/move-student.js"),
-  "admin/tenants/purge-logs": () => import("./admin/tenants/purge-logs.js"),
-  "admin/tenants/school-admin": () => import("./admin/tenants/school-admin.js"),
-  "admin/tenants/school-admins": () =>
-    import("./admin/tenants/school-admins.js"),
-  "admin/tenants/[id]/service-settings": () =>
-    import("./admin/tenants/[id]/service-settings.js"),
-  "admin/tenants/student-usage": () =>
-    import("./admin/tenants/student-usage.js"),
   "admin/uploads": () => import("./admin/uploads.js"),
   "admin/uploads/preview": () => import("./admin/uploads/preview.js"),
   "admin/web-analytics": () => import("./admin/web-analytics.js"),

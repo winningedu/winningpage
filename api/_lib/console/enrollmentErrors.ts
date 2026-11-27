@@ -4,6 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
+import { ProblemError } from "../hono/problem.js";
 import { type ErrorShape, sendError } from "../httpResponse.js";
 import { QA_ACCOUNT_MESSAGE } from "../qaAccount.js";
 import type { ConsoleActor } from "./actor.js";
@@ -154,19 +155,16 @@ export interface OccupantContext {
 }
 
 /**
- * 알려진 코드면 응답을 보내고 true. 아니면 false 라서 호출부가 예외로 던진다.
+ * 알려진 코드면 그 응답을 담은 ProblemError 를, 아니면 undefined 를 돌려준다(Hono 라우트는 받아서 던진다).
  * WC077 의 DETAIL 은 그 번호를 쓰는 학생 이름이다(교 #200). occupant 를 넘긴 호출만 응답에 싣고,
  * 담임 이외에는 가린 이름을 쓴다(결정 30). 넘기지 않으면 이름은 응답에 나가지 않는다.
  */
-export function sendEnrollmentRpcError(
-  res: VercelResponse,
+export function enrollmentRpcProblem(
   error: { code?: string; details?: string | null } | null | undefined,
   occupant?: OccupantContext,
-  // 기본은 기존 라우트가 쓰는 coded 이고, problem 으로 옮긴 라우트만 바꿔 넘긴다.
-  shape: ErrorShape = "coded",
-): boolean {
+): ProblemError | undefined {
   const mapped = error?.code ? MAPPED[error.code] : undefined;
-  if (!mapped) return false;
+  if (!mapped) return undefined;
   const holder = error?.details || null;
   const extra =
     error?.code === "WC077" && occupant
@@ -178,7 +176,27 @@ export function sendEnrollmentRpcError(
           },
         }
       : undefined;
-  sendError(res, shape, mapped.status, mapped.message, mapped.code, extra);
+  return new ProblemError(mapped.status, mapped.message, mapped.code, extra);
+}
+
+/** 알려진 코드면 응답을 보내고 true. 아니면 false 라서 호출부가 예외로 던진다. 규칙은 enrollmentRpcProblem 과 같다. */
+export function sendEnrollmentRpcError(
+  res: VercelResponse,
+  error: { code?: string; details?: string | null } | null | undefined,
+  occupant?: OccupantContext,
+  // 기본은 기존 라우트가 쓰는 coded 이고, problem 으로 옮긴 라우트만 바꿔 넘긴다.
+  shape: ErrorShape = "coded",
+): boolean {
+  const problem = enrollmentRpcProblem(error, occupant);
+  if (!problem) return false;
+  sendError(
+    res,
+    shape,
+    problem.status,
+    problem.message,
+    problem.code,
+    problem.extra,
+  );
   return true;
 }
 

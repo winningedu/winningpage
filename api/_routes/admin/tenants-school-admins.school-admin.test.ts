@@ -2,15 +2,14 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: (...keys: string[]) => {
     for (const key of keys) if (process.env[key]) return process.env[key];
     return "";
@@ -19,7 +18,11 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./school-admin.js";
+import { issuedSchoolAdminSchema } from "../../../shared/tenant/contract.js";
+import { callHandler } from "../../_lib/tenantRoute.testkit.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/tenants/school-admin" };
 
 const post = (body: unknown) => callHandler(handler, body);
 
@@ -90,6 +93,8 @@ describe("POST /api/admin/tenants/school-admin", () => {
       verdict: "created",
     });
     expect(body.tempPassword).toHaveLength(10);
+    // 브라우저가 검증하는 응답 계약을 지킨다.
+    expect(issuedSchoolAdminSchema.safeParse(body).success).toBe(true);
     expect(registerArgs).toMatchObject({
       p_tenant_id: "tenant-7",
       p_name: "박관리",

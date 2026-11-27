@@ -3,5 +3,15 @@
 
 import { createAdminApp } from "../../_lib/hono/admin.js";
 import { coupons } from "./coupons.js";
+import { tenants } from "./tenants.js";
+import { tenantsPurge } from "./tenants-purge.js";
+import { tenantsSchoolAdmins } from "./tenants-school-admins.js";
+import { tenantsStudents } from "./tenants-students.js";
 
-export const admin = createAdminApp().route("/coupons", coupons);
+// /tenants 는 글자 그대로인 경로를 가진 앱을 /:id 가 있는 tenants 보다 먼저 붙인다. 순서가 바뀌면 /:id 의 405 가 그 경로를 가로챈다(api/_routes/admin/tenants.routing.test.ts).
+export const admin = createAdminApp()
+  .route("/coupons", coupons)
+  .route("/tenants", tenantsPurge)
+  .route("/tenants", tenantsSchoolAdmins)
+  .route("/tenants", tenantsStudents)
+  .route("/tenants", tenants);

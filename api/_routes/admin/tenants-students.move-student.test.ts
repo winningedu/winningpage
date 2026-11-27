@@ -3,21 +3,23 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
   getEnv: (name: string) => process.env[name],
 }));
 
-import handler from "./move-student.js";
+import { callHandler } from "../../_lib/tenantRoute.testkit.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/tenants/move-student" };
 
 const post = (body: unknown, method = "POST") =>
   callHandler(handler, body, method);
@@ -120,7 +122,7 @@ describe("POST /api/admin/tenants/move-student", () => {
         p_number: 7,
       },
     ]);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
   });
 
   test("반과 번호와 그룹은 비워도 된다(결정 102.14)", async () => {

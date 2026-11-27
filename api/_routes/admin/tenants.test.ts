@@ -3,7 +3,6 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
@@ -45,7 +44,10 @@ vi.mock("../../../src/config/sites.js", () => ({
   },
 }));
 
-import handler from "./tenants.js";
+import { callHandler } from "../../_lib/tenantRoute.testkit.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/tenants" };
 
 const get = () => callHandler(handler, undefined, "GET");
 const post = (body: unknown) => callHandler(handler, body, "POST");

@@ -3,6 +3,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { api } from "@/lib/http/client";
+import {
+  type PurgeLogEntry,
+  type PurgePreview,
+  type PurgeResult,
+  purgeLogsSchema,
+  purgePreviewSchema,
+  purgeResultSchema,
+} from "../../../../shared/tenant/contract.js";
 
 // 기관 목록은 admin/tenants 응답에서 이 화면이 쓰는 열만 읽는다.
 const contractTenantSchema = z.looseObject({
@@ -15,54 +23,10 @@ const contractTenantSchema = z.looseObject({
 
 const tenantListSchema = z.object({ items: z.array(contractTenantSchema) });
 
-const purgePreviewSchema = z.object({
-  contractEnd: z.string().nullable(),
-  graceEnd: z.string().nullable(),
-  deletableFrom: z.string().nullable(),
-  /** 삭제 가능일까지 남은 날. 0 이하면 지금 지울 수 있다. */
-  dDay: z.number().nullable(),
-  students: z.array(
-    z.object({
-      id: z.string(),
-      /** 서버가 가린 이름이다("김*늘"). */
-      name: z.string(),
-      grade: z.string().nullable(),
-      classLabel: z.string().nullable(),
-      number: z.number().nullable(),
-      protected: z.boolean(),
-    }),
-  ),
-});
-
-const purgeResultSchema = z.object({
-  deleted: z.number(),
-  excluded: z.number(),
-  skipped: z.number(),
-  notProcessed: z.number(),
-});
-
-const purgeLogEntrySchema = z.object({
-  id: z.string(),
-  executedAt: z.string(),
-  executedBy: z.string().nullable(),
-  tenant: z
-    .object({ id: z.string().nullable(), code: z.string(), name: z.string() })
-    .nullable(),
-  contractEndDate: z.string().nullable(),
-  deletedCount: z.number(),
-  excludedCount: z.number(),
-  skippedCount: z.number(),
-  memberIds: z.array(z.string()),
-});
-
-const purgeLogsSchema = z.object({ items: z.array(purgeLogEntrySchema) });
-
 export type ContractTenant = z.infer<typeof contractTenantSchema> & {
   contract_end_date: string;
 };
-export type PurgePreview = z.infer<typeof purgePreviewSchema>;
-export type PurgeResult = z.infer<typeof purgeResultSchema>;
-export type PurgeLogEntry = z.infer<typeof purgeLogEntrySchema>;
+export type { PurgeLogEntry, PurgePreview, PurgeResult };
 
 export function usePurgeLogs() {
   return useQuery({

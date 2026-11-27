@@ -2,6 +2,7 @@
 // auth:"admin" 라우트는 resolveAdmin 이 막는다(api/_lib/qaAccount.test.ts, handler.qa.test.ts).
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
   callHandler,
   createFakeAdmin,
@@ -17,22 +18,26 @@ vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+import { app } from "../app.js";
 import startProxy from "../console/proxy/start.js";
 import inviteMember from "./invite-member.js";
 import sendMessage from "./send-message.js";
-import memberPurge from "./tenants/member-purge.js";
-import moveStudent from "./tenants/move-student.js";
-import schoolAdmin from "./tenants/school-admin.js";
 
 const QA_BODY = {
   detail: "QA 계정이라 이 기능은 작동하지 않아요.",
   code: "QA_ACCOUNT_READ_ONLY",
 };
 
+// Hono 로 옮긴 라우트는 루트 앱의 경로로 부른다.
+const tenantRoute = (name: string) => ({
+  app,
+  path: `/api/admin/tenants/${name}`,
+});
+
 const ROUTES = [
-  ["tenants/member-purge", memberPurge],
-  ["tenants/move-student", moveStudent],
-  ["tenants/school-admin", schoolAdmin],
+  ["tenants/member-purge", tenantRoute("member-purge")],
+  ["tenants/move-student", tenantRoute("move-student")],
+  ["tenants/school-admin", tenantRoute("school-admin")],
   ["console/proxy/start", startProxy],
   ["send-message", sendMessage],
   ["invite-member", inviteMember],
@@ -69,7 +74,7 @@ describe.each(ROUTES)("%s", (_name, handler) => {
   test("QA 본사 관리자는 403 QA_ACCOUNT_READ_ONLY 이고 아무것도 쓰지 않는다", async () => {
     kit.state.rows.qa_accounts = () => ({ profile_id: "hq-1" });
 
-    const r = await callHandler(handler, {
+    const body = {
       tenantId: "t1",
       reason: "roster_proxy",
       profileId: "p1",
@@ -78,7 +83,11 @@ describe.each(ROUTES)("%s", (_name, handler) => {
       email: "a@b.co",
       name: "n",
       roleId: "r1",
-    });
+    };
+    const r =
+      typeof handler === "function"
+        ? await callHandler(handler, body)
+        : await callRoute(handler, { method: "POST", body });
 
     expect(r.status).toBe(403);
     expect(r.body).toEqual(expect.objectContaining(QA_BODY));
