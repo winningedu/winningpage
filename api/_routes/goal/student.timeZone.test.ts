@@ -26,6 +26,7 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => ({}),
 }));
 
+import { studentResponse } from "../../../shared/goal/student.js";
 import { callGoal } from "../../_lib/goal/route.testkit.js";
 
 async function get() {
@@ -74,5 +75,44 @@ describe("GET /api/goal/student 시간대", () => {
       "2026-11-17",
       "2026-11-23",
     );
+  });
+});
+
+describe("GET /api/goal/student 응답 계약", () => {
+  test("온보딩 완료 본문을 계약 스키마로 읽는다", async () => {
+    repo.getStudentTimeZone.mockResolvedValue("Asia/Seoul");
+    repo.fetchStudentRow.mockResolvedValue({
+      status: "active",
+      onboarded_at: "2026-01-01",
+      school_type: "high",
+      grade: "고1",
+      ideal_jungsi_cut: 1,
+      min_jungsi_cut: 1,
+    });
+    const r = await callGoal("student");
+    expect(r.status).toBe(200);
+    expect(studentResponse.parse(r.body)).toMatchObject({
+      onboarded: true,
+      timeZone: "Asia/Seoul",
+    });
+  });
+
+  test("온보딩 전이면 onboarded false 다", async () => {
+    repo.getStudentTimeZone.mockResolvedValue("Asia/Seoul");
+    repo.fetchStudentRow.mockResolvedValue(null);
+    const r = await callGoal("student");
+    expect(studentResponse.parse(r.body)).toEqual({ onboarded: false });
+  });
+
+  test("이용권이 없으면 200 allowed false 와 tenantReason 이다", async () => {
+    repo.openGoalSession.mockResolvedValue({
+      allowed: false,
+      tenantReason: "month_cap",
+    });
+    const r = await callGoal("student");
+    expect(studentResponse.parse(r.body)).toEqual({
+      allowed: false,
+      tenantReason: "month_cap",
+    });
   });
 });

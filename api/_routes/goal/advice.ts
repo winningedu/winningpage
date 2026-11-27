@@ -18,6 +18,11 @@
 // 동일 원칙, daily-record.ts 컨벤션 재사용).
 
 import type { Context } from "hono";
+import type { z } from "zod";
+import {
+  adviceBody,
+  type adviceGetResponse,
+} from "../../../shared/goal/advice.js";
 import {
   addDaysYMD,
   getDayIndexFromYMDServer,
@@ -65,6 +70,7 @@ import {
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
 type GoalSession = Awaited<ReturnType<typeof openGoalSession>>;
@@ -76,15 +82,6 @@ const RECENT_DAYS_WINDOW = 3;
 
 function fail(status: number, body: Record<string, unknown>) {
   return { status, body };
-}
-
-// 본문을 JSON 으로 읽는다. 비었거나 깨졌으면 null 이고, 형식 검사는 각 핸들러가 한다.
-async function readBody(c: Context) {
-  try {
-    return await c.req.json();
-  } catch {
-    return null;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -217,13 +214,6 @@ export function buildRecentUsedText(
       return `${r.record_date} 순공 ${hours}시간${tasks ? ` (${tasks})` : ""}`;
     });
   return lines.join(", ").slice(0, 500);
-}
-
-/** POST body.source 검증 — 400 분기 판정을 순수 함수로 분리해 테스트 가능하게 한다. */
-export function isValidAdviceSource(
-  value: unknown,
-): value is "intake" | "daily" {
-  return value === "intake" || value === "daily";
 }
 
 /**
@@ -478,7 +468,7 @@ async function handleGet(c: Context<UserEnv>, session: GoalSession) {
     return c.json({
       allowed: false,
       ...tenantReasonExtra(session.tenantReason),
-    });
+    } satisfies z.input<typeof adviceGetResponse>);
   }
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
@@ -526,7 +516,11 @@ async function handleGet(c: Context<UserEnv>, session: GoalSession) {
 // ---------------------------------------------------------------------------
 // POST — 생성(캐시 미스 시)/캐시 반환. body: { source: 'intake'|'daily' }
 // ---------------------------------------------------------------------------
-async function handlePost(c: Context<UserEnv>, session: GoalSession) {
+async function handlePost(
+  c: Context<UserEnv>,
+  session: GoalSession,
+  source: "intake" | "daily",
+) {
   const { allowed } = session;
   if (!allowed) {
     return goalFail(c, 403, {
@@ -540,15 +534,6 @@ async function handlePost(c: Context<UserEnv>, session: GoalSession) {
   if (gate.error) {
     return goalFail(c, gate.error.status, gate.error.body);
   }
-
-  const body = await readBody(c);
-  const rawSource = body?.source;
-  if (!isValidAdviceSource(rawSource)) {
-    return goalFail(c, 400, {
-      detail: "source는 intake 또는 daily여야 합니다.",
-    });
-  }
-  const source = rawSource;
 
   const now = new Date();
   const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
@@ -587,14 +572,18 @@ const guard = user({
 
 export const advice = userFactory
   .createApp()
-  .on(["GET", "POST"], "/", guard, async (c) => {
+  .get("/", guard, async (c) => {
+    try {
+      return await handleGet(c, await openGoalSession(c));
+    } catch (error) {
+      console.error("goal/advice error:", error);
+      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
+    }
+  })
+  .post("/", guard, validate("json", adviceBody), async (c) => {
     try {
       const session = await openGoalSession(c);
-
-      if (c.req.method === "GET") {
-        return await handleGet(c, session);
-      }
-      return await handlePost(c, session);
+      return await handlePost(c, session, c.req.valid("json").source);
     } catch (error) {
       console.error("goal/advice error:", error);
       return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });

@@ -20,6 +20,7 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => ({}),
 }));
 
+import { rankingResponse } from "../../../shared/goal/ranking.js";
 import { callGoal } from "../../_lib/goal/route.testkit.js";
 
 const submittedOnFilters: unknown[] = [];
@@ -73,5 +74,27 @@ describe("GET /api/goal/ranking 오늘", () => {
     const body = await get();
     expect(body?.date).toBe("2026-11-22");
     expect(submittedOnFilters).toEqual(["2026-11-22"]);
+  });
+});
+
+describe("GET /api/goal/ranking 응답 계약", () => {
+  test("활성 학생이 모자라면 visible false 를 ok 필드와 problem 필드 없이 준다", async () => {
+    repo.getStudentTimeZone.mockResolvedValue("Asia/Seoul");
+    const r = await callGoal("ranking");
+    expect(r.status).toBe(200);
+    expect(r.headers["content-type"]).toContain("application/json");
+    expect(r.body).not.toHaveProperty("ok");
+    expect(r.body).not.toHaveProperty("code");
+    expect(rankingResponse.parse(r.body)).toMatchObject({
+      visible: false,
+      top: [],
+      me: null,
+    });
+  });
+
+  test("이용권이 없으면 200 allowed false 다", async () => {
+    repo.openGoalSession.mockResolvedValue({ allowed: false });
+    const r = await callGoal("ranking");
+    expect(rankingResponse.parse(r.body)).toEqual({ allowed: false });
   });
 });

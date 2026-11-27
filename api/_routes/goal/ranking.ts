@@ -25,7 +25,8 @@
 // 항상 maskName()을 거친 문자열만 담는다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Context } from "hono";
+import type { z } from "zod";
+import type { rankingPayload } from "../../../shared/goal/ranking.js";
 import { ymdIn } from "../../../src/lib/time/day.js";
 import { goalFail } from "../../_lib/goal/problem.js";
 import { isRankingVisible } from "../../_lib/goal/rankingVisibility.js";
@@ -35,7 +36,7 @@ import {
   num,
   openGoalSession,
 } from "../../_lib/goal/repo.js";
-import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
@@ -132,13 +133,12 @@ export const ranking = userFactory
 
       // QA 행71, 활성 학생이 기준 미만이면 순위 목록 없이 visible:false만 돌려준다.
       if (!isRankingVisible((activeRows || []).length)) {
-        return goalFail(c, 200, {
-          ok: true,
+        return c.json({
           date: today,
           visible: false,
           top: [],
           me: null,
-        });
+        } satisfies z.input<typeof rankingPayload>);
       }
 
       const activeIds = new Set(
@@ -192,13 +192,12 @@ export const ranking = userFactory
         ? { rank: meRow.rank, name: meRow.name, hours: meRow.hours }
         : null;
 
-      return goalFail(c, 200, {
-        ok: true,
+      return c.json({
         date: today,
         visible: true,
         top,
         me,
-      });
+      } satisfies z.input<typeof rankingPayload>);
     } catch (error) {
       console.error("goal/ranking error:", error);
       return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
