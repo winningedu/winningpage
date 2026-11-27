@@ -178,6 +178,30 @@ describe("vercel.json rewrite", () => {
   });
 });
 
+describe("끝 슬래시", () => {
+  test("옮긴 모든 관리자 경로의 끝 슬래시 주소는 모든 메서드에 없는 주소와 같은 problem 404 다", async () => {
+    const request = (url: string, method: string) =>
+      app.request(url, { method, headers: { authorization: "Bearer x" } });
+    const unknown = await request("/api/admin/does-not-exist", "GET");
+    expect(unknown.status).toBe(404);
+    const expected = await unknown.json();
+    const wrong: string[] = [];
+    for (const pattern of routePaths) {
+      for (const method of ["GET", "HEAD", "POST", "PATCH", "PUT", "DELETE"]) {
+        const url = `${samplePath(pattern)}/`;
+        const response = await request(url, method);
+        const body = method === "HEAD" ? expected : await response.json();
+        if (response.status !== 404 || response.headers.has("allow")) {
+          wrong.push(`${method} ${url} -> ${response.status}`);
+        } else if (JSON.stringify(body) !== JSON.stringify(expected)) {
+          wrong.push(`${method} ${url} body`);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+});
+
 describe("진입 함수", () => {
   test("fetch 를 내보내고 maxDuration 은 router 진입 함수와 같다", () => {
     expect(typeof entry.fetch).toBe("function");
