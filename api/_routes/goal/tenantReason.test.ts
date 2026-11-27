@@ -39,13 +39,33 @@ const LOADERS = {
 } as const;
 type Route = keyof typeof LOADERS;
 
+// 요청 형식 검사(zod)가 이용권 확인보다 먼저라서, 쓰기 요청은 형식이 맞는 본문을 보내야 403 에 닿는다.
+const WRITE_BODIES: Partial<Record<Route, unknown>> = {
+  advice: { source: "intake" },
+  "plan-tasks": {
+    planDate: "2026-11-27",
+    title: "문제 풀이",
+    subject: "수학",
+    durationMinutes: 30,
+  },
+  schedules: {
+    title: "수행평가",
+    category: "exam",
+    dueDate: "2026-12-01",
+  },
+  timer: { action: "stop" },
+  workbooks: { subject: "math", title: "수능특강", totalPages: 100 },
+};
+
 async function call(
   route: Route,
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
 ): Promise<Captured> {
   const { status, body } = await callGoal(route, {
     method,
-    ...(method === "GET" ? { query: { type: "weekly" } } : { body: {} }),
+    ...(method === "GET"
+      ? { query: { type: "weekly" } }
+      : { body: WRITE_BODIES[route] ?? {} }),
   });
   return { status, body: body as Record<string, unknown> };
 }
