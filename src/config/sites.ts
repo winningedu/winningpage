@@ -160,7 +160,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       studentEnrollment: true,
       hqTenantAdmin: true,
       hqB2cView: true,
-      columnVideo: false,
+      columnVideo: true,
       serviceStartNotice: false,
       admissionResultsNotice: false,
       goalZeroHourRecord: false,

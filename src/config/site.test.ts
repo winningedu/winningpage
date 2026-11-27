@@ -304,7 +304,7 @@ describe("site - 계획 8 사이트 설정 값(결정 107)", () => {
     const { site } = await loadSite("winning");
 
     expect(site.boardEmpty).toBeUndefined();
-    expect(site.features.columnVideo).toBe(false);
+    expect(site.features.columnVideo).toBe(true);
     expect(site.features.serviceStartNotice).toBe(false);
     expect(site.features.admissionResultsNotice).toBe(false);
     expect(site.features.goalZeroHourRecord).toBe(false);
