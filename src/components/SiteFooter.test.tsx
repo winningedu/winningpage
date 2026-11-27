@@ -1,8 +1,8 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SiteConfig, SiteKey } from "@/config/sites";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SITES, type SiteConfig, type SiteKey } from "@/config/sites";
 import type { FooterOperatorImage } from "@/hooks/useFooterOperatorImage";
 import { trackEvent } from "@/lib/analytics";
 import SiteFooter from "./SiteFooter";
@@ -250,6 +250,42 @@ describe("SiteFooter - 위닝 SNS 아이콘", () => {
       expect(link).toHaveAttribute("rel", "noopener noreferrer");
       expect(link.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     }
+  });
+});
+
+describe("SiteFooter - 위닝 SNS 주소가 없는 아이콘", () => {
+  const naverClipUrl = SITES.winning.company.naverClipUrl as string;
+
+  beforeEach(() => {
+    siteState.key = "winning";
+  });
+  afterEach(() => {
+    SITES.winning.company.naverClipUrl = naverClipUrl;
+  });
+
+  it("주소가 없는 링크는 그리지 않고 나머지 순서는 그대로다", () => {
+    Reflect.deleteProperty(SITES.winning.company, "naverClipUrl");
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    expect(
+      footer.querySelector('[aria-label="네이버 클립"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(footer)
+        .getAllByRole("link")
+        .map((link) => link.getAttribute("aria-label"))
+        .filter((label) => SOCIAL_LABELS.includes(label ?? "")),
+    ).toEqual([
+      "카카오톡 채널",
+      "네이버 블로그",
+      "유튜브",
+      "인스타그램",
+      "카카오톡 채널",
+      "네이버 블로그",
+      "유튜브",
+      "인스타그램",
+    ]);
   });
 });
 

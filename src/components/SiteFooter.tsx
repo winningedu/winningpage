@@ -41,7 +41,8 @@ function ftcBizInfoUrl(bizRegNo: string) {
   return `https://www.ftc.go.kr/bizCommPop.do?wrkr_no=${bizRegNo.replaceAll("-", "")}`;
 }
 
-// 소셜 아이콘: 순서 고정(카카오톡, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램).
+// 소셜 아이콘: 순서 고정(카카오톡, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램). URL이 설정에 없으면 그
+// 아이콘은 렌더하지 않는다.
 function SocialLinks({
   company,
   className,
@@ -85,7 +86,7 @@ function SocialLinks({
           "linear-gradient(45deg, #f9ce34 0%, #ee2a7b 50%, #6228d7 100%)",
       },
     },
-  ];
+  ].filter((item) => item.href);
 
   return (
     <div className={`items-center gap-4 ${className}`}>
