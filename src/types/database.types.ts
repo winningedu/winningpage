@@ -9045,6 +9045,10 @@ export type Database = {
           version: number;
         }[];
       };
+      fn_enrollment_mark_confirmed: {
+        Args: { p_actor: string; p_enrollment: string };
+        Returns: boolean;
+      };
       fn_enrollment_update: {
         Args: {
           p_actor: string;
