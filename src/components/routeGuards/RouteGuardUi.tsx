@@ -25,16 +25,6 @@ export function AuthCheckingFallback() {
   );
 }
 
-export function AdminCheckingFallback() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F7F4EF] pt-16 text-[#0D1B2A]">
-      <div className="rounded-2xl border border-[#0D1B2A]/10 bg-white px-6 py-4 text-sm font-extrabold shadow-[0_18px_45px_rgba(13,27,42,0.10)]">
-        관리자 권한 확인 중...
-      </div>
-    </main>
-  );
-}
-
 export function AdminAccessBoundary() {
   const error = useRouteError();
 
