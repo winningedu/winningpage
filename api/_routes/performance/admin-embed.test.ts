@@ -41,15 +41,27 @@ describe("admin-embed 오류", () => {
     });
   });
 
-  test("모르는 action 은 400 UNKNOWN_ACTION", async () => {
-    const r = await call({ action: "nope" });
+  test.each([
+    ["모르는 action", { action: "nope" }, "action"],
+    ["숫자가 아닌 limit", { action: "backfill", limit: "abc" }, "limit"],
+    [
+      '불리언도 "true"도 아닌 force',
+      { action: "backfill", force: "yes" },
+      "force",
+    ],
+    ["문자열이 아닌 id", { action: "embed-one", id: 5 }, "id"],
+  ])(
+    "%s 이면 400 VALIDATION_FAILED 와 errors 를 낸다",
+    async (_name, body, field) => {
+      const r = await call(body);
 
-    expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({
-      code: "UNKNOWN_ACTION",
-      detail: "알 수 없는 action입니다. 'embed-one' 또는 'backfill'.",
-    });
-  });
+      expect(r.status).toBe(400);
+      expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+      expect(JSON.stringify((r.body as { errors: unknown }).errors)).toContain(
+        field,
+      );
+    },
+  );
 
   test("임베딩 중 예외는 500 EMBED_FAILED 이고 원인 문구를 detail 로 싣는다", async () => {
     kit.state.rows.winning_assessment_knowledge_items = () => {

@@ -5,7 +5,7 @@ import {
   createFakeDb,
   createFakeSupabase,
 } from "../../_lib/fakeSupabase.testkit.js";
-import { rowsDb, SESSION_ID } from "./route.testkit.js";
+import { rowsDb, SESSION_ID } from "../../_lib/performance/route.testkit.js";
 
 const state = vi.hoisted(() => ({ db: null as unknown }));
 

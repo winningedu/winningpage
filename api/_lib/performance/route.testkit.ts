@@ -70,6 +70,7 @@ export function rowsDb(tables: Record<string, Record<string, unknown>[]>) {
       "order",
       "limit",
       "lt",
+      "neq",
       "is",
       "not",
       "update",

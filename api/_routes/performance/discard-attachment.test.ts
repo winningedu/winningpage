@@ -9,7 +9,7 @@ import {
   paidDb,
   SESSION_ID,
   validationFailedFor,
-} from "./route.testkit.js";
+} from "../../_lib/performance/route.testkit.js";
 
 const state = vi.hoisted(() => ({ db: null as unknown }));
 

@@ -2,7 +2,11 @@
 
 import { describe, expect, test, vi } from "vitest";
 import { callRoute } from "../../_lib/adminRoute.testkit.js";
-import { authOnlyDb, paidDb, validationFailedFor } from "./route.testkit.js";
+import {
+  authOnlyDb,
+  paidDb,
+  validationFailedFor,
+} from "../../_lib/performance/route.testkit.js";
 
 const state = vi.hoisted(() => ({ db: null as unknown }));
 
