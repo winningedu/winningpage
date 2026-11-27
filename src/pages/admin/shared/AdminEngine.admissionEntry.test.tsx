@@ -137,7 +137,7 @@ function sliceSectionCell(source: string) {
 async function loadSectionCell(sliceText: string) {
   const harness = `
 import React from 'react';
-export default function SectionCellHarness({ sectionSummaries, index, column, row, onOpenSection }: any) {
+export default function SectionCellHarness({ sectionSummaries, index, column, row, onOpenSection, config = {} }: any) {
   return (
     <>
       {${sliceText}}
@@ -348,6 +348,25 @@ describe("어드민 대학모집요강 편집 진입 경로 검증", () => {
       !filled.includes("추가") &&
       rawOnly.includes("수정");
     expect(pass, JSON.stringify({ empty, filled, rawOnly })).toBe(true);
+  });
+
+  test("entry:3b. view 권한(config.readOnly)이면 세 상태 모두 라벨이 '보기'이고 '추가'와 '수정'은 없다", async () => {
+    const SectionCell = await loadSectionCell(sliceSectionCell(adminEngineSrc));
+    const renderCell = (summary: string) =>
+      renderToStaticMarkup(
+        React.createElement(SectionCell, {
+          ...makeProps(summary, []),
+          config: { readOnly: true },
+        }),
+      );
+    const htmls = [EMPTY, RAW_ONLY, FILLED].map(renderCell);
+    const pass = htmls.every(
+      (html) =>
+        html.includes(">보기<") &&
+        !html.includes("추가") &&
+        !html.includes("수정"),
+    );
+    expect(pass, JSON.stringify(htmls)).toBe(true);
   });
 
   // ===================================================================
