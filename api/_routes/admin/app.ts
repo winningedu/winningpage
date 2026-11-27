@@ -14,12 +14,19 @@ import { inviteMember } from "./invite-member.js";
 import { knowledgeBulk } from "./knowledge-bulk.js";
 import { knowledgeDedupe } from "./knowledge-dedupe.js";
 import { knowledgeSearch } from "./knowledge-search.js";
+import { members } from "./members.js";
+import { mentorApplications } from "./mentor-applications.js";
+import { revenue } from "./revenue.js";
+import { roles } from "./roles.js";
 import { selfevalGrant } from "./selfeval-grant.js";
 import { selfevalRecover } from "./selfeval-recover.js";
 import { sendMessage } from "./send-message.js";
 import { serviceCreditAdjust } from "./service-credit-adjust.js";
 import { serviceCreditSummary } from "./service-credit-summary.js";
+import { staff } from "./staff.js";
 import { tenantOptions } from "./tenant-options.js";
+import { tenants } from "./tenants.js";
+import { uploads } from "./uploads.js";
 import { webAnalytics } from "./web-analytics.js";
 
 export const admin = createAdminApp()
@@ -41,4 +48,11 @@ export const admin = createAdminApp()
   .route("/selfeval-recover", selfevalRecover)
   .route("/knowledge-bulk", knowledgeBulk)
   .route("/knowledge-dedupe", knowledgeDedupe)
-  .route("/knowledge-search", knowledgeSearch);
+  .route("/knowledge-search", knowledgeSearch)
+  .route("/mentor-applications", mentorApplications)
+  .route("/revenue", revenue)
+  .route("/members", members)
+  .route("/staff", staff)
+  .route("/roles", roles)
+  .route("/tenants", tenants)
+  .route("/uploads", uploads);

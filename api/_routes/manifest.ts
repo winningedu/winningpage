@@ -25,7 +25,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/learning-diagnosis/programs.js"),
   "admin/learning-diagnosis/programs/[id]": () =>
     import("./admin/learning-diagnosis/programs/[id].js"),
-  "admin/mentor-applications": () => import("./admin/mentor-applications.js"),
   "admin/mentor-applications/[id]": () =>
     import("./admin/mentor-applications/[id].js"),
   "admin/mentor-applications/[id]/proof-url": () =>
@@ -50,7 +49,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/knowledge-eval/queries.js"),
   "admin/knowledge-eval/queries/[id]": () =>
     import("./admin/knowledge-eval/queries/[id].js"),
-  "admin/members": () => import("./admin/members.js"),
   "admin/members/[id]": () => import("./admin/members/[id].js"),
   "admin/members/[id]/tenant": () => import("./admin/members/[id]/tenant.js"),
   "admin/members/[id]/messages": () =>
@@ -73,19 +71,15 @@ export const routes: Record<string, RouteLoader> = {
   "admin/premium-book/pages": () => import("./admin/premium-book/pages.js"),
   "admin/premium-book/pages/[id]": () =>
     import("./admin/premium-book/pages/[id].js"),
-  "admin/revenue": () => import("./admin/revenue.js"),
   "admin/revenue/pending": () => import("./admin/revenue/pending.js"),
   "admin/revenue/services": () => import("./admin/revenue/services.js"),
-  "admin/roles": () => import("./admin/roles.js"),
   "admin/roles/[id]": () => import("./admin/roles/[id].js"),
   "admin/roles/[id]/permissions": () =>
     import("./admin/roles/[id]/permissions.js"),
-  "admin/staff": () => import("./admin/staff.js"),
   "admin/staff/[profileId]": () => import("./admin/staff/[profileId].js"),
   "admin/staff/[profileId]/permissions": () =>
     import("./admin/staff/[profileId]/permissions.js"),
   "admin/students/search": () => import("./admin/students/search.js"),
-  "admin/tenants": () => import("./admin/tenants.js"),
   "admin/tenants/[id]": () => import("./admin/tenants/[id].js"),
   "admin/tenants/member-purge": () => import("./admin/tenants/member-purge.js"),
   "admin/tenants/member-purge-preview": () =>
@@ -99,7 +93,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/tenants/[id]/service-settings.js"),
   "admin/tenants/student-usage": () =>
     import("./admin/tenants/student-usage.js"),
-  "admin/uploads": () => import("./admin/uploads.js"),
   "admin/uploads/preview": () => import("./admin/uploads/preview.js"),
   "auth/login": () => import("./auth/login.js"),
   "auth/teacher-reset-password": () =>

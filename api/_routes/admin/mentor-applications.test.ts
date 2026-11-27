@@ -1,6 +1,7 @@
 // GET /api/admin/mentor-applications 계약 검증.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { mentorApplicationListSchema } from "../../../shared/mentor-applications/contract.js";
 import {
   argsOf,
   callRoute,
@@ -18,7 +19,9 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./mentor-applications.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/mentor-applications" };
 
 let rows: Respond = () => ({ data: [{ id: "m1" }], error: null });
 
@@ -42,9 +45,10 @@ afterEach(() => {
 describe("GET /api/admin/mentor-applications", () => {
   test("view 권한이면 최신순 { items } 를 돌려준다", async () => {
     const admin = setup();
-    const r = await callRoute(handler);
+    const r = await callRoute(route);
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ items: [{ id: "m1" }] });
+    expect(mentorApplicationListSchema.safeParse(r.body).success).toBe(true);
     const query = firstQuery(admin, "mentor_applications");
     expect(argsOf(query, "select")).toEqual(["*"]);
     expect(argsOf(query, "order")).toEqual([
@@ -55,15 +59,17 @@ describe("GET /api/admin/mentor-applications", () => {
 
   test("권한 행이 없으면 403 FORBIDDEN 이다", async () => {
     setup(null);
-    const r = await callRoute(handler);
+    const r = await callRoute(route);
     expect(r.status).toBe(403);
     expect(problemCode(r.body)).toBe("FORBIDDEN");
   });
 
   test("쓰기 메서드는 405 이고 쓰지 않는다", async () => {
     const admin = setup("edit");
-    const r = await callRoute(handler, { method: "POST", body: {} });
+    const r = await callRoute(route, { method: "POST", body: {} });
     expect(r.status).toBe(405);
+    expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
+    expect(r.headers.allow).toBe("GET, HEAD");
     expect(admin.queries.map((q) => q.table)).not.toContain(
       "mentor_applications",
     );
@@ -72,6 +78,6 @@ describe("GET /api/admin/mentor-applications", () => {
   test("조회 오류는 500 이다", async () => {
     rows = () => ({ data: null, error: { message: "boom" } });
     setup();
-    expect((await callRoute(handler)).status).toBe(500);
+    expect((await callRoute(route)).status).toBe(500);
   });
 });

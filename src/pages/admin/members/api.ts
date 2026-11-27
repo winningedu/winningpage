@@ -3,44 +3,13 @@
 
 import { z } from "zod";
 import { api } from "@/lib/http/client";
+import {
+  type MemberRow,
+  memberRowSchema,
+  membersListSchema,
+} from "../../../../shared/members/contract.js";
 
 const text = z.string().nullish();
-const flag = z.boolean().nullish();
-
-export const memberRowSchema = z.looseObject({
-  id: z.string(),
-  name: text,
-  username: text,
-  email: text,
-  phone: text,
-  member_type: text,
-  role: text,
-  created_at: text,
-  birth_date: text,
-  gender: text,
-  school_name: text,
-  school_type: text,
-  region: text,
-  address: text,
-  address_detail: text,
-  landline: text,
-  guardian_phone: text,
-  memo: text,
-  member_category: text,
-  tenant_id: text,
-  tenant_name: z.string().nullish(),
-  service_labels: z.string().optional(),
-  is_active: flag,
-  terms_service_agreed: flag,
-  privacy_required_agreed: flag,
-  privacy_optional_agreed: flag,
-  marketing_agreed: flag,
-  ads_agreed: flag,
-  sms_agreed: flag,
-});
-
-const membersSchema = z.object({ items: z.array(memberRowSchema) });
-
 const linksSchema = z.object({
   items: z.array(
     z.object({
@@ -120,7 +89,7 @@ const tenantOptionsSchema = z.object({
   ),
 });
 
-export type ProfileRow = z.infer<typeof memberRowSchema>;
+export type ProfileRow = MemberRow;
 export type LinkedPerson = z.infer<typeof linksSchema>["items"][number];
 export type ProgramAccessRow = z.infer<typeof servicesSchema>["items"][number];
 export type OrderRow = z.infer<typeof ordersSchema>["items"][number];
@@ -142,7 +111,7 @@ const one = (id: string) => `admin/members/${encodeURIComponent(id)}`;
 const opts = (signal?: AbortSignal) => (signal ? { signal } : {});
 
 export const fetchMembers = (signal?: AbortSignal) =>
-  api.get("admin/members", opts(signal)).json(membersSchema);
+  api.get("admin/members", opts(signal)).json(membersListSchema);
 
 export const fetchMember = (id: string, signal?: AbortSignal) =>
   api.get(one(id), opts(signal)).json(memberRowSchema);

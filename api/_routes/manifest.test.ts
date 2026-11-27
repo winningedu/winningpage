@@ -442,7 +442,6 @@ describe("학습진단, 멘토 신청 경로", () => {
       "admin/learning-diagnosis/programs/[id]",
       { id: ID },
     ],
-    ["/api/admin/mentor-applications", "admin/mentor-applications", {}],
     [
       `/api/admin/mentor-applications/${ID}`,
       "admin/mentor-applications/[id]",

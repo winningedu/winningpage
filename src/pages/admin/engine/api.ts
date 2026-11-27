@@ -3,6 +3,10 @@
 
 import { z } from "zod";
 import { api } from "@/lib/http/client";
+import {
+  type IssueUploadInput,
+  issuedUploadSchema,
+} from "../../../../shared/uploads/contract.js";
 
 const rowSchema = z.record(z.string(), z.any());
 const listSchema = z.object({ items: z.array(rowSchema), total: z.number() });
@@ -88,15 +92,11 @@ export function fetchExportChunk(key: string, from: number, q: string) {
 }
 
 // 임시 버킷 업로드 3단계(서버가 주소를 발급하고, 브라우저가 PUT 하고, 미리보기 주소를 받는다).
-const issuedUploadSchema = z.object({
-  path: z.string(),
-  uploadUrl: z.string(),
-});
 const previewSchema = z.object({ url: z.string() });
 
 export function issueUpload(
   section: string,
-  file: { field: string; fileName: string; contentType: string; size: number },
+  file: Omit<IssueUploadInput, "section">,
 ) {
   return api
     .post("admin/uploads", { json: { section, ...file } })

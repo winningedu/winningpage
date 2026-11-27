@@ -2,44 +2,31 @@
 
 import { z } from "zod";
 import { api } from "@/lib/http/client";
+import {
+  type Role,
+  type RoleBodyInput,
+  type RolesList,
+  type RoleWithPermissions,
+  roleSchema,
+  rolesListSchema,
+  roleWithPermissionsSchema,
+} from "../../../../shared/roles/contract.js";
+import {
+  type DirectoryRow,
+  directoryRowSchema,
+  levelSchema,
+  type PermissionItem,
+  permissionItemSchema,
+  type RoleOption,
+  resourceSchema,
+  type StaffList,
+  staffListSchema,
+} from "../../../../shared/staff/contract.js";
 
 const text = z.string().nullish();
 
-export const levelSchema = z.enum(["edit", "view", "none"]);
-export type Level = z.infer<typeof levelSchema>;
-
-export const directoryRowSchema = z.looseObject({
-  profile_id: z.string(),
-  role_id: text,
-  department: text,
-  status: z.string(),
-  invited_at: text,
-  activated_at: text,
-  role_name: text,
-  role_is_super: z.boolean().nullish(),
-  member_name: text,
-  member_email: text,
-  member_phone: text,
-  joined_at: text,
-});
-
-const roleOptionSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  is_super: z.boolean(),
-});
-
-export const resourceSchema = z.object({
-  key: z.string(),
-  group_title: z.string(),
-  label: z.string(),
-  sort_order: z.number().optional(),
-});
-
-const permissionItemSchema = z.object({
-  resourceKey: z.string(),
-  level: levelSchema,
-});
+export type { Level, Resource } from "../../../../shared/staff/contract.js";
+export { levelSchema, resourceSchema };
 
 const staffDetailSchema = z.object({
   member: directoryRowSchema,
@@ -47,18 +34,8 @@ const staffDetailSchema = z.object({
   effective: z.array(permissionItemSchema),
 });
 
-const staffListSchema = z.object({
-  items: z.array(directoryRowSchema),
-  roles: z.array(roleOptionSchema),
-  resources: z.array(resourceSchema),
-});
-
-export type DirectoryRow = z.infer<typeof directoryRowSchema>;
-export type RoleOption = z.infer<typeof roleOptionSchema>;
-export type Resource = z.infer<typeof resourceSchema>;
-export type PermissionItem = z.infer<typeof permissionItemSchema>;
+export type { DirectoryRow, PermissionItem, RoleOption, StaffList };
 export type StaffDetail = z.infer<typeof staffDetailSchema>;
-export type StaffList = z.infer<typeof staffListSchema>;
 
 export const staffKeys = {
   all: ["admin", "staff"] as const,
@@ -122,29 +99,7 @@ export const postInvite = (body: InviteBody) =>
 // 권한 묶음(adminRoles)
 // ---------------------------------------------------------------------------
 
-const roleSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: text,
-  is_super: z.boolean(),
-  is_system: z.boolean(),
-  created_at: text,
-  updated_at: text,
-});
-
-const roleWithPermissionsSchema = roleSchema.extend({
-  permissions: z.array(permissionItemSchema),
-});
-
-const rolesListSchema = z.object({
-  items: z.array(roleWithPermissionsSchema),
-  resources: z.array(resourceSchema),
-});
-
-export type Role = z.infer<typeof roleSchema>;
-export type RoleWithPermissions = z.infer<typeof roleWithPermissionsSchema>;
-export type RolesList = z.infer<typeof rolesListSchema>;
-
+export type { Role, RolesList, RoleWithPermissions };
 export const roleKeys = {
   all: ["admin", "roles"] as const,
   list: ["admin", "roles", "list"] as const,
@@ -161,15 +116,10 @@ export const deleteRole = (id: string) => api.delete(roleUrl(id));
 export const fetchRole = (id: string, signal?: AbortSignal) =>
   api.get(roleUrl(id), opts(signal)).json(roleWithPermissionsSchema);
 
-export interface RoleBody {
-  name: string;
-  description: string | null;
-}
-
-export const postRole = (body: RoleBody) =>
+export const postRole = (body: RoleBodyInput) =>
   api.post("admin/roles", { json: body }).json(roleSchema);
 
-export const patchRole = (id: string, body: RoleBody) =>
+export const patchRole = (id: string, body: RoleBodyInput) =>
   api.patch(roleUrl(id), { json: body }).json(roleSchema);
 
 export const putRolePermissions = (id: string, items: PermissionItem[]) =>

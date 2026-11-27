@@ -117,9 +117,6 @@
   "api/_routes/admin/me/permissions.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/members.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/members/[id].ts": {
     "legacyHandler": 1
   },
@@ -138,9 +135,6 @@
   "api/_routes/admin/members/[id]/tenant.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/mentor-applications.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/mentor-applications/[id].ts": {
     "legacyHandler": 1
   },
@@ -156,16 +150,10 @@
   "api/_routes/admin/premium-book/pages/[id].ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/revenue.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/revenue/pending.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/revenue/services.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/roles.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/roles/[id].ts": {
@@ -195,9 +183,6 @@
   "api/_routes/admin/selfeval-sessions/[id].ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/staff.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/staff/[profileId].ts": {
     "legacyHandler": 1
   },
@@ -205,9 +190,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/students/search.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/tenants.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/tenants/[id].ts": {
@@ -236,9 +218,6 @@
   },
   "api/_routes/admin/tenants/student-usage.ts": {
     "legacyHandler": 1
-  },
-  "api/_routes/admin/uploads.ts": {
-    "legacyHandler": 2
   },
   "api/_routes/admin/uploads/preview.ts": {
     "legacyHandler": 1
