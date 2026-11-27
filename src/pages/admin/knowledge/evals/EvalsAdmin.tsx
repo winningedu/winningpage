@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Field, Select } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { errorText, evalKeys, fetchRuns } from "./api";
@@ -27,6 +28,9 @@ const KNOWLEDGE_TYPES: { value: KnowledgeType; label: string }[] = [
 const isTab = (value: string | null): value is Tab =>
   TABS.some((t) => t.key === value);
 
+// 평가 실행과 조합 비교는 이력 기록을 남기는 쓰기라 edit 권한에서만 연다.
+const WRITE_TABS: Tab[] = ["run"];
+
 const isKnowledgeType = (value: string | null): value is KnowledgeType =>
   KNOWLEDGE_TYPES.some((t) => t.value === value);
 
@@ -38,11 +42,18 @@ interface Props {
 }
 
 export default function EvalsAdmin({ config }: Props) {
+  const canEdit = useCanEditSection();
+  const visibleTabs = TABS.filter(
+    (t) => canEdit || !WRITE_TABS.includes(t.key),
+  );
   // 새로고침해도 같은 탭과 유형이 남도록 주소에 둔다. 없거나 올바르지 않으면 처음 값이다.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const typeParam = searchParams.get("type");
-  const tab: Tab = isTab(tabParam) ? tabParam : "golden";
+  const tab: Tab =
+    isTab(tabParam) && visibleTabs.some((t) => t.key === tabParam)
+      ? tabParam
+      : "golden";
   const knowledgeType: KnowledgeType = isKnowledgeType(typeParam)
     ? typeParam
     : "topic_pattern";
@@ -79,7 +90,7 @@ export default function EvalsAdmin({ config }: Props) {
             onValueChange={(value) => setParam("tab", String(value))}
           >
             <TabsList aria-label="평가 화면">
-              {TABS.map((t) => (
+              {visibleTabs.map((t) => (
                 <TabsTrigger key={t.key} value={t.key} className="px-4">
                   {t.label}
                 </TabsTrigger>
