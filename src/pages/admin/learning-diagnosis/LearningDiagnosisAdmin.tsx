@@ -601,7 +601,11 @@ export default function LearningDiagnosisAdmin() {
 
             <div className="grid gap-4 xl:grid-cols-2">
               {programs.map((program) => (
-                <div key={program.id} className="border border-border p-4">
+                <fieldset
+                  key={program.id}
+                  disabled={!canEdit}
+                  className="min-w-0 border border-border p-4"
+                >
                   <div className="grid gap-3 md:grid-cols-2">
                     <Field label="프로그램명">
                       <TextInput
@@ -718,7 +722,7 @@ export default function LearningDiagnosisAdmin() {
                       </div>
                     )}
                   </div>
-                </div>
+                </fieldset>
               ))}
             </div>
           </section>
@@ -857,7 +861,7 @@ export default function LearningDiagnosisAdmin() {
                     </button>
 
                     {isOpen && (
-                      <div className="p-5">
+                      <fieldset disabled={!canEdit} className="min-w-0 p-5">
                         <div className="grid gap-3 lg:grid-cols-[1.3fr_0.7fr_0.5fr]">
                           <Field label="질문 내용">
                             <TextInput
@@ -1044,7 +1048,7 @@ export default function LearningDiagnosisAdmin() {
                             )}
                           </div>
                         </div>
-                      </div>
+                      </fieldset>
                     )}
                   </article>
                 );
