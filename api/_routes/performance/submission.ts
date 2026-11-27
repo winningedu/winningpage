@@ -95,6 +95,8 @@ import {
 import type { createSupabaseAdmin } from "../../_lib/supabaseAdmin.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
+type ClientSubmission = z.input<typeof clientSubmissionSchema>;
+
 const SERVICE_KEY = "suhaeng";
 
 /** 세션당 제출본 최대 revision 수 = 최초 1 + 재평가 2(§9.2 상한 표). */
@@ -157,8 +159,6 @@ type SubmissionRow = {
   created_at: string;
   updated_at: string;
 };
-
-type ClientSubmission = z.input<typeof clientSubmissionSchema>;
 
 type Schema = ReturnType<typeof resolveSessionSubmissionSchema>["schema"];
 
