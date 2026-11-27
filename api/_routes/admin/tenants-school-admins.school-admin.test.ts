@@ -197,11 +197,45 @@ describe("POST /api/admin/tenants/school-admin", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).not.toHaveProperty("tempPassword");
+    // 계정을 새로 발급하지 않았으면 알림톡도 보내지 않아 sendStatus 칸 자체가 없다.
+    expect(r.body).not.toHaveProperty("sendStatus");
+    expect(issuedSchoolAdminSchema.parse(r.body)).toEqual(r.body);
     expect(kit.state.inserts[0]?.row).toMatchObject({
       action: "update",
       meta: { verdict: "promoted", role: "school_admin" },
     });
   });
+
+  test.each([
+    // 교사 행을 다시 읽지 못해(역할 없음) 안내를 보내지 못한 경우
+    ["failed", {}],
+    // 전화번호가 없어 안내를 건너뛴 경우
+    [
+      "skipped",
+      {
+        tenant_id: "tenant-7",
+        name: "박관리",
+        phone: "",
+        role: "school_admin",
+      },
+    ],
+  ])(
+    "발급 응답에 계정 안내 알림톡 결과 sendStatus %s 가 실리고 계약으로 그대로 읽힌다",
+    async (sendStatus, teacher) => {
+      kit.state.rows.teachers = (filters) =>
+        filters.id === "teacher-9"
+          ? { login_id: "ABCD2345XY7Z9K", profile_id: null, ...teacher }
+          : null;
+      kit.state.rows.tenants = () => ({ name: "위닝고" });
+
+      const r = await post(VALID);
+
+      expect(r.status).toBe(200);
+      const body = r.body as Record<string, unknown>;
+      expect(body.sendStatus).toBe(sendStatus);
+      expect(issuedSchoolAdminSchema.parse(body)).toEqual(body);
+    },
+  );
 
   test("없는 기관은 404 TENANT_NOT_FOUND", async () => {
     kit.state.rpc.fn_teacher_register = () => ({
