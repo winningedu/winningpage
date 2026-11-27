@@ -4,24 +4,27 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
+  loginLogSchema,
+  loginStatsSchema,
+} from "../../../shared/hq-dashboard/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
+import {
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
-  getEnv: (...keys: string[]) => {
-    for (const key of keys) if (process.env[key]) return process.env[key];
-    return "";
-  },
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./logins.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/hq-dashboard/logins" };
 
 type Args = Record<string, unknown>;
 type Bucket = {
@@ -33,15 +36,7 @@ type Bucket = {
 };
 
 const get = (query: Record<string, string> = {}, zone = "Asia/Seoul") =>
-  callHandler(
-    (req, res) => {
-      if (zone) req.headers["x-time-zone"] = zone;
-      return handler(req, res);
-    },
-    undefined,
-    "GET",
-    query,
-  );
+  callRoute(route, { query, headers: zone ? { "x-time-zone": zone } : {} });
 
 let bucketCalls: Args[];
 let logCalls: Args[];
@@ -140,10 +135,11 @@ describe("GET /api/admin/hq-dashboard/logins 권한", () => {
   });
 
   test("GET 이 아니면 405 problem", async () => {
-    const r = await callHandler(handler, {}, "POST");
+    const r = await callRoute(route, { method: "POST", body: {} });
 
     expect(r.status).toBe(405);
     expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
+    expect(r.headers.allow).toBe("GET, HEAD");
   });
 
   test("로그인하지 않으면 401 이다", async () => {
@@ -190,7 +186,7 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
 
     expect(r.body).not.toHaveProperty("ok");
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
     expect(r.body).toMatchObject({
       from: "2026-11-01",
       to: "2026-11-23",
@@ -564,5 +560,33 @@ describe("GET /api/admin/hq-dashboard/logins view=log", () => {
     const r = await get({ view: "log" });
 
     expect(r.status).toBe(500);
+  });
+});
+
+describe("계약", () => {
+  test("통계 응답이 계약 스키마로 빠짐없이 읽힌다(scope 포함)", async () => {
+    const r = await get({ scope: "b2c" });
+    expect(r.status).toBe(200);
+    expect(loginStatsSchema.parse(r.body)).toEqual(r.body);
+  });
+
+  test("기록 표 응답이 계약 스키마로 빠짐없이 읽힌다", async () => {
+    kit.state.rpc.fn_hq_login_log = () => ({
+      data: [
+        {
+          profile_id: "p-1",
+          login_date: "2026-11-22",
+          first_seen_at: "2026-11-22T00:10:00+00:00",
+          name: "김학생",
+          member_type: "student",
+          tenant_name: "한빛고",
+          total_count: 1,
+        },
+      ],
+      error: null,
+    });
+    const r = await get({ view: "log" });
+    expect(r.status).toBe(200);
+    expect(loginLogSchema.parse(r.body)).toEqual(r.body);
   });
 });

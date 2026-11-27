@@ -2,22 +2,20 @@
 // 목표 실행률 평균(goalRate.ts 계산, 달성율이 없는 학생은 뺌, 결정 62).
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { hqTenantsSchema } from "../../../shared/hq-dashboard/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
   matchRows,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
 // fn_hq_tenant_students 는 1000행씩 이어 읽으므로 rpc 결과에 order, range 를 흉내 낸다.
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
-  getEnv: (...keys: string[]) => {
-    for (const key of keys) if (process.env[key]) return process.env[key];
-    return "";
-  },
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => {
     const admin = createFakeAdmin(kit.state);
@@ -43,10 +41,11 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   },
 }));
 
-import handler from "./tenants.js";
+import { app } from "../app.js";
 
-const get = (query: Record<string, string> = {}) =>
-  callHandler(handler, undefined, "GET", query);
+const route = { app, path: "/api/admin/hq-dashboard/tenants" };
+
+const get = (query: Record<string, string> = {}) => callRoute(route, { query });
 
 function overviewRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -127,9 +126,10 @@ describe("권한과 입력", () => {
   });
 
   test("GET 이 아니면 405 problem", async () => {
-    const res = await callHandler(handler, {}, "POST");
+    const res = await callRoute(route, { method: "POST", body: {} });
     expect(res.status).toBe(405);
     expect(res.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
+    expect(res.headers.allow).toBe("GET, HEAD");
   });
 
   test("기본은 QA, 관리자 계정을 뺀다(p_include_internal false)", async () => {
@@ -229,7 +229,7 @@ describe("기관 목록", () => {
   test("기관 행을 화면용 이름으로 준다", async () => {
     const res = await get();
     expect(res.status).toBe(200);
-    expect(res.headers["Cache-Control"]).toBe("no-store");
+    expect(res.headers["cache-control"]).toBe("no-store");
     expect(res.body).not.toHaveProperty("ok");
     expect(res.body).not.toHaveProperty("tenants");
     expect(res.body).toMatchObject({
@@ -399,5 +399,13 @@ describe("기관 목록", () => {
     });
     const res = await get();
     expect(res.status).toBe(500);
+  });
+});
+
+describe("계약", () => {
+  test("응답이 계약 스키마로 빠짐없이 읽힌다", async () => {
+    const res = await get();
+    expect(res.status).toBe(200);
+    expect(hqTenantsSchema.parse(res.body)).toEqual(res.body);
   });
 });

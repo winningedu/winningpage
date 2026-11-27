@@ -2,38 +2,30 @@
 // 새 가입 회원 수(유형별)와 결제 주문 수.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { hqTrendsSchema } from "../../../shared/hq-dashboard/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
-  getEnv: (...keys: string[]) => {
-    for (const key of keys) if (process.env[key]) return process.env[key];
-    return "";
-  },
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./trends.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/hq-dashboard/trends" };
 
 type Args = Record<string, unknown>;
 
 const get = (query: Record<string, string> = {}) =>
-  callHandler(
-    (req, res) => {
-      req.headers["x-time-zone"] = "Asia/Seoul";
-      return handler(req, res);
-    },
-    undefined,
-    "GET",
-    query,
-  );
+  callRoute(route, { query, headers: { "x-time-zone": "Asia/Seoul" } });
 
 let calls: Args[];
 
@@ -82,10 +74,11 @@ describe("GET /api/admin/hq-dashboard/trends 권한", () => {
   });
 
   test("GET 이 아니면 405 problem", async () => {
-    const r = await callHandler(handler, {}, "POST");
+    const r = await callRoute(route, { method: "POST", body: {} });
 
     expect(r.status).toBe(405);
     expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
+    expect(r.headers.allow).toBe("GET, HEAD");
   });
 });
 
@@ -145,7 +138,7 @@ describe("GET /api/admin/hq-dashboard/trends", () => {
     const r = await get();
 
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
     expect(calls).toEqual([
       {
         p_from: "2026-11-01",
@@ -222,20 +215,15 @@ describe("GET /api/admin/hq-dashboard/trends", () => {
   });
 
   test("보는 사람 시간대(X-Time-Zone)를 p_tz 로 넘긴다", async () => {
-    await callHandler(
-      (req, res) => {
-        req.headers["x-time-zone"] = "America/Los_Angeles";
-        return handler(req, res);
-      },
-      undefined,
-      "GET",
-    );
+    await callRoute(route, {
+      headers: { "x-time-zone": "America/Los_Angeles" },
+    });
 
     expect(calls[0]).toMatchObject({ p_tz: "America/Los_Angeles" });
   });
 
   test("X-Time-Zone 헤더가 없으면 400 TIME_ZONE_REQUIRED 이고 통계를 읽지 않는다", async () => {
-    const r = await callHandler(handler, undefined, "GET");
+    const r = await callRoute(route);
 
     expect(r.status).toBe(400);
     expect(r.body).toMatchObject({ code: "TIME_ZONE_REQUIRED" });
@@ -251,5 +239,13 @@ describe("GET /api/admin/hq-dashboard/trends", () => {
     const r = await get();
 
     expect(r.status).toBe(500);
+  });
+});
+
+describe("계약", () => {
+  test("응답이 계약 스키마로 빠짐없이 읽힌다", async () => {
+    const r = await get();
+    expect(r.status).toBe(200);
+    expect(hqTrendsSchema.parse(r.body)).toEqual(r.body);
   });
 });
