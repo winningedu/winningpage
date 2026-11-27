@@ -123,12 +123,6 @@
   "api/_routes/admin/revenue/services.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/roles/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/roles/[id]/permissions.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/sections/[key].ts": {
     "legacyHandler": 1
   },
@@ -142,12 +136,6 @@
     "legacyHandler": 1
   },
   "api/_routes/admin/sections/[key]/export.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/staff/[profileId].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/staff/[profileId]/permissions.ts": {
     "legacyHandler": 1
   },
   "api/_routes/admin/tenants/[id].ts": {

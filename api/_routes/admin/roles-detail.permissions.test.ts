@@ -1,24 +1,26 @@
 // PUT /api/admin/roles/:id/permissions 계약 검증. 묶음의 권한 항목을 지우고 다시 넣는다(옛 화면과 같다).
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { savedItemsSchema } from "../../../shared/staff/detail.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("../../../../_lib/supabaseAdmin.js")
-  >()),
+vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../_lib/supabaseAdmin.js")>()),
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./permissions.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/roles/:id/permissions" };
 
 const P = "11111111-1111-4111-8111-111111111111";
 const ITEMS = [
@@ -31,7 +33,7 @@ function superAdmin(isSuper: boolean) {
 }
 
 const put = (body: unknown, id: string = P) =>
-  callHandler(handler, body, "PUT", { id });
+  callRoute(route, { method: "PUT", body: body, query: { id } });
 
 const writes = () =>
   kit.state.events.filter((e) => /^(delete|insert|update|upsert):/.test(e));
@@ -168,4 +170,20 @@ describe("PUT /api/admin/roles/:id/permissions", () => {
       expect(JSON.stringify(r.body)).not.toContain("홍길동");
     },
   );
+});
+
+describe("계약과 메서드", () => {
+  test("PUT 응답이 계약 스키마를 통과하고 no-store 다", async () => {
+    const r = await put({ items: ITEMS });
+
+    expect(savedItemsSchema.safeParse(r.body).success).toBe(true);
+    expect(r.headers["cache-control"]).toBe("no-store");
+  });
+
+  test("PUT 이 아닌 메서드는 405 이고 Allow 가 PUT 이다", async () => {
+    const r = await callRoute(route, { method: "GET", query: { id: P } });
+
+    expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe("PUT");
+  });
 });

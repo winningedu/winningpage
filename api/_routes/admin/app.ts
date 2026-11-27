@@ -24,6 +24,7 @@ import { members } from "./members.js";
 import { mentorApplications } from "./mentor-applications.js";
 import { revenue } from "./revenue.js";
 import { roles } from "./roles.js";
+import { rolesDetail } from "./roles-detail.js";
 import { selfevalGrant } from "./selfeval-grant.js";
 import { selfevalRecover } from "./selfeval-recover.js";
 import { selfevalSessions } from "./selfeval-sessions.js";
@@ -31,6 +32,7 @@ import { sendMessage } from "./send-message.js";
 import { serviceCreditAdjust } from "./service-credit-adjust.js";
 import { serviceCreditSummary } from "./service-credit-summary.js";
 import { staff } from "./staff.js";
+import { staffDetail } from "./staff-detail.js";
 import { students } from "./students.js";
 import { tenantOptions } from "./tenant-options.js";
 import { tenants } from "./tenants.js";
@@ -61,7 +63,9 @@ export const admin = createAdminApp()
   .route("/revenue", revenue)
   .route("/members", members)
   .route("/staff", staff)
+  .route("/staff", staffDetail)
   .route("/roles", roles)
+  .route("/roles", rolesDetail)
   .route("/tenants", tenants)
   .route("/uploads", uploads)
   .route("/growth-reports", growthReports)
