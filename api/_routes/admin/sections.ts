@@ -34,30 +34,30 @@ import { methodNotAllowed, notFound } from "../../_lib/hono/problem.js";
 import { validate } from "../../_lib/hono/validate.js";
 
 const UNHANDLED = "섹션 데이터를 처리하지 못했습니다.";
-const permission = { key: sectionPermissionKey };
+const SECTION_PERMISSION = { key: sectionPermissionKey };
 
 const listGuard = admin({
-  permission,
+  permission: SECTION_PERMISSION,
   unhandledMessage: UNHANDLED,
   logLabel: "[admin/sections]",
 });
 const exportGuard = admin({
-  permission,
+  permission: SECTION_PERMISSION,
   unhandledMessage: UNHANDLED,
   logLabel: "[admin/sections/export]",
 });
 const rowGuard = admin({
-  permission,
+  permission: SECTION_PERMISSION,
   unhandledMessage: UNHANDLED,
   logLabel: "[admin/sections/id]",
 });
 const metaGuard = admin({
-  permission,
+  permission: SECTION_PERMISSION,
   unhandledMessage: UNHANDLED,
   logLabel: "[admin/sections/meta]",
 });
 const reviewedGuard = admin({
-  permission,
+  permission: SECTION_PERMISSION,
   // 기존 행의 검토 시각만 고치는 POST 라 수정으로 남긴다.
   audit: { action: "update" },
   unhandledMessage: UNHANDLED,
