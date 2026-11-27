@@ -17,5 +17,4 @@ export const routes: Record<string, RouteLoader> = {
   "selfeval/manual-logs": () => import("./selfeval/manual-logs.js"),
   "selfeval/pick-records": () => import("./selfeval/pick-records.js"),
   "selfeval/report": () => import("./selfeval/report.js"),
-  "selfeval/write": () => import("./selfeval/write.js"),
 };

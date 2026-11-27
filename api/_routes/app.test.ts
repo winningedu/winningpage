@@ -120,6 +120,7 @@ const MIGRATED_60: string[] = [
   "/api/selfeval/analyze",
   "/api/selfeval/finalize",
   "/api/selfeval/verify",
+  "/api/selfeval/write",
 ];
 const entryFor = (pattern: string) =>
   MIGRATED_30.includes(pattern)

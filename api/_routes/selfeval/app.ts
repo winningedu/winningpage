@@ -7,6 +7,7 @@ import { finalize } from "./finalize.js";
 import { reports } from "./reports.js";
 import { session } from "./session.js";
 import { verify } from "./verify.js";
+import { write } from "./write.js";
 
 export const selfeval = userFactory
   .createApp()
@@ -14,4 +15,5 @@ export const selfeval = userFactory
   .route("/finalize", finalize)
   .route("/reports", reports)
   .route("/session", session)
-  .route("/verify", verify);
+  .route("/verify", verify)
+  .route("/write", write);
