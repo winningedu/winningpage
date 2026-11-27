@@ -2,7 +2,6 @@
 // fn_hq_tenant_students 가 정본이고(Q9 학생 수 규칙, 기본 제외 Q3), 목표 실행률은 콘솔과 같은 goalRate.ts 계산을 쓴다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { z } from "zod";
 import { loadGoalStatus } from "../console/goalStatus.js";
 import { fetchAllRows } from "../console/paging.js";
 
@@ -51,14 +50,6 @@ interface DbOverviewRow {
   teacher_count: number;
   last_activity_at: string | null;
 }
-
-/** 기관 현황 쿼리. includeInternal 은 "1"(포함) 또는 "0", 없으면 기본 제외. 그 밖의 값은 400. */
-export const includeInternalQuery = z.object({
-  includeInternal: z
-    .enum(["0", "1"])
-    .optional()
-    .transform((value) => value === "1"),
-});
 
 /** PostgREST 는 timestamptz 를 +00:00 로 주므로 ISO Z 로 맞춘다. */
 function toIsoZ(value: string | null): string | null {

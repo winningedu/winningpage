@@ -2,21 +2,19 @@
 // 이번 달, 이번 학기 쓴 횟수와 한도 다 쓴 학생 수. 수치는 fn_hq_tenant_usage 가 정본이다.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { hqUsageSchema } from "../../../shared/hq-dashboard/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
 // fn_hq_tenant_usage 는 1000행씩 이어 읽으므로 rpc 결과에 order, range 를 흉내 낸다.
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
-  getEnv: (...keys: string[]) => {
-    for (const key of keys) if (process.env[key]) return process.env[key];
-    return "";
-  },
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => {
     const admin = createFakeAdmin(kit.state);
@@ -42,10 +40,11 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   },
 }));
 
-import handler from "./usage.js";
+import { app } from "../app.js";
 
-const get = (query: Record<string, string> = {}) =>
-  callHandler(handler, undefined, "GET", query);
+const route = { app, path: "/api/admin/hq-dashboard/usage" };
+
+const get = (query: Record<string, string> = {}) => callRoute(route, { query });
 
 function usageRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -102,9 +101,10 @@ describe("권한과 입력", () => {
   });
 
   test("GET 이 아니면 405 problem", async () => {
-    const res = await callHandler(handler, {}, "POST");
+    const res = await callRoute(route, { method: "POST", body: {} });
     expect(res.status).toBe(405);
     expect(res.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
+    expect(res.headers.allow).toBe("GET, HEAD");
   });
 
   test("기본은 QA, 관리자 계정을 뺀다(p_include_internal false)", async () => {
@@ -139,7 +139,7 @@ describe("사용량 행", () => {
   test("DB 행을 화면용 이름으로 준다", async () => {
     const res = await get();
     expect(res.status).toBe(200);
-    expect(res.headers["Cache-Control"]).toBe("no-store");
+    expect(res.headers["cache-control"]).toBe("no-store");
     expect(res.body).not.toHaveProperty("ok");
     expect(res.body).not.toHaveProperty("usage");
     expect(res.body).toMatchObject({
@@ -170,5 +170,13 @@ describe("사용량 행", () => {
     kit.state.rpc.fn_hq_tenant_usage = () => ({ data: rows, error: null });
     const res = await get();
     expect((res.body as { items: unknown[] }).items).toHaveLength(1250);
+  });
+});
+
+describe("계약", () => {
+  test("응답이 계약 스키마로 빠짐없이 읽힌다", async () => {
+    const res = await get();
+    expect(res.status).toBe(200);
+    expect(hqUsageSchema.parse(res.body)).toEqual(res.body);
   });
 });

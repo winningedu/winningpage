@@ -10,6 +10,7 @@ import { growthGrant } from "./growth-grant.js";
 import { growthRecover } from "./growth-recover.js";
 import { growthReports } from "./growth-reports.js";
 import { homeSectionCopy } from "./home-section-copy.js";
+import { hqDashboard } from "./hq-dashboard.js";
 import { inquiryGrant } from "./inquiry-grant.js";
 import { inquiryRecover } from "./inquiry-recover.js";
 import { inquirySessions } from "./inquiry-sessions.js";
@@ -70,5 +71,6 @@ export const admin = createAdminApp()
   .route("/knowledge-eval", knowledgeEval)
   .route("/knowledge-items", knowledgeItems)
   .route("/selfeval-sessions", selfevalSessions)
+  .route("/hq-dashboard", hqDashboard)
   .route("/me", me)
   .route("/students", students);

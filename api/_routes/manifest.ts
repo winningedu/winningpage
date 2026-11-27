@@ -28,12 +28,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/mentor-applications/[id].js"),
   "admin/mentor-applications/[id]/proof-url": () =>
     import("./admin/mentor-applications/[id]/proof-url.js"),
-  "admin/hq-dashboard/summary": () => import("./admin/hq-dashboard/summary.js"),
-  "admin/hq-dashboard/tenants": () => import("./admin/hq-dashboard/tenants.js"),
-  "admin/hq-dashboard/usage": () => import("./admin/hq-dashboard/usage.js"),
-  "admin/hq-dashboard/logins": () => import("./admin/hq-dashboard/logins.js"),
-  "admin/hq-dashboard/b2c": () => import("./admin/hq-dashboard/b2c.js"),
-  "admin/hq-dashboard/trends": () => import("./admin/hq-dashboard/trends.js"),
   "admin/members/[id]": () => import("./admin/members/[id].js"),
   "admin/members/[id]/tenant": () => import("./admin/members/[id]/tenant.js"),
   "admin/members/[id]/messages": () =>

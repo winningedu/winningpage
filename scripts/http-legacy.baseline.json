@@ -48,24 +48,6 @@
   "api/_routes/admin/admission/results/rows.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/hq-dashboard/b2c.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/hq-dashboard/logins.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/hq-dashboard/summary.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/hq-dashboard/tenants.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/hq-dashboard/trends.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/hq-dashboard/usage.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/learning-diagnosis/options.ts": {
     "legacyHandler": 1
   },
