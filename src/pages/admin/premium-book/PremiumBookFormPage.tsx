@@ -15,6 +15,7 @@ import {
 } from "@/pages/admin/shared/AdminEngine";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { toastSuccess } from "@/pages/admin/shared/adminToast";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { type PremiumBookPageRow, usePage, useSavePage } from "./api";
 import { Heading } from "./Heading";
@@ -104,6 +105,8 @@ function FormView({
 }) {
   const navigate = useNavigate();
   const save = useSavePage(row === undefined ? undefined : String(row.id));
+  // view 권한이면 폼을 엔진의 readOnly 로 열어 저장 버튼을 뺀다.
+  const canEdit = useCanEditSection();
   const [dirty, setDirty] = useState(false);
 
   // 저장 직후의 이동은 이탈로 보지 않는다.
@@ -144,7 +147,7 @@ function FormView({
     <div>
       <Heading config={config} />
       <AdminForm
-        config={config}
+        config={canEdit ? config : { ...config, readOnly: true }}
         mode={row ? "edit" : "create"}
         row={row ?? null}
         onCancel={() => navigate(listPath)}

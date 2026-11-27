@@ -34,6 +34,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { deletionDdayText, tenantToday } from "./contract";
@@ -140,6 +141,7 @@ function PurgePanel({
     enabled: !!userId,
   });
   const canEdit = access?.permissions.get("tenants") === "edit";
+  const canEditSection = useCanEditSection();
 
   // 미리보기가 새로 오면(처음, 삭제 뒤 다시 읽기) 유료 전환이 아닌 학생을 기본으로 고른다.
   useEffect(() => {
@@ -290,15 +292,17 @@ function PurgePanel({
               <dd className="font-medium">{ddayText ?? "-"}</dd>
             </div>
           </dl>
-          <div className="mb-4">
-            <ActionButton
-              variant="danger"
-              disabled={selected.size === 0 || !deletable || !canEdit}
-              onClick={() => setConfirming(true)}
-            >
-              삭제 실행
-            </ActionButton>
-          </div>
+          {canEditSection && (
+            <div className="mb-4">
+              <ActionButton
+                variant="danger"
+                disabled={selected.size === 0 || !deletable || !canEdit}
+                onClick={() => setConfirming(true)}
+              >
+                삭제 실행
+              </ActionButton>
+            </div>
+          )}
           <AdminTableFrame
             label="삭제 대상 미리보기"
             className="min-w-[40rem] border-collapse"

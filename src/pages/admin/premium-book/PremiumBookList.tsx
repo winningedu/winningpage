@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { useListSkeleton } from "@/pages/admin/shared/useListSkeleton";
 import {
@@ -26,6 +27,9 @@ export function PremiumBookList({
   config: PremiumBookAdminConfig;
 }) {
   const navigate = useNavigate();
+  // view 권한이면 표의 수정, 삭제 버튼이 빠지도록 엔진의 readOnly 로 넘긴다.
+  const canEdit = useCanEditSection();
+  const tableConfig = canEdit ? config : { ...config, readOnly: true };
   const [searchParams, setSearchParams] = useSearchParams();
   const list = usePageList();
   const showSkeleton = useListSkeleton(list, premiumBookKeys.list());
@@ -84,7 +88,7 @@ export function PremiumBookList({
   return (
     <div>
       <Heading config={config} />
-      <PdfPanel />
+      {canEdit && <PdfPanel />}
 
       {duplicateSortOrders.length > 0 && (
         <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
@@ -104,14 +108,16 @@ export function PremiumBookList({
           초기화
         </Button>
 
-        <Button
-          type="button"
-          size="lg"
-          onClick={() => goto(`${PREMIUM_BOOK_PATH}/new`)}
-        >
-          <Plus aria-hidden="true" />
-          등록
-        </Button>
+        {canEdit && (
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => goto(`${PREMIUM_BOOK_PATH}/new`)}
+          >
+            <Plus aria-hidden="true" />
+            등록
+          </Button>
+        )}
       </div>
 
       {showSkeleton ? (
@@ -122,7 +128,7 @@ export function PremiumBookList({
         />
       ) : (
         <AdminTable
-          config={config}
+          config={tableConfig}
           rows={rows}
           page={page}
           setPage={setPage}

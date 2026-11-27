@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/http/client";
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
 import { normalizeArray } from "@/pages/admin/shared/csvExport";
 import { ActionButton, Field, Select } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { MENTOR_APPLICATION_STATUS_OPTIONS } from "../../../../shared/mentor-application/status.js";
 import {
@@ -155,6 +156,8 @@ export default function MentorApplicationDetail({
   const query = useMentorApplication(id);
   const saveStatus = useSaveMentorStatus(id);
   const proofUrl = useMentorProofUrl(id);
+  // view 권한이면 상태 변경 입력과 저장 버튼을 그리지 않는다.
+  const canEdit = useCanEditSection();
   // null 이면 서버 값을 그대로 보인다. 관리자가 고른 값만 여기에 담는다.
   const [statusDraft, setStatusDraft] = useState<string | null>(null);
   useLoadErrorToast(`${config.title} 조회 실패`, query.error);
@@ -240,19 +243,26 @@ export default function MentorApplicationDetail({
       </div>
 
       <div className="mb-6 flex flex-wrap items-end gap-3 bg-white p-6 shadow-sm">
-        <Field label="상태">
-          <Select value={statusValue} onChange={setStatusDraft}>
-            {MENTOR_APPLICATION_STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {canEdit && (
+          <>
+            <Field label="상태">
+              <Select value={statusValue} onChange={setStatusDraft}>
+                {MENTOR_APPLICATION_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
 
-        <ActionButton onClick={saveStatusDraft} disabled={saveStatus.isPending}>
-          {saveStatus.isPending ? "저장 중..." : "상태 저장"}
-        </ActionButton>
+            <ActionButton
+              onClick={saveStatusDraft}
+              disabled={saveStatus.isPending}
+            >
+              {saveStatus.isPending ? "저장 중..." : "상태 저장"}
+            </ActionButton>
+          </>
+        )}
 
         <ActionButton
           variant="light"

@@ -10,6 +10,7 @@ vi.mock("@/lib/http/client", async (importOriginal) => ({
 }));
 
 import { ApiError } from "@/lib/http/client";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import StudentUsageAdmin from "./StudentUsageAdmin";
 
 const KEYS = ["diagnose", "target", "growth", "suhaeng", "inquiry", "selfeval"];
@@ -53,17 +54,22 @@ function Probe() {
   return <output data-testid="search">{useLocation().search}</output>;
 }
 
+// 지금 메뉴의 편집 권한. 기본은 edit 이고, view 시험에서만 끈다.
+let canEdit = true;
+
 function renderAt(path = "/admin/serviceCreditAdjust") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[path]}>
-        <StudentUsageAdmin />
-        <Probe />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[path]}>
+          <StudentUsageAdmin />
+          <Probe />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
 }
 
@@ -77,6 +83,7 @@ const sentRows = () =>
   );
 
 beforeEach(() => {
+  canEdit = true;
   vi.resetAllMocks();
   http.get.mockImplementation((path: string) =>
     path === "admin/students/search"
@@ -465,6 +472,32 @@ describe("StudentUsageAdmin", () => {
 
     expect(
       await screen.findByText("저장하지 못했어요. 권한을 확인해 주세요."),
+    ).toBeTruthy();
+  });
+});
+
+describe("StudentUsageAdmin view 권한", () => {
+  test("view 권한이면 사용 현황은 보이고 저장과 되돌리기 버튼은 없다", async () => {
+    canEdit = false;
+    renderAt("/admin/serviceCreditAdjust?student=s-1");
+
+    expect((await screen.findAllByTestId("usage-row")).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByRole("button", { name: /에게 저장$/ })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "기관 설정으로 되돌리기" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "검색" })).toBeTruthy();
+  });
+
+  test("edit 권한이면 저장과 되돌리기 버튼이 있다", async () => {
+    renderAt("/admin/serviceCreditAdjust?student=s-1");
+
+    await screen.findAllByTestId("usage-row");
+    expect(screen.getByRole("button", { name: /에게 저장$/ })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "기관 설정으로 되돌리기" }),
     ).toBeTruthy();
   });
 });

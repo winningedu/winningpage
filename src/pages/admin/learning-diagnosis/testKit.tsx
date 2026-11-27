@@ -5,6 +5,7 @@ import { render } from "@testing-library/react";
 import { Toaster } from "@/components/ui/toast";
 import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
 import { on } from "@/pages/admin/shared/fakeApi";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import LearningDiagnosisAdmin from "./LearningDiagnosisAdmin";
 
 export const BASE = "admin/learning-diagnosis";
@@ -56,13 +57,15 @@ export function seed(
   on("GET", `${BASE}/programs`, { items: data.programs ?? [program] });
 }
 
-export function renderAdmin() {
+export function renderAdmin(canEdit = true) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <LearningDiagnosisAdmin />
+      <SectionEditAccessProvider value={canEdit}>
+        <LearningDiagnosisAdmin />
+      </SectionEditAccessProvider>
       <Toaster />
       <ConfirmAdminHost />
     </QueryClientProvider>,

@@ -183,8 +183,7 @@ test("쿠폰을 저장하면 옛 목록을 비우고 새로 받은 뒤 목록으
   await waitFor(() =>
     expect(router.state.location.pathname).toBe("/admin/coupons"),
   );
-  // 라우터 주소가 먼저 바뀌고 화면 전환은 그 뒤에 그려진다. 그 사이 아직 남은 등록 폼의
-  // 쿠폰 키 중복 안내에도 new-slug 가 보이므로 목록 표 안에서 찾는다.
-  const list = await screen.findByRole("region", { name: "쿠폰 목록" });
-  expect(within(list).getByText("new-slug")).toBeVisible();
+  // 폼이 아직 떠 있는 동안에는 슬러그 중복 안내에도 같은 글자가 나오므로 목록 영역 안에서만 찾는다.
+  const region = await screen.findByRole("region", { name: "쿠폰 목록" });
+  expect(await within(region).findByText("new-slug")).toBeVisible();
 });

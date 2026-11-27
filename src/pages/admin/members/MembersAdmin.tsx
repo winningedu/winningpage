@@ -62,6 +62,7 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
@@ -982,6 +983,7 @@ function ProfilePane({
   const address = [profile.address, profile.address_detail]
     .filter(Boolean)
     .join(" ");
+  const canEdit = useCanEditSection();
 
   return (
     <>
@@ -999,36 +1001,39 @@ function ProfilePane({
         <Row label="성별" value={profile.gender || "-"} />
         <Row label="생년월일" value={profile.birth_date || "-"} />
         {/* 소속(2026-09-22, org_code 자유 입력 → tenants FK 배정/해제 전환).
-            client 쪽 권한 체크는 두지 않는다 — 회원구분/학부모 핸드폰 인라인
-            편집(saveMemberCategory/saveGuardianPhone)과 같은 원칙으로, 쓰기는
-            fn_admin_set_profile_tenant RPC 가 fn_admin_can('members','edit')
-            로 서버에서 게이트한다(WC072). 조회 전용 관리자가 눌러도 화면이
-            숨겨져 있지 않을 뿐 저장은 실패 alert 로 막힌다. */}
+            쓰기는 fn_admin_set_profile_tenant RPC 가 fn_admin_can('members','edit')
+            로 서버에서 게이트하고(WC072), 조회 전용 관리자에게는 화면도 선택과
+            저장을 감추고 소속 이름만 보인다. */}
         <Row
           label="소속"
           value={
-            <>
-              <div className="flex items-center gap-2">
-                <span className="max-w-[13.75rem]">
-                  <Select
-                    value={tenantDraft}
-                    onChange={setTenantDraft}
-                    aria-label="소속"
-                  >
-                    <option value="">소속 없음</option>
-                    {tenants.map((tenant) => (
-                      <option key={tenant.id} value={tenant.id}>
-                        {tenant.name}
-                      </option>
-                    ))}
-                  </Select>
-                </span>
-                <ActionButton onClick={onSaveTenant} disabled={savingTenant}>
-                  {savingTenant ? "저장 중..." : "저장"}
-                </ActionButton>
-              </div>
-              {moveForm}
-            </>
+            !canEdit ? (
+              tenants.find((tenant) => tenant.id === tenantDraft)?.name ||
+              "소속 없음"
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="max-w-[13.75rem]">
+                    <Select
+                      value={tenantDraft}
+                      onChange={setTenantDraft}
+                      aria-label="소속"
+                    >
+                      <option value="">소속 없음</option>
+                      {tenants.map((tenant) => (
+                        <option key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </span>
+                  <ActionButton onClick={onSaveTenant} disabled={savingTenant}>
+                    {savingTenant ? "저장 중..." : "저장"}
+                  </ActionButton>
+                </div>
+                {moveForm}
+              </>
+            )
           }
         />
         <Row label="가입일" value={formatDateTime(profile.created_at)} />
@@ -1055,7 +1060,9 @@ function ProfilePane({
         <Row
           label="학부모 핸드폰"
           value={
-            unmasked ? (
+            unmasked && !canEdit ? (
+              profile.guardian_phone || "-"
+            ) : unmasked ? (
               <div className="flex items-center gap-2">
                 <TextInput
                   value={guardianPhoneDraft}
@@ -1365,40 +1372,43 @@ function MessagePane({
   onSend: () => void;
   sending: boolean;
 }) {
+  const canEdit = useCanEditSection();
   const bytes = smsBytes(draft);
   const isLong = bytes > 90;
 
   return (
     <>
-      <div className="mb-4 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold">새 메시지 보내기</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          자유 문구는 문자로 나갑니다. 알림톡은 카카오 승인을 받은 템플릿 본문만
-          보낼 수 있습니다.
-        </p>
+      {canEdit && (
+        <div className="mb-4 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold">새 메시지 보내기</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            자유 문구는 문자로 나갑니다. 알림톡은 카카오 승인을 받은 템플릿
+            본문만 보낼 수 있습니다.
+          </p>
 
-        <div className="mt-4">
-          <Textarea
-            value={draft}
-            onChange={setDraft}
-            rows={4}
-            aria-label="메시지 내용"
-          />
-        </div>
+          <div className="mt-4">
+            <Textarea
+              value={draft}
+              onChange={setDraft}
+              rows={4}
+              aria-label="메시지 내용"
+            />
+          </div>
 
-        <div className="mt-2 flex items-center justify-between">
-          <span
-            className={`text-xs font-medium ${isLong ? "text-primary" : "text-muted-foreground"}`}
-          >
-            {bytes} / 90 byte
-            {isLong &&
-              " — 90byte를 넘어 LMS(장문)로 전환됩니다. 단가가 3배 이상입니다."}
-          </span>
-          <ActionButton onClick={onSend} disabled={sending}>
-            {sending ? "보내는 중..." : "발송"}
-          </ActionButton>
+          <div className="mt-2 flex items-center justify-between">
+            <span
+              className={`text-xs font-medium ${isLong ? "text-primary" : "text-muted-foreground"}`}
+            >
+              {bytes} / 90 byte
+              {isLong &&
+                " — 90byte를 넘어 LMS(장문)로 전환됩니다. 단가가 3배 이상입니다."}
+            </span>
+            <ActionButton onClick={onSend} disabled={sending}>
+              {sending ? "보내는 중..." : "발송"}
+            </ActionButton>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="bg-white shadow-sm">
         <AdminTableFrame label="발송 이력" className="min-w-215">

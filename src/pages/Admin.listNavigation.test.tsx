@@ -39,6 +39,7 @@ import { AdminSectionRoute } from "./Admin";
 import { startListNavigation } from "./admin/engine/listNavigation";
 import { sectionListQueryOptions } from "./admin/engine/sectionList";
 import { ConfirmAdminHost } from "./admin/shared/confirmAdmin";
+import { SectionEditAccessProvider } from "./admin/shared/sectionEditAccess";
 
 const LABEL = "팝업 관리 목록을 불러오는 중입니다.";
 const body = (title: string) => ({
@@ -61,7 +62,9 @@ function renderPopups(client: QueryClient) {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={["/admin/popups"]}>
-        <AdminSectionRoute section="popups" />
+        <SectionEditAccessProvider value={true}>
+          <AdminSectionRoute section="popups" />
+        </SectionEditAccessProvider>
         <ConfirmAdminHost />
       </MemoryRouter>
     </QueryClientProvider>,

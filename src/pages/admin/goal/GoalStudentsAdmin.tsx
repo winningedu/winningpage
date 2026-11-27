@@ -42,6 +42,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { listResendCandidates, type ResendKind } from "./reportResendOptions";
@@ -1203,7 +1204,9 @@ export function GoalStudentDetail({
   // 이동과 프리필을 한 호출로 묶는다(navigateWithPrefill이 route state로 실어 나른다).
   // 함수일 때만 동작한다 — 클립보드 백업 경로는 두지 않는다(진입점 하나만 정본으로
   // 둔다). 미제공 시 버튼 자체를 렌더하지 않는다(canCreateCut).
-  const canCreateCut = typeof onNavigateWithPrefill === "function";
+  // 조회 전용 권한이면 컷을 만드는 진입점도 감춘다.
+  const canEdit = useCanEditSection();
+  const canCreateCut = canEdit && typeof onNavigateWithPrefill === "function";
 
   function createCutFromSlot(slot: GoalDescribedCutSlot) {
     if (!canCreateCut) return;
@@ -1289,14 +1292,16 @@ export function GoalStudentDetail({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ActionButton
-            variant="danger"
-            onClick={handleResetOnboarding}
-            disabled={resetting}
-          >
-            <RotateCcw size={14} />
-            {resetting ? "리셋 중…" : "온보딩 리셋"}
-          </ActionButton>
+          {canEdit && (
+            <ActionButton
+              variant="danger"
+              onClick={handleResetOnboarding}
+              disabled={resetting}
+            >
+              <RotateCcw size={14} />
+              {resetting ? "리셋 중…" : "온보딩 리셋"}
+            </ActionButton>
+          )}
           <ActionButton variant="light" onClick={onBack}>
             목록으로
           </ActionButton>
@@ -1871,95 +1876,97 @@ export function GoalStudentDetail({
       </div>
 
       {/* ── 리포트 알림톡 재발송(QA 2차 행70) ─────────────────────────── */}
-      <GoalCard title="리포트 알림톡 다시 보내기">
-        <div className="flex flex-wrap items-end gap-3 p-4">
-          <div className="w-32">
-            <Field label="종류">
-              <Select
-                value={resendKind}
-                onChange={(value) => setResendKind(value as ResendKind)}
-              >
-                <option value="daily">일간</option>
-                <option value="weekly">주간</option>
-                <option value="monthly">월간</option>
-              </Select>
-            </Field>
+      {canEdit && (
+        <GoalCard title="리포트 알림톡 다시 보내기">
+          <div className="flex flex-wrap items-end gap-3 p-4">
+            <div className="w-32">
+              <Field label="종류">
+                <Select
+                  value={resendKind}
+                  onChange={(value) => setResendKind(value as ResendKind)}
+                >
+                  <option value="daily">일간</option>
+                  <option value="weekly">주간</option>
+                  <option value="monthly">월간</option>
+                </Select>
+              </Field>
+            </div>
+
+            <div className="w-56">
+              <Field label="기간">
+                <Select value={resendPeriod} onChange={setResendPeriod}>
+                  {resendCandidates.length === 0 ? (
+                    <option value="">선택 가능한 기간이 없습니다</option>
+                  ) : (
+                    resendCandidates.map((candidate) => (
+                      <option
+                        key={candidate.periodKey}
+                        value={candidate.periodKey}
+                      >
+                        {candidate.periodKey} ({candidate.label})
+                      </option>
+                    ))
+                  )}
+                </Select>
+              </Field>
+            </div>
+
+            <ActionButton
+              onClick={handleResendReport}
+              disabled={resending || !resendPeriod}
+            >
+              {resending ? "발송 중…" : "다시 보내기"}
+            </ActionButton>
           </div>
 
-          <div className="w-56">
-            <Field label="기간">
-              <Select value={resendPeriod} onChange={setResendPeriod}>
-                {resendCandidates.length === 0 ? (
-                  <option value="">선택 가능한 기간이 없습니다</option>
-                ) : (
-                  resendCandidates.map((candidate) => (
-                    <option
-                      key={candidate.periodKey}
-                      value={candidate.periodKey}
-                    >
-                      {candidate.periodKey} ({candidate.label})
-                    </option>
-                  ))
-                )}
-              </Select>
-            </Field>
-          </div>
+          {resendError && (
+            <div
+              role="alert"
+              className="border-t border-border px-4 py-3 text-sm font-medium text-destructive"
+            >
+              {resendError}
+            </div>
+          )}
 
-          <ActionButton
-            onClick={handleResendReport}
-            disabled={resending || !resendPeriod}
-          >
-            {resending ? "발송 중…" : "다시 보내기"}
-          </ActionButton>
-        </div>
-
-        {resendError && (
-          <div
-            role="alert"
-            className="border-t border-border px-4 py-3 text-sm font-medium text-destructive"
-          >
-            {resendError}
-          </div>
-        )}
-
-        {resendResult && (
-          <div className="border-t border-border px-4 py-3 text-sm">
-            <p className="font-semibold">
-              성공 {resendResult.sent} · 실패 {resendResult.failed} · 스킵{" "}
-              {resendResult.skipped}
-            </p>
-            {resendResult.recipients.length === 0 ? (
-              <p className="mt-1 text-muted-foreground">
-                연결된 학부모가 없어 보낼 대상이 없습니다.
+          {resendResult && (
+            <div className="border-t border-border px-4 py-3 text-sm">
+              <p className="font-semibold">
+                성공 {resendResult.sent} · 실패 {resendResult.failed} · 스킵{" "}
+                {resendResult.skipped}
               </p>
-            ) : (
-              <ul className="mt-2 space-y-1 text-xs font-medium text-gray-600">
-                {resendResult.recipients.map((recipient) => (
-                  <li key={recipient.parentProfileId}>
-                    {recipient.phone} —{" "}
-                    <GoalRiskBadge
-                      tone={
-                        recipient.status === "sent"
-                          ? "gray"
+              {resendResult.recipients.length === 0 ? (
+                <p className="mt-1 text-muted-foreground">
+                  연결된 학부모가 없어 보낼 대상이 없습니다.
+                </p>
+              ) : (
+                <ul className="mt-2 space-y-1 text-xs font-medium text-gray-600">
+                  {resendResult.recipients.map((recipient) => (
+                    <li key={recipient.parentProfileId}>
+                      {recipient.phone} —{" "}
+                      <GoalRiskBadge
+                        tone={
+                          recipient.status === "sent"
+                            ? "gray"
+                            : recipient.status === "failed"
+                              ? "red"
+                              : "orange"
+                        }
+                      >
+                        {recipient.status === "sent"
+                          ? "발송 완료"
                           : recipient.status === "failed"
-                            ? "red"
-                            : "orange"
-                      }
-                    >
-                      {recipient.status === "sent"
-                        ? "발송 완료"
-                        : recipient.status === "failed"
-                          ? "발송 실패"
-                          : "건너뜀"}
-                    </GoalRiskBadge>
-                    {recipient.reason ? ` (${recipient.reason})` : ""}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-      </GoalCard>
+                            ? "발송 실패"
+                            : "건너뜀"}
+                      </GoalRiskBadge>
+                      {recipient.reason ? ` (${recipient.reason})` : ""}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </GoalCard>
+      )}
 
       {/* ── C-5 하단: 일별 기록 타임라인 ──────────────────────────────── */}
       <GoalCard
