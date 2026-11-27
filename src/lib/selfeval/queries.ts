@@ -74,7 +74,8 @@ export function selfevalPickQuery(
 ) {
   return queryOptions({
     queryKey: selfevalQueryKeys.pick(userId, sessionId),
-    queryFn: async () => unwrap(await pickList(sessionId as string)),
+    queryFn: async ({ signal }) =>
+      unwrap(await pickList(sessionId as string, signal)),
     staleTime: SELFEVAL_STALE_MS,
     enabled: !!userId && !!sessionId,
     retry: 0,

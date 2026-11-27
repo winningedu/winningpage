@@ -46,6 +46,10 @@ import {
   manualLogsSetIncluded,
   manualLogsUpdate,
   manualLogsUpload,
+  pickAddLink,
+  pickConfirmLink,
+  pickDeleteLink,
+  pickLink,
   pickList,
   pickManual,
   pickSelect,
@@ -322,25 +326,154 @@ describe("세션 생성, 수정, 파기", () => {
   });
 });
 
+const PICK_LIST = {
+  candidates: [],
+  selection: null,
+  auto: null,
+  sourceCounts: { performance: 0, deep: 0, manual: 0, total: 0 },
+  direction: null,
+  planCandidates: [],
+  planItem: null,
+  growthApplied: false,
+  currentStep: 1,
+  links: [],
+  linkStatus: "pending",
+  linkUnchecked: false,
+  maxSelect: 7,
+  excludedIds: [],
+};
+const PICK_SELECT = {
+  selection: { coreId: "a1", supportIds: ["a2"] },
+  coreMismatch: false,
+  warnings: [],
+  excludedIds: [],
+  maxSelect: 7,
+  currentStep: 2,
+};
+const PICK_MANUAL = {
+  activityRecordId: "n1",
+  selection: { coreId: "n1", supportIds: [] },
+  currentStep: 3,
+};
+
 describe("활동 선택", () => {
-  test("list, select, manual 은 같은 엔드포인트에 action 으로 갈린다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
-    await pickList("s1");
-    expect(lastCall().path).toBe("/api/selfeval/pick-records");
-    expect(lastCall().body).toEqual({ sessionId: "s1", action: "list" });
-    await pickSelect("s1", "a1", ["a2"]);
-    expect(lastCall().body).toEqual({
+  test("list 는 같은 엔드포인트에 action 으로 POST 하고 본문을 ok 로 돌려준다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(PICK_LIST));
+    const result = await pickList("s1");
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(new URL(request.url).pathname).toBe("/api/selfeval/pick-records");
+    expect(request.headers.get("authorization")).toBe("Bearer tok");
+    expect(await lastBody()).toEqual({ sessionId: "s1", action: "list" });
+    expect(result).toEqual({ kind: "ok", data: PICK_LIST });
+  });
+
+  test("select 는 core 와 support 를 보내고 선택 결과를 받는다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(PICK_SELECT));
+    const result = await pickSelect("s1", "a1", ["a2"]);
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       action: "select",
       coreId: "a1",
       supportIds: ["a2"],
     });
-    await pickManual("s1", { activityName: "x" } as never);
-    expect(lastCall().body).toEqual({
+    expect(result).toEqual({ kind: "ok", data: PICK_SELECT });
+  });
+
+  test("manual 은 직접 입력을 input 으로 보낸다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(PICK_MANUAL));
+    const result = await pickManual("s1", { activityName: "x" } as never);
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       action: "manual",
       input: { activityName: "x" },
     });
+    expect(result).toEqual({ kind: "ok", data: PICK_MANUAL });
+  });
+
+  test("연계 판정과 편집은 action 과 id 쌍을 보내고 link 본문을 받는다", async () => {
+    fetchMock.mockImplementation(async () =>
+      jsonResponse({ ...PICK_LIST, cached: false }),
+    );
+    expect(await pickLink("s1")).toMatchObject({
+      kind: "ok",
+      data: { cached: false },
+    });
+    expect(await lastBody()).toEqual({ sessionId: "s1", action: "link" });
+    await pickDeleteLink("s1", "a", "b");
+    expect(await lastBody()).toEqual({
+      sessionId: "s1",
+      action: "delete-link",
+      fromId: "a",
+      toId: "b",
+    });
+    await pickConfirmLink("s1", "a", "b");
+    expect(await lastBody()).toEqual({
+      sessionId: "s1",
+      action: "confirm-link",
+      fromId: "a",
+      toId: "b",
+    });
+    await pickAddLink("s1", {
+      fromId: "a",
+      toId: "b",
+      type: "deepen",
+      note: "이어서 했어요",
+    });
+    expect(await lastBody()).toEqual({
+      sessionId: "s1",
+      action: "add-link",
+      fromId: "a",
+      toId: "b",
+      type: "deepen",
+      note: "이어서 했어요",
+    });
+  });
+
+  test("도메인 오류는 code 와 message, 확장 멤버를 담아 돌려준다", async () => {
+    fetchMock.mockResolvedValueOnce(
+      problemResponse(400, {
+        detail: "활동은 최대 3건까지 고를 수 있어요.",
+        code: "TOO_MANY_SUPPORT",
+      }),
+    );
+    expect(await pickSelect("s1", "a1", ["a2"])).toEqual({
+      kind: "error",
+      status: 400,
+      code: "TOO_MANY_SUPPORT",
+      message: "활동은 최대 3건까지 고를 수 있어요.",
+    });
+    fetchMock.mockResolvedValueOnce(
+      problemResponse(409, {
+        detail: "기본 입력을 먼저 저장해 주세요.",
+        code: "STEP_ORDER",
+        requiredStep: 1,
+      }),
+    );
+    expect(await pickList("s1")).toMatchObject({
+      kind: "error",
+      status: 409,
+      code: "STEP_ORDER",
+      extra: { requiredStep: 1 },
+    });
+  });
+
+  test("계약과 어긋난 본문은 INVALID_RESPONSE 로 돌려준다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ candidates: "x" }));
+    expect(await pickList("s1")).toMatchObject({
+      kind: "error",
+      code: "INVALID_RESPONSE",
+    });
+  });
+
+  test("로그인 헤더가 없으면 요청 없이 401 UNAUTHENTICATED 를 돌려준다", async () => {
+    getAuthHeaderMock.mockResolvedValue(null);
+    expect(await pickList("s1")).toMatchObject({
+      kind: "error",
+      status: 401,
+      code: "UNAUTHENTICATED",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

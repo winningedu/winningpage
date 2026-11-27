@@ -10,6 +10,12 @@
 
 import { SchemaValidationError } from "ky";
 import type { z } from "zod";
+import {
+  pickLinkResponseSchema,
+  pickListResponseSchema,
+  pickManualResponseSchema,
+  pickSelectResponseSchema,
+} from "../../../shared/selfeval/pick.js";
 import { entryResponseSchema } from "../../../shared/selfeval/reports.js";
 import {
   sessionDetailResponseSchema,
@@ -254,17 +260,25 @@ export function buildReport(sessionId: string) {
 
 // ── 세션 ──────────────────────────────────────────────────────────────
 export function createSession(input: SessionInput) {
-  return requestJson<SessionResponse>("selfeval/session", sessionResponseSchema, {
-    method: "POST",
-    body: { action: "create", ...input },
-  });
+  return requestJson<SessionResponse>(
+    "selfeval/session",
+    sessionResponseSchema,
+    {
+      method: "POST",
+      body: { action: "create", ...input },
+    },
+  );
 }
 
 export function updateSession(sessionId: string, patch: Partial<SessionInput>) {
-  return requestJson<SessionResponse>("selfeval/session", sessionResponseSchema, {
-    method: "POST",
-    body: { action: "update", sessionId, ...patch },
-  });
+  return requestJson<SessionResponse>(
+    "selfeval/session",
+    sessionResponseSchema,
+    {
+      method: "POST",
+      body: { action: "update", sessionId, ...patch },
+    },
+  );
 }
 
 export function discardSession(sessionId: string) {
@@ -275,10 +289,13 @@ export function discardSession(sessionId: string) {
 }
 
 // ── 활동 선택 ─────────────────────────────────────────────────────────
-export function pickList(sessionId: string) {
-  return request<PickListResponse>(`${BASE}/pick-records`, {
+const PICK_RECORDS = "selfeval/pick-records";
+
+export function pickList(sessionId: string, signal?: AbortSignal) {
+  return requestJson<PickListResponse>(PICK_RECORDS, pickListResponseSchema, {
     method: "POST",
     body: { sessionId, action: "list" },
+    signal,
   });
 }
 
@@ -287,15 +304,19 @@ export function pickSelect(
   coreId: string,
   supportIds: string[],
 ) {
-  return request<PickSelectResponse>(`${BASE}/pick-records`, {
-    method: "POST",
-    body: { sessionId, action: "select", coreId, supportIds },
-  });
+  return requestJson<PickSelectResponse>(
+    PICK_RECORDS,
+    pickSelectResponseSchema,
+    {
+      method: "POST",
+      body: { sessionId, action: "select", coreId, supportIds },
+    },
+  );
 }
 
 /** 연계 판정(모델 1회). 이미 판정을 마쳤으면 저장된 연계를 돌려준다. 호출 실패여도 200 으로 linkUnchecked 를 준다. */
 export function pickLink(sessionId: string) {
-  return request<PickLinkResponse>(`${BASE}/pick-records`, {
+  return requestJson<PickLinkResponse>(PICK_RECORDS, pickLinkResponseSchema, {
     method: "POST",
     body: { sessionId, action: "link" },
     ai: true,
@@ -307,7 +328,7 @@ export function pickDeleteLink(
   fromId: string,
   toId: string,
 ) {
-  return request<PickLinkResponse>(`${BASE}/pick-records`, {
+  return requestJson<PickLinkResponse>(PICK_RECORDS, pickLinkResponseSchema, {
     method: "POST",
     body: { sessionId, action: "delete-link", fromId, toId },
   });
@@ -319,7 +340,7 @@ export function pickConfirmLink(
   fromId: string,
   toId: string,
 ) {
-  return request<PickLinkResponse>(`${BASE}/pick-records`, {
+  return requestJson<PickLinkResponse>(PICK_RECORDS, pickLinkResponseSchema, {
     method: "POST",
     body: { sessionId, action: "confirm-link", fromId, toId },
   });
@@ -330,17 +351,18 @@ export function pickAddLink(
   sessionId: string,
   link: { fromId: string; toId: string; type: LinkType; note: string },
 ) {
-  return request<PickLinkResponse>(`${BASE}/pick-records`, {
+  return requestJson<PickLinkResponse>(PICK_RECORDS, pickLinkResponseSchema, {
     method: "POST",
     body: { sessionId, action: "add-link", ...link },
   });
 }
 
 export function pickManual(sessionId: string, input: ManualInput) {
-  return request<PickManualResponse>(`${BASE}/pick-records`, {
-    method: "POST",
-    body: { sessionId, action: "manual", input },
-  });
+  return requestJson<PickManualResponse>(
+    PICK_RECORDS,
+    pickManualResponseSchema,
+    { method: "POST", body: { sessionId, action: "manual", input } },
+  );
 }
 
 // ── 수기 수행보고 메모(명세 No.158~161) ───────────────────────────────

@@ -223,7 +223,7 @@ const analysisSchema = z.looseObject({
   ),
 });
 
-const activityRecordSchema = z.looseObject({
+export const activityRecordSchema = z.looseObject({
   id: z.string(),
   sourceProgram: z.enum(["performance", "deep", "self", "manual", "upload"]),
   status: z.enum(["planned", "draft", "confirmed", "final"]),
