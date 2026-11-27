@@ -59,6 +59,7 @@ export const issuedSchoolAdminSchema = z.object({
   loginId: z.string(),
   verdict: z.string(),
   tempPassword: z.string().optional(),
+  sendStatus: z.enum(["sent", "failed", "skipped"]).optional(),
 });
 
 export type IssuedSchoolAdmin = z.output<typeof issuedSchoolAdminSchema>;
