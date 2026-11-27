@@ -17,7 +17,7 @@
 //   요청  `POST /api/performance/finalize` `{ sessionId, submissionId, action }`
 //   성공  `200 { submission{...}, finalReportId, reused, charged:false }`
 //         `action:'new_assessment'`면 `{ nextSessionId, nextSessionCreated }` 추가.
-//   실패  `400 NO_EVALUATION_YET|INVALID_ACTION` / `409 ALREADY_FINALIZED_OTHER{finalSubmissionId}`
+//   실패  `400 NO_EVALUATION_YET|VALIDATION_FAILED` / `409 ALREADY_FINALIZED_OTHER{finalSubmissionId}`
 //         / `403`·`404`는 evaluate와 동일 / `500 INTERNAL`.
 //
 // ── 회차 (§9.3) — 이 두 호출은 **차감 지점이 아니다**
