@@ -238,10 +238,11 @@ describe("기관 경로: 글자 그대로인 키가 [id] 보다 먼저다", () =
     expect(req.query).toEqual({ id });
   });
 
-  test("목록 /api/admin/tenants 는 그대로 목록 핸들러다", async () => {
+  // 목록 라우트는 Hono 로 옮겨 vercel.json 이 /api/app 으로 보낸다. 옛 라우터에 오더라도 [id] 에 닿지 않는다.
+  test("목록 /api/admin/tenants 는 [id] 핸들러에 닿지 않는다", async () => {
     const { hit } = await reach("/api/admin/tenants");
 
-    expect(hit).toEqual(["admin/tenants"]);
+    expect(hit).toEqual([]);
   });
 });
 

@@ -1,23 +1,20 @@
 // 지식 DB 라우트의 권한 키가 요청의 knowledgeType 에서 레지스트리 섹션으로 정해지는지 확인한다.
 
-import type { VercelRequest } from "@vercel/node";
 import { describe, expect, it } from "vitest";
 import { RouteParamError } from "../handler.js";
 import { knowledgeSectionKey } from "./permission.js";
 
-const reqOf = (body: unknown) => ({ body }) as unknown as VercelRequest;
-
 describe("knowledgeSectionKey", () => {
   it("topic_pattern 은 주제 DB 섹션 키다", () => {
-    expect(knowledgeSectionKey(reqOf({ knowledgeType: "topic_pattern" }))).toBe(
+    expect(knowledgeSectionKey({ knowledgeType: "topic_pattern" })).toBe(
       "winningSuhaengTopicDb",
     );
   });
 
   it("verified_resource 는 자료 DB 섹션 키다", () => {
-    expect(
-      knowledgeSectionKey(reqOf({ knowledgeType: "verified_resource" })),
-    ).toBe("winningSuhaengResourceDb");
+    expect(knowledgeSectionKey({ knowledgeType: "verified_resource" })).toBe(
+      "winningSuhaengResourceDb",
+    );
   });
 
   it.each([
@@ -27,9 +24,9 @@ describe("knowledgeSectionKey", () => {
     ["객체가 아닌 값", { knowledgeType: { x: 1 } }],
     ["프로토타입 키", { knowledgeType: "constructor" }],
   ])("%s 이면 knowledgeType 경로의 RouteParamError 다", (_label, body) => {
-    expect(() => knowledgeSectionKey(reqOf(body))).toThrow(RouteParamError);
+    expect(() => knowledgeSectionKey(body)).toThrow(RouteParamError);
     try {
-      knowledgeSectionKey(reqOf(body));
+      knowledgeSectionKey(body);
     } catch (error) {
       expect((error as RouteParamError).path).toBe("knowledgeType");
     }

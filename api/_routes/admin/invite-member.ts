@@ -1,3 +1,6 @@
+// /api/admin/invite-member 아래 관리자 초대 라우트. 관리자 앱(api/_routes/admin/app.ts)이 .route("/invite-member", inviteMember) 로 붙인다.
+// 요청 검증과 응답 모양은 shared/invite-member/contract.ts 를 따른다.
+//
 // POST /api/admin/invite-member
 // Authorization: Bearer <supabase access token>   (최고 관리자 전용)
 //
@@ -9,8 +12,8 @@
 //   Supabase Auth 의 초대(auth.admin.inviteUserByEmail)는 service_role 로만
 //   호출된다. 브라우저에서 못 한다. 그리고 service_role 은 RLS 를 통째로
 //   우회하므로, "누가 초대할 수 있는가"는 이 라우트가 막아야 한다. 최고 관리자
-//   전용 메뉴(adminMembers)라 defineHandler 의 permission 이 fn_is_super_admin 으로
-//   판정하고, QA 계정 쓰기 차단은 auth:"admin" 이 한다.
+//   전용 메뉴(adminMembers)라 admin() 가드의 permission 이 fn_is_super_admin 으로
+//   판정하고, QA 계정 쓰기 차단도 같은 가드가 한다.
 //
 // ⚠️ profiles 행을 이 라우트가 직접 넣는다
 //   dev와 로컬에는 auth.users 에서 profiles 로 가는 자동 생성 트리거가 있지만 **prod 에는
@@ -28,56 +31,34 @@
 //   409 NEEDS_CONFIRM                     서비스 회원이라 확인이 필요하다(existingMemberType, existingName).
 //   500 INTERNAL_ERROR                    Auth 초대 실패, 서버 설정 누락 등.
 
-import { z } from "zod";
-import { defineHandler } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import {
+  INVITE_MEMBER_ERROR,
+  type InviteResult,
+  inviteBody,
+  type NeedsConfirmExtra,
+} from "../../../shared/invite-member/contract.js";
+import { admin } from "../../_lib/hono/admin.js";
+import { adminFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
+import { validate } from "../../_lib/hono/validate.js";
 import { getEnv } from "../../_lib/supabaseAdmin.js";
 
-export const config = { runtime: "nodejs" };
-
-const EMAIL_MESSAGE = "이메일을 확인해 주세요.";
-// ⚠️ 이름은 필수다. 초대로 만든 계정은 profiles.name 이 비는데, 그러면
-//   ① 직원 목록의 「직원명」이 '-' 로 남고
-//   ② 헤더가 로그인 상태를 이름 유무로 판정해서(Header.tsx) 그 사람에게는
-//      이름 칩, 마이 메뉴, 「관리자」 버튼이 통째로 사라진다. 로그인은 됐는데
-//      화면만 비로그인처럼 보인다(2026-08-23 실측).
-//   헤더 쪽 판정은 다른 담당 영역이라, 이름을 처음부터 채워 원인을 없앤다.
-const NAME_MESSAGE = "이름을 입력해 주세요.";
-const ROLE_MESSAGE = "권한 묶음을 선택해 주세요.";
-
-const bodySchema = z.strictObject({
-  email: z
-    .string({ error: EMAIL_MESSAGE })
-    .trim()
-    .toLowerCase()
-    .refine((value) => value.includes("@"), EMAIL_MESSAGE),
-  name: z.string({ error: NAME_MESSAGE }).trim().min(1, NAME_MESSAGE),
-  roleId: z.string({ error: ROLE_MESSAGE }).trim().min(1, ROLE_MESSAGE),
-  department: z
-    .string()
-    .trim()
-    .nullish()
-    .transform((value) => value || null),
-  // 기존 서비스 회원을 관리자로 올릴 때 화면이 되묻고 다시 보내는 확인 플래그.
-  confirmExisting: z.boolean().optional(),
-});
-
-export default defineHandler({
-  methods: ["POST"],
-  auth: "admin",
-  errorShape: "problem",
+// createSupabaseAdmin() 설정 오류(500)는 admin 가드가 던지고 handleError(api/_lib/hono/error.ts)가
+// "서버 설정이 올바르지 않습니다."로 복원한다.
+const guard = admin({
   permission: { key: "adminMembers" },
-  body: bodySchema,
-  // createSupabaseAdmin() 설정 오류(500)는 defineHandler(api/_lib/handler.ts)
-  // 최상위 catch가 식별해 "서버 설정이 올바르지 않습니다."로 복원한다.
   unhandledMessage: "관리자 초대 처리 중 오류가 발생했습니다.",
   logLabel: "admin/invite-member",
-  headers: { "Cache-Control": "no-store" },
-  handler: async (_req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    if (!ctx.admin) throw new Error("invite-member: admin context missing");
-    const invitedBy = ctx.admin.userId;
-    const { email, name, roleId, department, confirmExisting } = ctx.body;
+});
+
+export const inviteMember = adminFactory
+  .createApp()
+  .post("/", guard, validate("json", inviteBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const invitedBy = c.var.userId;
+    if (!invitedBy) throw new Error("invite-member: admin context missing");
+    const { email, name, roleId, department, confirmExisting } =
+      c.req.valid("json");
 
     // 초대 링크가 돌아올 주소. 로컬은 5173(vite), 운영은 PUBLIC_SITE_URL.
     //
@@ -132,12 +113,10 @@ export default defineHandler({
         .maybeSingle();
 
       if (member?.status === "active") {
-        return void sendError(
-          res,
-          "problem",
+        throw new ProblemError(
           409,
           "이미 활성 상태인 관리자입니다.",
-          "ALREADY_ACTIVE_ADMIN",
+          INVITE_MEMBER_ERROR.ALREADY_ACTIVE_ADMIN,
         );
       }
 
@@ -147,16 +126,14 @@ export default defineHandler({
       //   member_type 이 비어 있는 계정(초대만 받고 서비스는 안 쓰는 계정)은
       //   이 확인 없이 진행한다.
       if (existingProfile?.member_type && confirmExisting !== true) {
-        return void sendError(
-          res,
-          "problem",
+        throw new ProblemError(
           409,
           `이 이메일은 이미 서비스 회원(${existingProfile.member_type})으로 가입돼 있습니다. 그 계정을 관리자로 올리시겠습니까?`,
-          "NEEDS_CONFIRM",
+          INVITE_MEMBER_ERROR.NEEDS_CONFIRM,
           {
             existingMemberType: existingProfile.member_type,
             existingName: existingProfile.name ?? null,
-          },
+          } satisfies NeedsConfirmExtra,
         );
       }
 
@@ -173,11 +150,10 @@ export default defineHandler({
 
       if (inviteError || !invited?.user?.id) {
         console.error("admin/invite-member 초대 실패:", inviteError);
-        return void sendError(
-          res,
-          "problem",
+        throw new ProblemError(
           500,
           "초대 메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+          undefined,
         );
       }
 
@@ -210,11 +186,10 @@ export default defineHandler({
 
     if (profileError) {
       console.error("admin/invite-member profiles upsert 실패:", profileError);
-      return void sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         500,
         "프로필 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        undefined,
       );
     }
 
@@ -239,11 +214,10 @@ export default defineHandler({
         "admin/invite-member admin_members upsert 실패:",
         memberError,
       );
-      return void sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         500,
         "관리자 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        undefined,
       );
     }
 
@@ -262,6 +236,6 @@ export default defineHandler({
     //   메일로 보내려면 발송기가 따로 있어야 한다(Supabase SMTP 는 Auth 템플릿
     //   경로로만 나간다). Resend API 를 붙이는 건 별건으로 남긴다.
 
-    return void res.status(200).json({ profileId, resent, emailed });
-  },
-});
+    return c.json({ profileId, resent, emailed } satisfies InviteResult);
+  })
+  .all("/", methodNotAllowed("POST"));

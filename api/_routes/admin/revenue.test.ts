@@ -1,6 +1,7 @@
 // GET /api/admin/revenue 계약 검증. 매출 뷰를 1000행씩 끝까지 읽어 { items } 로 돌려준다.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { revenueResponseSchema } from "../../../shared/revenue/contract.js";
 import {
   argsOf,
   callRoute,
@@ -19,7 +20,9 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./revenue.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/revenue" };
 
 const FROM = "2026-11-01T00:00:00.000Z";
 const TO = "2026-12-01T00:00:00.000Z";
@@ -40,7 +43,7 @@ function setup(level: string | null = "view") {
 }
 
 const get = (query: Record<string, string> = { from: FROM, to: TO }) =>
-  callRoute(handler, { query });
+  callRoute(route, { query });
 
 beforeEach(() => {
   pages = () => rows(2);
@@ -66,8 +69,46 @@ describe("권한", () => {
 
   test("GET 이외는 405 다", async () => {
     setup("edit");
-    const r = await callRoute(handler, { method: "POST" });
+    const r = await callRoute(route, { method: "POST" });
     expect(r.status).toBe(405);
+    expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
+    expect(r.headers.allow).toBe("GET, HEAD");
+  });
+});
+
+// 뷰가 돌려주는 모양 그대로다. order_item_id 는 bigint 라 숫자로 온다(브라우저가 문자열로 기대하던 어긋남을 계약이 잡는다).
+const VIEW_ROW = {
+  order_item_id: 7,
+  order_id: "o-1",
+  paid_at: "2026-11-02T03:00:00Z",
+  payer_name: "결제자",
+  payer_email: null,
+  student_name: "학생",
+  service_key: "goal",
+  item_name: "목표 상품",
+  list_amount: 1000,
+  discount_amount: 0,
+  paid_amount: 1000,
+  refunded_amount: 0,
+  revenue_status: "normal",
+  net_amount: 1000,
+};
+
+describe("응답 계약", () => {
+  test("뷰 행이 계약 스키마를 통과하고 no-store 로 내려간다", async () => {
+    pages = () => [VIEW_ROW];
+    setup();
+    const r = await get();
+    expect(r.status).toBe(200);
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(revenueResponseSchema.parse(r.body)).toEqual({ items: [VIEW_ROW] });
+  });
+
+  test("order_item_id 가 문자열이면 계약을 통과하지 못한다", () => {
+    const parsed = revenueResponseSchema.safeParse({
+      items: [{ ...VIEW_ROW, order_item_id: "7" }],
+    });
+    expect(parsed.success).toBe(false);
   });
 });
 

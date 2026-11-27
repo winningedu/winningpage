@@ -1,6 +1,7 @@
 import HeroSection from "@/components/landing/HeroSection";
 import { ApiError, api } from "@/lib/http/client";
 import type { FieldOption } from "@/pages/admin/shared/csvExport";
+import { tenantOptionsSchema } from "../../../../shared/tenant-options/contract.js";
 
 // ── 배너 관리(banners, home_side_banners) 공통: 노출 대상 선택지 + 저장 변환 ──
 
@@ -10,7 +11,7 @@ export async function loadTenantOptions(): Promise<FieldOption[]> {
   try {
     const { items } = await api
       .get("admin/tenant-options")
-      .json<{ items: { id: string; name: string }[] }>();
+      .json(tenantOptionsSchema);
     return items.map((tenant) => ({ value: tenant.id, label: tenant.name }));
   } catch (error) {
     if (error instanceof ApiError && error.status === 403) return [];
