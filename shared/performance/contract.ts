@@ -58,14 +58,6 @@ export const bootstrapResponse = z.looseObject({
   latestDraft: sessionSummarySchema.nullable(),
 });
 
-export const recommendTopicsResponse = z.looseObject({
-  round: z.number(),
-  topics: z.array(z.unknown()),
-  quotaRemaining: nullableNumber,
-  charged: z.boolean(),
-  maxRounds: z.number(),
-});
-
 export const designReportResponse = z.looseObject({
   charged: z.boolean(),
   generationCount: z.number(),

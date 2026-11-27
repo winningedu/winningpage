@@ -25,7 +25,11 @@
 //   모델 원문을 응답에 싣지 않으므로(`recommend-topics.js`의 `fail()`) 그대로 화면에 띄워도
 //   내부 정보가 새지 않는다. 서버 문구가 없을 때만 아래 폴백을 쓴다.
 
-import { recommendTopicsResponse } from "../../../shared/performance/contract.js";
+import type { z } from "zod";
+import {
+  type RecommendTopicsBodyInput,
+  recommendTopicsResponse,
+} from "../../../shared/performance/recommend-topics.js";
 import { api } from "../http/client";
 import {
   entitlementDeniedMessage,
@@ -103,7 +107,6 @@ class TopicRequestError extends Error {
  * 그마저 서버가 기존 라운드 수를 세어 스스로 정하므로 의도 확인용으로만 보낸다(§8.6 `round?`).
  *
  * @param {{accessToken: string, sessionId: string, round?: number}} params
- * @returns {Promise<{round: number, topics: object[], quotaRemaining: number|null, charged: boolean, maxRounds: number}>}
  * @throws {TopicRequestError}
  */
 export async function recommendTopics({
@@ -115,14 +118,15 @@ export async function recommendTopics({
   sessionId: string;
   round?: number;
 }) {
-  // biome-ignore lint/suspicious/noExplicitAny: 화면이 응답을 필드마다 좁혀 읽는다(예전 data 와 같다)
-  let result: PerformanceResult<any>;
+  let result: PerformanceResult<z.output<typeof recommendTopicsResponse>>;
 
   try {
     result = await performanceRequest(
       api
         .post("performance/recommend-topics", {
-          json: round ? { sessionId, round } : { sessionId },
+          json: (round
+            ? { sessionId, round }
+            : { sessionId }) satisfies RecommendTopicsBodyInput,
           headers: { Authorization: `Bearer ${accessToken}` },
           timeout: AI_CALL_TIMEOUT_MS,
         })

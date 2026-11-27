@@ -56,7 +56,11 @@
 //    `sessionId`와 `round`뿐이고 나머지는 전부 세션 행에서 읽는다.
 
 import type { Context } from "hono";
-import { jsonObjectBody } from "../../../shared/performance/contract.js";
+import type { z } from "zod";
+import {
+  recommendTopicsBody,
+  type recommendTopicsResponse,
+} from "../../../shared/performance/recommend-topics.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { generateWithRetry, PERFORMANCE_MODEL } from "../../_lib/ai/gemini.js";
 import {
@@ -143,9 +147,6 @@ const TOPIC_SUBTITLE = "통합 수행평가 설계 리포트";
 
 /** 태그 4번째 칸 고정 문자열(§5.10 `고1 / 국어/공통국어1 / 의학 / 설계 리포트`). */
 const TOPIC_TAG_SUFFIX = "설계 리포트";
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const SESSION_COLUMNS = [
   "id",
@@ -344,7 +345,7 @@ const guard = user({
 
 export const recommendTopics = userFactory
   .createApp()
-  .post("/", guard, validate("json", jsonObjectBody), async (c) => {
+  .post("/", guard, validate("json", recommendTopicsBody), async (c) => {
     const supabaseAdmin = c.var.supabaseAdmin;
     const userId = c.var.user.id;
 
@@ -368,18 +369,7 @@ export const recommendTopics = userFactory
       );
     }
 
-    const body = c.req.valid("json");
-    const sessionId =
-      typeof body.sessionId === "string" ? body.sessionId.trim() : "";
-
-    if (!UUID_RE.test(sessionId)) {
-      return fail(
-        c,
-        400,
-        "INVALID_SESSION_ID",
-        "sessionId가 올바르지 않습니다.",
-      );
-    }
+    const { sessionId, round: requestedRound = null } = c.req.valid("json");
 
     // ── 세션 소유권. 없는 세션과 남의 세션을 같은 응답으로 묶어 id 존재 여부가 새지
     //    않게 한다(RPC 단계 1과 같은 취지).
@@ -461,21 +451,6 @@ export const recommendTopics = userFactory
     );
     const nextRound = lastRound + 1;
 
-    const requestedRoundRaw = body.round;
-    let requestedRound: number | null = null;
-    if (
-      requestedRoundRaw !== undefined &&
-      requestedRoundRaw !== null &&
-      requestedRoundRaw !== ""
-    ) {
-      requestedRound = Number(requestedRoundRaw);
-      if (!Number.isInteger(requestedRound) || requestedRound < 1) {
-        return fail(c, 400, "INVALID_ROUND", "round 값이 올바르지 않습니다.", {
-          charged: false,
-        });
-      }
-    }
-
     if (requestedRound !== null && requestedRound <= lastRound) {
       // 이미 만든 라운드 재요청 = 모델 미호출·미차감 재생(replay).
       const replay = priorTopics
@@ -510,7 +485,7 @@ export const recommendTopics = userFactory
         charged: false,
         reused: true,
         maxRounds: MAX_ROUNDS,
-      });
+      } satisfies z.input<typeof recommendTopicsResponse>);
     }
 
     if (requestedRound !== null && requestedRound !== nextRound) {
@@ -1030,7 +1005,10 @@ export const recommendTopics = userFactory
       }
 
       const charged = credit.charged === true;
-      const quotaRemaining = credit.quota_remaining ?? null;
+      const quotaRemaining =
+        typeof credit.quota_remaining === "number"
+          ? credit.quota_remaining
+          : null;
 
       // ── 저장. 라운드당 3행이며 `(session_id, round, idx)` UNIQUE가 재시도로 인한
       //    중복 저장을 막는다(sql/54 1-4).
@@ -1088,7 +1066,7 @@ export const recommendTopics = userFactory
             STUDENT_HISTORY_PROMPT_LIMIT,
           ),
         },
-      });
+      } satisfies z.input<typeof recommendTopicsResponse>);
     } finally {
       scheduleAfterResponse(() => trace.flush(supabaseAdmin));
     }

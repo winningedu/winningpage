@@ -1089,7 +1089,8 @@ export default function PerformanceChatPage() {
         sessionId: activeSession.id,
       });
 
-      setTopics(Array.isArray(data?.topics) ? data.topics : []);
+      // 태그와 상세는 모델 산출물이라 스키마가 좁히지 않는다. 카드 컴포넌트가 Topic 으로 좁혀 읽는다.
+      setTopics(Array.isArray(data?.topics) ? (data.topics as Topic[]) : []);
       setTopicRound(Number(data?.round) || 1);
       if (Number(data?.maxRounds) > 0)
         setTopicMaxRounds(Number(data.maxRounds));
