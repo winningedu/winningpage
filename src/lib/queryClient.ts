@@ -7,10 +7,12 @@
 // 그래서 QueryClient를 컴포넌트가 아니라 모듈 top-level에 싱글턴으로 둔다
 // (routeMiddlewareCache.ts의 모듈 레벨 Map과 동일한 이유).
 import { QueryClient, queryOptions } from "@tanstack/react-query";
+import { bootstrapResponse } from "../../shared/performance/contract.js";
 import { apiFetch, getAuthHeader } from "./apiFetch";
 import { fetchEntitlement } from "./entitlement";
 import { fetchGoalStudent, fetchTodayGoalRecord } from "./goalApi";
-import { ApiError } from "./http/client";
+import { ApiError, api } from "./http/client";
+import { performanceRequest } from "./performance/apiClient";
 import { supabase } from "./supabase";
 
 // 4xx 는 다시 해도 같은 결과라 재시도하지 않는다. 그 밖의 에러는 한 번만 재시도한다.
@@ -259,14 +261,19 @@ export function performanceBootstrapQueryOptions(
 ) {
   return queryOptions({
     queryKey: ["performance", "bootstrap", userId] as const,
-    queryFn: async (): Promise<PerformanceBootstrapPayload> => {
-      const response = await apiFetch("/api/performance/bootstrap", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!response.ok) {
+    queryFn: async ({ signal }): Promise<PerformanceBootstrapPayload> => {
+      const result = await performanceRequest(
+        api
+          .get("performance/bootstrap", {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            signal,
+          })
+          .json(bootstrapResponse),
+      );
+      if (!result.ok) {
         throw new Error("performance-bootstrap-check-failed");
       }
-      return response.json();
+      return result.data;
     },
     staleTime: PERFORMANCE_BOOTSTRAP_STALE_MS,
     enabled: !!userId && !!accessToken,

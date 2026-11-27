@@ -55,7 +55,8 @@
 //    회차를 태우는 프롬프트를 클라이언트가 조작할 수 있었다. 여기서 바디로 받는 것은
 //    `sessionId`와 `round`뿐이고 나머지는 전부 세션 행에서 읽는다.
 
-import type { VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
+import { jsonObjectBody } from "../../../shared/performance/contract.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { generateWithRetry, PERFORMANCE_MODEL } from "../../_lib/ai/gemini.js";
 import {
@@ -64,8 +65,10 @@ import {
   validationOf,
 } from "../../_lib/ai/telemetry/performanceContext.js";
 import { createAiTrace } from "../../_lib/ai/telemetry/trace.js";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   formatRelevantStudentSessionsForPrompt,
   loadDynamicAssessmentKnowledge,
@@ -201,13 +204,13 @@ type TopicRow = {
 type ModelTopic = Record<string, unknown>;
 
 function fail(
-  res: VercelResponse,
+  c: Context,
   status: number,
   code: string,
   message: string,
   extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code, extra);
+  return problemResponse(c, status, message, code, extra);
 }
 
 /**
@@ -333,19 +336,17 @@ function toClientTopic(row: TopicRow) {
   };
 }
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+const guard = user({
   unhandledMessage: "주제 추천에 실패했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "performance/recommend-topics",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const userId = requireUserId(ctx);
+});
+
+export const recommendTopics = userFactory
+  .createApp()
+  .post("/", guard, validate("json", jsonObjectBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
 
     // ── 이용권 재판정(§8.6 공통 규약). 클라이언트 가드 통과 여부를 신뢰하지 않는다.
     //    회차 **잔여**는 여기서 보지 않는다 — 잔여 판정과 차감은 RPC가 한 트랜잭션에서
@@ -359,7 +360,7 @@ export default defineHandler({
       );
     if (!hasAccess) {
       return fail(
-        res,
+        c,
         403,
         "NO_ENTITLEMENT",
         "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
@@ -367,13 +368,13 @@ export default defineHandler({
       );
     }
 
-    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const body = c.req.valid("json");
     const sessionId =
       typeof body.sessionId === "string" ? body.sessionId.trim() : "";
 
     if (!UUID_RE.test(sessionId)) {
       return fail(
-        res,
+        c,
         400,
         "INVALID_SESSION_ID",
         "sessionId가 올바르지 않습니다.",
@@ -392,7 +393,7 @@ export default defineHandler({
     if (sessionError)
       throw new Error(`세션 조회 실패: ${sessionError.message}`);
     if (!sessionRowRaw) {
-      return fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.");
+      return fail(c, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.");
     }
 
     // `SESSION_COLUMNS`가 런타임 조립 문자열이라 supabase-js가 리터럴 파싱 기반 열
@@ -412,7 +413,7 @@ export default defineHandler({
 
     if (missingBasic) {
       return fail(
-        res,
+        c,
         400,
         "SESSION_INCOMPLETE",
         "기본 정보를 먼저 입력해 주세요.",
@@ -427,7 +428,7 @@ export default defineHandler({
     const assessmentText = readAssessmentText(sessionRow);
     if (!assessmentText) {
       return fail(
-        res,
+        c,
         400,
         "GUIDE_REQUIRED",
         "수행평가 안내문을 먼저 입력해 주세요.",
@@ -469,13 +470,9 @@ export default defineHandler({
     ) {
       requestedRound = Number(requestedRoundRaw);
       if (!Number.isInteger(requestedRound) || requestedRound < 1) {
-        return fail(
-          res,
-          400,
-          "INVALID_ROUND",
-          "round 값이 올바르지 않습니다.",
-          { charged: false },
-        );
+        return fail(c, 400, "INVALID_ROUND", "round 값이 올바르지 않습니다.", {
+          charged: false,
+        });
       }
     }
 
@@ -506,7 +503,7 @@ export default defineHandler({
         );
       }
 
-      res.status(200).json({
+      return c.json({
         round: requestedRound,
         topics: replay,
         quotaRemaining: quota.quotaRemaining,
@@ -514,12 +511,11 @@ export default defineHandler({
         reused: true,
         maxRounds: MAX_ROUNDS,
       });
-      return;
     }
 
     if (requestedRound !== null && requestedRound !== nextRound) {
       return fail(
-        res,
+        c,
         400,
         "INVALID_ROUND",
         "요청한 회차가 진행 상태와 맞지 않습니다.",
@@ -534,7 +530,7 @@ export default defineHandler({
     //    거부로 처리한다(§9.2 「과금과 남용 방지를 분리한다」).
     if (nextRound > MAX_ROUNDS) {
       return fail(
-        res,
+        c,
         409,
         "ROUND_LIMIT",
         `주제 추천은 최대 ${MAX_ROUNDS}회까지 받을 수 있어요.`,
@@ -583,7 +579,7 @@ export default defineHandler({
         );
         if (capped) {
           return fail(
-            res,
+            c,
             409,
             "QUOTA_EXHAUSTED",
             "이용 가능한 횟수를 모두 사용했어요.",
@@ -616,7 +612,7 @@ export default defineHandler({
 
         if (preQuota.quotaRemaining === 0) {
           return fail(
-            res,
+            c,
             409,
             "QUOTA_EXHAUSTED",
             "이용 가능한 횟수를 모두 사용했어요.",
@@ -640,7 +636,7 @@ export default defineHandler({
     const attemptCount = Number(sessionRow.topic_attempt_count) || 0;
     if (attemptCount >= MAX_MODEL_ATTEMPTS_PER_SESSION) {
       return fail(
-        res,
+        c,
         429,
         "TOPIC_ATTEMPT_LIMIT",
         "이 수행평가에서 주제 추천을 너무 여러 번 요청했어요. 잠시 후 새 수행평가로 다시 시작해 주세요.",
@@ -849,7 +845,7 @@ export default defineHandler({
               modelError,
             );
             return fail(
-              res,
+              c,
               503,
               "MODEL_UNAVAILABLE",
               "주제를 추천하지 못했어요. 잠시 후 다시 시도해 주세요.",
@@ -935,7 +931,7 @@ export default defineHandler({
           `performance/recommend-topics 계약 위반 확정: ${lastFailure}`,
         );
         return fail(
-          res,
+          c,
           422,
           "MODEL_CONTRACT_VIOLATION",
           "주제를 정리하지 못했어요. 다시 시도해 주세요.",
@@ -962,7 +958,7 @@ export default defineHandler({
           "performance/recommend-topics 차감 RPC 실패:",
           creditError,
         );
-        return fail(res, 500, "INTERNAL", "주제 추천 처리에 실패했습니다.");
+        return fail(c, 500, "INTERNAL", "주제 추천 처리에 실패했습니다.");
       }
 
       const credit = (
@@ -974,7 +970,7 @@ export default defineHandler({
         // §5.20 (B) 인라인 소진 카드가 이 응답을 받아 AiLoadingBubble을 대체한다.
         // 표현은 사용량이 아니라 **잔여량** 기준이다(§9.3 「소진 응답 계약」).
         return fail(
-          res,
+          c,
           409,
           "QUOTA_EXHAUSTED",
           "이용 가능한 횟수를 모두 사용했어요.",
@@ -989,7 +985,7 @@ export default defineHandler({
 
       if (creditStatus === "no_entitlement") {
         return fail(
-          res,
+          c,
           403,
           "NO_ENTITLEMENT",
           "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
@@ -1004,7 +1000,7 @@ export default defineHandler({
         // RPC가 돌려주는 5번째 상태다(sql/54 (4) 단계 6). 이용권 기간 만료·환불·정지는
         // "권한 없음"과 원인이 다르므로 코드를 갈라 §5.20이 다른 문구를 쓸 수 있게 한다.
         return fail(
-          res,
+          c,
           403,
           "ENTITLEMENT_EXPIRED",
           "이용권 사용 기간이 끝났어요.",
@@ -1017,7 +1013,7 @@ export default defineHandler({
       }
 
       if (creditStatus === "session_not_found") {
-        return fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
+        return fail(c, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
           charged: false,
         });
       }
@@ -1030,7 +1026,7 @@ export default defineHandler({
           "performance/recommend-topics 알 수 없는 차감 상태:",
           creditStatus,
         );
-        return fail(res, 500, "INTERNAL", "주제 추천 처리에 실패했습니다.");
+        return fail(c, 500, "INTERNAL", "주제 추천 처리에 실패했습니다.");
       }
 
       const charged = credit.charged === true;
@@ -1073,7 +1069,7 @@ export default defineHandler({
         );
       }
 
-      res.status(200).json({
+      return c.json({
         round: nextRound,
         topics: (insertedRows || [])
           .sort((a, b) => a.idx - b.idx)
@@ -1096,20 +1092,5 @@ export default defineHandler({
     } finally {
       scheduleAfterResponse(() => trace.flush(supabaseAdmin));
     }
-  },
-});
-
-// ── 실행 시간 (형제 라우트와 동일)
-//    `MODEL_TIMEOUT_MS`(50초)는 **`maxDuration: 60`을 전제로 잡은 총 예산**이다. 이 선언이
-//    없으면 Fluid compute가 꺼진 프로젝트의 기본 실행시간(Hobby 10초 / Pro 15초)이 적용돼
-//    50초 AbortController는 발화조차 못 하고 플랫폼이 먼저 함수를 죽인다. 그러면
-//      ① gemini-2.5-flash가 주제 3건 × 6섹션 장문을 만드는 **통상 경로**가 본문 없는 504로
-//         끊겨 `src/lib/performance/topics.js`의 `response.json().catch(()=>null)`이 null이
-//         되고 code='UNKNOWN'으로 떨어진다 — 원인이 사용자에게도 로그에도 남지 않는다.
-//      ② 모델이 14초대에 돌아온 경우가 더 나쁘다. `consume_performance_credit`은 자체
-//         트랜잭션으로 이미 커밋됐는데 직후 `performance_topics` INSERT나 응답 직렬화 중
-//         함수가 죽으면 사용자는 **차감만 당하고 주제 0건 + 504**를 받는다(재시도하면
-//         `already_charged`로 복구되지만, 상단 주석이 계약이라 선언한 "플랫폼이 함수를
-//         죽이기 전에 우리가 응답을 만들어 돌려준다"가 성립하지 않는다).
-//    `analyze-guide.js` / `admin-embed.js` / `cleanup-attachments.js`와 같은 60초를 쓴다.
-export const config = { runtime: "nodejs", maxDuration: 60 };
+  })
+  .all("/", methodNotAllowed("POST"));

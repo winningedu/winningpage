@@ -7,10 +7,4 @@ export const routes: Record<string, RouteLoader> = {
   "inquiry/evaluate-report": () => import("./inquiry/evaluate-report.js"),
   "inquiry/plan-report": () => import("./inquiry/plan-report.js"),
   "inquiry/recommend-topics": () => import("./inquiry/recommend-topics.js"),
-  "performance/admin-embed": () => import("./performance/admin-embed.js"),
-  "performance/analyze-guide": () => import("./performance/analyze-guide.js"),
-  "performance/design-report": () => import("./performance/design-report.js"),
-  "performance/evaluate": () => import("./performance/evaluate.js"),
-  "performance/recommend-topics": () =>
-    import("./performance/recommend-topics.js"),
 };

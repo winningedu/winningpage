@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { requestDesignReport } from "./designReport";
 import { finalizeSubmission, requestEvaluation } from "./evaluation";
 import { recommendTopics } from "./topics";
@@ -6,11 +7,53 @@ import { recommendTopics } from "./topics";
 const siteState = vi.hoisted(() => ({ tenantServiceGate: false }));
 vi.mock("@/config/site", () => ({ site: { features: siteState } }));
 
-const fetchMock = vi.hoisted(() => vi.fn());
-vi.mock("./apiClient", () => ({
-  AI_CALL_TIMEOUT_MS: 1,
-  fetchWithTimeout: fetchMock,
+// ky 클라이언트(@/lib/http/client)는 세션의 토큰을 supabase 에서 읽는다. 진짜 ky 와 계약 스키마를 쓰고 fetch 만 가짜로 바꾼다.
+vi.mock("../supabase", () => ({
+  supabase: {
+    auth: {
+      getSession: async () => ({
+        data: { session: { user: { id: "u1" }, access_token: "tok" } },
+      }),
+    },
+  },
 }));
+
+const fetchMock = vi.hoisted(() => vi.fn());
+
+beforeEach(() => {
+  fetchMock.mockReset();
+  // Node 의 Request 는 상대 URL 을 해석하지 못해서 브라우저처럼 문서 주소 기준으로 풀어 준다.
+  const NodeRequest = Request;
+  vi.stubGlobal(
+    "Request",
+    class extends NodeRequest {
+      constructor(input: RequestInfo | URL, init?: RequestInit) {
+        super(
+          typeof input === "string" ? new URL(input, location.href) : input,
+          init,
+        );
+      }
+    },
+  );
+  vi.stubGlobal("fetch", (request: Request) => fetchMock(request));
+});
+afterEach(() => vi.unstubAllGlobals());
+
+/** 서버의 problem 실패 응답. 부를 때마다 새 Response 를 만든다(본문은 한 번만 읽힌다). */
+function failWithProblem(status: number, body: Record<string, unknown>) {
+  fetchMock.mockImplementation(
+    async () =>
+      new Response(
+        JSON.stringify({
+          type: "about:blank",
+          title: "Error",
+          status,
+          ...body,
+        }),
+        { status, headers: { "content-type": "application/problem+json" } },
+      ),
+  );
+}
 
 const BUY = "유료 이용권을 결제하신 뒤 이용할 수 있습니다.";
 const DISABLED = "기관에서 제공하지 않는 서비스예요.";
@@ -32,18 +75,11 @@ const calls = {
 };
 
 function deny(extra: object = {}) {
-  fetchMock.mockResolvedValue({
-    ok: false,
-    json: async () => ({
-      error: { code: "NO_ENTITLEMENT", message: BUY },
-      ...extra,
-    }),
-  });
+  failWithProblem(403, { code: "NO_ENTITLEMENT", detail: BUY, ...extra });
 }
 
 beforeEach(() => {
   siteState.tenantServiceGate = false;
-  fetchMock.mockReset();
 });
 
 describe.each(Object.entries(calls))("%s 이용권 거부 문구", (_name, call) => {

@@ -21,6 +21,8 @@ const ADMIN_AUTH_ALLOWLIST: Record<string, ReturnType<typeof routeAuth>> = {
   "/api/admin/me/permissions": { auth: "admin", permission: "none" },
   // 초대받은 사람은 아직 관리자가 아니라 본인 행을 활성화할 때 user() 로 인증한다(admin/me.ts).
   "/api/admin/me/activate": { auth: "user" },
+  // 수행평가 지식 임베딩. 예전 defineHandler 도 관리자 판정만 하고 메뉴 권한을 보지 않았다(performance/admin-embed.ts).
+  "/api/performance/admin-embed": { auth: "admin", permission: "none" },
 };
 
 // 경로 패턴을 실제 주소로. 값은 검증 전에 끝나는 검사(405, rewrite)에만 쓰므로 아무 글자나 된다.
@@ -50,7 +52,8 @@ describe("라우트 표", () => {
     for (const route of methodRoutes) {
       if (
         !route.path.startsWith("/api/admin/") &&
-        !route.path.startsWith("/api/goal/admin/")
+        !route.path.startsWith("/api/goal/admin/") &&
+        !(route.path in ADMIN_AUTH_ALLOWLIST)
       ) {
         continue;
       }
@@ -122,6 +125,11 @@ const MIGRATED_60: string[] = [
   "/api/admin/knowledge-eval",
   "/api/admin/premium-book/apply",
   "/api/goal/admin/cuts/backfill",
+  "/api/performance/admin-embed",
+  "/api/performance/analyze-guide",
+  "/api/performance/design-report",
+  "/api/performance/evaluate",
+  "/api/performance/recommend-topics",
   "/api/selfeval/analyze",
   "/api/selfeval/finalize",
   "/api/selfeval/manual-logs",

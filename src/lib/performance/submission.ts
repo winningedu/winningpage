@@ -34,7 +34,12 @@
 // 거절"이 생긴다(§8.3 「시안 카운터와 동일 계산식 공유」). `submission-chars.js`는 의존이
 // 0인 잎 모듈이라 브라우저 번들에 들어가도 서버 코드를 끌고 오지 않는다 — 그 파일 상단
 // 주석이 "import를 추가하지 마라"로 그 성질을 계약으로 못박고 있다.
-import { apiFetch } from "../apiFetch";
+import {
+  submissionFormResponse,
+  submissionSaveResponse,
+} from "../../../shared/performance/contract.js";
+import { api } from "../http/client";
+import { type PerformanceResult, performanceRequest } from "./apiClient";
 
 export {
   checkFieldsMinLength,
@@ -132,14 +137,11 @@ function pickSaved(data: any): SavedState | null {
   };
 }
 
-// data: response.json() 파싱 결과 — 에러 코드별로 부가 필드가 달라 any로 둔다.
-function toError(data: any, response: Response | undefined) {
-  const code =
-    data?.error?.code ||
-    (response?.status === 401 ? "UNAUTHENTICATED" : "UNKNOWN");
+function toError(failure: Extract<PerformanceResult<unknown>, { ok: false }>) {
+  const { code, extra: data } = failure;
   return new SubmissionError(
     code,
-    data?.error?.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
+    failure.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
     {
       saved: pickSaved(data),
       missingRequired: Array.isArray(data?.missingRequired)
@@ -165,12 +167,17 @@ export async function fetchSubmissionForm({
   accessToken: string;
   sessionId: string;
 }) {
-  let response: Response;
+  // biome-ignore lint/suspicious/noExplicitAny: 화면이 스키마와 초안을 필드마다 좁혀 읽는다(예전 data 와 같다)
+  let result: PerformanceResult<any>;
 
   try {
-    response = await apiFetch(
-      `/api/performance/submission?sessionId=${encodeURIComponent(sessionId)}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+    result = await performanceRequest(
+      api
+        .get("performance/submission", {
+          searchParams: { sessionId },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        .json(submissionFormResponse),
     );
   } catch (error) {
     const wrapped = new SubmissionError("NETWORK", NETWORK_ERROR);
@@ -178,10 +185,9 @@ export async function fetchSubmissionForm({
     throw wrapped;
   }
 
-  const data = await response.json().catch(() => null);
-  if (!response.ok) throw toError(data, response);
+  if (!result.ok) throw toError(result);
 
-  return data;
+  return result.data;
 }
 
 /**
@@ -205,25 +211,25 @@ export async function saveSubmission({
   fields: Record<string, string>;
   mode: "draft" | "submit";
 }) {
-  let response: Response;
+  // biome-ignore lint/suspicious/noExplicitAny: 저장 응답은 화면이 필드마다 좁혀 읽는다(예전 data 와 같다)
+  let result: PerformanceResult<any>;
 
   try {
-    response = await apiFetch("/api/performance/submission", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ sessionId, fields, mode }),
-    });
+    result = await performanceRequest(
+      api
+        .put("performance/submission", {
+          json: { sessionId, fields, mode },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        .json(submissionSaveResponse),
+    );
   } catch (error) {
     const wrapped = new SubmissionError("NETWORK", NETWORK_ERROR);
     wrapped.cause = error;
     throw wrapped;
   }
 
-  const data = await response.json().catch(() => null);
-  if (!response.ok) throw toError(data, response);
+  if (!result.ok) throw toError(result);
 
-  return data;
+  return result.data;
 }

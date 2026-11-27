@@ -10,7 +10,7 @@
 //   [3] 차감 부재        — 3파일 + 구 sql/58 스키마 조각 어디에도 차감 경로가
 //       없는가(§9.3, §12.4)
 //   [4] 계약 코드 커버   — §8.6이 정의한 실패 코드가 각 파일에 실재하는가
-//   [5] 실패 응답 형태   — `{error:{code,message}}`만 쓰고 외부식 `detail`/
+//   [5] 실패 응답 형태   — problem(RFC 9457) 공용 헬퍼만 쓰고 외부식 `detail`/
 //       `error_message`가 응답 본문에 실리지 않는가(§8.6 L1811)
 //   [6] 구 sql/58 불변식 — 부분 UNIQUE 2종 / rag_use 승격 2지점 / EXECUTE 회수 /
 //       멱등 분기(already_final · already_finalized_other)
@@ -294,10 +294,14 @@ describe("[4] §8.6 엔드포인트 표 실패 코드", () => {
   test("evaluate.ts — score는 서버가 파싱(ⓐ)", () => {
     expect(EVALUATE_API.includes("parseEvaluationScore")).toBe(true);
   });
-  test("evaluate.ts — maxDuration 60 선언", () => {
-    expect(EVALUATE_API.includes('runtime: "nodejs", maxDuration: 60')).toBe(
-      true,
+  test("evaluate 는 60초 진입 함수(/api/app-60)로 간다", () => {
+    const { rewrites } = JSON.parse(read("vercel.json")) as {
+      rewrites: { source: string; destination: string }[];
+    };
+    const hit = rewrites.find(({ source }) =>
+      new RegExp(`^${source}$`).test("/api/performance/evaluate"),
     );
+    expect(hit?.destination).toBe("/api/app-60");
   });
   // 평가 직후 즉시 임베딩(고객사 안내 5번). 커밋이 committed 로 확정된 뒤에만, 그리고
   // 벡터 메타 upsert 가 성공했을 때만 응답 뒤 작업으로 예약한다.
@@ -336,19 +340,15 @@ describe("[4] §8.6 엔드포인트 표 실패 코드", () => {
 // ─────────────────────────────────────────────────────────────────────
 // [5] 실패 응답 형태 (§8.6 L1811)
 // ─────────────────────────────────────────────────────────────────────
-// 2026-08-24 api/ 공통 HTTP 계층 리팩토링(#166) 이후 3파일 모두 로컬 literal이
-// 아니라 `_lib/httpResponse.ts`의 `sendError(res, "coded", ...)`로
-// `{error:{code,message}}` 형태를 만든다. 형태 자체(리터럴)는 공유 라이브러리
-// 쪽에서, "이 3파일이 그 프리셋을 쓴다"는 파일 쪽에서 검증해 명제를 보존한다.
+// 3파일은 Hono 로 옮긴 뒤 로컬 fail() 이 api/_lib/hono/problem.ts 의 problemResponse 에 위임해
+// problem(RFC 9457) 본문을 만든다. 본문 모양(detail 은 라우트가 넘긴 문구, code 는 항상 있다)은 공유 헬퍼
+// problemBody 쪽에서, "이 3파일이 그 헬퍼를 쓴다"는 파일 쪽에서 검증해 명제를 보존한다.
 const HTTP_RESPONSE_LIB = read("api/_lib/httpResponse.ts");
 
 describe("[5] 실패 응답에 원 예외 메시지를 싣지 않는다", () => {
-  test("_lib/httpResponse.ts의 coded 프리셋이 {error:{code,message}} 형태다", () => {
-    expect(
-      /case "coded":\s*res\.status\(status\)\.json\(\{ error: \{ code, message \}, \.\.\.\(extra \|\| \{\}\) \}\);/.test(
-        HTTP_RESPONSE_LIB,
-      ),
-    ).toBe(true);
+  test("_lib/httpResponse.ts의 problemBody 가 라우트 문구를 detail 로, code 를 항상 싣는다", () => {
+    expect(HTTP_RESPONSE_LIB).toContain("detail: message,");
+    expect(HTTP_RESPONSE_LIB).toContain('code: code || "INTERNAL_ERROR",');
   });
 
   test.each([
@@ -356,11 +356,12 @@ describe("[5] 실패 응답에 원 예외 메시지를 싣지 않는다", () => 
     ["evaluate.ts", EVALUATE_API, EVALUATE_CODE],
     ["finalize.ts", FINALIZE_API, FINALIZE_CODE],
   ])(
-    "%s — error:{code,message} 형태(리터럴 또는 sendError coded 위임) / detail·error_message 키 없음 / error.message 미노출",
+    "%s — problemResponse 위임 / detail·error_message 키 없음 / error.message 미노출",
     (_name, source, code) => {
       expect(
-        source.includes("error: { code, message }") ||
-          /sendError\([^)]*"coded"/.test(source),
+        source.includes(
+          "return problemResponse(c, status, message, code, extra);",
+        ),
       ).toBe(true);
       expect(/\b(detail|error_message)\s*:/.test(code)).toBe(false);
       expect(/return\s+fail\([^)]*error\.message/.test(code)).toBe(false);

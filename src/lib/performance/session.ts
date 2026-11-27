@@ -8,7 +8,9 @@
 //   실패  400 INVALID_SESSION_ID · 401 UNAUTHENTICATED · 403 NO_ENTITLEMENT/
 //         NOT_SESSION_OWNER · 500 INTERNAL
 
-import { apiFetch } from "../apiFetch";
+import { sessionDetailResponse } from "../../../shared/performance/contract.js";
+import { api } from "../http/client";
+import { type PerformanceResult, performanceRequest } from "./apiClient";
 
 const NETWORK_ERROR =
   "네트워크 오류가 발생했어요. 연결을 확인하고 다시 시도해 주세요.";
@@ -54,14 +56,21 @@ export async function fetchSessionDetail({
   round: number;
   maxRounds: number;
 }> {
-  let response: Response;
+  let result: PerformanceResult<{
+    session: unknown;
+    topics: unknown[];
+    round: number;
+    maxRounds: number;
+  }>;
 
   try {
-    response = await apiFetch(
-      `/api/performance/session?sessionId=${encodeURIComponent(sessionId)}`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      },
+    result = await performanceRequest(
+      api
+        .get("performance/session", {
+          searchParams: { sessionId },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        .json(sessionDetailResponse),
     );
   } catch (error) {
     const wrapped = new SessionDetailError("NETWORK", NETWORK_ERROR);
@@ -69,15 +78,13 @@ export async function fetchSessionDetail({
     throw wrapped;
   }
 
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const code = data?.error?.code || "UNKNOWN";
+  if (!result.ok) {
+    const { code } = result;
     throw new SessionDetailError(
       code,
-      data?.error?.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
+      result.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
     );
   }
 
-  return data;
+  return result.data;
 }

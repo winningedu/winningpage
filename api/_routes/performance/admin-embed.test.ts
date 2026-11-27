@@ -1,14 +1,13 @@
 // POST /api/performance/admin-embed 오류 계약. problem 형식이고 메뉴 권한은 요구하지 않는다
 // (지식 DB 일괄 반영 화면의 backfill 도 같은 경로를 쓴다).
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
 } from "../../_lib/console/consoleTestKit.js";
+import { callHandler } from "../../_lib/tenantRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
@@ -20,16 +19,10 @@ vi.mock("../../_lib/afterResponse.js", () => ({
   scheduleAfterResponse: () => {},
 }));
 
-import handler from "./admin-embed.js";
+import { app } from "../app.js";
 
 const call = (body: unknown) =>
-  callHandler(
-    handler as unknown as (
-      req: VercelRequest,
-      res: VercelResponse,
-    ) => Promise<void>,
-    body,
-  );
+  callHandler({ app, path: "/api/performance/admin-embed" }, body);
 
 beforeEach(() => {
   kit.state = createKitState();

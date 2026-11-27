@@ -46,10 +46,11 @@
 //    평가했는지는 `evaluation.submissionId`/`evaluation.revision`으로 프론트가
 //    매칭한다(추가 조인 없이 봉투에 이미 들어있는 값, evaluate.js `buildReportEnvelope`).
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
 import type { Json } from "../../../src/types/database.types.js";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
 import {
   hasPaidServiceAccess,
   SERVICE_CONFIGS,
@@ -161,13 +162,13 @@ type SubmissionRow = {
 };
 
 function fail(
-  res: VercelResponse,
+  c: Context,
   status: number,
   code: string,
   message: string,
   extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code, extra);
+  return problemResponse(c, status, message, code, extra);
 }
 
 function toListItem(row: ListRow) {
@@ -262,23 +263,21 @@ function toSubmission(row: SubmissionRow) {
 }
 
 async function handleList(
-  req: VercelRequest,
-  res: VercelResponse,
+  c: Context<UserEnv>,
   supabaseAdmin: ReturnType<typeof createSupabaseAdmin>,
   userId: string,
 ) {
-  const rawLimit = parseInt(String(req.query.limit ?? ""), 10);
+  const rawLimit = parseInt(c.req.query("limit") ?? "", 10);
   const limit = Number.isInteger(rawLimit)
     ? Math.min(Math.max(rawLimit, 1), LIST_LIMIT_MAX)
     : LIST_LIMIT_DEFAULT;
 
-  const cursor =
-    typeof req.query.cursor === "string" ? req.query.cursor.trim() : "";
+  const cursor = (c.req.query("cursor") ?? "").trim();
   let cursorIso: string | null = null;
   if (cursor) {
     const cursorDate = new Date(cursor);
     if (Number.isNaN(cursorDate.getTime())) {
-      return fail(res, 400, "INVALID_CURSOR", "cursor가 올바르지 않습니다.");
+      return fail(c, 400, "INVALID_CURSOR", "cursor가 올바르지 않습니다.");
     }
     cursorIso = cursorDate.toISOString();
   }
@@ -294,7 +293,7 @@ async function handleList(
 
   const ownedSessionIds = (ownedSessions || []).map((row) => row.id);
   if (!ownedSessionIds.length) {
-    return res.status(200).json({ items: [], nextCursor: null });
+    return c.json({ items: [], nextCursor: null });
   }
 
   let viewQuery = supabaseAdmin
@@ -323,23 +322,17 @@ async function handleList(
   // hasMore가 true면 slice(0, limit)로 최소 1개(limit>=1)가 남아 있다.
   const nextCursor = hasMore ? items[items.length - 1]!.updatedAt : null;
 
-  return res.status(200).json({ items, nextCursor });
+  return c.json({ items, nextCursor });
 }
 
 async function handleDetail(
-  _req: VercelRequest,
-  res: VercelResponse,
+  c: Context<UserEnv>,
   supabaseAdmin: ReturnType<typeof createSupabaseAdmin>,
   userId: string,
   sessionId: string,
 ) {
   if (!UUID_RE.test(sessionId)) {
-    return fail(
-      res,
-      400,
-      "INVALID_SESSION_ID",
-      "sessionId가 올바르지 않습니다.",
-    );
+    return fail(c, 400, "INVALID_SESSION_ID", "sessionId가 올바르지 않습니다.");
   }
 
   // ── 세션 소유권. 없는 세션과 남의 세션을 같은 응답으로 묶어 id 존재 여부가
@@ -353,7 +346,7 @@ async function handleDetail(
 
   if (sessionError) throw new Error(`세션 조회 실패: ${sessionError.message}`);
   if (!sessionRow) {
-    return fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.");
+    return fail(c, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.");
   }
 
   // `SESSION_COLUMNS`가 런타임 조립 문자열이라 supabase-js가 리터럴 파싱 기반
@@ -398,7 +391,7 @@ async function handleDetail(
   if (submissionsError)
     throw new Error(`제출본 조회 실패: ${submissionsError.message}`);
 
-  return res.status(200).json({
+  return c.json({
     session: {
       sessionId: session.id,
       status: session.status,
@@ -419,21 +412,19 @@ async function handleDetail(
   });
 }
 
-export default defineHandler({
-  methods: ["GET"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "GET만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+const guard = user({
   unhandledMessage: "저장 리포트를 불러오지 못했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "performance/reports",
   // 개인화된 저장 산출물 응답이다. 중간 캐시에 남으면 다른 사용자에게 새어 나갈 수
   // 있으므로 저장 자체를 금지한다(bootstrap.js와 동일).
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const userId = requireUserId(ctx);
+});
+
+export const reports = userFactory
+  .createApp()
+  .get("/", guard, async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
 
     // ── 이용권 재판정. 클라이언트 가드 통과 여부는 신뢰하지 않는다(§8.6 공통 규약).
     const { allowed: hasAccess, reason: accessReason } =
@@ -445,7 +436,7 @@ export default defineHandler({
       );
     if (!hasAccess) {
       return fail(
-        res,
+        c,
         403,
         "NO_ENTITLEMENT",
         "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
@@ -453,17 +444,12 @@ export default defineHandler({
       );
     }
 
-    const sessionId =
-      typeof req.query.sessionId === "string" ? req.query.sessionId.trim() : "";
+    const sessionId = (c.req.query("sessionId") ?? "").trim();
 
     if (sessionId) {
-      await handleDetail(req, res, supabaseAdmin, userId, sessionId);
-      return;
+      return handleDetail(c, supabaseAdmin, userId, sessionId);
     }
 
-    await handleList(req, res, supabaseAdmin, userId);
-  },
-});
-
-// 실행 시간: 모델을 부르지 않으므로 형제 라우트의 `maxDuration: 60`이 필요 없다.
-export const config = { runtime: "nodejs" };
+    return handleList(c, supabaseAdmin, userId);
+  })
+  .all("/", methodNotAllowed("GET"));

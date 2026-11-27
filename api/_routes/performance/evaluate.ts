@@ -84,7 +84,8 @@
 //   그리고 **텍스트 파서 폴백을 만들지 않는다**(§8.4, §12.4가 `index.html:1769-1851`
 //   전량을 폐기로 지정). 이 파일의 유일한 파싱은 `JSON.parse` 한 줄이다.
 
-import type { VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
+import { jsonObjectBody } from "../../../shared/performance/contract.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { generateWithRetry, PERFORMANCE_MODEL } from "../../_lib/ai/gemini.js";
 import {
@@ -93,8 +94,10 @@ import {
   validationOf,
 } from "../../_lib/ai/telemetry/performanceContext.js";
 import { createAiTrace } from "../../_lib/ai/telemetry/trace.js";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   guideTextFromSession,
   inferGuideStructure,
@@ -226,13 +229,13 @@ type ReportRow = {
 type EvaluationPayload = Record<string, unknown>;
 
 function fail(
-  res: VercelResponse,
+  c: Context,
   status: number,
   code: string,
   message: string,
   extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code, extra);
+  return problemResponse(c, status, message, code, extra);
 }
 
 const trimmed = (value: unknown): string => String(value ?? "").trim();
@@ -444,19 +447,17 @@ function toClientReport(reportRow: ReportRow | null | undefined) {
   };
 }
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+const guard = user({
   unhandledMessage: "평가 리포트 생성에 실패했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "performance/evaluate",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const userId = requireUserId(ctx);
+});
+
+export const evaluate = userFactory
+  .createApp()
+  .post("/", guard, validate("json", jsonObjectBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
 
     // 아래 본문 처리 중 던져지는 예외는 원래(마이그레이션 전)와 동일하게
     // `{charged:false}` extra를 실은 채 500으로 응답해야 한다 — 공통
@@ -475,7 +476,7 @@ export default defineHandler({
         );
       if (!hasAccess) {
         return fail(
-          res,
+          c,
           403,
           "NO_ENTITLEMENT",
           "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
@@ -483,7 +484,7 @@ export default defineHandler({
         );
       }
 
-      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const body = c.req.valid("json");
       const sessionId =
         typeof body.sessionId === "string" ? body.sessionId.trim() : "";
       const submissionId =
@@ -492,7 +493,7 @@ export default defineHandler({
 
       if (!UUID_RE.test(sessionId)) {
         return fail(
-          res,
+          c,
           400,
           "INVALID_SESSION_ID",
           "sessionId가 올바르지 않습니다.",
@@ -501,7 +502,7 @@ export default defineHandler({
       }
       if (!UUID_RE.test(submissionId)) {
         return fail(
-          res,
+          c,
           400,
           "INVALID_SUBMISSION_ID",
           "submissionId가 올바르지 않습니다.",
@@ -520,7 +521,7 @@ export default defineHandler({
       if (sessionError)
         throw new Error(`세션 조회 실패: ${sessionError.message}`);
       if (!sessionRowRaw) {
-        return fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
+        return fail(c, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
           charged: false,
         });
       }
@@ -545,7 +546,7 @@ export default defineHandler({
         throw new Error(`제출본 조회 실패: ${submissionError.message}`);
       if (!submissionRow) {
         return fail(
-          res,
+          c,
           404,
           "SUBMISSION_NOT_IN_SESSION",
           "이 수행평가의 제출물이 아니에요.",
@@ -574,7 +575,7 @@ export default defineHandler({
       ) {
         const quota = await readQuota(supabaseAdmin, userId);
 
-        res.status(200).json({
+        return c.json({
           report: toClientReport(existingReport),
           submissionId: submissionRow.id,
           submissionRevision: submissionRow.revision,
@@ -584,7 +585,6 @@ export default defineHandler({
           evaluationCount: Number(sessionRow.evaluation_count) || 0,
           maxEvaluations: MAX_EVALUATIONS,
         });
-        return;
       }
 
       // ── 게이트 ③ 차감된 세션인가. `performance_credit_ledger.session_id`가 UNIQUE라
@@ -597,7 +597,7 @@ export default defineHandler({
       );
       if (!charged.has(sessionRow.id)) {
         return fail(
-          res,
+          c,
           409,
           "SESSION_NOT_CHARGED",
           "주제 추천을 먼저 받아 주세요.",
@@ -624,7 +624,7 @@ export default defineHandler({
         throw new Error(`설계 리포트 조회 실패: ${designError.message}`);
       if (!designReport) {
         return fail(
-          res,
+          c,
           400,
           "SESSION_INCOMPLETE",
           "설계 리포트를 먼저 받아 주세요.",
@@ -651,13 +651,13 @@ export default defineHandler({
       // ── 게이트 ⑤ 제출물 게이트(§8.6 400 3종). 상한 게이트보다 **먼저** 본다 —
       //    형식 미달 요청이 재평가 슬롯을 태우면 안 된다.
       if (gate.total === 0) {
-        return fail(res, 400, "EMPTY_SUBMISSION", EMPTY_SUBMISSION_MESSAGE, {
+        return fail(c, 400, "EMPTY_SUBMISSION", EMPTY_SUBMISSION_MESSAGE, {
           charged: false,
         });
       }
       if (gate.missingRequired.length) {
         return fail(
-          res,
+          c,
           400,
           "REQUIRED_FIELD_EMPTY",
           "필수 항목을 모두 작성해 주세요.",
@@ -671,7 +671,7 @@ export default defineHandler({
       if (gate.total < gate.threshold) {
         // 문구는 원문 그대로다(`evaluate-text.js:39`).
         return fail(
-          res,
+          c,
           400,
           "SUBMISSION_TOO_SHORT",
           SUBMISSION_TOO_SHORT_MESSAGE,
@@ -693,7 +693,7 @@ export default defineHandler({
       const evaluationCount = Number(sessionRow.evaluation_count) || 0;
       if (evaluationCount >= MAX_EVALUATIONS) {
         return fail(
-          res,
+          c,
           409,
           "REEVALUATION_LIMIT",
           `평가는 최대 ${MAX_REEVALUATIONS}번까지 다시 받을 수 있어요.`,
@@ -711,7 +711,7 @@ export default defineHandler({
       const attemptCount = Number(sessionRow.evaluation_attempt_count) || 0;
       if (attemptCount >= MAX_MODEL_ATTEMPTS_PER_SESSION) {
         return fail(
-          res,
+          c,
           429,
           "EVALUATION_ATTEMPT_LIMIT",
           "이 수행평가에서 평가를 너무 여러 번 요청했어요. 잠시 후 새 수행평가로 다시 시작해 주세요.",
@@ -749,7 +749,7 @@ export default defineHandler({
         // 경합에서 졌다 — 모델을 부르지 않고 끝낸다. 여기서 그냥 진행하면 상한이
         // 있으나 마나가 된다(위 ⚠️).
         return fail(
-          res,
+          c,
           429,
           "EVALUATION_ATTEMPT_LIMIT",
           "평가 요청이 이미 진행 중이에요. 잠시 후 다시 시도해 주세요.",
@@ -885,7 +885,7 @@ export default defineHandler({
               // 다른 점이며, 계약 표를 따른 결과다). **무차감**.
               console.error("performance/evaluate 모델 호출 실패:", modelError);
               return fail(
-                res,
+                c,
                 502,
                 "MODEL_FAILED",
                 "평가 리포트를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
@@ -967,7 +967,7 @@ export default defineHandler({
           // 재시도까지 실패. **무차감**이고 제출본 상태도 그대로다(RPC를 부르지 않았다).
           console.error(`performance/evaluate 계약 위반 확정: ${lastFailure}`);
           return fail(
-            res,
+            c,
             502,
             "MODEL_FAILED",
             "평가 리포트를 정리하지 못했어요. 다시 시도해 주세요.",
@@ -1045,15 +1045,9 @@ export default defineHandler({
 
         if (commitError) {
           console.error("performance/evaluate 커밋 RPC 실패:", commitError);
-          return fail(
-            res,
-            500,
-            "INTERNAL",
-            "평가 리포트 저장에 실패했습니다.",
-            {
-              charged: false,
-            },
-          );
+          return fail(c, 500, "INTERNAL", "평가 리포트 저장에 실패했습니다.", {
+            charged: false,
+          });
         }
 
         const commit =
@@ -1063,19 +1057,13 @@ export default defineHandler({
         // 소유권은 위에서 이미 확인했으므로 아래 두 상태는 경합(세션·제출본이 그 사이에
         // 지워짐)에서만 나온다. RPC가 판정 권위를 갖는 지점이라 그대로 전달한다.
         if (commitStatus === "session_not_found") {
-          return fail(
-            res,
-            403,
-            "NOT_SESSION_OWNER",
-            "세션을 찾을 수 없습니다.",
-            {
-              charged: false,
-            },
-          );
+          return fail(c, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
+            charged: false,
+          });
         }
         if (commitStatus === "submission_not_in_session") {
           return fail(
-            res,
+            c,
             404,
             "SUBMISSION_NOT_IN_SESSION",
             "이 수행평가의 제출물이 아니에요.",
@@ -1089,20 +1077,14 @@ export default defineHandler({
             "performance/evaluate 알 수 없는 커밋 상태:",
             commitStatus,
           );
-          return fail(
-            res,
-            500,
-            "INTERNAL",
-            "평가 리포트 저장에 실패했습니다.",
-            {
-              charged: false,
-            },
-          );
+          return fail(c, 500, "INTERNAL", "평가 리포트 저장에 실패했습니다.", {
+            charged: false,
+          });
         }
 
         const quota = await readQuota(supabaseAdmin, userId);
 
-        res.status(200).json({
+        const response = c.json({
           report: {
             id: commit.report_id,
             sections,
@@ -1142,33 +1124,16 @@ export default defineHandler({
             await instantTrace.flush(supabaseAdmin);
           });
         }
+        return response;
       } finally {
         scheduleAfterResponse(() => trace.flush(supabaseAdmin));
       }
     } catch (error) {
       // 원 예외 메시지를 응답에 싣지 않는다(§8.6 공통 규약 「실패 응답」).
       console.error("performance/evaluate error:", error);
-      return fail(res, 500, "INTERNAL", "평가 리포트 생성에 실패했습니다.", {
+      return fail(c, 500, "INTERNAL", "평가 리포트 생성에 실패했습니다.", {
         charged: false,
       });
     }
-  },
-});
-
-// ─────────────────────────────────────────────────────────────────────
-// 실패 경로별 잔여 상태 (전부 무차감)
-// ─────────────────────────────────────────────────────────────────────
-//   인증/이용권/소유권/제출물 게이트/각종 상한  → 아무것도 안 남음
-//   attempt +1 이후 모델 실패(502)              → attempt +1만
-//   커밋 RPC 실패(500)                          → attempt +1만.
-//        제출본은 draft 그대로 · 리포트 없음 — **반쪽 상태가 원리적으로 없다**
-//   RPC 성공 후 응답 직렬화 중 함수 종료        → 전부 커밋됨.
-//        재요청하면 멱등 재생이 저장분을 그대로 돌려준다(모델 재호출 없음)
-//
-// 실행 시간 (형제 라우트와 동일)
-//   `MODEL_TIMEOUT_MS`(50초)는 **`maxDuration: 60`을 전제로 잡은 총 예산**이다. 이 선언이
-//   없으면 Fluid compute가 꺼진 프로젝트의 기본 실행시간(Hobby 10초 / Pro 15초)이 적용돼
-//   50초 AbortController는 발화조차 못 하고 플랫폼이 먼저 함수를 죽인다 — 커밋 RPC는 이미
-//   성립했는데 사용자는 "리포트는 저장됐는데 화면엔 실패"를 보게 된다(재요청하면 멱등
-//   재생이 복구하지만 계약은 깨진다).
-export const config = { runtime: "nodejs", maxDuration: 60 };
+  })
+  .all("/", methodNotAllowed("POST"));

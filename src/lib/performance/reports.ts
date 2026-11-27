@@ -14,7 +14,12 @@
 //         / 400 INVALID_SESSION_ID|INVALID_CURSOR / 405 METHOD_NOT_ALLOWED / 500 INTERNAL
 //         — `design-report.js`/`submission.js`와 같은 `userMessage` 규약으로 감싼다.
 
-import { apiFetch } from "../apiFetch";
+import {
+  reportDetailResponse,
+  reportsListResponse,
+} from "../../../shared/performance/contract.js";
+import { api } from "../http/client";
+import { type PerformanceResult, performanceRequest } from "./apiClient";
 
 const NETWORK_ERROR =
   "네트워크 오류가 발생했어요. 연결을 확인하고 다시 시도해 주세요.";
@@ -42,33 +47,38 @@ class ReportsError extends Error {
   }
 }
 
-// data: response.json() 파싱 결과 — 에러 코드별로 부가 필드가 달라 any로 둔다.
-function toError(data: any, response: Response | undefined) {
-  const code =
-    data?.error?.code ||
-    (response?.status === 401 ? "UNAUTHENTICATED" : "UNKNOWN");
+function toError(failure: Extract<PerformanceResult<unknown>, { ok: false }>) {
+  const { code } = failure;
   return new ReportsError(
     code,
-    data?.error?.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
+    failure.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
   );
 }
 
-async function callReportsApi(accessToken: string, params: URLSearchParams) {
-  let response: Response;
+async function callReportsApi<T>(
+  accessToken: string,
+  params: URLSearchParams,
+  schema: typeof reportsListResponse | typeof reportDetailResponse,
+): Promise<T> {
+  let result: PerformanceResult<T>;
 
   try {
-    response = await apiFetch(`/api/performance/reports?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    result = await performanceRequest(
+      api
+        .get("performance/reports", {
+          searchParams: params,
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        .json(schema) as Promise<T>,
+    );
   } catch (error) {
     const wrapped = new ReportsError("NETWORK", NETWORK_ERROR);
     wrapped.cause = error;
     throw wrapped;
   }
 
-  const data = await response.json().catch(() => null);
-  if (!response.ok) throw toError(data, response);
-  return data;
+  if (!result.ok) throw toError(result);
+  return result.data;
 }
 
 /**
@@ -89,7 +99,11 @@ export async function fetchSavedReportsList({
   const params = new URLSearchParams();
   if (cursor) params.set("cursor", cursor);
   if (limit) params.set("limit", String(limit));
-  return callReportsApi(accessToken, params);
+  return callReportsApi<{ items: unknown[]; nextCursor: string | null }>(
+    accessToken,
+    params,
+    reportsListResponse,
+  );
 }
 
 /**
@@ -106,5 +120,11 @@ export async function fetchSavedReportDetail({
   sessionId: string;
 }) {
   const params = new URLSearchParams({ sessionId });
-  return callReportsApi(accessToken, params);
+  return callReportsApi<{
+    session: unknown;
+    design: unknown;
+    evaluation: unknown;
+    final: unknown;
+    submissions: unknown[];
+  }>(accessToken, params, reportDetailResponse);
 }

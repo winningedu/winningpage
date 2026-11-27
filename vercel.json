@@ -30,6 +30,14 @@
       "destination": "/api/app-60"
     },
     {
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))performance/(?:admin-embed|analyze-guide|design-report|evaluate|recommend-topics)/?)",
+      "destination": "/api/app-60"
+    },
+    {
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))performance/(?:bootstrap|discard-attachment|finalize|reports|session|submission|upload-url)/?)",
+      "destination": "/api/app"
+    },
+    {
       "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin(?:/.*)?)",
       "destination": "/api/app"
     },
@@ -38,7 +46,7 @@
       "destination": "/api/app"
     },
     {
-      "source": "/api/((?:growth/collect|growth/report|inquiry/evaluate-report|inquiry/plan-report|inquiry/recommend-topics|performance/admin-embed|performance/analyze-guide|performance/design-report|performance/evaluate|performance/recommend-topics)/?)",
+      "source": "/api/((?:growth/collect|growth/report|inquiry/evaluate-report|inquiry/plan-report|inquiry/recommend-topics)/?)",
       "destination": "/api/router-60"
     },
     {

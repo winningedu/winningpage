@@ -505,53 +505,6 @@
     "okSuccess": 1,
     "legacyHandler": 1
   },
-  "api/_routes/performance/admin-embed.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/analyze-guide.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/bootstrap.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/design-report.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/discard-attachment.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/evaluate.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/finalize.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/recommend-topics.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/reports.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/session.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/submission.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/performance/upload-url.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
   "api/_routes/request-enrollment.ts": {
     "legacyError": 22,
     "legacyHandler": 1
@@ -831,15 +784,6 @@
   "src/lib/performance/guideUpload.ts": {
     "browserDb": 1
   },
-  "src/lib/performance/reports.ts": {
-    "legacyFetch": 1
-  },
-  "src/lib/performance/session.ts": {
-    "legacyFetch": 1
-  },
-  "src/lib/performance/submission.ts": {
-    "legacyFetch": 2
-  },
   "src/lib/phoneVerification.ts": {
     "legacyFetch": 1
   },
@@ -850,7 +794,7 @@
     "browserDb": 1
   },
   "src/lib/queryClient.ts": {
-    "legacyFetch": 2
+    "legacyFetch": 1
   },
   "src/lib/signupEmailAuth.ts": {
     "browserDb": 1
@@ -936,9 +880,6 @@
   },
   "src/pages/mypage/usePendingOrderCount.ts": {
     "browserDb": 1
-  },
-  "src/pages/performance/PerformanceChatPage.tsx": {
-    "legacyFetch": 1
   },
   "src/pages/pricing/PricingSelling.tsx": {
     "browserDb": 1

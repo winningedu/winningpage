@@ -37,7 +37,8 @@ import SubmissionForm, {
 import { usePerformanceShell } from "@/context/PerformanceShellContext";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
-import { apiFetch } from "@/lib/apiFetch";
+import { api } from "@/lib/http/client";
+import { performanceRequest } from "@/lib/performance/apiClient";
 import { requestDesignReport } from "@/lib/performance/designReport";
 import {
   finalizeSubmission,
@@ -63,6 +64,7 @@ import {
   entitlementDeniedMessage,
   type TenantBlockReason,
 } from "@/lib/tenantBlock";
+import { sessionWriteResponse } from "../../../shared/performance/contract.js";
 
 // STEP1~STEP5 채팅 화면 — docs/수행평가-상세-명세.md §5.5(`3754:3206`) / §5.6(`3754:3261`) /
 // §5.7(`3754:3315`) / §5.8(`3754:3370`·`3754:3431`) / §5.9(`3754:3562`·`3754:3493`) /
@@ -991,17 +993,14 @@ export default function PerformanceChatPage() {
 
   /** 세션 생성/이어받기 1회. `action`은 `sessionStartMode`가 정한다(아래 주석). */
   async function postSession(values, action) {
-    const response = await apiFetch("/api/performance/session", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ action, basicInfo: values }),
-    });
-
-    const data = await response.json().catch(() => null);
-    return { response, data };
+    return performanceRequest(
+      api
+        .post("performance/session", {
+          json: { action, basicInfo: values },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        .json(sessionWriteResponse),
+    );
   }
 
   async function handleSubmit(values) {
@@ -1015,23 +1014,23 @@ export default function PerformanceChatPage() {
       // 기본은 `'create'`다. `추가 수행평가 진행하기`로 되돌아온 직후에만 `'resume'`인데,
       // 그때는 finalize가 이미 미차감 세션을 하나 준비해 뒀으므로(§9.3 동시 1개 제한 때문에
       // `create`는 `409 UNCHARGED_SESSION_EXISTS`로 막힌다) 그것을 이어받아야 한다.
-      let { response, data } = await postSession(values, sessionStartMode);
+      let result = await postSession(values, sessionStartMode);
 
       // 그 미차감 세션이 그 사이에 사라진 경우(다른 탭에서 소비·폐기)에는 `resume`이
       // `404 NO_UNCHARGED_SESSION`으로 떨어진다 — create로 **한 번만** 되돌린다. 그러지
       // 않으면 새 수행평가를 시작할 길이 화면에서 사라진다.
       if (
-        !response.ok &&
+        !result.ok &&
         sessionStartMode === "resume" &&
-        data?.error?.code === "NO_UNCHARGED_SESSION"
+        result.code === "NO_UNCHARGED_SESSION"
       ) {
-        ({ response, data } = await postSession(values, "create"));
+        result = await postSession(values, "create");
       }
 
-      if (!response.ok) {
+      if (!result.ok) {
         if (
-          response.status === 409 &&
-          data?.error?.code === "UNCHARGED_SESSION_EXISTS"
+          result.status === 409 &&
+          result.code === "UNCHARGED_SESSION_EXISTS"
         ) {
           // 저장 리포트로는 못 돌아간다 — 미차감 세션은 정의상 산출물이 없어 그 목록에
           // 뜨지 않는다(api/_routes/performance/reports.js). 대신 재개 선택 카드로 돌아가는
@@ -1043,10 +1042,9 @@ export default function PerformanceChatPage() {
         } else {
           setSubmitError(
             entitlementDeniedMessage(
-              data?.error?.code,
-              data?.error?.message ||
-                "세션을 생성하지 못했어요. 다시 시도해 주세요.",
-              data?.tenantReason,
+              result.code,
+              result.message || "세션을 생성하지 못했어요. 다시 시도해 주세요.",
+              result.extra.tenantReason,
             ),
           );
         }
@@ -1055,7 +1053,7 @@ export default function PerformanceChatPage() {
 
       // 이어받기는 1회성이다 — 세션을 손에 넣은 뒤로는 다시 기본값으로 돌린다.
       setSessionStartMode("create");
-      setCreatedSession(data.session);
+      setCreatedSession(result.data.session);
     } catch (error) {
       console.error("[performance] 세션 생성 실패:", error);
       setSubmitError(

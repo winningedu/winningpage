@@ -42,9 +42,12 @@
 // ── 회차는 차감하지 않는다 (§9.3 "세션 생성 | 없음")
 //    quotaRemaining은 안내용 스냅샷으로만 응답에 싣는다.
 
-import type { VercelResponse } from "@vercel/node";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import type { Context } from "hono";
+import { jsonObjectBody } from "../../../shared/performance/contract.js";
+import { userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   isPreviousTopicValid,
   joinPreviousTopics,
@@ -164,13 +167,13 @@ type NormalizeBasicInfoResult =
   | { ok: false; code: "MISSING_FIELD"; field: string };
 
 function fail(
-  res: VercelResponse,
+  c: Context,
   status: number,
   code: string,
   message: string,
   extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code, extra);
+  return problemResponse(c, status, message, code, extra);
 }
 
 /** `recommend-topics.js`의 `toClientTopic`과 같은 모양(§8.3 `performance_topics` 계약). */
@@ -292,278 +295,286 @@ async function findUnchargedSession(
   return rows.find((row) => !chargedIds.has(row.id)) || null;
 }
 
-export default defineHandler({
-  methods: ["GET", "POST"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "GET 또는 POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+const guard = user({
   unhandledMessage: "세션 처리에 실패했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "performance/session",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const userId = requireUserId(ctx);
-    // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
-    const serviceConfig = SERVICE_CONFIGS[SERVICE_KEY]!;
-
-    // ── 이용권 재판정. §8.6 공통 규약 — 클라이언트 가드 통과 여부를 신뢰하지 않는다.
-    const { allowed: hasAccess, reason: accessReason } =
-      await hasPaidServiceAccess(supabaseAdmin, userId, serviceConfig);
-    if (!hasAccess) {
-      return fail(
-        res,
-        403,
-        "NO_ENTITLEMENT",
-        "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
-        tenantReasonExtra(accessReason),
-      );
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // GET — 재개 분기 판정표(§5.4 `3754:5028`, 2370행) 재료 조회. §8.6 표에는 없는
-    // 추가분이다(형제 라우트 `submission.js` GET과 같은 판단 — 세션 리소스를 다루는
-    // 파일에 같이 둔다, 새 엔드포인트를 만들지 않는다).
-    //   `?sessionId=…` → 200 { session, topics, round, maxRounds }
-    //   `topics`는 **최신 라운드 3건뿐**이다(`recommend-topics.js` 저장 단위와 동일) —
-    //   재개 화면은 "지금 보여줄 카드"만 필요하고, 지난 라운드까지 합치면 §5.10의
-    //   "재추천은 교체다" 판단과 화면이 어긋난다.
-    //   ⓐ/ⓑ/ⓒ 분기는 클라이언트가 `session.selectedTopicId`·`topics.length`로 가른다
-    //   (이 파일은 판정하지 않고 재료만 준다 — §8.3 "판정은 서버 소유"는 스키마 판정류
-    //   얘기이고, 여기 분기는 순수 존재 여부라 클라이언트에서 갈라도 위조 여지가 없다).
-    // ─────────────────────────────────────────────────────────────────
-    if (req.method === "GET") {
-      const sessionId =
-        typeof req.query?.sessionId === "string"
-          ? req.query.sessionId.trim()
-          : "";
-      if (!UUID_RE.test(sessionId)) {
-        return fail(
-          res,
-          400,
-          "INVALID_SESSION_ID",
-          "sessionId가 올바르지 않습니다.",
-        );
-      }
-
-      const { data: sessionData, error: sessionError } = await supabaseAdmin
-        .from("performance_sessions")
-        .select(GET_SESSION_COLUMNS)
-        .eq("id", sessionId)
-        .eq("profile_id", userId)
-        .maybeSingle();
-
-      if (sessionError)
-        throw new Error(`세션 조회 실패: ${sessionError.message}`);
-      if (!sessionData) {
-        return fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.");
-      }
-
-      const sessionRow = sessionData as unknown as SessionRow;
-
-      const { data: topicRows, error: topicsError } = await supabaseAdmin
-        .from("performance_topics")
-        .select("id,round,idx,title,subtitle,tags,detail,selected")
-        .eq("session_id", sessionRow.id)
-        .order("round", { ascending: true })
-        .order("idx", { ascending: true });
-
-      if (topicsError)
-        throw new Error(`주제 조회 실패: ${topicsError.message}`);
-
-      const allTopics: TopicRow[] = topicRows || [];
-      const lastRound = allTopics.reduce(
-        (max, row) => Math.max(max, Number(row.round) || 0),
-        0,
-      );
-      const latestRoundTopics = allTopics
-        .filter((row) => Number(row.round) === lastRound)
-        .map(toClientTopic);
-
-      // 확정 주제 제목 — 최신 라운드에 있으면 그대로 쓰고, 옛 라운드의 주제를 확정한
-      // 경우(재추천 뒤 이전 라운드 주제를 골랐을 리는 없지만 방어적으로)에만 추가 조회한다.
-      let selectedTopicTitle: string | null = null;
-      if (sessionRow.selected_topic_id) {
-        const inLatest = latestRoundTopics.find(
-          (topic) => topic.id === sessionRow.selected_topic_id,
-        );
-        if (inLatest) {
-          selectedTopicTitle = inLatest.title;
-        } else {
-          const { data: topicRow, error: topicRowError } = await supabaseAdmin
-            .from("performance_topics")
-            .select("title")
-            .eq("id", sessionRow.selected_topic_id)
-            .maybeSingle();
-          if (topicRowError)
-            throw new Error(`확정 주제 조회 실패: ${topicRowError.message}`);
-          selectedTopicTitle = topicRow?.title || null;
-        }
-      }
-
-      res.status(200).json({
-        session: {
-          ...toClientSession(sessionRow),
-          guideInputMode: sessionRow.guide_input_mode,
-          selectedTopicId: sessionRow.selected_topic_id || null,
-          selectedTopicTitle,
-        },
-        topics: latestRoundTopics,
-        round: lastRound,
-        maxRounds: MAX_ROUNDS,
-      });
-      return;
-    }
-
-    const body = req.body && typeof req.body === "object" ? req.body : {};
-    const action = body.action;
-    if (action !== "create" && action !== "resume") {
-      return fail(
-        res,
-        400,
-        "INVALID_ACTION",
-        "action은 'create' 또는 'resume'이어야 합니다.",
-      );
-    }
-
-    let basicInfo: BasicInfoColumns | null = null;
-    if (body.basicInfo !== undefined && body.basicInfo !== null) {
-      const result = normalizeBasicInfo(body.basicInfo);
-      if (result.ok === false) {
-        if (result.code === "MISSING_FIELD") {
-          return fail(
-            res,
-            400,
-            "MISSING_FIELD",
-            `${result.field}은(는) 필수입니다.`,
-            {
-              field: result.field,
-            },
-          );
-        }
-        return fail(
-          res,
-          400,
-          "INVALID_BASIC_INFO",
-          "basicInfo 형식이 올바르지 않습니다.",
-        );
-      }
-      basicInfo = result.columns;
-    }
-
-    // ── 회차 스냅샷. 세션 생성/재개는 차감하지 않으므로(§9.3) 안내용으로만 싣는다.
-    let quota = await readQuotaSnapshot(supabaseAdmin, userId, null);
-    try {
-      quota = await readQuotaSnapshot(
-        supabaseAdmin,
-        userId,
-        await findProgramAccessRow(supabaseAdmin, userId, serviceConfig),
-      );
-    } catch (quotaError) {
-      console.error("performance/session quota lookup 실패(무시):", quotaError);
-    }
-
-    const unchargedSession = await findUnchargedSession(supabaseAdmin, userId);
-
-    if (action === "create") {
-      // §9.3 「미차감 세션 동시 1개 제한」 — §8.6이 이 엔드포인트 자신의 실패 코드로
-      // 문서화했으므로 여기서 막는다(차감 로직 자체는 건드리지 않는다, 파일 상단 주석).
-      if (unchargedSession) {
-        return fail(
-          res,
-          409,
-          "UNCHARGED_SESSION_EXISTS",
-          "이미 진행 중인 미차감 세션이 있습니다. 이어서 진행하거나 폐기한 뒤 다시 시작해 주세요.",
-          { sessionId: unchargedSession.id },
-        );
-      }
-
-      // school_type — 요청 바디를 절대 읽지 않는다. profiles 스냅샷만 신뢰한다(Q61-ⓔ).
-      const { data: profileRow, error: profileError } = await supabaseAdmin
-        .from("profiles")
-        .select("school_type")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (profileError)
-        throw new Error(`프로필 조회 실패: ${profileError.message}`);
-
-      const insertRow: Record<string, unknown> = {
-        profile_id: userId,
-        school_type: profileRow?.school_type || null,
-        status: basicInfo ? "in_progress" : "draft",
-        current_step: basicInfo ? 2 : 1,
-        completed_steps: basicInfo ? [1] : [],
-      };
-      if (basicInfo) Object.assign(insertRow, basicInfo);
-
-      const { data: created, error: insertError } = await supabaseAdmin
-        .from("performance_sessions")
-        .insert(insertRow)
-        .select(SESSION_COLUMNS)
-        .single();
-
-      if (insertError)
-        throw new Error(`세션 생성 실패: ${insertError.message}`);
-
-      res.status(201).json({
-        session: toClientSession(created as unknown as SessionRow),
-        quotaRemaining: quota.quotaRemaining,
-      });
-      return;
-    }
-
-    // action === 'resume' — 프로필당 하나뿐인 미차감 세션을 이어받는다(sessionId를
-    // 요청에서 받지 않는다, 파일 상단 주석).
-    if (!unchargedSession) {
-      return fail(
-        res,
-        404,
-        "NO_UNCHARGED_SESSION",
-        "이어받을 미차감 세션이 없습니다.",
-      );
-    }
-
-    let resultRow: SessionRow = unchargedSession;
-
-    if (basicInfo) {
-      const completed = new Set(
-        Array.isArray(unchargedSession.completed_steps)
-          ? unchargedSession.completed_steps
-          : [],
-      );
-      completed.add(1);
-
-      const patch = {
-        ...basicInfo,
-        status:
-          unchargedSession.status === "draft"
-            ? "in_progress"
-            : unchargedSession.status,
-        // 이미 더 앞서 있는 세션을 되돌리지 않는다 — STEP1을 다시 제출해도 최소 2까지만 올린다.
-        current_step: Math.max(unchargedSession.current_step || 1, 2),
-        completed_steps: Array.from(completed).sort((a, b) => a - b),
-      };
-
-      const { data: updated, error: updateError } = await supabaseAdmin
-        .from("performance_sessions")
-        .update(patch)
-        .eq("id", unchargedSession.id)
-        .select(SESSION_COLUMNS)
-        .single();
-
-      if (updateError)
-        throw new Error(`세션 갱신 실패: ${updateError.message}`);
-      resultRow = updated as unknown as SessionRow;
-    }
-
-    res.status(201).json({
-      session: toClientSession(resultRow),
-      quotaRemaining: quota.quotaRemaining,
-    });
-  },
 });
 
-// 실행 시간: 모델을 부르지 않으므로 형제 라우트의 `maxDuration: 60`이 필요 없다.
-export const config = { runtime: "nodejs" };
+export const session = userFactory
+  .createApp()
+  .on(
+    ["GET", "POST"],
+    "/",
+    guard,
+    validate("json", jsonObjectBody),
+    async (c) => {
+      const supabaseAdmin = c.var.supabaseAdmin;
+      const userId = c.var.user.id;
+      // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
+      const serviceConfig = SERVICE_CONFIGS[SERVICE_KEY]!;
+
+      // ── 이용권 재판정. §8.6 공통 규약 — 클라이언트 가드 통과 여부를 신뢰하지 않는다.
+      const { allowed: hasAccess, reason: accessReason } =
+        await hasPaidServiceAccess(supabaseAdmin, userId, serviceConfig);
+      if (!hasAccess) {
+        return fail(
+          c,
+          403,
+          "NO_ENTITLEMENT",
+          "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
+          tenantReasonExtra(accessReason),
+        );
+      }
+
+      // ─────────────────────────────────────────────────────────────────
+      // GET — 재개 분기 판정표(§5.4 `3754:5028`, 2370행) 재료 조회. §8.6 표에는 없는
+      // 추가분이다(형제 라우트 `submission.js` GET과 같은 판단 — 세션 리소스를 다루는
+      // 파일에 같이 둔다, 새 엔드포인트를 만들지 않는다).
+      //   `?sessionId=…` → 200 { session, topics, round, maxRounds }
+      //   `topics`는 **최신 라운드 3건뿐**이다(`recommend-topics.js` 저장 단위와 동일) —
+      //   재개 화면은 "지금 보여줄 카드"만 필요하고, 지난 라운드까지 합치면 §5.10의
+      //   "재추천은 교체다" 판단과 화면이 어긋난다.
+      //   ⓐ/ⓑ/ⓒ 분기는 클라이언트가 `session.selectedTopicId`·`topics.length`로 가른다
+      //   (이 파일은 판정하지 않고 재료만 준다 — §8.3 "판정은 서버 소유"는 스키마 판정류
+      //   얘기이고, 여기 분기는 순수 존재 여부라 클라이언트에서 갈라도 위조 여지가 없다).
+      // ─────────────────────────────────────────────────────────────────
+      if (c.req.method === "GET") {
+        const sessionId = (c.req.query("sessionId") ?? "").trim();
+        if (!UUID_RE.test(sessionId)) {
+          return fail(
+            c,
+            400,
+            "INVALID_SESSION_ID",
+            "sessionId가 올바르지 않습니다.",
+          );
+        }
+
+        const { data: sessionData, error: sessionError } = await supabaseAdmin
+          .from("performance_sessions")
+          .select(GET_SESSION_COLUMNS)
+          .eq("id", sessionId)
+          .eq("profile_id", userId)
+          .maybeSingle();
+
+        if (sessionError)
+          throw new Error(`세션 조회 실패: ${sessionError.message}`);
+        if (!sessionData) {
+          return fail(c, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.");
+        }
+
+        const sessionRow = sessionData as unknown as SessionRow;
+
+        const { data: topicRows, error: topicsError } = await supabaseAdmin
+          .from("performance_topics")
+          .select("id,round,idx,title,subtitle,tags,detail,selected")
+          .eq("session_id", sessionRow.id)
+          .order("round", { ascending: true })
+          .order("idx", { ascending: true });
+
+        if (topicsError)
+          throw new Error(`주제 조회 실패: ${topicsError.message}`);
+
+        const allTopics: TopicRow[] = topicRows || [];
+        const lastRound = allTopics.reduce(
+          (max, row) => Math.max(max, Number(row.round) || 0),
+          0,
+        );
+        const latestRoundTopics = allTopics
+          .filter((row) => Number(row.round) === lastRound)
+          .map(toClientTopic);
+
+        // 확정 주제 제목 — 최신 라운드에 있으면 그대로 쓰고, 옛 라운드의 주제를 확정한
+        // 경우(재추천 뒤 이전 라운드 주제를 골랐을 리는 없지만 방어적으로)에만 추가 조회한다.
+        let selectedTopicTitle: string | null = null;
+        if (sessionRow.selected_topic_id) {
+          const inLatest = latestRoundTopics.find(
+            (topic) => topic.id === sessionRow.selected_topic_id,
+          );
+          if (inLatest) {
+            selectedTopicTitle = inLatest.title;
+          } else {
+            const { data: topicRow, error: topicRowError } = await supabaseAdmin
+              .from("performance_topics")
+              .select("title")
+              .eq("id", sessionRow.selected_topic_id)
+              .maybeSingle();
+            if (topicRowError)
+              throw new Error(`확정 주제 조회 실패: ${topicRowError.message}`);
+            selectedTopicTitle = topicRow?.title || null;
+          }
+        }
+
+        return c.json({
+          session: {
+            ...toClientSession(sessionRow),
+            guideInputMode: sessionRow.guide_input_mode,
+            selectedTopicId: sessionRow.selected_topic_id || null,
+            selectedTopicTitle,
+          },
+          topics: latestRoundTopics,
+          round: lastRound,
+          maxRounds: MAX_ROUNDS,
+        });
+      }
+
+      const body = c.req.valid("json");
+      const action = body.action;
+      if (action !== "create" && action !== "resume") {
+        return fail(
+          c,
+          400,
+          "INVALID_ACTION",
+          "action은 'create' 또는 'resume'이어야 합니다.",
+        );
+      }
+
+      let basicInfo: BasicInfoColumns | null = null;
+      if (body.basicInfo !== undefined && body.basicInfo !== null) {
+        const result = normalizeBasicInfo(body.basicInfo);
+        if (result.ok === false) {
+          if (result.code === "MISSING_FIELD") {
+            return fail(
+              c,
+              400,
+              "MISSING_FIELD",
+              `${result.field}은(는) 필수입니다.`,
+              {
+                field: result.field,
+              },
+            );
+          }
+          return fail(
+            c,
+            400,
+            "INVALID_BASIC_INFO",
+            "basicInfo 형식이 올바르지 않습니다.",
+          );
+        }
+        basicInfo = result.columns;
+      }
+
+      // ── 회차 스냅샷. 세션 생성/재개는 차감하지 않으므로(§9.3) 안내용으로만 싣는다.
+      let quota = await readQuotaSnapshot(supabaseAdmin, userId, null);
+      try {
+        quota = await readQuotaSnapshot(
+          supabaseAdmin,
+          userId,
+          await findProgramAccessRow(supabaseAdmin, userId, serviceConfig),
+        );
+      } catch (quotaError) {
+        console.error(
+          "performance/session quota lookup 실패(무시):",
+          quotaError,
+        );
+      }
+
+      const unchargedSession = await findUnchargedSession(
+        supabaseAdmin,
+        userId,
+      );
+
+      if (action === "create") {
+        // §9.3 「미차감 세션 동시 1개 제한」 — §8.6이 이 엔드포인트 자신의 실패 코드로
+        // 문서화했으므로 여기서 막는다(차감 로직 자체는 건드리지 않는다, 파일 상단 주석).
+        if (unchargedSession) {
+          return fail(
+            c,
+            409,
+            "UNCHARGED_SESSION_EXISTS",
+            "이미 진행 중인 미차감 세션이 있습니다. 이어서 진행하거나 폐기한 뒤 다시 시작해 주세요.",
+            { sessionId: unchargedSession.id },
+          );
+        }
+
+        // school_type — 요청 바디를 절대 읽지 않는다. profiles 스냅샷만 신뢰한다(Q61-ⓔ).
+        const { data: profileRow, error: profileError } = await supabaseAdmin
+          .from("profiles")
+          .select("school_type")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (profileError)
+          throw new Error(`프로필 조회 실패: ${profileError.message}`);
+
+        const insertRow: Record<string, unknown> = {
+          profile_id: userId,
+          school_type: profileRow?.school_type || null,
+          status: basicInfo ? "in_progress" : "draft",
+          current_step: basicInfo ? 2 : 1,
+          completed_steps: basicInfo ? [1] : [],
+        };
+        if (basicInfo) Object.assign(insertRow, basicInfo);
+
+        const { data: created, error: insertError } = await supabaseAdmin
+          .from("performance_sessions")
+          .insert(insertRow)
+          .select(SESSION_COLUMNS)
+          .single();
+
+        if (insertError)
+          throw new Error(`세션 생성 실패: ${insertError.message}`);
+
+        return c.json(
+          {
+            session: toClientSession(created as unknown as SessionRow),
+            quotaRemaining: quota.quotaRemaining,
+          },
+          201,
+        );
+      }
+
+      // action === 'resume' — 프로필당 하나뿐인 미차감 세션을 이어받는다(sessionId를
+      // 요청에서 받지 않는다, 파일 상단 주석).
+      if (!unchargedSession) {
+        return fail(
+          c,
+          404,
+          "NO_UNCHARGED_SESSION",
+          "이어받을 미차감 세션이 없습니다.",
+        );
+      }
+
+      let resultRow: SessionRow = unchargedSession;
+
+      if (basicInfo) {
+        const completed = new Set(
+          Array.isArray(unchargedSession.completed_steps)
+            ? unchargedSession.completed_steps
+            : [],
+        );
+        completed.add(1);
+
+        const patch = {
+          ...basicInfo,
+          status:
+            unchargedSession.status === "draft"
+              ? "in_progress"
+              : unchargedSession.status,
+          // 이미 더 앞서 있는 세션을 되돌리지 않는다 — STEP1을 다시 제출해도 최소 2까지만 올린다.
+          current_step: Math.max(unchargedSession.current_step || 1, 2),
+          completed_steps: Array.from(completed).sort((a, b) => a - b),
+        };
+
+        const { data: updated, error: updateError } = await supabaseAdmin
+          .from("performance_sessions")
+          .update(patch)
+          .eq("id", unchargedSession.id)
+          .select(SESSION_COLUMNS)
+          .single();
+
+        if (updateError)
+          throw new Error(`세션 갱신 실패: ${updateError.message}`);
+        resultRow = updated as unknown as SessionRow;
+      }
+
+      return c.json(
+        {
+          session: toClientSession(resultRow),
+          quotaRemaining: quota.quotaRemaining,
+        },
+        201,
+      );
+    },
+  )
+  .all("/", methodNotAllowed("GET", "POST"));
