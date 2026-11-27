@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { toastError, toastSuccess } from "@/pages/admin/shared/adminToast";
+import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   mappedErrorText,
@@ -91,7 +92,12 @@ export default function CouponHistory() {
           <h1 className="text-xl font-semibold">{TITLE}</h1>
         </div>
 
-        {/* 어느 쿠폰의 이력인지, 값(데이터)만으로 식별한다. */}
+        {/* 어느 쿠폰의 이력인지, 값(데이터)만으로 식별한다. 받는 동안은 그 자리에 막대를 둔다. */}
+        {couponQuery.isPending && (
+          <div className="mt-3">
+            <AdminLineSkeleton label="쿠폰 정보를 불러오는 중입니다." />
+          </div>
+        )}
         {coupon && (
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-bold">
             <span className="font-mono text-[0.8125rem]">{coupon.slug}</span>

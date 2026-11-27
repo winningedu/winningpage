@@ -262,3 +262,26 @@ test("사용 이력 표는 이름 있는 스크롤 영역이고 관리 열은 �
     expect(el).toHaveClass("sticky", "right-0");
   }
 });
+
+test("쿠폰 머리글을 받는 동안은 머리글 자리에 대기 표시가 보이고 응답이 오면 쿠폰 정보로 바뀐다", async () => {
+  let release: () => void = () => {};
+  on("GET", "admin/coupons/c1", async () => {
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return couponRow;
+  });
+  renderCoupons("/admin/coupons/c1/history");
+
+  expect(
+    await screen.findByRole("status", {
+      name: "쿠폰 정보를 불러오는 중입니다.",
+    }),
+  ).toBeVisible();
+
+  release();
+  expect(await screen.findByText("gift-1")).toBeVisible();
+  expect(
+    screen.queryByRole("status", { name: "쿠폰 정보를 불러오는 중입니다." }),
+  ).toBeNull();
+});
