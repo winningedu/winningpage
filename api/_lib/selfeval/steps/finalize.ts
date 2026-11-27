@@ -1,6 +1,6 @@
 // 최종 저장 단계(계획서 §2 9, 명세 No.63, No.75, No.132). 모델을 부르지 않는다.
-// 저장, 승격, 세션 완료는 DB RPC 가 한 트랜잭션으로 하고, 이 모듈은 사전 조건 판정,
-// 요청 본문 검증, 성장설계 회신을 맡는다.
+// 저장, 승격, 세션 완료는 DB RPC 가 한 트랜잭션으로 하고, 이 모듈은 사전 조건 판정과
+// 성장설계 회신을 맡는다. 요청 본문은 shared/selfeval/finalize.ts 가 검증한다.
 
 import type { completePlanItemFromProgram } from "../../growth/plan/complete.js";
 import { type Db, finalizeSession, updateSession } from "../db.js";
@@ -9,7 +9,7 @@ import type { SimpleOutcome } from "../runModelStep.js";
 import { guardStep } from "../session.js";
 import type { PromotedRecord, VerificationSections } from "../types.js";
 import { detailBody } from "../view.js";
-import { isRecord, isUuid } from "./shared.js";
+import { isRecord } from "./shared.js";
 
 export type FinalizeBody = {
   sessionId: string;
@@ -18,79 +18,6 @@ export type FinalizeBody = {
   /** 필수 수정이 남은 채 저장하겠다고 학생이 경고를 확인했는지. */
   acknowledgeMandatory: boolean;
 };
-
-export type FinalizeBodyError = {
-  ok: false;
-  code: "INVALID_BODY" | "PROMOTED_INVALID";
-  message: string;
-};
-
-const isStringArray = (v: unknown): v is string[] =>
-  Array.isArray(v) && v.every((x) => typeof x === "string");
-
-function readPromoted(raw: unknown): PromotedRecord | null {
-  if (!isRecord(raw)) return null;
-  const { topic, concept, method, result, limitation, numbers, sources } = raw;
-  if (
-    typeof topic !== "string" ||
-    topic.trim() === "" ||
-    typeof concept !== "string" ||
-    typeof method !== "string" ||
-    typeof result !== "string" ||
-    typeof limitation !== "string" ||
-    !isStringArray(numbers) ||
-    !isStringArray(sources)
-  ) {
-    return null;
-  }
-  return {
-    topic: topic.trim(),
-    concept,
-    method,
-    result,
-    limitation,
-    numbers,
-    sources,
-  };
-}
-
-export function validateFinalizeBody(
-  body: unknown,
-): { ok: true; body: FinalizeBody } | FinalizeBodyError {
-  const invalid = (message: string): FinalizeBodyError => ({
-    ok: false,
-    code: "INVALID_BODY",
-    message,
-  });
-  if (!isRecord(body) || !isUuid(body.sessionId)) {
-    return invalid("sessionId 형식이 올바르지 않아요.");
-  }
-  const fulfills = body.fulfillsPlanItem ?? true;
-  if (typeof fulfills !== "boolean") {
-    return invalid("fulfillsPlanItem 은 true 또는 false 여야 해요.");
-  }
-  const acknowledge = body.acknowledgeMandatory ?? false;
-  if (typeof acknowledge !== "boolean") {
-    return invalid("acknowledgeMandatory 는 true 또는 false 여야 해요.");
-  }
-  const promoted = readPromoted(body.promoted);
-  if (promoted === null) {
-    return {
-      ok: false,
-      code: "PROMOTED_INVALID",
-      message: "활동 기록으로 남길 7항목을 확인해 주세요.",
-    };
-  }
-  return {
-    ok: true,
-    body: {
-      sessionId: body.sessionId,
-      promoted,
-      fulfillsPlanItem: fulfills,
-      acknowledgeMandatory: acknowledge,
-    },
-  };
-}
 
 // ---------------------------------------------------------------------------
 // 사전 조건

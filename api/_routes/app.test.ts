@@ -118,6 +118,7 @@ const MIGRATED_60: string[] = [
   "/api/admin/knowledge-eval",
   "/api/admin/premium-book/apply",
   "/api/selfeval/analyze",
+  "/api/selfeval/finalize",
   "/api/selfeval/verify",
 ];
 const entryFor = (pattern: string) =>

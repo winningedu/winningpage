@@ -10,7 +10,7 @@
       "destination": "/api/app-30"
     },
     {
-      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))selfeval/(?:analyze|verify)/?)",
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))selfeval/(?:analyze|finalize|verify)/?)",
       "destination": "/api/app-60"
     },
     {
@@ -30,7 +30,7 @@
       "destination": "/api/app"
     },
     {
-      "source": "/api/((?:goal/admin/cuts/backfill|growth/collect|growth/report|inquiry/evaluate-report|inquiry/plan-report|inquiry/recommend-topics|performance/admin-embed|performance/analyze-guide|performance/design-report|performance/evaluate|performance/recommend-topics|selfeval/finalize|selfeval/manual-logs|selfeval/pick-records|selfeval/report|selfeval/write)/?)",
+      "source": "/api/((?:goal/admin/cuts/backfill|growth/collect|growth/report|inquiry/evaluate-report|inquiry/plan-report|inquiry/recommend-topics|performance/admin-embed|performance/analyze-guide|performance/design-report|performance/evaluate|performance/recommend-topics|selfeval/manual-logs|selfeval/pick-records|selfeval/report|selfeval/write)/?)",
       "destination": "/api/router-60"
     },
     {
