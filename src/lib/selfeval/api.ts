@@ -15,6 +15,10 @@ import {
   analyzeEditResponse,
   analyzeRunResponse,
 } from "../../../shared/selfeval/analyze.js";
+import {
+  type FinalizeBodyInput,
+  finalizeResponse,
+} from "../../../shared/selfeval/finalize.js";
 import { entryResponseSchema } from "../../../shared/selfeval/reports.js";
 import {
   sessionDetailResponseSchema,
@@ -526,13 +530,14 @@ export function finalizeSession(
   fulfillsPlanItem?: boolean,
   acknowledgeMandatory?: boolean,
 ) {
-  return request<FinalizeResponse>(`${BASE}/finalize`, {
+  const body: FinalizeBodyInput = {
+    sessionId,
+    promoted,
+    ...(fulfillsPlanItem === undefined ? {} : { fulfillsPlanItem }),
+    ...(acknowledgeMandatory === true ? { acknowledgeMandatory } : {}),
+  };
+  return requestJson<FinalizeResponse>("selfeval/finalize", finalizeResponse, {
     method: "POST",
-    body: {
-      sessionId,
-      promoted,
-      ...(fulfillsPlanItem === undefined ? {} : { fulfillsPlanItem }),
-      ...(acknowledgeMandatory === true ? { acknowledgeMandatory } : {}),
-    },
+    body,
   });
 }

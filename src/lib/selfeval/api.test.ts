@@ -523,8 +523,15 @@ describe("분석, 생성, 검증, 최종 저장", () => {
     });
   });
 
-  test("최종 저장은 승격 7항목과 과제 완료 여부를 보낸다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
+  test("최종 저장은 승격 7항목과 과제 완료 여부를 보내고 회신 결과를 받는다", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        activityRecordId: "a1",
+        finalRevision: 3,
+        reply: { status: "failed", code: "UPSTREAM" },
+        currentStep: 6,
+      }),
+    );
     const promoted = {
       topic: "t",
       concept: "c",
@@ -534,12 +541,43 @@ describe("분석, 생성, 검증, 최종 저장", () => {
       numbers: [],
       sources: [],
     };
-    await finalizeSession("s1", promoted, true);
-    expect(lastCall().path).toBe("/api/selfeval/finalize");
-    expect(lastCall().body).toEqual({
+    const result = await finalizeSession("s1", promoted, true);
+    expect(new URL(lastRequest().url).pathname).toBe("/api/selfeval/finalize");
+    expect(lastRequest().method).toBe("POST");
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       promoted,
       fulfillsPlanItem: true,
+    });
+    expect(result).toEqual({
+      kind: "ok",
+      data: {
+        activityRecordId: "a1",
+        finalRevision: 3,
+        reply: { status: "failed", code: "UPSTREAM" },
+        currentStep: 6,
+      },
+    });
+    await finalizeSession("s1", promoted, undefined, true);
+    expect(await lastBody()).toEqual({
+      sessionId: "s1",
+      promoted,
+      acknowledgeMandatory: true,
+    });
+  });
+
+  test("승격 항목 오류(400 PROMOTED_INVALID)는 문구를 그대로 message 로 준다", async () => {
+    fetchMock.mockResolvedValue(
+      problemResponse(400, {
+        code: "PROMOTED_INVALID",
+        detail: "활동 기록으로 남길 7항목을 확인해 주세요.",
+      }),
+    );
+    expect(await finalizeSession("s1", {} as never)).toEqual({
+      kind: "error",
+      status: 400,
+      code: "PROMOTED_INVALID",
+      message: "활동 기록으로 남길 7항목을 확인해 주세요.",
     });
   });
 });

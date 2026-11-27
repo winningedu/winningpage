@@ -814,11 +814,10 @@ export type VerifyResponse = StepMeta & {
 
 export type FinalizeReply = {
   status: "sent" | "skipped" | "failed";
-  code?: string;
+  code?: string | undefined;
 };
 
 export type FinalizeResponse = {
-  ok: true;
   activityRecordId: string;
   finalRevision: number;
   reply: FinalizeReply;
