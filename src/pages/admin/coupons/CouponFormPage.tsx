@@ -100,7 +100,13 @@ function CouponFormView({
   const navigate = useNavigate();
   const listQuery = useCouponList();
   const save = useSaveCoupon(editingRow?.id);
-  const tenants = listQuery.data?.tenants ?? [];
+  // 저장하면 목록 캐시가 비워져 tenants 가 사라진다. 저장 중에 고른 소속이 풀리지
+  // 않도록 마지막으로 받은 비어 있지 않은 선택지를 들고 있는다.
+  const fetchedTenants = listQuery.data?.tenants ?? [];
+  const [lastTenants, setLastTenants] = useState(fetchedTenants);
+  if (fetchedTenants.length > 0 && fetchedTenants !== lastTenants)
+    setLastTenants(fetchedTenants);
+  const tenants = fetchedTenants.length > 0 ? fetchedTenants : lastTenants;
   const [initialForm] = useState(initial);
   const [form, setForm] = useState<CouponForm>(initial);
 

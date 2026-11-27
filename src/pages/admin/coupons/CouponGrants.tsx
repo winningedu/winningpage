@@ -14,6 +14,7 @@ import {
 import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { toastError, toastSuccess } from "@/pages/admin/shared/adminToast";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   couponKeys,
@@ -151,7 +152,13 @@ export default function CouponGrants() {
               함께 보여준다: 발급받아도 쿠폰 자신의 기한이 지나면 못 쓰기
               때문이다. 발급분에도 별도 기한이 있고(coupon_grants.valid_until,
               20260825000010) 그건 아래 목록의 「사용 기한」 칼럼이다, 실제로
-              쓸 수 있는 마지막 날은 이 둘 중 이른 쪽이다. */}
+              쓸 수 있는 마지막 날은 이 둘 중 이른 쪽이다. 받는 동안은 그 자리에
+              막대를 둔다. */}
+        {couponQuery.isPending && (
+          <div className="mt-3">
+            <AdminLineSkeleton label="쿠폰 정보를 불러오는 중입니다." />
+          </div>
+        )}
         {coupon && (
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-bold">
             <span className="font-mono text-[0.8125rem]">{coupon.slug}</span>
