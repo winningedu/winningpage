@@ -10,12 +10,14 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Toaster, toast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/http/client";
-import { TestQueryProvider } from "@/pages/admin/engine/testQuery";
+import { TestQueryProvider as BaseQueryProvider } from "@/pages/admin/engine/testQuery";
 import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import GoalStudentsAdmin, { GoalStudentDetail } from "./GoalStudentsAdmin";
 
 const http = vi.hoisted(() => ({
@@ -99,6 +101,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
+
+// 쓰기 동작을 시험하는 화면이라 edit 권한으로 감싼다.
+function TestQueryProvider({ children }: { children: ReactNode }) {
+  return (
+    <SectionEditAccessProvider value={true}>
+      <BaseQueryProvider>{children}</BaseQueryProvider>
+    </SectionEditAccessProvider>
+  );
+}
 
 const noop = () => {};
 
