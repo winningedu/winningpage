@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { Toaster } from "@/components/ui/toast";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import CouponAdmin from "./CouponAdmin";
 
 export const couponRow = {
@@ -34,7 +35,7 @@ export function listBody(over: Record<string, unknown> = {}) {
   };
 }
 
-export function renderCoupons(initialPath = "/admin/coupons") {
+export function renderCoupons(initialPath = "/admin/coupons", canEdit = true) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -47,7 +48,9 @@ export function renderCoupons(initialPath = "/admin/coupons") {
   );
   const view = render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
+      <SectionEditAccessProvider value={canEdit}>
+        <RouterProvider router={router} />
+      </SectionEditAccessProvider>
       <Toaster />
     </QueryClientProvider>,
   );

@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   type CouponRow,
@@ -40,6 +41,8 @@ const LIST_COLUMN_COUNT = 15;
 export default function CouponList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // view 권한이면 등록과 수정 버튼을 그리지 않는다.
+  const canEdit = useCanEditSection();
   const query = useCouponList();
   useLoadErrorToast(query.error);
 
@@ -76,15 +79,17 @@ export default function CouponList() {
         <div className="mt-4 flex items-center justify-between gap-4">
           <h1 className="text-xl font-semibold">{TITLE}</h1>
 
-          <Button
-            type="button"
-            onClick={() => navigate(`${COUPONS_PATH}/new`)}
-            size="lg"
-            className="font-semibold"
-          >
-            <Plus size={14} />
-            등록
-          </Button>
+          {canEdit && (
+            <Button
+              type="button"
+              onClick={() => navigate(`${COUPONS_PATH}/new`)}
+              size="lg"
+              className="font-semibold"
+            >
+              <Plus size={14} />
+              등록
+            </Button>
+          )}
         </div>
       </div>
 
@@ -261,18 +266,20 @@ export default function CouponList() {
                         <div className="flex justify-center gap-3">
                           {/* 수정 아이콘은 AdminTable(:4674)의 기존 액션과
                                   같은 아이콘, 같은 무라벨 규범을 그대로 따른다. */}
-                          <Button
-                            aria-label="수정"
-                            type="button"
-                            onClick={() =>
-                              navigate(`${COUPONS_PATH}/${row.id}/edit`)
-                            }
-                            variant="ghost"
-                            size="icon"
-                            className="text-muted-foreground"
-                          >
-                            <Edit3 size={17} />
-                          </Button>
+                          {canEdit && (
+                            <Button
+                              aria-label="수정"
+                              type="button"
+                              onClick={() =>
+                                navigate(`${COUPONS_PATH}/${row.id}/edit`)
+                              }
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground"
+                            >
+                              <Edit3 size={17} />
+                            </Button>
+                          )}
 
                           <Button
                             type="button"
