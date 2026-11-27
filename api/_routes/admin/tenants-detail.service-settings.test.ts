@@ -3,12 +3,11 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
   matchRows,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
@@ -17,7 +16,7 @@ const kit = vi.hoisted(() => ({
   userClientTokens: [] as string[],
 }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: (...keys: string[]) => {
     for (const key of keys) if (process.env[key]) return process.env[key];
     return "";
@@ -26,14 +25,17 @@ vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-vi.mock("../../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: (token: string) => {
     kit.userClientTokens.push(token);
     return createFakeAdmin(kit.userState);
   },
 }));
 
-import handler from "./service-settings.js";
+import { callHandler } from "../../_lib/tenantRoute.testkit.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/tenants/:id/service-settings" };
 
 const TENANT = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 const OTHER_TENANT = "8a2d3b4c-5e6f-4071-9b8c-0d1e2f3a4b5c";
@@ -164,15 +166,16 @@ describe("GET /api/admin/tenants/:id/service-settings", () => {
     expect(r.body).toMatchObject({ defaults: {} });
   });
 
-  test.each([
-    ["id 없음", {}],
-    ["uuid 가 아닌 id", { id: "tenant-7" }],
-  ])("%s 이면 400 이다", async (_label, query) => {
-    const r = await get(query);
+  // 경로 :id 는 필수 구간이라 "id 없음" 은 다른 주소가 된다(Hono 로 옮기며 사라진 경우).
+  test.each([["uuid 가 아닌 id", { id: "tenant-7" }]])(
+    "%s 이면 400 이다",
+    async (_label, query) => {
+      const r = await get(query);
 
-    expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
-  });
+      expect(r.status).toBe(400);
+      expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    },
+  );
 
   test("설정 조회가 실패하면 500 이다", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -356,7 +359,9 @@ describe("PUT /api/admin/tenants/:id/service-settings", () => {
   });
 
   test("GET, PUT 이외의 메서드는 405 이다", async () => {
-    const r = await callHandler(handler, ROW, "POST");
+    const r = await callHandler(handler, ROW, "POST", {
+      id: "8a2d3b4c-5e6f-4071-9b8c-0d1e2f3a4b5c",
+    });
 
     expect(r.status).toBe(405);
   });

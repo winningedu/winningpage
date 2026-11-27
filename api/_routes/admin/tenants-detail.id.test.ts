@@ -3,11 +3,10 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
@@ -16,7 +15,7 @@ const kit = vi.hoisted(() => ({
   userClientTokens: [] as string[],
 }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: (...keys: string[]) => {
     for (const key of keys) if (process.env[key]) return process.env[key];
     return "";
@@ -25,14 +24,17 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-vi.mock("../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: (token: string) => {
     kit.userClientTokens.push(token);
     return createFakeAdmin(kit.userState);
   },
 }));
 
-import handler from "./[id].js";
+import { callHandler } from "../../_lib/tenantRoute.testkit.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/tenants/:id" };
 
 const TENANT = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 const LOADED_AT = "2026-11-20T01:02:03.456789+00:00";
@@ -127,15 +129,26 @@ describe("GET /api/admin/tenants/:id", () => {
     expect(r.body).toMatchObject({ status: 404, code: "NOT_FOUND" });
   });
 
-  test.each([
-    ["id 없음", {}],
-    ["uuid 가 아닌 id", { id: "tenant-7" }],
-  ])("%s 이면 400 이다", async (_label, query) => {
-    const r = await get(query);
+  // 옛 라우트는 uuid 모양이면 받았다(버전 비트와 상관없이). 시드 기관 id 가 그런 모양일 수 있다.
+  test("버전 비트가 표준이 아닌 uuid 모양 id 도 받는다", async () => {
+    const id = "00000000-0000-0000-0000-000000000001";
+    kit.state.rows.tenants = (filters) => (filters.id === id ? ROW : null);
 
-    expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    const r = await get({ id });
+
+    expect(r.status).toBe(200);
   });
+
+  // 경로 :id 는 필수 구간이라 "id 없음" 은 다른 주소가 된다(Hono 로 옮기며 사라진 경우).
+  test.each([["uuid 가 아닌 id", { id: "tenant-7" }]])(
+    "%s 이면 400 이다",
+    async (_label, query) => {
+      const r = await get(query);
+
+      expect(r.status).toBe(400);
+      expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    },
+  );
 });
 
 describe("PATCH /api/admin/tenants/:id", () => {
@@ -361,7 +374,9 @@ describe("PATCH /api/admin/tenants/:id", () => {
   });
 
   test("GET, PATCH 이외의 메서드는 405 이다", async () => {
-    const r = await callHandler(handler, BODY, "POST");
+    const r = await callHandler(handler, BODY, "POST", {
+      id: "8a2d3b4c-5e6f-4071-9b8c-0d1e2f3a4b5c",
+    });
 
     expect(r.status).toBe(405);
   });

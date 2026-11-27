@@ -3,15 +3,14 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: (...keys: string[]) => {
     for (const key of keys) if (process.env[key]) return process.env[key];
     return "";
@@ -20,7 +19,10 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./purge-logs.js";
+import { callHandler } from "../../_lib/tenantRoute.testkit.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/tenants/purge-logs" };
 
 const get = (query: Record<string, string> = {}, method = "GET") =>
   callHandler(handler, undefined, method, query);
@@ -103,7 +105,7 @@ describe("GET /api/admin/tenants/purge-logs", () => {
       ],
     });
     expect(filtersSeen[0]).toMatchObject({ action: "member_purge" });
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
   });
 
   test("본사가 실행한 삭제는 로그인 아이디가 없어 실행자를 이메일로 보여 준다", async () => {

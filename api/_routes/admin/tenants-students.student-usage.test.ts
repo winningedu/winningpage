@@ -3,12 +3,11 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
   matchRows,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
@@ -17,7 +16,7 @@ const kit = vi.hoisted(() => ({
   userClientTokens: [] as string[],
 }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: (...keys: string[]) => {
     for (const key of keys) if (process.env[key]) return process.env[key];
     return "";
@@ -26,14 +25,17 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-vi.mock("../../../_lib/supabaseUser.js", () => ({
+vi.mock("../../_lib/supabaseUser.js", () => ({
   createSupabaseUserClient: (token: string) => {
     kit.userClientTokens.push(token);
     return createFakeAdmin(kit.userState);
   },
 }));
 
-import handler from "./student-usage.js";
+import { callHandler } from "../../_lib/tenantRoute.testkit.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/tenants/student-usage" };
 
 const STUDENT = "5b1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 const TENANT = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
@@ -201,7 +203,7 @@ describe("GET /api/admin/tenants/student-usage", () => {
     const r = await get({ profileId: STUDENT });
 
     expect(r.status).toBe(200);
-    expect(r.headers["Cache-Control"]).toBe("no-store");
+    expect(r.headers["cache-control"]).toBe("no-store");
     const body = r.body as {
       tenant: unknown;
       programs: Record<string, unknown>[];

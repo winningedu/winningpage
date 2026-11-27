@@ -26,7 +26,7 @@ import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSke
 import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import {
   type IssuedSchoolAdmin,
-  type IssueSchoolAdminBody,
+  type IssueSchoolAdminInput,
   issueSchoolAdmin,
 } from "./api";
 import {
@@ -83,7 +83,7 @@ export default function SchoolAdminPanel({
   const loadError = listQuery.isError ? errorDetail(listQuery.error) : "";
 
   const issueMutation = useMutation({
-    mutationFn: (body: IssueSchoolAdminBody) => issueSchoolAdmin(body),
+    mutationFn: (body: IssueSchoolAdminInput) => issueSchoolAdmin(body),
     onSuccess: (result) => {
       setForm(EMPTY_FORM);
       setIssued(result);

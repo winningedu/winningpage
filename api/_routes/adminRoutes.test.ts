@@ -64,9 +64,10 @@ function routeFiles(dir: string): string[] {
 const AUDIT_OFF = "audit: false";
 const AUDIT_EXPECTATIONS: Record<string, string> = {
   "admin/access-logs.ts": AUDIT_OFF,
-  "admin/tenants/member-purge.ts": AUDIT_OFF,
-  "admin/tenants/school-admin.ts": AUDIT_OFF,
-  "admin/tenants/move-student.ts": AUDIT_OFF,
+  // member-purge, school-admin, move-student 는 각자 audit 행을 직접 남긴다.
+  "admin/tenants-purge.ts": AUDIT_OFF,
+  "admin/tenants-school-admins.ts": AUDIT_OFF,
+  "admin/tenants-students.ts": AUDIT_OFF,
   // 발급 회수, 사용 이력 무효화 둘 다 기존 행을 바꾼다.
   "admin/coupons.ts": 'audit: { action: "update" }',
   "admin/sections/[key]/[id]/reviewed.ts": 'audit: { action: "update" }',

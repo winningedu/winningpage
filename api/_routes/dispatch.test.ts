@@ -187,9 +187,27 @@ describe("경로 파라미터", () => {
   });
 });
 
-// 실제 매니페스트 키를 그대로 쓰되 로더만 키 이름을 기록하는 가짜로 바꿔, 어느 핸들러에 닿는지 본다.
-describe("기관 경로: 글자 그대로인 키가 [id] 보다 먼저다", () => {
-  const reach = async (url: string) => {
+// 기관 경로는 모두 Hono 로 옮겨 vercel.json 이 /api/app 으로 보낸다. 옛 라우터에 오더라도 어떤 핸들러에도 닿지 않는다.
+// 글자 그대로인 경로와 /:id 의 순서는 api/_routes/admin/tenants.routing.test.ts 가 루트 앱에서 본다.
+describe("기관 경로는 옛 라우터 매니페스트에 없다", () => {
+  const TENANT = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
+
+  test("매니페스트에 admin/tenants 키가 없다", () => {
+    expect(
+      Object.keys(manifestRoutes).filter((key) =>
+        key.startsWith("admin/tenants"),
+      ),
+    ).toEqual([]);
+  });
+
+  test.each([
+    "/api/admin/tenants",
+    "/api/admin/tenants/member-purge",
+    "/api/admin/tenants/school-admins",
+    "/api/admin/tenants/student-usage",
+    `/api/admin/tenants/${TENANT}`,
+    `/api/admin/tenants/${TENANT}/service-settings`,
+  ])("%s 는 옛 라우터의 어떤 핸들러에도 닿지 않는다", async (url) => {
     const hit: string[] = [];
     const routes = Object.fromEntries(
       Object.keys(manifestRoutes).map((key) => [
@@ -197,52 +215,12 @@ describe("기관 경로: 글자 그대로인 키가 [id] 보다 먼저다", () =
         async () => ({ default: () => void hit.push(key) }),
       ]),
     );
-    const req = makeReq(url, {});
-    await dispatch(routes as never, req, makeRes());
-    return { hit, req };
-  };
+    const res = makeRes();
 
-  test.each([
-    "member-purge",
-    "purge-logs",
-    "school-admins",
-    "student-usage",
-    "school-admin",
-    "member-purge-preview",
-    "move-student",
-  ])(
-    "/api/admin/tenants/%s 는 자기 핸들러에 닿고 [id] 에 닿지 않는다",
-    async (name) => {
-      const { hit, req } = await reach(`/api/admin/tenants/${name}`);
-
-      expect(hit).toEqual([`admin/tenants/${name}`]);
-      expect(req.query).toEqual({});
-    },
-  );
-
-  test("uuid 는 [id] 에 닿고 id 가 req.query 에 담긴다", async () => {
-    const id = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
-    const { hit, req } = await reach(`/api/admin/tenants/${id}`);
-
-    expect(hit).toEqual(["admin/tenants/[id]"]);
-    expect(req.query).toEqual({ id });
-  });
-
-  test("/:id/service-settings 는 서비스 설정 핸들러에 닿는다", async () => {
-    const id = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
-    const { hit, req } = await reach(
-      `/api/admin/tenants/${id}/service-settings?id=forged`,
-    );
-
-    expect(hit).toEqual(["admin/tenants/[id]/service-settings"]);
-    expect(req.query).toEqual({ id });
-  });
-
-  // 목록 라우트는 Hono 로 옮겨 vercel.json 이 /api/app 으로 보낸다. 옛 라우터에 오더라도 [id] 에 닿지 않는다.
-  test("목록 /api/admin/tenants 는 [id] 핸들러에 닿지 않는다", async () => {
-    const { hit } = await reach("/api/admin/tenants");
+    await dispatch(routes as never, makeReq(url, {}), res);
 
     expect(hit).toEqual([]);
+    expect(res.status).toHaveBeenCalledWith(404);
   });
 });
 

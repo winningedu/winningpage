@@ -19,24 +19,22 @@ vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
 
 import { app } from "../app.js";
 import startProxy from "../console/proxy/start.js";
-import memberPurge from "./tenants/member-purge.js";
-import moveStudent from "./tenants/move-student.js";
-import schoolAdmin from "./tenants/school-admin.js";
 
 const QA_BODY = {
   detail: "QA 계정이라 이 기능은 작동하지 않아요.",
   code: "QA_ACCOUNT_READ_ONLY",
 };
 
-const ROUTES = [
-  ["tenants/member-purge", memberPurge],
-  ["tenants/move-student", moveStudent],
-  ["tenants/school-admin", schoolAdmin],
-  ["console/proxy/start", startProxy],
-] as const;
+const ROUTES = [["console/proxy/start", startProxy]] as const;
 
 // Hono 로 옮긴 라우트는 루트 앱으로 부른다.
-const HONO_ROUTES = ["send-message", "invite-member"] as const;
+const HONO_ROUTES = [
+  "tenants/member-purge",
+  "tenants/move-student",
+  "tenants/school-admin",
+  "send-message",
+  "invite-member",
+] as const;
 
 const WRITE_BODY = {
   tenantId: "t1",

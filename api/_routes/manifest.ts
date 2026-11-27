@@ -41,19 +41,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/premium-book/pages/[id].js"),
   "admin/revenue/pending": () => import("./admin/revenue/pending.js"),
   "admin/revenue/services": () => import("./admin/revenue/services.js"),
-  "admin/tenants/[id]": () => import("./admin/tenants/[id].js"),
-  "admin/tenants/member-purge": () => import("./admin/tenants/member-purge.js"),
-  "admin/tenants/member-purge-preview": () =>
-    import("./admin/tenants/member-purge-preview.js"),
-  "admin/tenants/move-student": () => import("./admin/tenants/move-student.js"),
-  "admin/tenants/purge-logs": () => import("./admin/tenants/purge-logs.js"),
-  "admin/tenants/school-admin": () => import("./admin/tenants/school-admin.js"),
-  "admin/tenants/school-admins": () =>
-    import("./admin/tenants/school-admins.js"),
-  "admin/tenants/[id]/service-settings": () =>
-    import("./admin/tenants/[id]/service-settings.js"),
-  "admin/tenants/student-usage": () =>
-    import("./admin/tenants/student-usage.js"),
   "admin/uploads/preview": () => import("./admin/uploads/preview.js"),
   "auth/login": () => import("./auth/login.js"),
   "auth/teacher-reset-password": () =>

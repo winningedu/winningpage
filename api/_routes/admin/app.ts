@@ -38,6 +38,10 @@ import { staffDetail } from "./staff-detail.js";
 import { students } from "./students.js";
 import { tenantOptions } from "./tenant-options.js";
 import { tenants } from "./tenants.js";
+import { tenantsDetail } from "./tenants-detail.js";
+import { tenantsPurge } from "./tenants-purge.js";
+import { tenantsSchoolAdmins } from "./tenants-school-admins.js";
+import { tenantsStudents } from "./tenants-students.js";
 import { uploads } from "./uploads.js";
 import { webAnalytics } from "./web-analytics.js";
 
@@ -69,7 +73,12 @@ export const admin = createAdminApp()
   .route("/staff", staffDetail)
   .route("/roles", roles)
   .route("/roles", rolesDetail)
+  // /tenants 는 글자 그대로인 경로를 가진 앱을 /:id 가 있는 tenantsDetail 보다 먼저 붙인다. 순서가 바뀌면 /:id 의 405 가 그 경로를 가로챈다(api/_routes/admin/tenants.routing.test.ts).
   .route("/tenants", tenants)
+  .route("/tenants", tenantsPurge)
+  .route("/tenants", tenantsSchoolAdmins)
+  .route("/tenants", tenantsStudents)
+  .route("/tenants", tenantsDetail)
   .route("/uploads", uploads)
   .route("/growth-reports", growthReports)
   .route("/home-section-copy", homeSectionCopy)

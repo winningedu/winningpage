@@ -102,33 +102,6 @@
   "api/_routes/admin/sections/[key]/export.ts": {
     "legacyHandler": 1
   },
-  "api/_routes/admin/tenants/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/tenants/[id]/service-settings.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/tenants/member-purge-preview.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/tenants/member-purge.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/tenants/move-student.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/tenants/purge-logs.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/tenants/school-admin.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/tenants/school-admins.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/tenants/student-usage.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/uploads/preview.ts": {
     "legacyHandler": 1
   },
