@@ -53,7 +53,8 @@ export default defineHandler({
       throw new Error("fn_enrollment_confirm failed");
     }
     const row = (
-      data as { enrollment_id: string; version: number; changed: boolean }[]
+      data as
+        | { enrollment_id: string; version: number; changed: boolean }[]
         | null
     )?.[0];
     if (!row) throw new Error("fn_enrollment_confirm returned no row");
