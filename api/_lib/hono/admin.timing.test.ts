@@ -30,7 +30,16 @@ const app = createRootApp().route(
   "/",
   createAdminApp()
     .get("/api/admin/demo/:id", guard, (c) => c.json({ items: [] }))
-    .post("/api/admin/demo/:id", guard, (c) => c.json({ ok: true })),
+    .post("/api/admin/demo/:id", guard, (c) => c.json({ ok: true }))
+    .get(
+      "/api/admin/own",
+      admin({
+        permission: "none",
+        unhandledMessage: "x",
+        logLabel: "[admin/own]",
+      }),
+      (c) => c.json({}),
+    ),
 );
 
 let info: ReturnType<typeof vi.spyOn>;
@@ -77,5 +86,50 @@ describe("admin_auth_timing 로그", () => {
     expect(JSON.stringify(line)).not.toMatch(
       /secret-token|user-123|admin-1|a@b/,
     );
+  });
+
+  test("토큰이 없으면 401 이고 돌지 않은 단계는 빠진다", async () => {
+    const response = await app.request("/api/admin/demo/1");
+    expect(response.status).toBe(401);
+    const [line] = timingLines();
+    expect(line).toMatchObject({ status: 401 });
+    expect(Object.keys(line ?? {}).sort()).toEqual(
+      ["event", "method", "route", "status", "totalMs"].sort(),
+    );
+  });
+
+  test("메뉴 권한이 없으면 403 이고 permissionMs 까지 남긴다", async () => {
+    kit.admin = createAdminFake({ permissions: [] });
+    const response = await app.request("/api/admin/demo/1", { headers: AUTH });
+    expect(response.status).toBe(403);
+    const [line] = timingLines();
+    expect(line).toMatchObject({ status: 403 });
+    expect(line).toHaveProperty("permissionMs");
+  });
+
+  test("권한 조회가 실패하면 500 으로 남기고 응답도 500 이다", async () => {
+    const fake = createAdminFake({ permissions: [] });
+    fake.rpc = () => Promise.resolve({ data: null, error: { message: "x" } });
+    kit.admin = fake;
+    const response = await app.request("/api/admin/demo/1", { headers: AUTH });
+    expect(response.status).toBe(500);
+    expect(timingLines()[0]).toMatchObject({ status: 500 });
+  });
+
+  test("쓰기 요청은 QA 확인 시간(qaMs)도 남긴다", async () => {
+    const response = await app.request("/api/admin/demo/1", {
+      method: "POST",
+      headers: AUTH,
+    });
+    expect(response.status).toBe(200);
+    expect(timingLines()[0]).toHaveProperty("qaMs");
+  });
+
+  test("권한 판정을 건너뛰는 라우트는 permissionMs 가 없다", async () => {
+    const response = await app.request("/api/admin/own", { headers: AUTH });
+    expect(response.status).toBe(200);
+    const lines = timingLines();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).not.toHaveProperty("permissionMs");
   });
 });
