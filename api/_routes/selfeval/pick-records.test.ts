@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   pickLinkResponseSchema,
   pickListResponseSchema,
+  pickSelectResponseSchema,
 } from "../../../shared/selfeval/pick.js";
 import { callRoute, createAdminFake } from "../../_lib/adminRoute.testkit.js";
 
@@ -390,6 +391,112 @@ describe("pick-records link edits", () => {
         "분석을 시작한 뒤에는 활동을 바꿀 수 없어요. 파기하고 새로 시작해 주세요.",
     });
     expect(m.saveRecordLink).not.toHaveBeenCalled();
+  });
+});
+
+describe("pick-records select", () => {
+  test("lets the student pick up to N by hand even when the link check never ran", async () => {
+    // step_state 가 비어 연계 판정이 pending 이어도 직접 고르는 상한은 N(500자면 7건)이다.
+    m.loadActivityRecords.mockResolvedValue(
+      ["core", "a", "b", "c", "d", "e"].map((id) => record(id)),
+    );
+    const res = await call({
+      action: "select",
+      coreId: "core",
+      supportIds: ["a", "b", "c", "d", "e"],
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty("ok");
+    expect(pickSelectResponseSchema.parse(res.body)).toMatchObject({
+      maxSelect: 7,
+      currentStep: 2,
+    });
+    expect(m.replaceSessionActivities).toHaveBeenCalledTimes(1);
+    expect(m.updateSession).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "s1",
+      expect.objectContaining({ current_step: 2 }),
+    );
+  });
+
+  test("keeps the student's own line on the list and counts it when the link check failed", async () => {
+    const failedState = {
+      steps: {
+        link: {
+          status: "failed",
+          attempts: 1,
+          startedAt: null,
+          finishedAt: null,
+          issues: [],
+        },
+      },
+    };
+    m.loadSession.mockResolvedValue(session(failedState));
+    m.loadRecordLinks.mockResolvedValue([
+      {
+        fromId: "core",
+        toId: "a",
+        type: "complement",
+        strength: "explicit",
+        source: "student",
+        confirmed: true,
+        deleted: false,
+        note: "같은 소재를 이어서 했어요",
+        quoteFrom: null,
+        quoteTo: null,
+      },
+    ]);
+    const listed = await call({ action: "list" });
+    expect(listed.body).toMatchObject({
+      linkStatus: "unchecked",
+      linkUnchecked: true,
+    });
+    expect((listed.body as { links: unknown[] }).links).toHaveLength(1);
+    const picked = await call({
+      action: "select",
+      coreId: "core",
+      supportIds: ["a", "b"],
+    });
+    expect(picked.body).toMatchObject({ excludedIds: ["b"] });
+  });
+
+  test("rejects a selection above N with the count in the message", async () => {
+    m.loadSession.mockResolvedValue({ ...session(), target_chars: 210 });
+    m.loadActivityRecords.mockResolvedValue(
+      ["core", "a", "b", "c"].map((id) => record(id)),
+    );
+    const res = await call({
+      action: "select",
+      coreId: "core",
+      supportIds: ["a", "b", "c"],
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: "TOO_MANY_SUPPORT",
+      detail: "활동은 최대 3건까지 고를 수 있어요.",
+    });
+    expect(m.replaceSessionActivities).not.toHaveBeenCalled();
+  });
+
+  test("an unknown core is 400 UNKNOWN_ACTIVITY and nothing is saved", async () => {
+    const res = await call({ action: "select", coreId: "zzz" });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: "UNKNOWN_ACTIVITY" });
+    expect(m.replaceSessionActivities).not.toHaveBeenCalled();
+  });
+
+  test("warns when a picked support has no link to the others once the check is done", async () => {
+    m.loadSession.mockResolvedValue(session(okState));
+    const res = await call({
+      action: "select",
+      coreId: "core",
+      supportIds: ["a"],
+    });
+    expect(pickSelectResponseSchema.parse(res.body)).toMatchObject({
+      excludedIds: ["a"],
+      warnings: ["다른 기록과 이어지는 지점을 찾지 못했어요"],
+    });
   });
 });
 

@@ -199,6 +199,60 @@ async function handleList(
   return c.json(await listPayload(db, userId, session));
 }
 
+async function handleSelect(
+  c: Context<UserEnv>,
+  db: Db,
+  userId: string,
+  session: SessionRow,
+  body: Extract<PickBody, { action: "select" }>,
+) {
+  const { candidates, ctx } = await loadCandidates(db, userId, session);
+  const status = linkStatusOf(session.step_state);
+  const links = visibleLinks(status, await loadRecordLinks(db, session.id));
+  const { maxSelect } = composePickList({
+    rows: candidates,
+    links,
+    status,
+    selection: null,
+    targetChars: session.target_chars,
+  });
+  const applied = applySelection(candidates, body, ctx, maxSelect);
+  if (!applied.ok) throw selfevalProblem(400, applied.code, applied.message);
+  await replaceSessionActivities(
+    db,
+    userId,
+    session.id,
+    selectionRows(
+      session.id,
+      userId,
+      candidates,
+      applied.coreId,
+      applied.supportIds,
+    ),
+  );
+  const step = nextStepAfterPick(session.current_step);
+  await updateSession(db, userId, session.id, {
+    current_step: step,
+    last_activity_at: new Date().toISOString(),
+  });
+  // 연계 없는 기록은 허용하되 경고하고, 학생이 한 줄을 쓰지 않으면 생성에서 뺀다(명세 No.180).
+  const unlinked =
+    status === "ok" || links.length > 0
+      ? unlinkedIds(links, applied.supportIds)
+      : [];
+  return c.json({
+    selection: { coreId: applied.coreId, supportIds: applied.supportIds },
+    coreMismatch: applied.coreMismatch,
+    warnings: [
+      ...applied.warnings,
+      ...(unlinked.length > 0 ? [UNLINKED_WARNING] : []),
+    ],
+    excludedIds: unlinked,
+    maxSelect,
+    currentStep: step,
+  });
+}
+
 async function handleLinkEdit(
   c: Context<UserEnv>,
   db: Db,
@@ -305,6 +359,8 @@ export const pickRecords = userFactory
     if (!canChangeSelection(session)) {
       throw selfevalProblem(409, "SESSION_LOCKED", LOCKED_MESSAGE);
     }
+    if (body.action === "select")
+      return handleSelect(c, db, me.id, session, body);
     if (body.action === "link") return handleLink(c, db, me.id, session);
     if (
       body.action === "delete-link" ||
