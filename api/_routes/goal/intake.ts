@@ -32,7 +32,7 @@
 // 오버라이드 규칙을 이 파일에 베껴 쓰면 두 벌이 갈린다(buildWeeklySchedule 주석 참고).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Context } from "hono";
+import { intakeBody } from "../../../shared/goal/intake.js";
 import {
   fiveScaleToNine,
   middleAvgToNine,
@@ -66,9 +66,10 @@ import {
   saveGoalDirectionReport,
   upsertStudentRow,
 } from "../../_lib/goal/repo.js";
-import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
 /** 온보딩 원점(학생 현지 날짜). 수시 컷이 없는 awaiting_cuts 행은 원점을 두지 않는다. */
@@ -1267,15 +1268,6 @@ export async function computeEngineDerivedFields(
 // 핸들러
 // ---------------------------------------------------------------------------
 
-// 본문을 JSON 으로 읽는다. 비었거나 깨졌으면 null 이고, 형식 검사는 각 핸들러가 한다.
-async function readBody(c: Context) {
-  try {
-    return await c.req.json();
-  } catch {
-    return null;
-  }
-}
-
 const guard = user({
   unhandledMessage: "처리 중 오류가 발생했습니다.",
   logLabel: "goal/intake",
@@ -1283,7 +1275,7 @@ const guard = user({
 
 export const intake = userFactory
   .createApp()
-  .post("/", guard, async (c) => {
+  .post("/", guard, validate("json", intakeBody), async (c) => {
     try {
       // 1) 게이트 — 405 → 401 → 403 (§9-1)
       const session = await openGoalSession(c);
@@ -1315,7 +1307,7 @@ export const intake = userFactory
       }
 
       // 3) 입력 검증 + 4) 값 매핑
-      const validated = validateIntakeBody(await readBody(c));
+      const validated = validateIntakeBody(c.req.valid("json"));
       if (validated.error) {
         return goalFail(c, validated.error.status, validated.error.body);
       }

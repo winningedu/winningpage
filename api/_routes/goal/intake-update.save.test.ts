@@ -3,6 +3,7 @@
 // 부분 행을 upsert 하면 school_type, grade 가 비어 매번 500 이 났다. 가짜 Supabase 가
 // 그 검사를 흉내 내고, 저장은 profile_id 로 거는 update 여야 함을 고정한다.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { intakeUpdateResponse } from "../../../shared/goal/intake-update.js";
 import { callGoal } from "../../_lib/goal/route.testkit.js";
 
 vi.mock("../../_lib/httpAuth.js", () => ({
@@ -28,6 +29,7 @@ const existingRow: Row = {
   school_type: "일반고",
   grade: "고3",
   onboarded_at: "2026-09-01T00:00:00Z",
+  status: "active",
   ideal_university: "연세대",
   ideal_department: "경영학과",
   min_university: "고려대",
@@ -157,6 +159,7 @@ describe("intake-update 저장", () => {
     expect(res.status).toBe(200);
     const body = res.body;
     expect(body).not.toHaveProperty("ok");
+    expect(intakeUpdateResponse.parse(body).student.onboarded).toBe(true);
     expect(
       (body.student as { targets: { ideal: unknown } }).targets.ideal,
     ).toMatchObject({

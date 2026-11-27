@@ -40,13 +40,50 @@ const LOADERS = {
 type Route = keyof typeof LOADERS;
 
 // 요청 형식 검사(zod)가 이용권 확인보다 먼저라서, 쓰기 요청은 형식이 맞는 본문을 보내야 403 에 닿는다.
+const DAY = {
+  wake: 6,
+  sleep: 24,
+  hasSchool: true,
+  schoolStart: 8,
+  schoolEnd: 16,
+  academies: [],
+};
+const WEEK = {
+  mon: DAY,
+  tue: DAY,
+  wed: DAY,
+  thu: DAY,
+  fri: DAY,
+  sat: DAY,
+  sun: DAY,
+};
+const UNIVERSITY = { university: "서울대", department: "경영학과" };
 const WRITE_BODIES: Partial<Record<Route, unknown>> = {
+  intake: {
+    schoolType: "general",
+    grade: "g3",
+    upperUniversity: UNIVERSITY,
+    lowerUniversity: UNIVERSITY,
+    naesin: {},
+    mockExam: {},
+    studyHours: { mon: 1, tue: 1, wed: 1, thu: 1, fri: 1, sat: 1, sun: 1 },
+    weekSchedule: WEEK,
+  },
+  "intake-update": {
+    section: "target",
+    upperUniversity: UNIVERSITY,
+    lowerUniversity: UNIVERSITY,
+  },
   advice: { source: "intake" },
   "plan-tasks": {
     planDate: "2026-11-27",
     title: "문제 풀이",
     subject: "수학",
     durationMinutes: 30,
+  },
+  grades: {
+    type: "naesin",
+    entry: { term: "고2 1학기", subjects: {} },
   },
   schedules: {
     title: "수행평가",

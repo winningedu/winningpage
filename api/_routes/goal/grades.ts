@@ -48,6 +48,16 @@
 // 405 → 401 → (조회 200 {allowed:false} / 쓰기 403 PAID_MESSAGE) → 검증 → 처리 → 500.
 
 import type { Context } from "hono";
+import type { z } from "zod";
+import {
+  type GoalGradeRecord,
+  gradeCreateBody,
+  gradeDeleteBody,
+  type gradeDeleteResponse,
+  type gradesListResponse,
+  gradeUpdateBody,
+  type gradeWriteResponse,
+} from "../../../shared/goal/grades.js";
 import { GRADE_PERCENTILE } from "../../../src/lib/goal/calc/jeongsi.js";
 import { buildGoalDirectionReport } from "../../_lib/goal/directionReport.js";
 import { goalFail } from "../../_lib/goal/problem.js";
@@ -62,6 +72,7 @@ import {
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
 // api/_lib/goal/repo.ts(.js, Stage3 대상)의 openGoalSession 반환 shape은 JSDoc으로만 선언돼
@@ -285,15 +296,6 @@ export function removeRecord(records: unknown, term: string) {
   return list.filter((_, i) => i !== index);
 }
 
-// 본문을 JSON 으로 읽는다. 비었거나 깨졌으면 null 이고, 형식 검사는 각 핸들러가 한다.
-async function readBody(c: Context) {
-  try {
-    return await c.req.json();
-  } catch {
-    return null;
-  }
-}
-
 async function handleGet(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
 
@@ -301,13 +303,15 @@ async function handleGet(c: Context<UserEnv>, session: GoalSession) {
     return c.json({
       allowed: false,
       ...tenantReasonExtra(session.tenantReason),
-    });
+    } satisfies z.input<typeof gradesListResponse>);
   }
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
   const row = await fetchStudentRow(supabaseAdmin, profileId);
   if (!row) {
-    return c.json({ onboarded: false });
+    return c.json({ onboarded: false } satisfies z.input<
+      typeof gradesListResponse
+    >);
   }
 
   const naesinScores = row.naesin_scores || {};
@@ -322,7 +326,11 @@ async function handleGet(c: Context<UserEnv>, session: GoalSession) {
   });
 }
 
-async function handlePost(c: Context<UserEnv>, session: GoalSession) {
+async function handlePost(
+  c: Context<UserEnv>,
+  session: GoalSession,
+  { type, entry }: z.output<typeof gradeCreateBody>,
+) {
   const { allowed } = session;
 
   if (!allowed) {
@@ -332,16 +340,7 @@ async function handlePost(c: Context<UserEnv>, session: GoalSession) {
     });
   }
 
-  const body = await readBody(c);
-  if (!isPlainObject(body))
-    return goalFail(c, 400, { detail: "요청 본문이 올바르지 않습니다." });
-
-  const type = body.type;
-  if (type !== "naesin" && type !== "mock") {
-    return goalFail(c, 400, { detail: "성적 유형이 올바르지 않습니다." });
-  }
-
-  const validated = validateEntry(body.entry, type);
+  const validated = validateEntry(entry, type);
   if (validated.error) {
     return goalFail(c, validated.error.status, validated.error.body);
   }
@@ -364,7 +363,7 @@ async function handlePost(c: Context<UserEnv>, session: GoalSession) {
     naesin_scores: undefined,
     mock_exam_scores: undefined,
   };
-  let records: unknown[];
+  let records: GoalGradeRecord[];
   if (type === "naesin") {
     const naesinScores = row.naesin_scores || {};
     records = upsertRecord(naesinScores.records, record);
@@ -399,7 +398,9 @@ async function handlePost(c: Context<UserEnv>, session: GoalSession) {
     snapshot,
   });
 
-  return c.json({ record, records });
+  return c.json({ record, records } satisfies z.input<
+    typeof gradeWriteResponse
+  >);
 }
 
 /**
@@ -408,7 +409,11 @@ async function handlePost(c: Context<UserEnv>, session: GoalSession) {
  * fetchStudentRow 를 조회하므로 다른 사용자의 행을 절대 볼 수 없다(GET/POST와 동일한
  * 경계, RLS 는 service role 로 우회하지만 이 profileId 스코프가 대신한다).
  */
-async function handlePut(c: Context<UserEnv>, session: GoalSession) {
+async function handlePut(
+  c: Context<UserEnv>,
+  session: GoalSession,
+  { type, term, entry }: z.output<typeof gradeUpdateBody>,
+) {
   const { allowed } = session;
 
   if (!allowed) {
@@ -418,21 +423,12 @@ async function handlePut(c: Context<UserEnv>, session: GoalSession) {
     });
   }
 
-  const body = await readBody(c);
-  if (!isPlainObject(body))
-    return goalFail(c, 400, { detail: "요청 본문이 올바르지 않습니다." });
-
-  const type = body.type;
-  if (type !== "naesin" && type !== "mock") {
-    return goalFail(c, 400, { detail: "성적 유형이 올바르지 않습니다." });
-  }
-
-  const originalTerm = String(body.term ?? "").trim();
+  const originalTerm = term.trim();
   if (!originalTerm) {
     return goalFail(c, 400, { detail: "수정할 회차를 지정해 주세요." });
   }
 
-  const validated = validateEntry(body.entry, type);
+  const validated = validateEntry(entry, type);
   if (validated.error) {
     return goalFail(c, validated.error.status, validated.error.body);
   }
@@ -474,11 +470,17 @@ async function handlePut(c: Context<UserEnv>, session: GoalSession) {
 
   await updateStudentGrades(supabaseAdmin, profileId, patch);
 
-  return c.json({ record, records: result });
+  return c.json({ record, records: result } satisfies z.input<
+    typeof gradeWriteResponse
+  >);
 }
 
 /** DELETE — 회차 id(term) 기준 삭제. 소유권 경계는 handlePut 과 동일. */
-async function handleDelete(c: Context<UserEnv>, session: GoalSession) {
+async function handleDelete(
+  c: Context<UserEnv>,
+  session: GoalSession,
+  { type, term: rawTerm }: z.output<typeof gradeDeleteBody>,
+) {
   const { allowed } = session;
 
   if (!allowed) {
@@ -488,16 +490,7 @@ async function handleDelete(c: Context<UserEnv>, session: GoalSession) {
     });
   }
 
-  const body = await readBody(c);
-  if (!isPlainObject(body))
-    return goalFail(c, 400, { detail: "요청 본문이 올바르지 않습니다." });
-
-  const type = body.type;
-  if (type !== "naesin" && type !== "mock") {
-    return goalFail(c, 400, { detail: "성적 유형이 올바르지 않습니다." });
-  }
-
-  const term = String(body.term ?? "").trim();
+  const term = rawTerm.trim();
   if (!term) {
     return goalFail(c, 400, { detail: "삭제할 회차를 지정해 주세요." });
   }
@@ -534,7 +527,7 @@ async function handleDelete(c: Context<UserEnv>, session: GoalSession) {
 
   await updateStudentGrades(supabaseAdmin, profileId, patch);
 
-  return c.json({ records });
+  return c.json({ records } satisfies z.input<typeof gradeDeleteResponse>);
 }
 
 const guard = user({
@@ -542,19 +535,29 @@ const guard = user({
   logLabel: "goal/grades",
 });
 
+// 세션을 열어 핸들러에 넘기고, 처리하지 못한 오류는 500 으로 접는다.
+async function run(
+  c: Context<UserEnv>,
+  handle: (session: GoalSession) => Promise<Response>,
+) {
+  try {
+    return await handle(await openGoalSession(c));
+  } catch (error) {
+    console.error("goal/grades error:", error);
+    return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
+  }
+}
+
 export const grades = userFactory
   .createApp()
-  .on(["GET", "POST", "PUT", "DELETE"], "/", guard, async (c) => {
-    try {
-      const session = await openGoalSession(c);
-
-      if (c.req.method === "GET") return await handleGet(c, session);
-      if (c.req.method === "POST") return await handlePost(c, session);
-      if (c.req.method === "PUT") return await handlePut(c, session);
-      return await handleDelete(c, session);
-    } catch (error) {
-      console.error("goal/grades error:", error);
-      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
-    }
-  })
+  .get("/", guard, (c) => run(c, (session) => handleGet(c, session)))
+  .post("/", guard, validate("json", gradeCreateBody), (c) =>
+    run(c, (session) => handlePost(c, session, c.req.valid("json"))),
+  )
+  .put("/", guard, validate("json", gradeUpdateBody), (c) =>
+    run(c, (session) => handlePut(c, session, c.req.valid("json"))),
+  )
+  .delete("/", guard, validate("json", gradeDeleteBody), (c) =>
+    run(c, (session) => handleDelete(c, session, c.req.valid("json"))),
+  )
   .all("/", methodNotAllowed("GET", "POST", "PUT", "DELETE"));
