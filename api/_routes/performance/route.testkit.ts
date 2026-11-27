@@ -39,3 +39,17 @@ export function paidDb(userId = "me") {
     }),
   };
 }
+
+/** 400 VALIDATION_FAILED 이고 errors 가 field 를 가리키는지 본다. */
+export function validationFailedFor(
+  res: { status: number; body: unknown },
+  field: string,
+): boolean {
+  const body = res.body as { code?: string; errors?: unknown };
+  return (
+    res.status === 400 &&
+    body.code === "VALIDATION_FAILED" &&
+    Array.isArray(body.errors) &&
+    JSON.stringify(body.errors).includes(field)
+  );
+}

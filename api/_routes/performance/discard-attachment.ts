@@ -37,7 +37,11 @@
 //    정리한다(remove는 이미 없는 객체에 대해 에러가 아니다).
 
 import type { Context } from "hono";
-import { jsonObjectBody } from "../../../shared/performance/contract.js";
+import type { z } from "zod";
+import {
+  discardAttachmentBody,
+  type discardAttachmentResponse,
+} from "../../../shared/performance/discard-attachment.js";
 import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
@@ -50,9 +54,6 @@ import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 import { BUCKET } from "./upload-url.js";
 
 const SERVICE_KEY = "suhaeng";
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function fail(
   c: Context,
@@ -72,7 +73,7 @@ const guard = user({
 
 export const discardAttachment = userFactory
   .createApp()
-  .post("/", guard, validate("json", jsonObjectBody), async (c) => {
+  .post("/", guard, validate("json", discardAttachmentBody), async (c) => {
     const userId = c.var.user.id;
 
     // 이용권 재판정 — §8.6 공통 규약(다른 performance 라우트와 같은 관례).
@@ -94,28 +95,7 @@ export const discardAttachment = userFactory
     }
 
     const body = c.req.valid("json");
-    const sessionId =
-      typeof body.sessionId === "string" ? body.sessionId.trim() : "";
-    const attachmentId =
-      typeof body.attachmentId === "string" ? body.attachmentId.trim() : "";
-
-    if (!sessionId) {
-      return fail(c, 400, "MISSING_FIELD", "sessionId는 필수입니다.", {
-        field: "sessionId",
-      });
-    }
-
-    if (!UUID_RE.test(attachmentId)) {
-      return fail(
-        c,
-        400,
-        "INVALID_ATTACHMENT_ID",
-        "attachmentId 형식이 올바르지 않습니다.",
-        {
-          field: "attachmentId",
-        },
-      );
-    }
+    const { sessionId, attachmentId } = body;
 
     // 세션 소유권 — service_role이라 RLS가 우회되므로 이 조건이 유일한 방어선이다.
     const { data: sessionRow, error: sessionError } = await c.var.supabaseAdmin
@@ -199,6 +179,9 @@ export const discardAttachment = userFactory
     if (deleteError)
       throw new Error(`첨부 행 삭제 실패: ${deleteError.message}`);
 
-    return c.json({ discarded: true, attachmentId: attachmentRow.id });
+    return c.json({
+      discarded: true,
+      attachmentId: attachmentRow.id,
+    } satisfies z.input<typeof discardAttachmentResponse>);
   })
   .all("/", methodNotAllowed("POST"));

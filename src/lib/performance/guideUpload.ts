@@ -23,10 +23,8 @@
 //   최후 수단으로 24시간 고아 스윕이 같은 자리를 치운다.
 
 import { supabase } from "@/lib/supabase";
-import {
-  analyzeGuideResponse,
-  discardAttachmentResponse,
-} from "../../../shared/performance/contract.js";
+import { analyzeGuideResponse } from "../../../shared/performance/contract.js";
+import { discardAttachmentResponse } from "../../../shared/performance/discard-attachment.js";
 import { uploadUrlResponse } from "../../../shared/performance/upload-url.js";
 import { api } from "../http/client";
 import {

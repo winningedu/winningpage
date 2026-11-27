@@ -70,11 +70,6 @@ export const sessionWriteResponse = z.looseObject({
   quotaRemaining: nullableNumber,
 });
 
-export const discardAttachmentResponse = z.looseObject({
-  discarded: z.literal(true),
-  attachmentId: z.string(),
-});
-
 export const analyzeGuideResponse = z.looseObject({
   guide: z.unknown(),
   attachments: z.array(z.unknown()),
