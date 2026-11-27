@@ -7,25 +7,30 @@ import {
   MAIN_TRACK_OPTIONS,
   RESULT_YEAR_OPTIONS,
   SCREENING_CATEGORY_OPTIONS,
-} from "../../../../../src/lib/admissionResultsBulkXlsx.js";
+} from "../../../src/lib/admissionResultsBulkXlsx.js";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
   matchRows,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler, { RESULT_OPTIONS } from "./bulk.js";
+import { resultsBulkSchema } from "../../../shared/admission/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
+import { RESULT_OPTIONS } from "../../_lib/admission/resultRows.js";
+import { app } from "../app.js";
 
-const call = (body?: unknown) => callHandler(handler, body, "POST");
+const handler = { app, path: "/api/admin/admission/results/bulk" };
+
+const call = (body?: unknown) => callRoute(handler, { method: "POST", body });
 
 function grant(resource_key: string, level: "view" | "edit") {
   kit.state.rpc.fn_admin_effective_permissions = () => ({
@@ -88,6 +93,8 @@ describe("POST /api/admin/admission/results/bulk", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ inserted: 2, updated: 0 });
+    // 서버 응답이 브라우저가 검증하는 계약을 통과한다.
+    expect(resultsBulkSchema.safeParse(r.body).success).toBe(true);
     expect(writes("inserts")).toEqual([
       { table: "admission_results", row: items },
     ]);

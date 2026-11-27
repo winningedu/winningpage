@@ -6,7 +6,7 @@
       "destination": "/api/app"
     },
     {
-      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/(?:growth-reports|home-section-copy|inquiry-sessions|knowledge-eval/queries|knowledge-items|learning-diagnosis|mentor-applications/[^/]+|revenue/pending|revenue/services|sections|selfeval-sessions|uploads/preview)(?:/.*)?)",
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))admin/(?:admission|growth-reports|home-section-copy|inquiry-sessions|knowledge-eval/queries|knowledge-items|learning-diagnosis|mentor-applications/[^/]+|revenue/pending|revenue/services|sections|selfeval-sessions|uploads/preview)(?:/.*)?)",
       "destination": "/api/app"
     },
     {

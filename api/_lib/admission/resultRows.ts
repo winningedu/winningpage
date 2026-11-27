@@ -1,18 +1,9 @@
-// POST /api/admin/admission/results/bulk
-//
-// 입결정보 엑셀 업로드 한 청크(최대 500행)를 반영한다. id 없는 행은 insert, id 있는 행은 upsert.
+// 입결정보 일괄 반영(POST /api/admin/admission/results/bulk)의 행 규칙. id 없는 행은 insert, id 있는 행은 upsert 대상이다.
 // 행 검증은 src/lib/admissionResultsBulkXlsx.ts 의 파서 규칙과 문구를 따른다. 서버는 그 파일을
 // import 할 수 없어(import 사슬에 .js 없는 상대 경로가 있어 운영에서 깨진다) 옵션 목록을 복사해 두고,
 // 테스트가 파서 상수와 같음을 확인한다.
 
 import { z } from "zod";
-import { defineHandler } from "../../../../_lib/handler.js";
-import { sendError } from "../../../../_lib/httpResponse.js";
-
-export const config = { runtime: "nodejs" };
-
-// 브라우저가 한 번에 보내는 상한(예전 RESULTS_APPLY_CHUNK).
-const MAX_ITEMS = 500;
 
 export const RESULT_OPTIONS = {
   mainTrack: ["교과", "종합", "논술", "실기", "기타"],
@@ -134,7 +125,7 @@ const isBlank = (value: unknown) =>
   (typeof value === "string" && value.trim() === "");
 
 /** 첫 위반의 이유 문구. 문제가 없으면 null. */
-function rowProblem(row: unknown): string | null {
+export function resultRowProblem(row: unknown): string | null {
   if (typeof row !== "object" || row === null || Array.isArray(row)) {
     return "행 형식이 올바르지 않습니다.";
   }
@@ -151,80 +142,3 @@ function rowProblem(row: unknown): string | null {
   }
   return issue?.message ?? "행 형식이 올바르지 않습니다.";
 }
-
-const body = z.object({ items: z.array(z.unknown()).max(MAX_ITEMS) });
-
-export default defineHandler({
-  methods: ["POST"],
-  auth: "admin",
-  errorShape: "problem",
-  permission: { key: "admissionResults" },
-  unhandledMessage: "입결정보를 반영하지 못했습니다.",
-  logLabel: "[admin/admission/results/bulk]",
-  handler: async (req, res, ctx) => {
-    const parsed = body.safeParse(req.body);
-    if (!parsed.success) {
-      sendError(
-        res,
-        "problem",
-        400,
-        `items 는 ${MAX_ITEMS}행 이하 배열이어야 합니다.`,
-        "VALIDATION_FAILED",
-      );
-      return;
-    }
-    const items: Record<string, unknown>[] = [];
-    for (const [index, item] of parsed.data.items.entries()) {
-      const problem = rowProblem(item);
-      if (problem) {
-        sendError(
-          res,
-          "problem",
-          400,
-          `${index + 1}번째 행: ${problem}`,
-          "VALIDATION_FAILED",
-        );
-        return;
-      }
-      items.push(item as Record<string, unknown>);
-    }
-    const inserts = items.filter((item) => item.id === undefined);
-    const updates = items.filter((item) => item.id !== undefined);
-
-    // 아무것도 쓰기 전에 id 존재를 확인해, 없는 id 때문에 insert 만 반영되는 일을 막는다.
-    if (updates.length > 0) {
-      const ids = [...new Set(updates.map((item) => Number(item.id)))];
-      const { data, error } = await ctx.supabaseAdmin
-        .from("admission_results")
-        .select("id")
-        .in("id", ids);
-      if (error) throw new Error("admission_results id read failed");
-      const found = new Set((data ?? []).map((r) => r.id));
-      const missing = ids.filter((id) => !found.has(id));
-      if (missing.length > 0) {
-        sendError(
-          res,
-          "problem",
-          404,
-          `없는 id 가 있습니다: ${missing.join(", ")}`,
-          "NOT_FOUND",
-        );
-        return;
-      }
-    }
-
-    if (inserts.length > 0) {
-      const { error } = await ctx.supabaseAdmin
-        .from("admission_results")
-        .insert(inserts);
-      if (error) throw new Error("admission_results insert failed");
-    }
-    if (updates.length > 0) {
-      const { error } = await ctx.supabaseAdmin
-        .from("admission_results")
-        .upsert(updates, { onConflict: "id" });
-      if (error) throw new Error("admission_results upsert failed");
-    }
-    res.status(200).json({ inserted: inserts.length, updated: updates.length });
-  },
-});

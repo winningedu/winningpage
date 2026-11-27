@@ -36,21 +36,6 @@
   "api/_routes/admin/access-logs.ts": {
     "legacyHandler": 2
   },
-  "api/_routes/admin/admission/active-year.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/admission/guidelines/bulk.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/admission/results/bulk.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/admission/results/count.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/admin/admission/results/rows.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/admin/ai-telemetry-pricing.ts": {
     "legacyHandler": 1
   },

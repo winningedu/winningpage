@@ -1,25 +1,33 @@
 // PUT /api/admin/admission/guidelines/bulk 계약 검증. 대입모집요강 행을 (연도, 대학) 키로 한 번에 upsert 한다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { HWP_SECTION_JSON_KEYS } from "../../../../../src/lib/admissionDoc.js";
-import { HWP_SECTION_HTML_KEYS } from "../../../../../src/lib/admissionParsing.js";
+import { HWP_SECTION_JSON_KEYS } from "../../../src/lib/admissionDoc.js";
+import { HWP_SECTION_HTML_KEYS } from "../../../src/lib/admissionParsing.js";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler, { SECTION_HTML_KEYS, SECTION_JSON_KEYS } from "./bulk.js";
+import { guidelinesBulkSchema } from "../../../shared/admission/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
+import {
+  SECTION_HTML_KEYS,
+  SECTION_JSON_KEYS,
+} from "../../_lib/admission/guidelineRows.js";
+import { app } from "../app.js";
 
-const call = (body?: unknown) => callHandler(handler, body, "PUT");
+const handler = { app, path: "/api/admin/admission/guidelines/bulk" };
+
+const call = (body?: unknown) => callRoute(handler, { method: "PUT", body });
 
 function grant(resource_key: string, level: "view" | "edit") {
   kit.state.rpc.fn_admin_effective_permissions = () => ({
@@ -71,6 +79,8 @@ describe("PUT /api/admin/admission/guidelines/bulk", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ upserted: 2 });
+    // 서버 응답이 브라우저가 검증하는 계약을 통과한다.
+    expect(guidelinesBulkSchema.safeParse(r.body).success).toBe(true);
     expect(writes()).toEqual([
       {
         table: "admission_university_resources",

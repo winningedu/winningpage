@@ -4,16 +4,6 @@ import type { RouteLoader } from "./dispatch.js";
 export const routes: Record<string, RouteLoader> = {
   "admin/access-logs": () => import("./admin/access-logs.js"),
   "admin/me/activate": () => import("./admin/me/activate.js"),
-  "admin/admission/active-year": () =>
-    import("./admin/admission/active-year.js"),
-  "admin/admission/results/count": () =>
-    import("./admin/admission/results/count.js"),
-  "admin/admission/results/rows": () =>
-    import("./admin/admission/results/rows.js"),
-  "admin/admission/results/bulk": () =>
-    import("./admin/admission/results/bulk.js"),
-  "admin/admission/guidelines/bulk": () =>
-    import("./admin/admission/guidelines/bulk.js"),
   "admin/ai-telemetry": () => import("./admin/ai-telemetry.js"),
   "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
   "admin/mentor-applications": () => import("./admin/mentor-applications.js"),

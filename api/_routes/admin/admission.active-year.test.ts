@@ -2,23 +2,27 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./active-year.js";
+import { activeYearSchema } from "../../../shared/admission/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/admission/active-year" };
 
 const call = (method: string, body?: unknown) =>
-  callHandler(handler, body, method);
+  callRoute(handler, { method, body });
 
 function grant(level: "view" | "edit") {
   kit.state.rpc.fn_admin_effective_permissions = () => ({
@@ -50,6 +54,8 @@ describe("GET /api/admin/admission/active-year", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ year: 2026 });
+    // 서버 응답이 브라우저가 검증하는 계약을 통과한다.
+    expect(activeYearSchema.safeParse(r.body).success).toBe(true);
     expect(filters).toEqual({ key: "admission_active_year" });
   });
 

@@ -1,14 +1,8 @@
-// PUT /api/admin/admission/guidelines/bulk
-//
-// 대입모집요강 엑셀 업로드 결과(모든 행)를 (admission_year, university_key) 키로 한 번에 upsert 한다.
+// 대입모집요강 일괄 반영(PUT /api/admin/admission/guidelines/bulk)의 행 규칙. (admission_year, university_key) 키로 upsert 한다.
 // 행 검증은 src/lib/admissionBulkXlsx.ts 파서가 만드는 키와 이유 문구를 따른다. 서버는 그 파일을
 // import 할 수 없어 섹션 키 표를 복사해 두고, 테스트가 파서 상수와 같음을 확인한다.
 
 import { z } from "zod";
-import { defineHandler } from "../../../../_lib/handler.js";
-import { sendError } from "../../../../_lib/httpResponse.js";
-
-export const config = { runtime: "nodejs" };
 
 // 원문 컬럼 이름 -> json 컬럼, html 컬럼. html 쪽은 recruitment_quota 만 이름이 다르다.
 export const SECTION_JSON_KEYS: Record<string, string> = {
@@ -87,7 +81,7 @@ const isBlank = (value: unknown) =>
   (typeof value === "string" && value.trim() === "");
 
 /** 첫 위반의 이유 문구. 문제가 없으면 null. */
-function rowProblem(row: unknown): string | null {
+export function guidelineRowProblem(row: unknown): string | null {
   if (typeof row !== "object" || row === null || Array.isArray(row)) {
     return "행 형식이 올바르지 않습니다.";
   }
@@ -106,50 +100,3 @@ function rowProblem(row: unknown): string | null {
   }
   return issue?.message ?? "행 형식이 올바르지 않습니다.";
 }
-
-const body = z.object({ items: z.array(z.unknown()) });
-
-export default defineHandler({
-  methods: ["PUT"],
-  auth: "admin",
-  errorShape: "problem",
-  permission: { key: "admissionGuidelines" },
-  unhandledMessage: "대입모집요강을 반영하지 못했습니다.",
-  logLabel: "[admin/admission/guidelines/bulk]",
-  handler: async (req, res, ctx) => {
-    const parsed = body.safeParse(req.body);
-    if (!parsed.success) {
-      sendError(
-        res,
-        "problem",
-        400,
-        "items 는 행 배열이어야 합니다.",
-        "VALIDATION_FAILED",
-      );
-      return;
-    }
-    const items: Record<string, unknown>[] = [];
-    for (const [index, item] of parsed.data.items.entries()) {
-      const problem = rowProblem(item);
-      if (problem) {
-        sendError(
-          res,
-          "problem",
-          400,
-          `${index + 1}번째 행: ${problem}`,
-          "VALIDATION_FAILED",
-        );
-        return;
-      }
-      items.push(item as Record<string, unknown>);
-    }
-    if (items.length > 0) {
-      const { error } = await ctx.supabaseAdmin
-        .from("admission_university_resources")
-        .upsert(items, { onConflict: "admission_year,university_key" });
-      if (error)
-        throw new Error("admission_university_resources upsert failed");
-    }
-    res.status(200).json({ upserted: items.length });
-  },
-});

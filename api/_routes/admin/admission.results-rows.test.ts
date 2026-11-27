@@ -1,25 +1,29 @@
 // GET /api/admin/admission/results/rows 계약 검증. id 순으로 1000행씩 쪽을 나눠 읽는다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { ADMISSION_RESULTS_BULK_XLSX_COLUMNS } from "../../../../../src/lib/admissionResultsBulkXlsx.js";
+import { ADMISSION_RESULTS_BULK_XLSX_COLUMNS } from "../../../src/lib/admissionResultsBulkXlsx.js";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./rows.js";
+import { resultsRowsSchema } from "../../../shared/admission/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/admission/results/rows" };
 
 const call = (query: Record<string, string>) =>
-  callHandler(handler, undefined, "GET", query);
+  callRoute(handler, { method: "GET", query });
 
 function grant(resource_key: string, level: "view" | "edit") {
   kit.state.rpc.fn_admin_effective_permissions = () => ({
@@ -50,6 +54,8 @@ describe("GET /api/admin/admission/results/rows", () => {
     expect(r.status).toBe(200);
     const items = (r.body as { items: { id: number }[] }).items;
     expect(items).toHaveLength(1000);
+    // 서버 응답이 브라우저가 검증하는 계약을 통과한다.
+    expect(resultsRowsSchema.safeParse(r.body).success).toBe(true);
     expect(items[0]).toEqual({ id: 1 });
     expect(readsOfResults()).toEqual([
       expect.objectContaining({

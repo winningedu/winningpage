@@ -2,22 +2,26 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./count.js";
+import { resultsCountSchema } from "../../../shared/admission/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
+import { app } from "../app.js";
 
-const call = (method = "GET") => callHandler(handler, undefined, method);
+const handler = { app, path: "/api/admin/admission/results/count" };
+
+const call = (method = "GET") => callRoute(handler, { method });
 
 function grant(resource_key: string, level: "view" | "edit") {
   kit.state.rpc.fn_admin_effective_permissions = () => ({
@@ -44,6 +48,8 @@ describe("GET /api/admin/admission/results/count", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ total: 43170 });
+    // 서버 응답이 브라우저가 검증하는 계약을 통과한다.
+    expect(resultsCountSchema.safeParse(r.body).success).toBe(true);
     expect(
       kit.state.reads.filter((x) => x.table === "admission_results"),
     ).toEqual([
