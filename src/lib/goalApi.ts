@@ -32,6 +32,7 @@ import {
   type GoalRankingEntry,
   rankingResponse,
 } from "../../shared/goal/ranking.js";
+import { reportResponse } from "../../shared/goal/report.js";
 import {
   type GoalSchedule,
   type ScheduleCreateInput,
@@ -1569,9 +1570,11 @@ export async function fetchGoalReport(
 
   let response: GoalResponse;
   try {
-    response = await goalRequest(`goal/report?${params.toString()}`, {
-      method: "GET",
-    });
+    response = await goalRequest(
+      `goal/report?${params.toString()}`,
+      { method: "GET" },
+      reportResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/report 호출 오류:", error);
     return { kind: "error" };

@@ -29,8 +29,8 @@
 // 기간 경계는 순수 달력이다 — 주간 period='그 주 월요일 YMD',
 // 월간 period='YYYY-MM'. 생략하면 오늘(학생 현지) 기준 이번 주/이번 달로 기본값 처리한다.
 
-import type { Context } from "hono";
 import { GOAL_ERROR } from "../../../shared/goal/contract.js";
+import { reportQuery } from "../../../shared/goal/report.js";
 import { GRADE_PERCENTILE } from "../../../src/lib/goal/calc/jeongsi.js";
 import {
   bucketTimeSlots,
@@ -90,23 +90,8 @@ import {
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
-
-const VALID_TYPES = ["weekly", "monthly", "direction"];
-
-/**
- * studentId 쿼리 파라미터 파싱 — 빈 문자열/배열(중복 쿼리 키)은 "없음"으로 접는다.
- * VercelRequest.query 값은 string | string[] | undefined 셋 다 나올 수 있다(express 계열
- * 쿼리 파서 공통 동작) — 배열이 오면 studentId를 하나로 특정할 수 없으므로 방어적으로
- * 무시한다(정상 클라이언트 호출로는 나오지 않는다, src/lib/goalApi.ts fetchGoalReport는
- * 단일 값만 보낸다).
- */
-export function parseStudentIdParam(
-  query: Partial<Record<string, string | string[]>> | undefined,
-): string | undefined {
-  const raw = query?.studentId;
-  return typeof raw === "string" && raw.length > 0 ? raw : undefined;
-}
 
 function formatHoursMinutesLabel(hoursFloat) {
   const totalMinutes = Math.round(hoursFloat * 60);
@@ -584,21 +569,15 @@ const guard = user({
 
 export const report = userFactory
   .createApp()
-  .get("/", guard, async (c) => {
+  .get("/", guard, validate("query", reportQuery), async (c) => {
     try {
       const session = await openGoalSession(c);
 
       const { supabaseAdmin, profileId: requesterId } =
         narrowGoalSession(session);
 
-      const type = c.req.query("type");
-      if (typeof type !== "string" || !VALID_TYPES.includes(type)) {
-        return goalFail(c, 400, {
-          detail: "type은 weekly|monthly|direction 중 하나여야 합니다.",
-        });
-      }
-
-      const studentId = parseStudentIdParam(c.req.query());
+      const query = c.req.valid("query");
+      const { type, studentId } = query;
       if (studentId && type === "direction") {
         return goalFail(c, 400, {
           detail: "studentId는 weekly|monthly 조회에서만 사용할 수 있습니다.",
@@ -653,13 +632,13 @@ export const report = userFactory
       const nowYmd = ymdIn(new Date(), timeZone);
 
       if (type === "direction") {
-        const track = c.req.query("track") === "jeongsi" ? "jeongsi" : "naesin";
+        const track = query.track === "jeongsi" ? "jeongsi" : "naesin";
         const report = await buildDirectionReport({
           supabaseAdmin,
           profileId,
           student,
           track,
-          reportIdParam: c.req.query("reportId"),
+          reportIdParam: query.reportId,
           timeZone,
         });
         return c.json({ report });
@@ -670,7 +649,7 @@ export const report = userFactory
         profileId,
         student,
         type,
-        periodParam: c.req.query("period"),
+        periodParam: query.period,
         nowYmd,
         timeZone,
       });
