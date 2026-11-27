@@ -39,10 +39,8 @@
 //   `guideUpload.js`/`topics.js`/`designReport.js`가 이미 쓰는 규약이라 읽는 쪽이 출처를
 //   따지지 않아도 된다.
 
-import {
-  evaluateResponse,
-  finalizeResponse,
-} from "../../../shared/performance/contract.js";
+import { evaluateResponse } from "../../../shared/performance/contract.js";
+import { finalizeResponse } from "../../../shared/performance/finalize.js";
 import { api } from "../http/client";
 import { entitlementDeniedMessage } from "../tenantBlock";
 import {

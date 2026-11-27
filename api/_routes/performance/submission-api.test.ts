@@ -224,7 +224,11 @@ describe("[4] §8.6 엔드포인트 표 실패 코드", () => {
     ).toBe(false);
   });
   test("finalize.ts — action 값은 confirm/new_assessment 2종뿐(외부 승계)", () => {
-    expect(FINALIZE_API.includes('["confirm", "new_assessment"]')).toBe(true);
+    expect(
+      read("shared/performance/finalize.ts").includes(
+        '["confirm", "new_assessment"]',
+      ),
+    ).toBe(true);
   });
   test("submission.ts — mode는 draft/submit 2종", () => {
     expect(SUBMISSION_API.includes('body.mode === "submit"')).toBe(true);
