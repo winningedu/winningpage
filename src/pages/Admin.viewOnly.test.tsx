@@ -171,4 +171,31 @@ describe("엔진 섹션의 쓰기 동작", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /등록/ })).toBeNull();
   });
+
+  it("view 권한이면 모집요강 대학명 셀과 관리 열에서 메타 수정 창을 열 수 없다", async () => {
+    state.permissions = { admissionGuidelines: "view" };
+    state.rows = [
+      { id: 1, university_name: "가나대학교", admission_year: 2026 },
+    ];
+    renderInLayout("admissionGuidelines");
+
+    expect(await screen.findByText("가나대학교")).toBeInTheDocument();
+    expect(screen.queryByTitle("대학 정보 수정 창 열기")).toBeNull();
+    expect(screen.queryByRole("button", { name: "메타 정보 수정" })).toBeNull();
+  });
+
+  it("edit 권한이면 모집요강 대학명 셀과 관리 열에서 메타 수정 창을 연다", async () => {
+    state.permissions = { admissionGuidelines: "edit" };
+    state.rows = [
+      { id: 1, university_name: "가나대학교", admission_year: 2026 },
+    ];
+    renderInLayout("admissionGuidelines");
+
+    expect(
+      await screen.findByTitle("대학 정보 수정 창 열기"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "메타 정보 수정" }),
+    ).toBeInTheDocument();
+  });
 });

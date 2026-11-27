@@ -1703,7 +1703,8 @@ export function AdminSectionRoute({ section }: { section: string }) {
                 activeKey={activeKey}
                 onCompleteRefund={completeRefund}
                 onOpenSection={openRowSection}
-                onOpenMetaEdit={setMetaEditRow}
+                // view 권한이면 대학명 셀이 메타 수정 창을 열지 않는다(저장이 403 으로 막힌다).
+                onOpenMetaEdit={config.readOnly ? undefined : setMetaEditRow}
                 onMarkReviewed={markReviewed}
               />
             )}

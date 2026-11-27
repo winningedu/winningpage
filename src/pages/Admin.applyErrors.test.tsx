@@ -97,6 +97,7 @@ import { ApiError } from "@/lib/http/client";
 import { AdminSectionRoute } from "./Admin";
 import { TestQueryProvider } from "./admin/engine/testQuery";
 import { ConfirmAdminHost } from "./admin/shared/confirmAdmin";
+import { SectionEditAccessProvider } from "./admin/shared/sectionEditAccess";
 
 const PREVIEW = {
   sourceRowCount: 1,
@@ -146,7 +147,9 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
     render(
       <TestQueryProvider>
         <MemoryRouter initialEntries={["/admin/goalUniversityCuts"]}>
-          <AdminSectionRoute section="goalUniversityCuts" />
+          <SectionEditAccessProvider value={true}>
+            <AdminSectionRoute section="goalUniversityCuts" />
+          </SectionEditAccessProvider>
           <Toaster />
         </MemoryRouter>
       </TestQueryProvider>,
@@ -234,7 +237,9 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
     render(
       <TestQueryProvider>
         <MemoryRouter initialEntries={["/admin/admissionGuidelines"]}>
-          <AdminSectionRoute section="admissionGuidelines" />
+          <SectionEditAccessProvider value={true}>
+            <AdminSectionRoute section="admissionGuidelines" />
+          </SectionEditAccessProvider>
           <Toaster />
           <ConfirmAdminHost />
         </MemoryRouter>

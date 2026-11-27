@@ -1843,8 +1843,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                     {column.render ? (
                       column.render(row)
                     ) : column.type === "universityNameMeta" &&
-                      onOpenMetaEdit &&
-                      !config.readOnly ? (
+                      onOpenMetaEdit ? (
                       <button
                         type="button"
                         onClick={() => onOpenMetaEdit(row)}
