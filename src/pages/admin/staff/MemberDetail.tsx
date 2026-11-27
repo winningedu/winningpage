@@ -26,6 +26,7 @@ import {
   putStaffPermissions,
   type Resource,
   type RoleOption,
+  type StaffStatus,
   staffKeys,
 } from "./api";
 import { LEVEL_CHOICES, type LevelDraft, sameDraft, toDraft } from "./levels";
@@ -167,7 +168,8 @@ function MemberDetail({
       patchStaff(member.profile_id, {
         roleId: roleDraft || null,
         department: deptDraft.trim() || null,
-        status: statusDraft,
+        // 서버 계약은 세 값만 받는다(shared/staff/detail.ts). 화면 선택지가 그 세 값이다.
+        status: statusDraft as StaffStatus,
       }),
     onSuccess: async () => {
       await refresh();

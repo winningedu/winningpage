@@ -1,22 +1,30 @@
 // GET, PATCH /api/admin/staff/:profileId 계약 검증. 최고 관리자 전용 메뉴(adminMembers)다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { directoryRowSchema } from "../../../shared/staff/contract.js";
 import {
-  callHandler,
+  staffDetailSchema,
+  staffPatchBody,
+} from "../../../shared/staff/detail.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
+import {
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../../_lib/supabaseAdmin.js")>()),
+vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../_lib/supabaseAdmin.js")>()),
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./[profileId].js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/staff/:profileId" };
 
 const P = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 const MEMBER = {
@@ -61,7 +69,11 @@ afterEach(() => {
 });
 
 const get = (id: string = P) =>
-  callHandler(handler, undefined, "GET", { profileId: id });
+  callRoute(route, {
+    method: "GET",
+    body: undefined,
+    query: { profileId: id },
+  });
 
 describe("GET /api/admin/staff/:profileId", () => {
   test("최고 관리자가 아니면 403 이고 읽지 않는다", async () => {
@@ -112,7 +124,7 @@ describe("GET /api/admin/staff/:profileId", () => {
 const ROLE = "22222222-2222-4222-8222-222222222222";
 const FORM = { roleId: ROLE, department: "  개발팀 ", status: "suspended" };
 const patch = (body: unknown, id: string = P) =>
-  callHandler(handler, body, "PATCH", { profileId: id });
+  callRoute(route, { method: "PATCH", body: body, query: { profileId: id } });
 
 const updates = () =>
   kit.state.updates.filter((u) => u.table === "admin_members");
@@ -229,5 +241,42 @@ describe("PATCH /api/admin/staff/:profileId", () => {
 
     expect(r.status).toBe(500);
     expect(JSON.stringify(r.body)).not.toContain("홍길동");
+  });
+});
+
+describe("계약과 메서드", () => {
+  test("GET 응답이 계약 스키마를 통과하고 no-store 다", async () => {
+    const r = await get();
+
+    expect(staffDetailSchema.safeParse(r.body).success).toBe(true);
+    expect(r.headers["cache-control"]).toBe("no-store");
+  });
+
+  test("PATCH 응답이 계약 스키마를 통과한다", async () => {
+    kit.state.rows.admin_members = () => [{ profile_id: P }];
+
+    const r = await patch(FORM);
+
+    expect(directoryRowSchema.safeParse(r.body).success).toBe(true);
+  });
+
+  test("계약의 PATCH 본문은 status 를 세 값으로 좁히고 부서를 다듬는다", () => {
+    expect(
+      staffPatchBody.safeParse({ ...FORM, status: "deleted" }).success,
+    ).toBe(false);
+    expect(staffPatchBody.parse({ ...FORM, department: " " }).department).toBe(
+      null,
+    );
+  });
+
+  test("GET, PATCH 가 아닌 메서드는 405 이고 Allow 가 GET, HEAD, PATCH 다", async () => {
+    const r = await callRoute(route, {
+      method: "DELETE",
+      query: { profileId: P },
+    });
+
+    expect(r.status).toBe(405);
+    expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
+    expect(r.headers.allow).toBe("GET, HEAD, PATCH");
   });
 });

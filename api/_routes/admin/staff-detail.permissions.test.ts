@@ -1,24 +1,26 @@
 // PUT /api/admin/staff/:profileId/permissions 계약 검증. 개별 권한을 지우고 다시 넣는다(옛 화면과 같다).
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { savedItemsSchema } from "../../../shared/staff/detail.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
-  callHandler,
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("../../../../_lib/supabaseAdmin.js")
-  >()),
+vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../_lib/supabaseAdmin.js")>()),
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./permissions.js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/staff/:profileId/permissions" };
 
 const P = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 const ITEMS = [
@@ -31,7 +33,7 @@ function superAdmin(isSuper: boolean) {
 }
 
 const put = (body: unknown, id: string = P) =>
-  callHandler(handler, body, "PUT", { profileId: id });
+  callRoute(route, { method: "PUT", body: body, query: { profileId: id } });
 
 const writes = () =>
   kit.state.events.filter((e) => /^(delete|insert|update|upsert):/.test(e));
@@ -179,4 +181,23 @@ describe("PUT /api/admin/staff/:profileId/permissions", () => {
       expect(JSON.stringify(r.body)).not.toContain("홍길동");
     },
   );
+});
+
+describe("계약과 메서드", () => {
+  test("PUT 응답이 계약 스키마를 통과하고 no-store 다", async () => {
+    const r = await put({ items: ITEMS });
+
+    expect(savedItemsSchema.safeParse(r.body).success).toBe(true);
+    expect(r.headers["cache-control"]).toBe("no-store");
+  });
+
+  test("PUT 이 아닌 메서드는 405 이고 Allow 가 PUT 이다", async () => {
+    const r = await callRoute(route, {
+      method: "GET",
+      query: { profileId: P },
+    });
+
+    expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe("PUT");
+  });
 });

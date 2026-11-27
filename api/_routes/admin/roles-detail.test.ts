@@ -2,21 +2,28 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
+  roleSchema,
+  roleWithPermissionsSchema,
+} from "../../../shared/roles/contract.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
+import {
   createFakeAdmin,
   createKitState,
   type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+} from "../../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../../_lib/supabaseAdmin.js")>()),
+vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../_lib/supabaseAdmin.js")>()),
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import handler from "./[id].js";
+import { app } from "../app.js";
+
+const route = { app, path: "/api/admin/roles/:id" };
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const OTHER = "8a2d3b4c-5e6f-4071-9b8c-0d1e2f3a4b5c";
@@ -35,7 +42,7 @@ function superAdmin(isSuper: boolean) {
 }
 
 const call = (method: string, id: string = ID, body?: unknown) =>
-  callHandler(handler, body, method, { id });
+  callRoute(route, { method: method, body: body, query: { id } });
 const writes = () =>
   kit.state.events.filter((e) => /^(delete|insert|update|upsert):/.test(e));
 
@@ -225,5 +232,35 @@ describe("DELETE /api/admin/roles/:id", () => {
 
     expect(r.status).toBe(500);
     expect(JSON.stringify(r.body)).not.toContain("홍길동");
+  });
+});
+
+describe("계약과 메서드", () => {
+  test("GET 응답이 계약 스키마를 통과하고 no-store 다", async () => {
+    const r = await call("GET");
+
+    expect(roleWithPermissionsSchema.safeParse(r.body).success).toBe(true);
+    expect(r.headers["cache-control"]).toBe("no-store");
+  });
+
+  test("PATCH 응답이 계약 스키마를 통과한다", async () => {
+    const r = await call("PATCH", ID, { name: "a", description: null });
+
+    expect(roleSchema.safeParse(r.body).success).toBe(true);
+  });
+
+  test("지우기 204 는 본문이 없다", async () => {
+    const r = await call("DELETE");
+
+    expect(r.status).toBe(204);
+    expect(r.body).toBeUndefined();
+  });
+
+  test("GET, PATCH, DELETE 가 아닌 메서드는 405 이고 Allow 가 DELETE, GET, HEAD, PATCH 다", async () => {
+    const r = await call("POST", ID, {});
+
+    expect(r.status).toBe(405);
+    expect(r.body).toMatchObject({ code: "METHOD_NOT_ALLOWED" });
+    expect(r.headers.allow).toBe("DELETE, GET, HEAD, PATCH");
   });
 });

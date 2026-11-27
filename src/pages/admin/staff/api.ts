@@ -1,7 +1,11 @@
 // 관리자 계정, 권한 묶음 화면의 HTTP 호출(/api/admin/staff, /api/admin/roles). 계약은 B10 계약서.
 
-import { z } from "zod";
 import { api } from "@/lib/http/client";
+import {
+  type InviteInput,
+  type InviteResult,
+  inviteResultSchema,
+} from "../../../../shared/invite-member/contract.js";
 import {
   type Role,
   type RoleBodyInput,
@@ -16,26 +20,30 @@ import {
   directoryRowSchema,
   levelSchema,
   type PermissionItem,
-  permissionItemSchema,
   type RoleOption,
   resourceSchema,
   type StaffList,
   staffListSchema,
 } from "../../../../shared/staff/contract.js";
-
-const text = z.string().nullish();
+import {
+  type StaffDetail,
+  type StaffPatchInput,
+  type StaffStatus,
+  savedItemsSchema,
+  staffDetailSchema,
+} from "../../../../shared/staff/detail.js";
 
 export type { Level, Resource } from "../../../../shared/staff/contract.js";
+export type {
+  DirectoryRow,
+  InviteResult,
+  PermissionItem,
+  RoleOption,
+  StaffDetail,
+  StaffList,
+  StaffStatus,
+};
 export { levelSchema, resourceSchema };
-
-const staffDetailSchema = z.object({
-  member: directoryRowSchema,
-  overrides: z.array(permissionItemSchema),
-  effective: z.array(permissionItemSchema),
-});
-
-export type { DirectoryRow, PermissionItem, RoleOption, StaffList };
-export type StaffDetail = z.infer<typeof staffDetailSchema>;
 
 export const staffKeys = {
   all: ["admin", "staff"] as const,
@@ -53,15 +61,7 @@ export const fetchStaffDetail = (profileId: string, signal?: AbortSignal) =>
     .get(`admin/staff/${encodeURIComponent(profileId)}`, opts(signal))
     .json(staffDetailSchema);
 
-const savedItemsSchema = z.object({ items: z.array(permissionItemSchema) });
-
-export interface StaffInfoBody {
-  roleId: string | null;
-  department: string | null;
-  status: string;
-}
-
-export const patchStaff = (profileId: string, body: StaffInfoBody) =>
+export const patchStaff = (profileId: string, body: StaffPatchInput) =>
   api
     .patch(`admin/staff/${encodeURIComponent(profileId)}`, { json: body })
     .json(directoryRowSchema);
@@ -76,23 +76,7 @@ export const putStaffPermissions = (
     })
     .json(savedItemsSchema);
 
-const inviteResultSchema = z.object({
-  profileId: z.string(),
-  resent: z.boolean(),
-  emailed: z.boolean(),
-});
-
-export interface InviteBody {
-  email: string;
-  name: string;
-  roleId: string;
-  department?: string;
-  confirmExisting: boolean;
-}
-
-export type InviteResult = z.infer<typeof inviteResultSchema>;
-
-export const postInvite = (body: InviteBody) =>
+export const postInvite = (body: InviteInput) =>
   api.post("admin/invite-member", { json: body }).json(inviteResultSchema);
 
 // ---------------------------------------------------------------------------
