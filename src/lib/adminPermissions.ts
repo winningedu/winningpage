@@ -78,3 +78,17 @@ export function canAccessSection(
   const key = permissionKeyFor(sectionKey, () => site.features.hqTenantAdmin);
   return key !== null && permissions.has(key);
 }
+
+/**
+ * 이 메뉴에서 등록, 수정, 삭제, 저장을 보여도 되나. 서버(R2)는 view 권한의 쓰기를 403 으로 막으므로
+ * 화면도 같은 기준으로 쓰기 버튼을 감춘다. 접근 판정과 같은 순서로 거르고, 맵에 없거나 view 면 닫는다.
+ */
+export function canEditSection(
+  permissions: AdminPermissionMap,
+  isSuperAdmin: boolean,
+  sectionKey: string,
+): boolean {
+  if (isSuperOnlySection(sectionKey)) return isSuperAdmin;
+  const key = permissionKeyFor(sectionKey, () => site.features.hqTenantAdmin);
+  return key !== null && permissions.get(key) === "edit";
+}
