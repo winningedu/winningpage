@@ -5,9 +5,11 @@ import { userFactory } from "../../_lib/hono/factory.js";
 import { analyze } from "./analyze.js";
 import { reports } from "./reports.js";
 import { session } from "./session.js";
+import { verify } from "./verify.js";
 
 export const selfeval = userFactory
   .createApp()
   .route("/analyze", analyze)
   .route("/reports", reports)
-  .route("/session", session);
+  .route("/session", session)
+  .route("/verify", verify);
