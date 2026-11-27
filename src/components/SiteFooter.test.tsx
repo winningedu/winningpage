@@ -40,7 +40,13 @@ function renderFooter() {
   );
 }
 
-const SOCIAL_LABELS = ["네이버 블로그", "네이버 클립", "유튜브", "인스타그램"];
+const SOCIAL_LABELS = [
+  "카카오톡 채널",
+  "네이버 블로그",
+  "네이버 클립",
+  "유튜브",
+  "인스타그램",
+];
 
 // 시안(운영위탁 줄 세 개)과 글자 그대로 같아야 한다.
 const COMPANY_LINES = [
@@ -218,7 +224,7 @@ describe("SiteFooter - 위닝 SNS 아이콘", () => {
     siteState.key = "winning";
   });
 
-  it("네이버 블로그, 네이버 클립, 유튜브, 인스타그램 순서로 새 탭 링크를 보이고 카카오 링크는 없다", () => {
+  it("카카오, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램 순서로 새 탭 링크를 보인다", () => {
     renderFooter();
     const footer = screen.getByRole("contentinfo");
     const links = within(footer)
@@ -232,7 +238,8 @@ describe("SiteFooter - 위닝 SNS 아이콘", () => {
       ...SOCIAL_LABELS,
       ...SOCIAL_LABELS,
     ]);
-    expect(links.slice(0, 4).map((link) => link.getAttribute("href"))).toEqual([
+    expect(links.slice(0, 5).map((link) => link.getAttribute("href"))).toEqual([
+      "https://pf.kakao.com/_EfjwX",
       "https://blog.naver.com/winningedu",
       "https://clip.naver.com/@winningedu",
       "https://www.youtube.com/@winningedu-100",
@@ -243,14 +250,6 @@ describe("SiteFooter - 위닝 SNS 아이콘", () => {
       expect(link).toHaveAttribute("rel", "noopener noreferrer");
       expect(link.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     }
-    expect(
-      footer.querySelector('[aria-label="카카오톡 채널"]'),
-    ).not.toBeInTheDocument();
-    expect(
-      within(footer)
-        .getAllByRole("link")
-        .some((link) => link.getAttribute("href")?.includes("pf.kakao.com")),
-    ).toBe(false);
   });
 });
 
@@ -264,6 +263,7 @@ describe("SiteFooter - 위닝 아이콘 배지", () => {
     const footer = screen.getByRole("contentinfo");
 
     for (const [label, color] of [
+      ["카카오톡 채널", "bg-[#fee500]"],
       ["네이버 블로그", "bg-[#03c75a]"],
       ["네이버 클립", "bg-[#6f4dce]"],
       ["유튜브", "bg-[#ff0000]"],
@@ -405,9 +405,11 @@ describe("SiteFooter - 위닝 SNS 주소가 없는 아이콘", () => {
         .map((link) => link.getAttribute("aria-label"))
         .filter((label) => SOCIAL_LABELS.includes(label ?? "")),
     ).toEqual([
+      "카카오톡 채널",
       "네이버 블로그",
       "유튜브",
       "인스타그램",
+      "카카오톡 채널",
       "네이버 블로그",
       "유튜브",
       "인스타그램",
@@ -415,18 +417,30 @@ describe("SiteFooter - 위닝 SNS 주소가 없는 아이콘", () => {
   });
 });
 
-describe("SiteFooter - 위닝 소셜 클릭 이벤트", () => {
+describe("SiteFooter - 위닝 카카오 문의 클릭 이벤트", () => {
   beforeEach(() => {
     siteState.key = "winning";
     vi.mocked(trackEvent).mockClear();
   });
 
-  it("푸터 소셜 링크를 눌러도 kakao_inquiry_click을 보내지 않는다", () => {
+  it("카카오톡 채널 링크를 누르면 kakao_inquiry_click을 footer로 보낸다", () => {
     renderFooter();
 
-    for (const link of screen.getAllByRole("link", { name: "유튜브" })) {
-      fireEvent.click(link);
-    }
+    fireEvent.click(
+      screen.getAllByRole("link", { name: "카카오톡 채널" })[0] as HTMLElement,
+    );
+
+    expect(trackEvent).toHaveBeenCalledWith("kakao_inquiry_click", {
+      location: "footer",
+    });
+  });
+
+  it("다른 소셜 링크는 이벤트를 보내지 않는다", () => {
+    renderFooter();
+
+    fireEvent.click(
+      screen.getAllByRole("link", { name: "유튜브" })[0] as HTMLElement,
+    );
 
     expect(trackEvent).not.toHaveBeenCalled();
   });

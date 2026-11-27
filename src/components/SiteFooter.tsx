@@ -1,11 +1,13 @@
 import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";
 import InstagramIcon from "@/components/icons/InstagramIcon";
+import KakaoIcon from "@/components/icons/KakaoIcon";
 import NaverClipIcon from "@/components/icons/NaverClipIcon";
 import NaverIcon from "@/components/icons/NaverIcon";
 import YoutubeIcon from "@/components/icons/YoutubeIcon";
 import { site } from "@/config/site";
 import { useFooterOperatorImage } from "@/hooks/useFooterOperatorImage";
+import { trackEvent } from "@/lib/analytics";
 
 // 시안: 항목을 " | "로 잇고 값이 없는 항목은 뺀다(빈 값을 그리지 않는다). 항목은 안에서 줄이
 // 바뀌지 않고 " | " 자리에서만 줄이 바뀐다. prefix 는 첫 항목 안에 붙는다.
@@ -39,7 +41,7 @@ function ftcBizInfoUrl(bizRegNo: string) {
   return `https://www.ftc.go.kr/bizCommPop.do?wrkr_no=${bizRegNo.replaceAll("-", "")}`;
 }
 
-// 소셜 아이콘: 순서 고정(네이버 블로그, 네이버 클립, 유튜브, 인스타그램). URL이 설정에 없으면 그
+// 소셜 아이콘: 순서 고정(카카오톡, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램). URL이 설정에 없으면 그
 // 아이콘은 렌더하지 않는다.
 function SocialLinks({
   company,
@@ -49,6 +51,13 @@ function SocialLinks({
   className: string;
 }) {
   const items = [
+    {
+      label: "카카오톡 채널",
+      href: company.kakaoChannelUrl,
+      onClick: () => trackEvent("kakao_inquiry_click", { location: "footer" }),
+      Icon: KakaoIcon,
+      badgeClassName: "bg-[#fee500] text-[#191919]",
+    },
     {
       label: "네이버 블로그",
       href: company.naverBlogUrl,
@@ -81,10 +90,11 @@ function SocialLinks({
 
   return (
     <div className={`items-center gap-[0.5625rem] ${className}`}>
-      {items.map(({ label, href, Icon, badgeClassName, style }) => (
+      {items.map(({ label, href, onClick, Icon, badgeClassName, style }) => (
         <a
           key={label}
           href={href}
+          onClick={onClick}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={label}
