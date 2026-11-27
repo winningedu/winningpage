@@ -72,6 +72,12 @@ const poolStudent = (id: string, over: Record<string, unknown> = {}) => ({
   grade: null,
   sameNameCount: 0,
   sameNameEnrolled: [],
+  needsConfirm: false,
+  canConfirm: false,
+  classId: null,
+  groupName: null,
+  className: null,
+  number: null,
   ...over,
 });
 
@@ -146,7 +152,9 @@ describe("W12 미배정 목록 default", () => {
       screen.getByRole("heading", { level: 1, name: "미배정 목록" }),
     ).toBeTruthy();
     expect(
-      screen.getByText("반이 정해지지 않은 학생을 반에 배치합니다"),
+      screen.getByText(
+        "반이 정해지지 않은 학생을 배치하고, 명단과 다른 반으로 가입한 학생을 확인합니다",
+      ),
     ).toBeTruthy();
     expect(
       screen.getByRole("heading", { name: "미배정 학생 2명" }),
@@ -203,7 +211,7 @@ describe("W12 미배정 목록 default", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "미배정 학생이 없어요. 새 학생이 가입하거나 학년도 전환에서 반을 비운 학생이 생기면 여기에 나타나요",
+        "미배정 학생이 없어요. 반 없이 가입했거나 명단과 다른 반으로 가입한 학생, 학년도 전환에서 반을 비운 학생이 생기면 여기에 나타나요",
       ),
     ).toBeTruthy();
     expect(screen.queryByTestId("same-name-check")).toBeNull();
@@ -447,5 +455,133 @@ describe("W12 휴대폰", () => {
     expect(screen.queryByRole("columnheader")).toBeNull();
     expect(screen.getByText("동명 재학생 2명")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "배치" })).toHaveLength(2);
+  });
+});
+
+describe("W12 확인 필요", () => {
+  const CONFIRM_URL = "POST /api/console/assign-pool/confirm";
+  const u1 = poolStudent("u1", {
+    name: "가*다",
+    enrollmentVersion: 2,
+    grade: "고1",
+    needsConfirm: true,
+    canConfirm: true,
+    classId: "d1",
+    groupName: "A레벨",
+    className: "1",
+    number: 5,
+  });
+
+  afterEach(() => {
+    window.innerWidth = 1024;
+  });
+
+  it("확인 필요 학생은 표시와 가입 때 적은 반을 보이고, 확인하면 버전과 함께 보낸 뒤 목록을 다시 읽는다", async () => {
+    let confirmed = false;
+    const calls = stubPage({
+      [CONFIRM_URL]: () => {
+        confirmed = true;
+        return { body: { version: 3, changed: true } };
+      },
+      [LIST_URL]: () => ({
+        body: listBody(confirmed ? [p1] : [u1, p1]),
+      }),
+    });
+    renderRoutes(routes, "/teacher/unassigned");
+    const row = (await screen.findByText("가*다")).closest("tr") as HTMLElement;
+
+    expect(within(row).getByText("확인 필요")).toBeTruthy();
+    expect(
+      within(row).getByText("가입 때 적은 반: 1학년-A레벨 1반 5번"),
+    ).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "배치" })).toBeTruthy();
+    fireEvent.click(within(row).getByRole("button", { name: "확인" }));
+
+    expect(
+      await screen.findByText("가*다 학생의 반을 확인했어요"),
+    ).toBeTruthy();
+    expect(calls.find((c) => c.key === CONFIRM_URL)?.body).toEqual({
+      studentId: "u1",
+      expectedVersion: 2,
+    });
+    await waitFor(() => expect(screen.queryByText("가*다")).toBeNull());
+  });
+
+  it("확인이 필요 없는 학생에게는 확인 버튼이 없다", async () => {
+    stubPage();
+    renderRoutes(routes, "/teacher/unassigned");
+    const row = (await screen.findByText("김*늘")).closest("tr") as HTMLElement;
+
+    expect(within(row).queryByRole("button", { name: "확인" })).toBeNull();
+    expect(within(row).queryByText("확인 필요")).toBeNull();
+  });
+
+  it("담당 반이 아닌 확인 필요 학생은 확인과 배치를 막고 이유를 보인다", async () => {
+    stubPage(
+      { [LIST_URL]: { body: listBody([{ ...u1, canConfirm: false }]) } },
+      homeroomMe,
+    );
+    renderRoutes(routes, "/teacher/unassigned");
+    const row = (await screen.findByText("가*다")).closest("tr") as HTMLElement;
+
+    expect(
+      (within(row).getByRole("button", { name: "확인" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (within(row).getByRole("button", { name: "배치" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      within(row).getByText("담당 반 학생만 확인하고 배치할 수 있어요"),
+    ).toBeTruthy();
+  });
+
+  it("다른 분이 먼저 바꿨으면 그 행에 안내를 보이고 목록을 다시 읽는다", async () => {
+    const calls = stubPage({
+      [CONFIRM_URL]: {
+        status: 409,
+        headers: { "Content-Type": "application/problem+json" },
+        body: {
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "다른 분이 먼저 바꿨어요. 새로 고침해 주세요.",
+          code: "VERSION_CONFLICT",
+        },
+      },
+      [LIST_URL]: { body: listBody([u1]) },
+    });
+    renderRoutes(routes, "/teacher/unassigned");
+    const row = (await screen.findByText("가*다")).closest("tr") as HTMLElement;
+
+    fireEvent.click(within(row).getByRole("button", { name: "확인" }));
+
+    expect(
+      await within(row).findByText(
+        "다른 분이 먼저 바꿨어요. 새로 고침해 주세요",
+      ),
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(calls.filter((c) => c.key === LIST_URL).length).toBeGreaterThan(1),
+    );
+  });
+
+  it("휴대폰에서도 확인 필요 표시, 적은 반, 확인 버튼을 보인다", async () => {
+    window.innerWidth = 500;
+    const calls = stubPage({
+      [CONFIRM_URL]: { body: { version: 3, changed: true } },
+      [LIST_URL]: { body: listBody([u1, p1]) },
+    });
+    renderRoutes(routes, "/teacher/unassigned");
+
+    expect(await screen.findByText("확인 필요")).toBeTruthy();
+    expect(
+      screen.getByText("가입 때 적은 반: 1학년-A레벨 1반 5번"),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.key === CONFIRM_URL)).toBe(true),
+    );
   });
 });

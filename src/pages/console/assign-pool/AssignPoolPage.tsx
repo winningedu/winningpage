@@ -1,4 +1,5 @@
 // W12 미배정 목록(학교 관리자, 본사 대행, 담임). 학급이 비어 있는 학생에게 학년그룹, 그룹, 반, 번호를 정해 배치한다.
+// 명단과 다른 반으로 가입한 학생은 "확인 필요"로 맨 앞에 오고(서버 정렬), 확인하거나 배치를 바꾼다.
 // 필터는 학년그룹, 반, 이름 검색이다. 반은 동명 재학생 확인만 좁히고 학년그룹을 고른 뒤에만 열린다(결정 105). 상태는 쿼리스트링에 둔다.
 
 import { useState } from "react";
@@ -34,7 +35,7 @@ import type { PoolStudent } from "./types";
 
 const PAGE_SIZE = 50;
 const EMPTY_MESSAGE =
-  "미배정 학생이 없어요. 새 학생이 가입하거나 학년도 전환에서 반을 비운 학생이 생기면 여기에 나타나요";
+  "미배정 학생이 없어요. 반 없이 가입했거나 명단과 다른 반으로 가입한 학생, 학년도 전환에서 반을 비운 학생이 생기면 여기에 나타나요";
 
 type FilterValues = { grade: string; classId: string; q: string };
 
@@ -129,7 +130,7 @@ export default function AssignPoolPage() {
     <>
       <PageHeader
         title="미배정 목록"
-        subtitle="반이 정해지지 않은 학생을 반에 배치합니다"
+        subtitle="반이 정해지지 않은 학생을 배치하고, 명단과 다른 반으로 가입한 학생을 확인합니다"
       />
       {classes.data && (
         <Filters
