@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 
 export const prod = {
   matchThreshold: 0.5,
@@ -27,7 +28,11 @@ export const goldenRow = {
   created_at: "2026-10-07T00:00:00Z",
 };
 
-export function renderInRouter(element: ReactElement, initialPath = "/evals") {
+export function renderInRouter(
+  element: ReactElement,
+  initialPath = "/evals",
+  canEdit = true,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -35,9 +40,11 @@ export function renderInRouter(element: ReactElement, initialPath = "/evals") {
     initialEntries: [initialPath],
   });
   const view = render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
   return { router, client, ...view };
 }

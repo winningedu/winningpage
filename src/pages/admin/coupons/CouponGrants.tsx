@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/table";
 import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { toastError, toastSuccess } from "@/pages/admin/shared/adminToast";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
+import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   couponKeys,
@@ -60,6 +62,8 @@ export default function CouponGrants() {
   const queryClient = useQueryClient();
   const grantCoupon = useGrantCoupon(id);
   const revokeGrant = useRevokeGrant(id);
+  // view 권한이면 개별 발급과 회수를 그리지 않는다.
+  const canEdit = useCanEditSection();
 
   const coupon = couponQuery.data;
   const grantRows: GrantRow[] = grantsQuery.data?.items ?? [];
@@ -151,7 +155,13 @@ export default function CouponGrants() {
               함께 보여준다: 발급받아도 쿠폰 자신의 기한이 지나면 못 쓰기
               때문이다. 발급분에도 별도 기한이 있고(coupon_grants.valid_until,
               20260825000010) 그건 아래 목록의 「사용 기한」 칼럼이다, 실제로
-              쓸 수 있는 마지막 날은 이 둘 중 이른 쪽이다. */}
+              쓸 수 있는 마지막 날은 이 둘 중 이른 쪽이다. 받는 동안은 그 자리에
+              막대를 둔다. */}
+        {couponQuery.isPending && (
+          <div className="mt-3">
+            <AdminLineSkeleton label="쿠폰 정보를 불러오는 중입니다." />
+          </div>
+        )}
         {coupon && (
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-bold">
             <span className="font-mono text-[0.8125rem]">{coupon.slug}</span>
@@ -167,102 +177,106 @@ export default function CouponGrants() {
         )}
       </div>
 
-      {/* 개별 발급, 사용자를 찾아서 준다. 이메일,이름 검색은 profiles 를
+      {canEdit && (
+        <>
+          {/* 개별 발급, 사용자를 찾아서 준다. 이메일,이름 검색은 profiles 를
             직접 조회한다(profiles_admin_select_all 정책). 발급 자체는 RPC 다. */}
-      <div className="mb-6 bg-white p-6 shadow-sm">
-        <div className="mb-3 text-sm font-semibold">
-          <FieldName k="email" />
-        </div>
+          <div className="mb-6 bg-white p-6 shadow-sm">
+            <div className="mb-3 text-sm font-semibold">
+              <FieldName k="email" />
+            </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="w-[20rem] max-w-full">
-            <Input
-              type="text"
-              aria-label={FIELD_LABEL.email}
-              value={userQuery}
-              placeholder={USER_SEARCH_PLACEHOLDER ?? undefined}
-              onChange={(e) => setUserQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.nativeEvent.isComposing) return;
-                if (e.key === "Enter") searchUsers();
-              }}
-              className={INPUT_CLASS}
-            />
-          </span>
-          <Button
-            type="button"
-            onClick={searchUsers}
-            variant="outline"
-            size="lg"
-          >
-            <Search size={14} />
-            조회
-          </Button>
-        </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-[20rem] max-w-full">
+                <Input
+                  type="text"
+                  aria-label={FIELD_LABEL.email}
+                  value={userQuery}
+                  placeholder={USER_SEARCH_PLACEHOLDER ?? undefined}
+                  onChange={(e) => setUserQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing) return;
+                    if (e.key === "Enter") searchUsers();
+                  }}
+                  className={INPUT_CLASS}
+                />
+              </span>
+              <Button
+                type="button"
+                onClick={searchUsers}
+                variant="outline"
+                size="lg"
+              >
+                <Search size={14} />
+                조회
+              </Button>
+            </div>
 
-        {userSearching && (
-          <div className="mt-4">
-            <AdminDetailSkeleton
-              rows={3}
-              label="사용자 검색 결과를 불러오는 중입니다."
-            />
-          </div>
-        )}
-
-        {!userSearching && userResults !== null && (
-          <div className="mt-4 border-t border-gray-200">
-            {userResults.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                등록된 데이터가 없습니다.
+            {userSearching && (
+              <div className="mt-4">
+                <AdminDetailSkeleton
+                  rows={3}
+                  label="사용자 검색 결과를 불러오는 중입니다."
+                />
               </div>
-            ) : (
-              userResults.map((profile) => {
-                const already = grantedUserIds.has(profile.id);
+            )}
 
-                return (
-                  <div
-                    key={profile.id}
-                    className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 py-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-sm font-bold">
-                        {profile.name || "-"}
-                      </div>
-                      <div className="font-mono text-xs text-gray-500">
-                        {profile.email}
-                      </div>
-                    </div>
-
-                    {already ? (
-                      // 이미 살아있는 발급이 있으면 버튼 대신 상태 표시만 둔다.
-                      <span
-                        className="text-green-600"
-                        title={ALREADY_GRANTED_TEXT ?? undefined}
-                        role="img"
-                        aria-label={ALREADY_GRANTED_TEXT ?? undefined}
-                      >
-                        <Check size={17} />
-                      </span>
-                    ) : (
-                      <Button
-                        type="button"
-                        onClick={() => submitGrant(profile)}
-                        // 발급 목록을 받는 동안은 누가 이미 발급받았는지 모른다.
-                        disabled={actionBusy || grantsQuery.isPending}
-                        size="lg"
-                        className="font-semibold"
-                      >
-                        <Plus size={14} />
-                        등록
-                      </Button>
-                    )}
+            {!userSearching && userResults !== null && (
+              <div className="mt-4 border-t border-gray-200">
+                {userResults.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">
+                    등록된 데이터가 없습니다.
                   </div>
-                );
-              })
+                ) : (
+                  userResults.map((profile) => {
+                    const already = grantedUserIds.has(profile.id);
+
+                    return (
+                      <div
+                        key={profile.id}
+                        className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 py-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold">
+                            {profile.name || "-"}
+                          </div>
+                          <div className="font-mono text-xs text-gray-500">
+                            {profile.email}
+                          </div>
+                        </div>
+
+                        {already ? (
+                          // 이미 살아있는 발급이 있으면 버튼 대신 상태 표시만 둔다.
+                          <span
+                            className="text-green-600"
+                            title={ALREADY_GRANTED_TEXT ?? undefined}
+                            role="img"
+                            aria-label={ALREADY_GRANTED_TEXT ?? undefined}
+                          >
+                            <Check size={17} />
+                          </span>
+                        ) : (
+                          <Button
+                            type="button"
+                            onClick={() => submitGrant(profile)}
+                            // 발급 목록을 받는 동안은 누가 이미 발급받았는지 모른다.
+                            disabled={actionBusy || grantsQuery.isPending}
+                            size="lg"
+                            className="font-semibold"
+                          >
+                            <Plus size={14} />
+                            등록
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {grantLoading ? (
         <AdminTableSkeleton
@@ -361,7 +375,7 @@ export default function CouponGrants() {
                       </TableCell>
 
                       <TableCell className="sticky right-0 border-l border-gray-100 bg-white px-3 py-3 whitespace-normal">
-                        {revoked ? (
+                        {revoked || !canEdit ? (
                           // 회수된 행은 사라지지 않는다(원장). 다시 회수할 수도
                           // 없다, 되돌리려면 "다시 발급"(새 행)이다.
                           <div className="text-center text-gray-300">-</div>

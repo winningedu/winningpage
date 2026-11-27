@@ -26,6 +26,8 @@ export default mergeConfig(
         // QA 계정 차단 스위치. 기존 QA 차단 테스트가 켠 상태를 전제로 하므로 기본을 켬으로 둔다.
         // 꺼짐 동작은 qaAccount.test.ts 가 vi.stubEnv 로 검증한다.
         QA_ACCOUNT_GUARD_ENABLED: "true",
+        // 로컬 .env.local의 관리자 우회 스위치가 권한 가드 테스트를 건너뛰게 하지 않도록 끈다.
+        VITE_ADMIN_BYPASS: "false",
       },
       // 전역 주입 대신 명시적 import(test/expect/describe from "vitest")를 쓴다 —
       // 이 저장소의 다른 곳들도 암묵적 전역에 의존하지 않는 관례를 따른다.

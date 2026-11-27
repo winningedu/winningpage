@@ -16,6 +16,7 @@ vi.mock("./api", () => ({
 
 import { Toaster } from "@/components/ui/toast";
 import { ApiError } from "@/lib/http/client";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import * as api from "./api";
 import SchoolAdminPanel from "./SchoolAdminPanel";
 
@@ -40,7 +41,11 @@ const CANCELED = {
   canceledAt: "2026-10-21T05:00:00Z",
 };
 
+// 지금 메뉴의 편집 권한. 기본은 edit 이고, view 시험에서만 끈다.
+let canEdit = true;
+
 beforeEach(() => {
+  canEdit = true;
   vi.resetAllMocks();
   vi.mocked(api.fetchSchoolAdmins).mockResolvedValue({
     address: "서울시 중구 1",
@@ -52,7 +57,11 @@ function withQuery(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return <QueryClientProvider client={client}>{ui}</QueryClientProvider>;
+  return (
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={client}>{ui}</QueryClientProvider>
+    </SectionEditAccessProvider>
+  );
 }
 
 function renderPanel() {
@@ -386,5 +395,23 @@ describe("SchoolAdminPanel", () => {
       );
       expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("Tmp-pass-1");
     });
+  });
+});
+
+describe("SchoolAdminPanel view 권한", () => {
+  test("view 권한이면 목록은 보이고 발급 폼과 발급 버튼은 없다", async () => {
+    canEdit = false;
+    renderPanel();
+
+    expect(await screen.findByText("박관리")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "발급" })).toBeNull();
+    expect(screen.queryByLabelText("이름")).toBeNull();
+  });
+
+  test("edit 권한이면 발급 폼과 발급 버튼이 있다", async () => {
+    renderPanel();
+
+    expect(await screen.findByRole("button", { name: "발급" })).toBeTruthy();
+    expect(screen.getByLabelText("이름")).toBeTruthy();
   });
 });

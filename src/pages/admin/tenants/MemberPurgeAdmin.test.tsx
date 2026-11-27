@@ -37,6 +37,7 @@ vi.mock("@/context/AuthProvider", () => ({
 }));
 
 import { ApiError } from "@/lib/http/client";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import MemberPurgeAdmin from "./MemberPurgeAdmin";
 
 const TENANT = {
@@ -109,6 +110,7 @@ const db = {
 };
 
 beforeEach(() => {
+  canEditSection = true;
   vi.resetAllMocks();
   db.tenants = [TENANT];
   db.previewFor = () => preview(-36);
@@ -142,19 +144,24 @@ function Probe() {
   );
 }
 
+// 지금 메뉴의 편집 권한. 기본은 edit 이고, view 시험에서만 끈다.
+let canEditSection = true;
+
 function renderAt(path: string) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/admin/memberPurge/*" element={<MemberPurgeAdmin />} />
-        </Routes>
-        <Probe />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEditSection}>
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/admin/memberPurge/*" element={<MemberPurgeAdmin />} />
+          </Routes>
+          <Probe />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
 }
 
@@ -607,5 +614,20 @@ describe("MemberPurgeAdmin", () => {
 
       expect(screen.getByRole("alertdialog")).toBeTruthy();
     });
+  });
+});
+
+describe("MemberPurgeAdmin view 권한", () => {
+  test("view 권한이면 미리보기는 보이고 삭제 실행 버튼은 없다", async () => {
+    canEditSection = false;
+    await openTenant();
+
+    expect(screen.queryByRole("button", { name: "삭제 실행" })).toBeNull();
+  });
+
+  test("edit 권한이면 삭제 실행 버튼이 있다", async () => {
+    await openTenant();
+
+    expect(screen.getByRole("button", { name: "삭제 실행" })).toBeTruthy();
   });
 });

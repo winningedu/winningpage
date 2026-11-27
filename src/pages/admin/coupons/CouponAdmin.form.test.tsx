@@ -301,3 +301,33 @@ test("고치지 않은 폼은 묻지 않고 나간다", async () => {
   expect(await screen.findByText("다른 화면")).toBeVisible();
   expect(confirmSpy).not.toHaveBeenCalled();
 });
+
+test("저장하는 동안에도 소속 선택에 고른 소속이 그대로 보인다", async () => {
+  const body = listBody({ tenants: [{ id: "t1", name: "윈 학원" }] });
+  let release: () => void = () => {};
+  let count = 0;
+  on("GET", "admin/coupons", async () => {
+    count += 1;
+    if (count === 1) return body;
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return body;
+  });
+  on("POST", "admin/coupons", couponRow);
+  await openCreate();
+  await screen.findByRole("option", { name: "윈 학원" });
+  fillRequired();
+  fireEvent.change(screen.getByRole("combobox", { name: "소속(단체 쿠폰)" }), {
+    target: { value: "t1" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+  await waitFor(() => expect(callsTo("POST", "admin/coupons")).toHaveLength(1));
+  await waitFor(() => expect(callsTo("GET", "admin/coupons")).toHaveLength(2));
+  // 저장이 끝나면 폼은 목록으로 넘어가 사라진다. 남아 있는 동안은 고른 소속이 보여야 한다.
+  const select = screen.queryByRole("combobox", { name: "소속(단체 쿠폰)" });
+  if (select) expect(select).toHaveDisplayValue("윈 학원");
+
+  release();
+});

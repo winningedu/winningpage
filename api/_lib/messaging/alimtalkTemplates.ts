@@ -26,8 +26,23 @@
 //   ⚠️ www 유무도 승인 문안 그대로다(리포트 2종은 www 있음). 임의로
 //   통일하지 말 것. 가입 축하 템플릿은 2026-08-25 재심사에서 버튼을 뺐다.
 
-/** 승인 문안에 쓰인 사이트 주소. 승인 시점 문자열이라 임의로 바꾸지 않는다. */
-export const SITE_WWW = "https://www.winningedu.com";
+import { isSchoolmentorSite } from "../site.js";
+
+// 같은 repo 를 위닝과 스쿨멘토 두 Vercel 프로젝트로 배포한다. 스쿨멘토 템플릿은 위닝 승인본에서
+// 브랜드와 도메인만 바꿔 따로 승인받으므로(원부 4절), 두 값만 사이트에 따라 고른다.
+// 주소는 승인 문안에 쓰인 문자열이라 임의로 바꾸지 않는다.
+
+/** 승인 문안의 브랜드 이름. */
+export function siteBrand(): string {
+  return isSchoolmentorSite() ? "스쿨멘토" : "위닝에듀";
+}
+
+/** 승인 문안의 사이트 주소. */
+export function siteWww(): string {
+  return isSchoolmentorSite()
+    ? "https://www.schoolmentor.kr"
+    : "https://www.winningedu.com";
+}
 
 export type AlimtalkButton = {
   name: string;
@@ -48,8 +63,14 @@ export type AlimtalkTemplate = {
    * 알림톡 실패(카카오 미사용자 등) 시 대체 발송할 SMS 문구.
    * 90바이트를 넘으면 LMS 로 올라가 단가가 3배 이상이라 짧게 둔다.
    * 리포트처럼 본문이 긴 건 "링크를 보라"로 축약한다.
+   * 없으면 failover 없이 알림톡만 보낸다.
    */
-  smsFallback: (vars: Record<string, string>) => string;
+  smsFallback?: (vars: Record<string, string>) => string;
+  /**
+   * 발송 로그에 남기면 안 되는 변수 이름(임시 비밀번호 등). 로그와 meta 에는 (비공개)로 남는다.
+   * 이런 템플릿은 SMS 대체 문자를 두지 않는다(문자로 비밀값이 나가지 않게).
+   */
+  secretVars?: string[];
   /** 웹링크 버튼(없으면 생략). */
   button?: (vars: Record<string, string>) => AlimtalkButton;
 };
@@ -103,7 +124,7 @@ const templates = {
   dailyReport: {
     codeEnv: "ALIGO_TPL_DAILY_REPORT",
     subject: "일간 학습 보고서",
-    build: (vars) => `안녕하세요, 위닝에듀입니다.
+    build: (vars) => `안녕하세요, ${siteBrand()}입니다.
 
 ${v(vars, "학생명")} 학생의 ${v(vars, "월")}월 ${v(vars, "일")}일 학습 현황을 알려드립니다.
 
@@ -126,28 +147,28 @@ ${v(vars, "오늘컨디션")}
 ■ 학생 한마디
 “${v(vars, "학생한마디")}”`,
     smsFallback: (vars) =>
-      `[위닝에듀] ${v(vars, "학생명")} 학생의 ${v(vars, "월")}/${v(vars, "일")} 학습 현황을 알려드립니다.`,
+      `[${siteBrand()}] ${v(vars, "학생명")} 학생의 ${v(vars, "월")}/${v(vars, "일")} 학습 현황을 알려드립니다.`,
   },
 
   /** 주간 리포트 — 발행 안내 + 리포트 링크. */
   weeklyReport: {
     codeEnv: "ALIGO_TPL_WEEKLY_REPORT",
     subject: "주간 학습 리포트",
-    build: (vars) => `안녕하세요, 위닝에듀입니다.
+    build: (vars) => `안녕하세요, ${siteBrand()}입니다.
 
 ${v(vars, "학생명")} 학생의 ${v(vars, "N월")}월 ${v(vars, "N주차")}주차 주간 학습 리포트가 발행되었습니다.
 
 아래 버튼을 눌러 이번 주 학습 시간과 목표 달성 현황, 계획 실천 결과를 리포트에서 확인해 보세요.`,
     smsFallback: (vars) =>
-      `[위닝에듀] ${v(vars, "학생명")} 학생의 주간 학습 리포트가 발행되었습니다.`,
+      `[${siteBrand()}] ${v(vars, "학생명")} 학생의 주간 학습 리포트가 발행되었습니다.`,
     button: (vars) => ({
       name: "주간 리포트 확인하기",
       linkType: "WL",
       linkTypeName: "웹링크",
       // reportId 자리에는 그 주 월요일 YMD 를 넣는다 — 리포트는 저장되지 않고
       // 기간 키로 계산되기 때문이다(alimtalkLinkRoutes.tsx 주석 참고).
-      linkMo: `${SITE_WWW}/services/goal/reports/weekly/${v(vars, "reportId")}`,
-      linkPc: `${SITE_WWW}/services/goal/reports/weekly/${v(vars, "reportId")}`,
+      linkMo: `${siteWww()}/services/goal/reports/weekly/${v(vars, "reportId")}`,
+      linkPc: `${siteWww()}/services/goal/reports/weekly/${v(vars, "reportId")}`,
     }),
   },
 
@@ -155,26 +176,27 @@ ${v(vars, "학생명")} 학생의 ${v(vars, "N월")}월 ${v(vars, "N주차")}주
   monthlyReport: {
     codeEnv: "ALIGO_TPL_MONTHLY_REPORT",
     subject: "월간 학습 리포트",
-    build: (vars) => `안녕하세요, 위닝에듀입니다.
+    build: (vars) => `안녕하세요, ${siteBrand()}입니다.
 
 ${v(vars, "학생명")} 학생의 ${v(vars, "N월")}월 월간 학습 리포트가 발행되었습니다.
 
 아래 버튼을 눌러 이번 달 학습 시간과 목표 달성 현황, 계획 실천 결과를 리포트에서 확인해 보세요.`,
     smsFallback: (vars) =>
-      `[위닝에듀] ${v(vars, "학생명")} 학생의 월간 학습 리포트가 발행되었습니다.`,
+      `[${siteBrand()}] ${v(vars, "학생명")} 학생의 월간 학습 리포트가 발행되었습니다.`,
     button: (vars) => ({
       name: "월간 리포트 확인하기",
       linkType: "WL",
       linkTypeName: "웹링크",
       // 월간 키는 'YYYY-MM'.
-      linkMo: `${SITE_WWW}/services/goal/reports/monthly/${v(vars, "reportId")}`,
-      linkPc: `${SITE_WWW}/services/goal/reports/monthly/${v(vars, "reportId")}`,
+      linkMo: `${siteWww()}/services/goal/reports/monthly/${v(vars, "reportId")}`,
+      linkPc: `${siteWww()}/services/goal/reports/monthly/${v(vars, "reportId")}`,
     }),
   },
   /**
    * 성장설계 리포트 완료 안내(No.111). 수신자는 연결된 학부모.
    * 문안은 시안 651:4775 의 고정 문장을 옮겼다. 시안의 구성, 방향 일관성,
-   * 먼저 할 일 줄은 변수 계약(학생이름, 발행일, 링크)에 없어 넣지 않았다.
+   * 먼저 할 일 줄은 변수 계약(학생이름, 발행일, 학생ID, 리포트ID)에 없어 넣지 않았다.
+   * 버튼은 승인본 UO_3143 형식이다: 사이트 www 에 경로 변수 학생ID, 리포트ID.
    *
    * 카카오 템플릿 등록과 승인 전에는 발송이 실패 로그로 남는다.
    * ALIGO_TPL_GROWTH_REPORT_DONE 에 승인 코드가 들어가야 하고, 본문과 버튼은
@@ -192,13 +214,42 @@ ${v(vars, "학생이름")} 학생
 
 성적 진단 항목은 학부모 화면에 보이지 않아요.`,
     smsFallback: (vars) =>
-      `[위닝에듀] ${v(vars, "학생이름")} 학생의 성장설계 리포트가 도착했습니다.`,
+      `[${siteBrand()}] ${v(vars, "학생이름")} 학생의 성장설계 리포트가 도착했습니다.`,
     button: (vars) => ({
       name: "성장설계 리포트 보기",
       linkType: "WL",
       linkTypeName: "웹링크",
-      linkMo: v(vars, "링크"),
-      linkPc: v(vars, "링크"),
+      linkMo: `${siteWww()}/mypage/children/${v(vars, "학생ID")}/growth/${v(vars, "리포트ID")}`,
+      linkPc: `${siteWww()}/mypage/children/${v(vars, "학생ID")}/growth/${v(vars, "리포트ID")}`,
+    }),
+  },
+
+  /**
+   * 선생님 계정 안내(원부 5절). 계정 발급과 임시 비밀번호 재발급에 같이 쓴다. 수신자는 선생님 본인.
+   * 임시 비밀번호가 본문에 들어가므로 로그에는 가리고(secretVars), SMS 대체 문자는 두지 않는다.
+   * 위닝 승인 제출본은 UO_3127, 스쿨멘토는 같은 본문에서 브랜드와 도메인만 바꾼다.
+   */
+  teacherAccount: {
+    codeEnv: "ALIGO_TPL_TEACHER_ACCOUNT",
+    subject: "계정 정보 안내",
+    secretVars: ["임시비밀번호"],
+    build: (vars) => `안녕하세요, ${v(vars, "이름")}님.
+${siteBrand()} ${v(vars, "계정종류")} 계정 정보를 안내드립니다.
+
+■ 소속: ${v(vars, "소속")}
+■ 아이디: ${v(vars, "아이디")}
+■ 임시 비밀번호: ${v(vars, "임시비밀번호")}
+
+아래 버튼을 눌러 로그인한 뒤, 처음 로그인할 때 비밀번호를 새로 설정해 주세요.
+
+※ 임시 비밀번호는 다른 사람에게 알려 주지 마세요.
+※ 요청하지 않은 안내라면 소속 기관 관리자에게 문의해 주세요.`,
+    button: () => ({
+      name: "선생님 화면 바로가기",
+      linkType: "WL",
+      linkTypeName: "웹링크",
+      linkMo: `${siteWww()}/teacher`,
+      linkPc: `${siteWww()}/teacher`,
     }),
   },
 } satisfies Record<string, AlimtalkTemplate>;

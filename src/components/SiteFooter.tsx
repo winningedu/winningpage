@@ -1,7 +1,13 @@
 import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";
+import InstagramIcon from "@/components/icons/InstagramIcon";
+import KakaoIcon from "@/components/icons/KakaoIcon";
+import NaverBlogIcon from "@/components/icons/NaverBlogIcon";
+import NaverClipIcon from "@/components/icons/NaverClipIcon";
+import YoutubeIcon from "@/components/icons/YoutubeIcon";
 import { site } from "@/config/site";
 import { useFooterOperatorImage } from "@/hooks/useFooterOperatorImage";
+import { trackEvent } from "@/lib/analytics";
 
 // 시안: 항목을 " | "로 잇고 값이 없는 항목은 뺀다(빈 값을 그리지 않는다). 항목은 안에서 줄이
 // 바뀌지 않고 " | " 자리에서만 줄이 바뀐다. prefix 는 첫 항목 안에 붙는다.
@@ -35,10 +41,77 @@ function ftcBizInfoUrl(bizRegNo: string) {
   return `https://www.ftc.go.kr/bizCommPop.do?wrkr_no=${bizRegNo.replaceAll("-", "")}`;
 }
 
+// 소셜 아이콘: 순서 고정(카카오톡, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램). URL이 설정에 없으면 그
+// 아이콘은 렌더하지 않는다.
+function SocialLinks({
+  company,
+  className,
+}: {
+  company: typeof site.company;
+  className: string;
+}) {
+  const items = [
+    {
+      label: "카카오톡 채널",
+      href: company.kakaoChannelUrl,
+      onClick: () => trackEvent("kakao_inquiry_click", { location: "footer" }),
+      Icon: KakaoIcon,
+      badgeClassName: "bg-[#fee500] text-[#191919]",
+    },
+    {
+      label: "네이버 블로그",
+      href: company.naverBlogUrl,
+      Icon: NaverBlogIcon,
+      badgeClassName: "bg-[#03c75a] text-white",
+    },
+    {
+      label: "네이버 클립",
+      href: company.naverClipUrl,
+      Icon: NaverClipIcon,
+      badgeClassName: "bg-[#6f4dce] text-[#adff5f]",
+    },
+    {
+      label: "유튜브",
+      href: company.youtubeUrl,
+      Icon: YoutubeIcon,
+      badgeClassName: "bg-[#ff0000] text-white",
+    },
+    {
+      label: "인스타그램",
+      href: company.instagramUrl,
+      Icon: InstagramIcon,
+      badgeClassName: "text-white",
+      style: {
+        background:
+          "linear-gradient(45deg, #f9ce34 0%, #ee2a7b 50%, #6228d7 100%)",
+      },
+    },
+  ].filter((item) => item.href);
+
+  return (
+    <div className={`items-center gap-[0.5625rem] ${className}`}>
+      {items.map(({ label, href, onClick, Icon, badgeClassName, style }) => (
+        <a
+          key={label}
+          href={href}
+          onClick={onClick}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={label}
+          style={style}
+          className={`inline-flex size-[1.875rem] items-center justify-center rounded-lg transition hover:opacity-90 ${badgeClassName}`}
+        >
+          <Icon className="size-4" aria-hidden="true" />
+        </a>
+      ))}
+    </div>
+  );
+}
+
 // 두 사이트 공용 푸터. 브랜드 자리, 운영 형태, 저작권 문구는 site.footer, 회사 정보는 site.company 를 따른다.
 // 저작권보호정책 링크는 문서와 라우트가 생길 때 추가한다(결정 26).
 export default function SiteFooter() {
-  const { company, footer } = site;
+  const { company, footer, features } = site;
   const operatorImage = useFooterOperatorImage();
   const nameItems = [
     `상호명: ${company.name}`,
@@ -59,6 +132,83 @@ export default function SiteFooter() {
       : undefined,
   ];
 
+  const legalLinks = (
+    <div
+      className={`flex shrink-0 gap-[1.6625rem] text-[0.8125rem] leading-5 font-semibold text-footer-b2b-link ${
+        features.footerSocialLinks
+          ? "mt-6 items-center lg:col-start-2 lg:row-start-1 lg:mt-0"
+          : "lg:pt-[0.4375rem]"
+      }`}
+    >
+      <Link
+        to="/privacy"
+        className="relative whitespace-nowrap font-bold text-footer-b2b-privacy after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
+      >
+        개인정보처리방침
+      </Link>
+      <Link
+        to="/terms"
+        className="relative whitespace-nowrap after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
+      >
+        이용약관
+      </Link>
+    </div>
+  );
+
+  const brand =
+    "logo" in footer.brand ? (
+      <img
+        src={footer.brand.logo}
+        alt={site.brandName}
+        className="h-6 w-auto"
+      />
+    ) : (
+      <p className="text-[1.4375rem] leading-7 font-extrabold tracking-[0.01875rem] text-white">
+        {footer.brand.text}
+      </p>
+    );
+
+  const info = (
+    <div className="mt-[1.031rem] break-keep text-[0.8125rem] leading-[1.675rem] text-footer-b2b-info">
+      <p>
+        <PipeItems
+          items={nameItems}
+          prefix={
+            footer.operatorLabel && (
+              <span className="text-white">({footer.operatorLabel}) </span>
+            )
+          }
+        />
+      </p>
+      <p>
+        <PipeItems items={registrationItems} />
+      </p>
+      <p>
+        <PipeItems items={addressItems} />
+      </p>
+      {company.hostingProvider && (
+        <p>
+          <span className="whitespace-nowrap">
+            호스팅서비스 제공자: {company.hostingProvider}
+          </span>
+          {company.mailOrderNo && (
+            <>
+              {" | "}
+              <a
+                href={ftcBizInfoUrl(company.bizRegNo)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="whitespace-nowrap underline"
+              >
+                사업자정보 확인
+              </a>
+            </>
+          )}
+        </p>
+      )}
+    </div>
+  );
+
   return (
     <footer className="bg-footer-b2b-bg">
       <div className="mx-auto flex max-w-content flex-col gap-6 px-8 py-10 lg:pb-[2.919rem] lg:pt-[2.7875rem]">
@@ -74,75 +224,28 @@ export default function SiteFooter() {
               <hr className="h-px w-full border-0 bg-footer-b2b-line lg:h-auto lg:w-px lg:self-stretch" />
             </>
           )}
-          <div className="flex min-w-0 flex-1 flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
-              {"logo" in footer.brand ? (
-                <img
-                  src={footer.brand.logo}
-                  alt={site.brandName}
-                  className="h-6 w-auto"
-                />
-              ) : (
-                <p className="text-[1.4375rem] leading-7 font-extrabold tracking-[0.01875rem] text-white">
-                  {footer.brand.text}
-                </p>
-              )}
-              <div className="mt-[1.031rem] break-keep text-[0.8125rem] leading-[1.675rem] text-footer-b2b-info">
-                <p>
-                  <PipeItems
-                    items={nameItems}
-                    prefix={
-                      footer.operatorLabel && (
-                        <span className="text-white">
-                          ({footer.operatorLabel}){" "}
-                        </span>
-                      )
-                    }
-                  />
-                </p>
-                <p>
-                  <PipeItems items={registrationItems} />
-                </p>
-                <p>
-                  <PipeItems items={addressItems} />
-                </p>
-                {company.hostingProvider && (
-                  <p>
-                    <span className="whitespace-nowrap">
-                      호스팅서비스 제공자: {company.hostingProvider}
-                    </span>
-                    {company.mailOrderNo && (
-                      <>
-                        {" | "}
-                        <a
-                          href={ftcBizInfoUrl(company.bizRegNo)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="whitespace-nowrap underline"
-                        >
-                          사업자정보 확인
-                        </a>
-                      </>
-                    )}
-                  </p>
-                )}
+          {features.footerSocialLinks ? (
+            <div className="flex min-w-0 flex-1 flex-col lg:grid lg:grid-cols-[1fr_auto_auto] lg:items-center lg:gap-x-[1.8125rem]">
+              <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+                {brand}
               </div>
+              <SocialLinks company={company} className="mt-4 flex lg:hidden" />
+              <div className="lg:col-span-3 lg:row-start-2">{info}</div>
+              {legalLinks}
+              <SocialLinks
+                company={company}
+                className="hidden lg:col-start-3 lg:row-start-1 lg:flex"
+              />
             </div>
-            <div className="flex shrink-0 gap-[1.6625rem] text-[0.8125rem] leading-5 font-semibold text-footer-b2b-link lg:pt-[0.4375rem]">
-              <Link
-                to="/privacy"
-                className="relative whitespace-nowrap font-bold text-footer-b2b-privacy after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
-              >
-                개인정보처리방침
-              </Link>
-              <Link
-                to="/terms"
-                className="relative whitespace-nowrap after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
-              >
-                이용약관
-              </Link>
+          ) : (
+            <div className="flex min-w-0 flex-1 flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                {brand}
+                {info}
+              </div>
+              {legalLinks}
             </div>
-          </div>
+          )}
         </div>
 
         <p className="text-[0.78125rem] leading-5 text-footer-b2b-copyright lg:mt-[0.675rem]">

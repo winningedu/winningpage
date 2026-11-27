@@ -22,6 +22,7 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { studentSearchQueryOptions } from "@/pages/admin/shared/studentSearch";
 import {
@@ -335,6 +336,7 @@ function ServiceCreditScreen({ title }: { title: string }) {
 function StudentCredits({ studentId }: { studentId: string }) {
   const queryClient = useQueryClient();
   const summary = useQuery(serviceCreditSummaryQueryOptions(studentId));
+  const canEdit = useCanEditSection();
 
   // 조정 응답의 행만 캐시에 끼워 넣어 현황 전체를 다시 읽지 않는다.
   function replaceRow(credit: ServiceCreditRow) {
@@ -385,7 +387,10 @@ function StudentCredits({ studentId }: { studentId: string }) {
         <AdminTableFrame label="서비스 이용횟수" className="border-collapse">
           <TableHeader>
             <TableRow className="border-b border-gray-300 hover:bg-transparent">
-              {["서비스", "총", "사용", "잔여", "만료", "조정"].map((label) => (
+              {(canEdit
+                ? ["서비스", "총", "사용", "잔여", "만료", "조정"]
+                : ["서비스", "총", "사용", "잔여", "만료"]
+              ).map((label) => (
                 <TableHead
                   key={label}
                   scope="col"
@@ -413,13 +418,15 @@ function StudentCredits({ studentId }: { studentId: string }) {
                   {formatCount(row.quotaRemaining)}
                 </TableCell>
                 <TableCell className="py-3">{formatExpiry(row)}</TableCell>
-                <TableCell className="whitespace-normal py-3">
-                  <AdjustForm
-                    row={row}
-                    profileId={student.id}
-                    onApplied={replaceRow}
-                  />
-                </TableCell>
+                {canEdit && (
+                  <TableCell className="whitespace-normal py-3">
+                    <AdjustForm
+                      row={row}
+                      profileId={student.id}
+                      onApplied={replaceRow}
+                    />
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

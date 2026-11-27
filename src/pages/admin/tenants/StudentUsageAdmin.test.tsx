@@ -10,6 +10,7 @@ vi.mock("@/lib/http/client", async (importOriginal) => ({
 }));
 
 import { ApiError } from "@/lib/http/client";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import StudentUsageAdmin from "./StudentUsageAdmin";
 
 const KEYS = ["diagnose", "target", "growth", "suhaeng", "inquiry", "selfeval"];
@@ -53,17 +54,22 @@ function Probe() {
   return <output data-testid="search">{useLocation().search}</output>;
 }
 
+// 지금 메뉴의 편집 권한. 기본은 edit 이고, view 시험에서만 끈다.
+let canEdit = true;
+
 function renderAt(path = "/admin/serviceCreditAdjust") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[path]}>
-        <StudentUsageAdmin />
-        <Probe />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[path]}>
+          <StudentUsageAdmin />
+          <Probe />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
 }
 
@@ -77,6 +83,7 @@ const sentRows = () =>
   );
 
 beforeEach(() => {
+  canEdit = true;
   vi.resetAllMocks();
   http.get.mockImplementation((path: string) =>
     path === "admin/students/search"
@@ -131,6 +138,38 @@ describe("StudentUsageAdmin 스켈레톤", () => {
     expect(await screen.findAllByTestId("usage-row")).toHaveLength(6);
     expect(
       screen.queryByRole("status", { name: "사용 현황을 불러오는 중입니다." }),
+    ).toBeNull();
+  });
+
+  test("학생 검색을 기다리는 동안 스켈레톤을 보이고 오면 학생 목록으로 바뀐다", async () => {
+    let release: (body: unknown) => void = () => {};
+    const body = new Promise<unknown>((resolve) => {
+      release = resolve;
+    });
+    http.get.mockImplementation(() => ({
+      json: async (schema: { parse: (value: unknown) => unknown }) =>
+        schema.parse(await body),
+    }));
+    renderAt();
+    expect(
+      screen.queryByRole("status", { name: "학생을 검색하는 중입니다." }),
+    ).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("학생 검색"), {
+      target: { value: "김" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+
+    expect(
+      await screen.findByRole("status", { name: "학생을 검색하는 중입니다." }),
+    ).toBeTruthy();
+
+    release({
+      items: [{ id: "s-1", name: "김하늘", email: "a@x.kr", isAdmin: false }],
+    });
+    expect(await screen.findByText("김하늘")).toBeTruthy();
+    expect(
+      screen.queryByRole("status", { name: "학생을 검색하는 중입니다." }),
     ).toBeNull();
   });
 
@@ -433,6 +472,32 @@ describe("StudentUsageAdmin", () => {
 
     expect(
       await screen.findByText("저장하지 못했어요. 권한을 확인해 주세요."),
+    ).toBeTruthy();
+  });
+});
+
+describe("StudentUsageAdmin view 권한", () => {
+  test("view 권한이면 사용 현황은 보이고 저장과 되돌리기 버튼은 없다", async () => {
+    canEdit = false;
+    renderAt("/admin/serviceCreditAdjust?student=s-1");
+
+    expect((await screen.findAllByTestId("usage-row")).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByRole("button", { name: /에게 저장$/ })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "기관 설정으로 되돌리기" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "검색" })).toBeTruthy();
+  });
+
+  test("edit 권한이면 저장과 되돌리기 버튼이 있다", async () => {
+    renderAt("/admin/serviceCreditAdjust?student=s-1");
+
+    await screen.findAllByTestId("usage-row");
+    expect(screen.getByRole("button", { name: /에게 저장$/ })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "기관 설정으로 되돌리기" }),
     ).toBeTruthy();
   });
 });

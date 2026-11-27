@@ -27,6 +27,7 @@ describe("ColumnList 카테고리 칩", () => {
     expect(
       await screen.findByRole("button", { name: "교육청소식" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "전체" })).toBeInTheDocument();
+    // 위닝도 칼럼 영상을 켜서 카테고리 칩과 유형 칩에 "전체"가 하나씩 있다.
+    expect(screen.getAllByRole("button", { name: "전체" })).toHaveLength(2);
   });
 });

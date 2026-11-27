@@ -46,6 +46,7 @@ import { useAuth } from "@/context/AuthProvider";
 import {
   adminPermissionsQueryOptions,
   canAccessSection,
+  canEditSection,
 } from "@/lib/adminPermissions";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { ApiError } from "@/lib/http/client";
@@ -69,6 +70,10 @@ import MentorApplicationsAdmin from "@/pages/admin/mentor/MentorApplicationsAdmi
 import PremiumBookAdmin from "@/pages/admin/premium-book/PremiumBookAdmin";
 import RevenueAdmin from "@/pages/admin/revenue/RevenueAdmin";
 import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
+import {
+  SectionEditAccessProvider,
+  useCanEditSection,
+} from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { useListSkeleton } from "@/pages/admin/shared/useListSkeleton";
@@ -856,7 +861,13 @@ export function AdminSectionRoute({ section }: { section: string }) {
   // 개인정보 반출 게이트 — 모달 상태를 이 훅이 들고, gate 를 아래 트리에 그린다.
   const { requestAccess, gate } = useSensitiveActionGate();
 
-  const config = CONFIGS[activeKey];
+  // view 권한이면 엔진의 readOnly 스위치를 켠다. 등록, 삭제, 저장과 행 단위 쓰기 버튼이 모두 이 값을 본다.
+  const canEdit = useCanEditSection();
+  const config = useMemo(
+    () =>
+      canEdit ? CONFIGS[activeKey] : { ...CONFIGS[activeKey], readOnly: true },
+    [canEdit, activeKey],
+  );
   const queryClient = useQueryClient();
 
   // 목록은 서버(/api/admin/sections)에서 받는다. 서버 페이지네이션 탭은 page 와 q 가 키에 들어가
@@ -1668,7 +1679,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
               />
             )}
 
-            {config.knowledgeBulk && (
+            {config.knowledgeBulk && !config.readOnly && (
               <BulkPanel config={config} rows={rows} onReload={loadRows} />
             )}
 
@@ -1692,7 +1703,8 @@ export function AdminSectionRoute({ section }: { section: string }) {
                 activeKey={activeKey}
                 onCompleteRefund={completeRefund}
                 onOpenSection={openRowSection}
-                onOpenMetaEdit={setMetaEditRow}
+                // view 권한이면 대학명 셀이 메타 수정 창을 열지 않는다(저장이 403 으로 막힌다).
+                {...(!config.readOnly && { onOpenMetaEdit: setMetaEditRow })}
                 onMarkReviewed={markReviewed}
               />
             )}
@@ -1779,6 +1791,16 @@ export function AdminLayout() {
     location.pathname.replace(/^\/admin\/?/, "").split("/")[0] ||
     ADMIN_DEFAULT_SECTION_KEY;
 
+  // 지금 메뉴의 쓰기 권한. 사이드바와 같은 조회를 나눠 쓰고, 못 읽거나 읽는 중이면 닫는다(fail-closed).
+  const { userId } = useAuth();
+  const { data: access } = useQuery({
+    ...adminPermissionsQueryOptions(userId ?? ""),
+    enabled: !!userId,
+  });
+  const canEdit = access
+    ? canEditSection(access.permissions, access.isSuper, activeKey)
+    : false;
+
   async function logout() {
     // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
     clearAllDrafts();
@@ -1807,7 +1829,9 @@ export function AdminLayout() {
 
           <main>
             <div className="min-h-[calc(100vh-3.5rem)] px-4 py-8 xl:px-7">
-              <Outlet />
+              <SectionEditAccessProvider value={canEdit}>
+                <Outlet />
+              </SectionEditAccessProvider>
             </div>
           </main>
         </div>

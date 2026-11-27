@@ -17,7 +17,7 @@
 //      SEED_KEYS_FILE 로 재지정 가능)
 // =====================================================================
 
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -39,10 +39,7 @@ const DEV_PROJECT_REF = "gjowqdiopinhixfivnkx";
 const DEFAULT_KEYS_FILE = fileURLToPath(
   new URL("../.dev-keys.json", import.meta.url),
 );
-const SCHEMA_PATH = new URL(
-  "../supabase/migrations/20260821000000_baseline.sql",
-  import.meta.url,
-);
+const MIGRATIONS_DIR = new URL("../supabase/migrations/", import.meta.url);
 const TABLE = "admission_university_resources";
 const JSON_COLUMNS = Object.values(HWP_SECTION_JSON_KEYS);
 // admissionBulkXlsx.js는 CATEGORY_KEYS를 export하지 않는다 —
@@ -199,7 +196,9 @@ function roundTripWorkbook(workbook) {
 }
 
 // admission_university_resources의 NOT NULL 컬럼 목록을 supabase/migrations/
-// 의 baseline 마이그레이션(pg_dump 산출물) CREATE TABLE 정의에서 직접 읽는다
+// 에서 CREATE TABLE 정의를 가진 마이그레이션 파일(pg_dump 산출물)을 찾아
+// 직접 읽는다. 마이그레이션 squash로 그 파일 이름이 바뀌므로 이름을
+// 고정하지 않고, 파일명 오름차순으로 마커를 처음 포함하는 파일을 쓴다
 // (하드코딩 회피 — team-lead 지시). information_schema 조회(실제 dev DB에
 // 쿼리)가 더 권위 있는 소스이지만, 이 테이블은 baseline 이후 NOT NULL을
 // 바꾼 마이그레이션이 없어(supabase/migrations 전체 grep 확인) CREATE TABLE
@@ -209,16 +208,24 @@ function roundTripWorkbook(workbook) {
 // 옛 경로(sql/00_base_schema.sql)를 읽던 이 함수가 ENOENT로 죽어 있었다
 // (npm run verify가 CI에 없어 2026-09-01 첫 야간 감사에서 발견).
 async function getNotNullColumnsFromSchema() {
-  const sql = await readFile(SCHEMA_PATH, "utf-8");
   // 정확히 이 테이블만 잡는다(끝에 닫는 따옴표가 바로 오는지 확인) —
   // admission_university_resources_backup_* 같은 백업 테이블은 이름이 더
   // 길어 이 마커와 매칭되지 않는다. pg_dump는 식별자를 전부 따옴표로 감싼다.
   const startMarker =
     'CREATE TABLE IF NOT EXISTS "public"."admission_university_resources" (';
-  const startIdx = sql.indexOf(startMarker);
+  const fileNames = (await readdir(MIGRATIONS_DIR))
+    .filter((name) => name.endsWith(".sql"))
+    .sort();
+  let sql = "";
+  let startIdx = -1;
+  for (const name of fileNames) {
+    sql = await readFile(new URL(name, MIGRATIONS_DIR), "utf-8");
+    startIdx = sql.indexOf(startMarker);
+    if (startIdx !== -1) break;
+  }
   if (startIdx === -1) {
     throw new Error(
-      `${SCHEMA_PATH.pathname}에서 admission_university_resources 테이블 정의를 못 찾음`,
+      `${MIGRATIONS_DIR.pathname}에서 admission_university_resources 테이블 정의를 못 찾음`,
     );
   }
   const afterStart = sql.slice(startIdx + startMarker.length);
