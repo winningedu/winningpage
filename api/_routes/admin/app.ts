@@ -8,11 +8,16 @@ import { aiTelemetryPricing } from "./ai-telemetry-pricing.js";
 import { coupons } from "./coupons.js";
 import { growthGrant } from "./growth-grant.js";
 import { growthRecover } from "./growth-recover.js";
+import { growthReports } from "./growth-reports.js";
+import { homeSectionCopy } from "./home-section-copy.js";
 import { inquiryGrant } from "./inquiry-grant.js";
 import { inquiryRecover } from "./inquiry-recover.js";
+import { inquirySessions } from "./inquiry-sessions.js";
 import { inviteMember } from "./invite-member.js";
 import { knowledgeBulk } from "./knowledge-bulk.js";
 import { knowledgeDedupe } from "./knowledge-dedupe.js";
+import { knowledgeEval } from "./knowledge-eval.js";
+import { knowledgeItems } from "./knowledge-items.js";
 import { knowledgeSearch } from "./knowledge-search.js";
 import { members } from "./members.js";
 import { mentorApplications } from "./mentor-applications.js";
@@ -20,6 +25,7 @@ import { revenue } from "./revenue.js";
 import { roles } from "./roles.js";
 import { selfevalGrant } from "./selfeval-grant.js";
 import { selfevalRecover } from "./selfeval-recover.js";
+import { selfevalSessions } from "./selfeval-sessions.js";
 import { sendMessage } from "./send-message.js";
 import { serviceCreditAdjust } from "./service-credit-adjust.js";
 import { serviceCreditSummary } from "./service-credit-summary.js";
@@ -55,4 +61,10 @@ export const admin = createAdminApp()
   .route("/staff", staff)
   .route("/roles", roles)
   .route("/tenants", tenants)
-  .route("/uploads", uploads);
+  .route("/uploads", uploads)
+  .route("/growth-reports", growthReports)
+  .route("/home-section-copy", homeSectionCopy)
+  .route("/inquiry-sessions", inquirySessions)
+  .route("/knowledge-eval", knowledgeEval)
+  .route("/knowledge-items", knowledgeItems)
+  .route("/selfeval-sessions", selfevalSessions);

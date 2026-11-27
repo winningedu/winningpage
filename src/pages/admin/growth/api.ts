@@ -7,40 +7,11 @@ import {
   growthGrantResultSchema,
   growthRecoverResultSchema,
 } from "../../../../shared/growth-ops/contract.js";
+import {
+  growthReport,
+  growthReportsPage,
+} from "../../../../shared/growth-report/contract.js";
 import type { GrowthReportsParams } from "./query";
-import type { GrowthReportItem } from "./row";
-
-const growthReportSchema: z.ZodType<GrowthReportItem> = z.object({
-  id: z.string(),
-  profileId: z.string(),
-  studentName: z.string().nullable(),
-  email: z.string().nullable(),
-  status: z.string(),
-  currentStep: z.number(),
-  track: z.string().nullable(),
-  issuedAt: z.string().nullable(),
-  lastActivityAt: z.string().nullable(),
-  ledgerId: z.string().nullable(),
-  ledgerReversedAt: z.string().nullable(),
-  terminal: z
-    .object({ reason: z.string(), at: z.string(), step: z.number() })
-    .nullable(),
-  progress: z.array(
-    z.object({
-      step: z.number(),
-      label: z.string(),
-      status: z.string(),
-      attempts: z.number(),
-    }),
-  ),
-});
-
-const growthReportsPageSchema = z.object({
-  items: z.array(growthReportSchema),
-  total: z.number(),
-  page: z.number(),
-  pageSize: z.number(),
-});
 
 export const growthReportKeys = {
   all: ["admin", "growthReports"] as const,
@@ -63,7 +34,7 @@ export function fetchGrowthReports(
       },
       ...(signal ? { signal } : {}),
     })
-    .json(growthReportsPageSchema);
+    .json(growthReportsPage);
 }
 
 export function fetchGrowthReport(id: string, signal?: AbortSignal) {
@@ -72,7 +43,7 @@ export function fetchGrowthReport(id: string, signal?: AbortSignal) {
       `admin/growth-reports/${encodeURIComponent(id)}`,
       signal ? { signal } : {},
     )
-    .json(growthReportSchema);
+    .json(growthReport);
 }
 
 export function postGrowthGrant(body: GrowthGrantInput) {

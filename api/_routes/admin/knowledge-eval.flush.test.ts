@@ -1,8 +1,7 @@
 // 응답을 보낸 뒤 텔레메트리 flush 가 scheduleAfterResponse 로 넘어가는지 확인한다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createAdminFake } from "../../_lib/adminRoute.testkit.js";
+import { callRoute, createAdminFake } from "../../_lib/adminRoute.testkit.js";
 
 const mocks = vi.hoisted(() => ({
   flush: vi.fn(async () => ({ ok: true, calls: 0, searches: 0 })),
@@ -32,7 +31,7 @@ vi.mock("../../_lib/performance/embeddings.js", () => ({
   embedText: vi.fn(async () => [0.1, 0.2]),
 }));
 
-import handler from "./knowledge-eval.js";
+import { app } from "../app.js";
 
 describe("admin/knowledge-eval 텔레메트리 flush", () => {
   beforeEach(() => {
@@ -41,7 +40,7 @@ describe("admin/knowledge-eval 텔레메트리 flush", () => {
     mocks.order.length = 0;
   });
 
-  it("응답 json 을 보낸 뒤 flush 를 scheduleAfterResponse 에 넘기고 직접 기다리지 않는다", async () => {
+  it("응답을 만든 뒤 flush 를 scheduleAfterResponse 에 넘기고 직접 기다리지 않는다", async () => {
     const db = createAdminFake({
       permissions: [{ resource_key: "knowledgeEvals", level: "edit" }],
       tables: {
@@ -70,26 +69,16 @@ describe("admin/knowledge-eval 텔레메트리 flush", () => {
       },
     });
     mocks.admin = db;
-    const res = {
-      setHeader: vi.fn(),
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn(() => {
-        mocks.order.push("json");
-      }),
-      end: vi.fn(),
-    };
-    await handler(
+    const r = await callRoute(
+      { app, path: "/api/admin/knowledge-eval" },
       {
         method: "POST",
-        headers: { authorization: "Bearer admin-token" },
-        query: {},
         body: { action: "run", knowledgeType: "topic_pattern" },
-      } as unknown as VercelRequest,
-      res as unknown as VercelResponse,
+      },
     );
 
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(mocks.order).toEqual(["json", "schedule"]);
+    expect(r.status).toBe(200);
+    expect(mocks.order).toEqual(["schedule"]);
     expect(mocks.flush).not.toHaveBeenCalled();
     const work = mocks.scheduleAfterResponse.mock
       .calls[0]?.[0] as () => Promise<unknown>;

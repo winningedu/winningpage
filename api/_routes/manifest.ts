@@ -29,26 +29,13 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/mentor-applications/[id].js"),
   "admin/mentor-applications/[id]/proof-url": () =>
     import("./admin/mentor-applications/[id]/proof-url.js"),
-  "admin/home-section-copy/[sectionKey]": () =>
-    import("./admin/home-section-copy/[sectionKey].js"),
   "admin/hq-dashboard/summary": () => import("./admin/hq-dashboard/summary.js"),
   "admin/hq-dashboard/tenants": () => import("./admin/hq-dashboard/tenants.js"),
   "admin/hq-dashboard/usage": () => import("./admin/hq-dashboard/usage.js"),
-  "admin/growth-reports": () => import("./admin/growth-reports.js"),
-  "admin/growth-reports/[id]": () => import("./admin/growth-reports/[id].js"),
   "admin/hq-dashboard/logins": () => import("./admin/hq-dashboard/logins.js"),
   "admin/hq-dashboard/b2c": () => import("./admin/hq-dashboard/b2c.js"),
   "admin/hq-dashboard/trends": () => import("./admin/hq-dashboard/trends.js"),
-  "admin/inquiry-sessions": () => import("./admin/inquiry-sessions.js"),
-  "admin/inquiry-sessions/[id]": () =>
-    import("./admin/inquiry-sessions/[id].js"),
   "admin/me/permissions": () => import("./admin/me/permissions.js"),
-  "admin/knowledge-items/titles": () =>
-    import("./admin/knowledge-items/titles.js"),
-  "admin/knowledge-eval/queries": () =>
-    import("./admin/knowledge-eval/queries.js"),
-  "admin/knowledge-eval/queries/[id]": () =>
-    import("./admin/knowledge-eval/queries/[id].js"),
   "admin/members/[id]": () => import("./admin/members/[id].js"),
   "admin/members/[id]/tenant": () => import("./admin/members/[id]/tenant.js"),
   "admin/members/[id]/messages": () =>
@@ -65,9 +52,6 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/sections/[key]/[id]/reviewed.js"),
   "admin/sections/[key]/export": () =>
     import("./admin/sections/[key]/export.js"),
-  "admin/selfeval-sessions": () => import("./admin/selfeval-sessions.js"),
-  "admin/selfeval-sessions/[id]": () =>
-    import("./admin/selfeval-sessions/[id].js"),
   "admin/premium-book/pages": () => import("./admin/premium-book/pages.js"),
   "admin/premium-book/pages/[id]": () =>
     import("./admin/premium-book/pages/[id].js"),

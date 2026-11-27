@@ -3,33 +3,28 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  callHandler,
-  createFakeAdmin,
-  createKitState,
-  type KitState,
-} from "../../../_lib/console/consoleTestKit.js";
+  argsOf,
+  callRoute,
+  createAdminFake,
+  problemCode,
+  queriesOn,
+} from "../../_lib/adminRoute.testkit.js";
 
-const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
+const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
-vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: () => "winning",
   isSupabaseConfigError: () => false,
-  createSupabaseAdmin: () => createFakeAdmin(kit.state),
+  createSupabaseAdmin: () => kit.admin,
 }));
 
-import handler from "./[sectionKey].js";
+import { sectionCopy } from "../../../shared/home-section-copy/contract.js";
+import { app } from "../app.js";
+
+const handler = { app, path: "/api/admin/home-section-copy/:sectionKey" };
 
 const call = (method: string, sectionKey: string, body?: unknown) =>
-  callHandler(handler, body, method, { sectionKey });
-
-let permissionLookups: number;
-let copyReads: number;
-
-function grant(resource_key: string, level: "view" | "edit") {
-  kit.state.rpc.fn_admin_effective_permissions = () => {
-    permissionLookups += 1;
-    return { data: [{ resource_key, level }], error: null };
-  };
-}
+  callRoute(handler, { method, query: { sectionKey }, body });
 
 const ROW = {
   section_key: "services",
@@ -38,16 +33,40 @@ const ROW = {
   title_sub: "중제목",
 };
 
+let row: unknown;
+let permissionLookups: number;
+
+function grant(resource_key: string, level: "view" | "edit") {
+  const fake = createAdminFake({
+    permissions: [{ resource_key, level }],
+    tables: {
+      home_section_copy: (query) =>
+        argsOf(query, "upsert")
+          ? { data: null, error: null }
+          : { data: row, error: null },
+    },
+  });
+  const rpc = fake.rpc;
+  fake.rpc = (name, args) => {
+    if (name === "fn_admin_effective_permissions") permissionLookups += 1;
+    return rpc(name, args);
+  };
+  kit.admin = fake;
+  return fake;
+}
+
+const admin = () => kit.admin as ReturnType<typeof createAdminFake>;
+const copyQueries = () => queriesOn(admin(), "home_section_copy");
+const upserts = () =>
+  copyQueries()
+    .map((query) => argsOf(query, "upsert"))
+    .filter((args) => args !== undefined);
+
 beforeEach(() => {
   permissionLookups = 0;
-  copyReads = 0;
-  kit.state = createKitState();
-  kit.state.rows.profiles = () => ({ role: "admin" });
-  kit.state.rows.home_section_copy = () => {
-    copyReads += 1;
-    return ROW;
-  };
+  row = ROW;
   grant("programCategories", "edit");
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -60,24 +79,26 @@ describe("GET /api/admin/home-section-copy/:sectionKey", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual(ROW);
+    expect(sectionCopy.parse(r.body)).toEqual(r.body);
+    expect(r.headers["cache-control"]).toBe("no-store");
   });
 
   test("행이 아직 없으면 404 NOT_FOUND", async () => {
-    kit.state.rows.home_section_copy = () => null;
+    row = null;
 
     const r = await call("GET", "services");
 
     expect(r.status).toBe(404);
-    expect(r.body).toMatchObject({ code: "NOT_FOUND" });
+    expect(problemCode(r.body)).toBe("NOT_FOUND");
   });
 
   test("모르는 섹션 키는 권한 조회와 DB 읽기 전에 400 VALIDATION_FAILED", async () => {
     const r = await call("GET", "nope");
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
     expect(permissionLookups).toBe(0);
-    expect(copyReads).toBe(0);
+    expect(copyQueries()).toHaveLength(0);
   });
 
   test("섹션마다 그 메뉴의 보기 권한을 본다", async () => {
@@ -87,11 +108,17 @@ describe("GET /api/admin/home-section-copy/:sectionKey", () => {
     expect((await call("GET", "mentor")).status).toBe(403);
     expect((await call("GET", "acceptance")).status).toBe(403);
   });
+
+  test("DELETE 는 405 이고 Allow 는 GET, HEAD, PUT 이다", async () => {
+    const r = await call("DELETE", "services");
+
+    expect(r.status).toBe(405);
+    expect(r.headers.allow).toBe("GET, HEAD, PUT");
+  });
 });
 
 describe("PUT /api/admin/home-section-copy/:sectionKey", () => {
   const body = { eyebrow: "라벨", title_main: " 새 큰제목 ", title_sub: null };
-  const upserts = () => kit.state.upserts;
 
   test("섹션 키 기준으로 upsert 하고 저장한 행을 돌려준다", async () => {
     const r = await call("PUT", "services", body);
@@ -104,9 +131,8 @@ describe("PUT /api/admin/home-section-copy/:sectionKey", () => {
       title_sub: null,
     };
     expect(r.body).toEqual(saved);
-    expect(upserts()).toEqual([
-      { table: "home_section_copy", row: saved, onConflict: "section_key" },
-    ]);
+    expect(sectionCopy.parse(r.body)).toEqual(r.body);
+    expect(upserts()).toEqual([[saved, { onConflict: "section_key" }]]);
   });
 
   test("라벨이 없는 acceptance 는 eyebrow 를 보내도 null 로 저장한다", async () => {
@@ -115,7 +141,7 @@ describe("PUT /api/admin/home-section-copy/:sectionKey", () => {
     const r = await call("PUT", "acceptance", body);
 
     expect(r.status).toBe(200);
-    expect(upserts()[0]?.row.eyebrow).toBeNull();
+    expect(upserts()[0]?.[0]).toMatchObject({ eyebrow: null });
   });
 
   test("보기 권한만 있으면 403 이고 쓰지 않는다", async () => {
@@ -131,7 +157,7 @@ describe("PUT /api/admin/home-section-copy/:sectionKey", () => {
     const r = await call("PUT", "nope", body);
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
     expect(upserts()).toHaveLength(0);
   });
 
@@ -143,7 +169,22 @@ describe("PUT /api/admin/home-section-copy/:sectionKey", () => {
     const r = await call("PUT", "services", bad);
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
+    expect(upserts()).toHaveLength(0);
+  });
+
+  test("깨진 JSON 본문도 400 VALIDATION_FAILED 이고 쓰지 않는다", async () => {
+    const r = await app.request("/api/admin/home-section-copy/services", {
+      method: "PUT",
+      headers: {
+        authorization: "Bearer admin-token",
+        "content-type": "application/json",
+      },
+      body: "{",
+    });
+
+    expect(r.status).toBe(400);
+    expect(problemCode(await r.json())).toBe("VALIDATION_FAILED");
     expect(upserts()).toHaveLength(0);
   });
 });
