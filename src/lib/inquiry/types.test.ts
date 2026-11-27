@@ -46,7 +46,6 @@ const MIRRORED_UNIONS = [
   "Reliability",
   "AssetKind",
   "GenerationMode",
-  "ResponseStatus",
   "SectionId",
   "SectionGroup",
   "RubricItemId",
