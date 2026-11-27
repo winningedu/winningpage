@@ -317,7 +317,7 @@ describe("LearningDiagnosisAdmin 추천 프로그램", () => {
     await questionDeleteButton();
     const card = screen
       .getByDisplayValue("수행평가 서비스")
-      .closest("div.border") as HTMLElement;
+      .closest("fieldset.border") as HTMLElement;
     fireEvent.click(within(card).getByRole("button", { name: "삭제" }));
     fireEvent.click(
       within(await screen.findByRole("alertdialog")).getByRole("button", {

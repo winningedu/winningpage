@@ -53,6 +53,7 @@ interface TextInputProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  readOnly?: boolean;
   "aria-label"?: string;
 }
 
@@ -61,6 +62,7 @@ export function TextInput({
   onChange,
   placeholder,
   className = "",
+  readOnly,
   "aria-label": ariaLabel,
 }: TextInputProps) {
   return (
@@ -68,6 +70,7 @@ export function TextInput({
       value={value || ""}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
+      readOnly={readOnly}
       aria-label={ariaLabel}
       className={`h-10 font-medium ${className}`}
     />

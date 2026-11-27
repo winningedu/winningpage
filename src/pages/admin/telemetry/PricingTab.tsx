@@ -86,6 +86,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               <Field label={rowLabel(index, "모델명")}>
                 <TextInput
                   value={row.model}
+                  readOnly={!canEdit}
                   onChange={(model) => patch(index, { model })}
                   placeholder={MODEL_PLACEHOLDERS[index] ?? ""}
                 />
@@ -95,6 +96,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               <Field label={rowLabel(index, "입력")}>
                 <TextInput
                   value={row.input}
+                  readOnly={!canEdit}
                   onChange={(input) => patch(index, { input })}
                 />
               </Field>
@@ -103,6 +105,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               <Field label={rowLabel(index, "캐시 입력")}>
                 <TextInput
                   value={row.cachedInput}
+                  readOnly={!canEdit}
                   onChange={(cachedInput) => patch(index, { cachedInput })}
                 />
               </Field>
@@ -111,6 +114,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               <Field label={rowLabel(index, "출력")}>
                 <TextInput
                   value={row.output}
+                  readOnly={!canEdit}
                   onChange={(output) => patch(index, { output })}
                 />
               </Field>
