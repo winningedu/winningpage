@@ -253,6 +253,117 @@ describe("SiteFooter - 위닝 SNS 아이콘", () => {
   });
 });
 
+describe("SiteFooter - 위닝 아이콘 배지", () => {
+  beforeEach(() => {
+    siteState.key = "winning";
+  });
+
+  it("네이버 블로그 배지는 N이 아니라 소문자 b 마크를 그린다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    for (const link of within(footer).getAllByRole("link", {
+      name: "네이버 블로그",
+    })) {
+      expect(link.querySelector("svg")).toHaveAttribute(
+        "data-icon",
+        "naver-blog",
+      );
+    }
+  });
+
+  it("배지는 원이 아니라 둥근 사각형이고 시안 브랜드 색을 쓴다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    for (const [label, color] of [
+      ["카카오톡 채널", "bg-[#fee500]"],
+      ["네이버 블로그", "bg-[#03c75a]"],
+      ["네이버 클립", "bg-[#6f4dce]"],
+      ["유튜브", "bg-[#ff0000]"],
+    ] as const) {
+      const badge = within(footer).getAllByRole("link", { name: label })[0];
+      expect(badge).toHaveClass("size-[1.875rem]", "rounded-lg", color);
+      expect(badge).not.toHaveClass("rounded-full");
+    }
+    const instagram = within(footer).getAllByRole("link", {
+      name: "인스타그램",
+    })[0];
+    expect(instagram).toHaveClass("size-[1.875rem]", "rounded-lg");
+    expect(instagram).not.toHaveClass("rounded-full");
+    expect(instagram?.style.background).toContain("linear-gradient");
+  });
+});
+
+describe("SiteFooter - 위닝 데스크톱 로고 줄", () => {
+  beforeEach(() => {
+    siteState.key = "winning";
+  });
+
+  it("개인정보처리방침, 이용약관, 아이콘 순서로 로고와 같은 줄 오른쪽에 놓고 회사 정보는 아래 줄이다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+    const privacy = within(footer).getByRole("link", {
+      name: "개인정보처리방침",
+    });
+    const legal = privacy.parentElement as HTMLElement;
+    const desktopIcons = within(footer).getAllByRole("link", {
+      name: "네이버 블로그",
+    })[1]?.parentElement as HTMLElement;
+    const logoRow = legal.parentElement as HTMLElement;
+
+    // 격자(lg)에서 로고, 링크, 아이콘이 첫 줄에 차례로 놓인다.
+    expect(logoRow).toHaveClass("lg:grid");
+    expect(legal).toHaveClass("lg:col-start-2", "lg:row-start-1");
+    expect(desktopIcons).toHaveClass(
+      "hidden",
+      "lg:flex",
+      "lg:col-start-3",
+      "lg:row-start-1",
+    );
+    expect(desktopIcons.parentElement).toBe(logoRow);
+    expect(
+      legal.compareDocumentPosition(desktopIcons) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const logo = within(footer).getByRole("img", { name: "위닝에듀" });
+    expect(logo.parentElement?.parentElement).toBe(logoRow);
+    expect(logo.parentElement).toHaveClass("lg:col-start-1", "lg:row-start-1");
+    const infoBlock = within(footer).getByText(
+      (_, element) =>
+        element?.tagName === "P" && element.textContent === WINNING_LINES[0],
+    ).parentElement as HTMLElement;
+    expect(infoBlock.parentElement?.parentElement).toBe(logoRow);
+    expect(infoBlock.parentElement).toHaveClass(
+      "lg:col-span-3",
+      "lg:row-start-2",
+    );
+  });
+
+  it("모바일은 로고 아래 아이콘 줄이 있고 약관 링크는 회사 정보 뒤에 온다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+    const mobileIcons = within(footer).getAllByRole("link", {
+      name: "네이버 블로그",
+    })[0]?.parentElement as HTMLElement;
+    const privacy = within(footer).getByRole("link", {
+      name: "개인정보처리방침",
+    });
+
+    expect(mobileIcons).toHaveClass("flex", "lg:hidden");
+    expect(
+      mobileIcons.compareDocumentPosition(privacy) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      within(footer)
+        .getByRole("img", { name: "위닝에듀" })
+        .compareDocumentPosition(mobileIcons) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+});
+
 describe("SiteFooter - 스쿨멘토 SNS 아이콘", () => {
   it("카카오 채널 주소가 있어도 SNS 아이콘을 그리지 않고 링크 묶음은 그대로다", () => {
     siteState.key = "schoolmentor";
@@ -265,6 +376,22 @@ describe("SiteFooter - 스쿨멘토 SNS 아이콘", () => {
       ).not.toBeInTheDocument();
     }
     expect(within(footer).getAllByRole("link")).toHaveLength(2);
+  });
+
+  it("약관 링크 묶음의 구조와 클래스는 기존 그대로다", () => {
+    siteState.key = "schoolmentor";
+    renderFooter();
+    const legal = screen.getByRole("link", { name: "개인정보처리방침" })
+      .parentElement as HTMLElement;
+
+    expect(legal.className).toBe(
+      "flex shrink-0 gap-[1.6625rem] text-[0.8125rem] leading-5 font-semibold text-footer-b2b-link lg:pt-[0.4375rem]",
+    );
+    expect(legal.parentElement).toHaveClass(
+      "lg:flex-row",
+      "lg:justify-between",
+    );
+    expect(legal.previousElementSibling).toHaveClass("min-w-0");
   });
 });
 
