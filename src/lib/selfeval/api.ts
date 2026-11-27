@@ -21,6 +21,10 @@ import {
   sessionDiscardResponseSchema,
   sessionResponseSchema,
 } from "../../../shared/selfeval/session.js";
+import {
+  type VerifyBodyInput,
+  verifyResponse,
+} from "../../../shared/selfeval/verify.js";
 import { ApiFetchTimeoutError, apiFetch, getAuthHeader } from "../apiFetch";
 import {
   type ApiResult,
@@ -427,6 +431,9 @@ export function manualLogsDelete(sessionId: string, memoId: string) {
   });
 }
 
+// 검증 리포트의 sections 는 계약이 total 만 본다. 점수 항목, 형식 검사 같은 세부 모양은 hand type 이 맡는다.
+const verifySchema = verifyResponse.transform((data) => data as VerifyResponse);
+
 // ── 분석 ──────────────────────────────────────────────────────────────
 /** 모델로 11항목을 분석한다. 직접 입력 활동은 모델 없이 바로 돌아온다. */
 export function analyzeRun(sessionId: string) {
@@ -505,9 +512,10 @@ export function writeRepickEvidence(
 
 // ── 검증과 최종 저장 ──────────────────────────────────────────────────
 export function verifySession(sessionId: string) {
-  return request<VerifyResponse>(`${BASE}/verify`, {
+  const body: VerifyBodyInput = { sessionId };
+  return requestJson<VerifyResponse>("selfeval/verify", verifySchema, {
     method: "POST",
-    body: { sessionId },
+    body,
     ai: true,
   });
 }

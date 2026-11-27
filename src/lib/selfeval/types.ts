@@ -801,7 +801,6 @@ export type WriteGenerateResponse = StepMeta & {
 export type WriteEditResponse = { ok: true; report: WrittenReport };
 
 export type VerifyResponse = StepMeta & {
-  ok: true;
   verification: {
     id: string;
     revision: number;

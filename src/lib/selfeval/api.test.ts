@@ -478,11 +478,53 @@ describe("분석, 생성, 검증, 최종 저장", () => {
     });
   });
 
-  test("검증은 sessionId 만, 최종 저장은 승격 7항목과 과제 완료 여부를 보낸다", async () => {
+  test("검증은 sessionId 만 보내고 검증 리포트와 차감 여부를 받는다", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        verification: {
+          id: "v1",
+          revision: 2,
+          sections: { total: 80, items: [], submittable: true },
+          score: 80,
+          mandatoryFixes: [],
+        },
+        charged: true,
+        currentStep: 5,
+        attempts: 1,
+        softIssues: [],
+      }),
+    );
+    const result = await verifySession("s1");
+    expect(new URL(lastRequest().url).pathname).toBe("/api/selfeval/verify");
+    expect(lastRequest().method).toBe("POST");
+    expect(await lastBody()).toEqual({ sessionId: "s1" });
+    expect(result).toMatchObject({
+      kind: "ok",
+      data: { charged: true, currentStep: 5, verification: { score: 80 } },
+    });
+  });
+
+  test("검증 실패 problem 의 reversed, attempts, issues 는 extra 로 온다", async () => {
+    fetchMock.mockResolvedValue(
+      problemResponse(502, {
+        code: "MODEL_UPSTREAM_FAILED",
+        detail: "잠시 뒤 다시 시도해 주세요.",
+        reversed: true,
+        attempts: 1,
+        issues: [],
+      }),
+    );
+    expect(await verifySession("s1")).toEqual({
+      kind: "error",
+      status: 502,
+      code: "MODEL_UPSTREAM_FAILED",
+      message: "잠시 뒤 다시 시도해 주세요.",
+      extra: { reversed: true, attempts: 1, issues: [] },
+    });
+  });
+
+  test("최종 저장은 승격 7항목과 과제 완료 여부를 보낸다", async () => {
     apiFetchMock.mockResolvedValue(json(200, { ok: true }));
-    await verifySession("s1");
-    expect(lastCall().path).toBe("/api/selfeval/verify");
-    expect(lastCall().body).toEqual({ sessionId: "s1" });
     const promoted = {
       topic: "t",
       concept: "c",
