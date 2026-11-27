@@ -8,12 +8,21 @@
 //
 // 타입은 types.ts 에 있고 이 파일이 다시 내보낸다. 화면은 이 파일 하나만 import 한다.
 
+import { SchemaValidationError } from "ky";
+import type { z } from "zod";
+import { entryResponseSchema } from "../../../shared/selfeval/reports.js";
+import {
+  sessionDetailResponseSchema,
+  sessionDiscardResponseSchema,
+  sessionResponseSchema,
+} from "../../../shared/selfeval/session.js";
 import { ApiFetchTimeoutError, apiFetch, getAuthHeader } from "../apiFetch";
 import {
   type ApiResult,
   GENERIC_ERROR_MESSAGE,
   normalizeApiResult,
 } from "../growth/apiResult";
+import { ApiError, api } from "../http/client";
 import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "../performance/apiClient";
 import type { ReportResponse } from "./reportTypes";
 import type {
@@ -108,17 +117,121 @@ export async function request<T>(
   return normalizeApiResult<T>(response.status, json);
 }
 
-// ── 진입과 조회 ───────────────────────────────────────────────────────
-/** 시작 화면과 셸이 쓰는 진입 정보(이용권, 열린 세션, 성장설계 배너, 프로필). */
-export function fetchEntry() {
-  return request<EntryResponse>(`${BASE}/reports`, { method: "GET" });
+// ── 옮긴 엔드포인트(Hono, RFC 9457 problem) ─────────────────────────────
+// 응답은 계약 스키마(shared/selfeval)로 읽고, 실패는 같은 ApiResult 로 돌려 화면이 그대로 쓴다.
+//   problem 의 type, title, status, detail, instance, code 를 뺀 확장 멤버(openSessionId, tenantReason, errors 등)가 extra 다.
+const PROBLEM_STANDARD_MEMBERS = new Set([
+  "type",
+  "title",
+  "status",
+  "detail",
+  "instance",
+  "code",
+]);
+
+function problemExtra(
+  problem: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!problem) return undefined;
+  const entries = Object.entries(problem).filter(
+    ([key]) => !PROBLEM_STANDARD_MEMBERS.has(key),
+  );
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }
 
-export function fetchSessionDetail(sessionId: string) {
-  const query = new URLSearchParams({ sessionId });
-  return request<SessionDetailResponse>(`${BASE}/reports?${query.toString()}`, {
+function problemResult(
+  error: unknown,
+): Exclude<ApiResult<never>, { kind: "ok" }> {
+  if (error instanceof ApiError) {
+    if (error.status === null) {
+      if (error.code === "TIMEOUT") return { kind: "timeout" };
+      return {
+        kind: "error",
+        status: 0,
+        code: "NETWORK",
+        message: GENERIC_ERROR_MESSAGE,
+      };
+    }
+    const extra = problemExtra(error.problem);
+    return {
+      kind: "error",
+      status: error.status,
+      code: error.code,
+      message: error.detail,
+      ...(extra ? { extra } : {}),
+    };
+  }
+  // 계약과 서버 응답이 어긋난 것이다(버그). normalizeApiResult 의 INVALID_RESPONSE 와 같게 낸다.
+  if (error instanceof SchemaValidationError) {
+    return {
+      kind: "error",
+      status: 200,
+      code: "INVALID_RESPONSE",
+      message: GENERIC_ERROR_MESSAGE,
+    };
+  }
+  return {
+    kind: "error",
+    status: 0,
+    code: "NETWORK",
+    message: GENERIC_ERROR_MESSAGE,
+  };
+}
+
+type JsonRequestOptions = {
+  method: "GET" | "POST";
+  /** 쿼리스트링으로 보낼 값. */
+  search?: Record<string, string>;
+  body?: unknown;
+  /** true 면 모델 호출용 70초 타임아웃을 쓴다. */
+  ai?: boolean;
+  /** react-query 의 queryFn 이 넘기는 취소 신호. */
+  signal?: AbortSignal | undefined;
+};
+
+/** 옮긴 엔드포인트용 요청. path 는 /api 뒤의 경로다(예: "selfeval/reports"). */
+async function requestJson<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  { method, search, body, ai = false, signal }: JsonRequestOptions,
+): Promise<ApiResult<T>> {
+  if (!(await getAuthHeader())) {
+    return {
+      kind: "error",
+      status: 401,
+      code: "UNAUTHENTICATED",
+      message: "로그인이 필요해요.",
+    };
+  }
+  try {
+    const data = await api(path, {
+      method,
+      ...(search ? { searchParams: search } : {}),
+      ...(body === undefined ? {} : { json: body }),
+      ...(ai ? { timeout: AI_CALL_TIMEOUT_MS } : {}),
+      ...(signal ? { signal } : {}),
+    }).json(schema);
+    return { kind: "ok", data };
+  } catch (error) {
+    return problemResult(error);
+  }
+}
+
+// ── 진입과 조회 ───────────────────────────────────────────────────────
+/** 시작 화면과 셸이 쓰는 진입 정보(이용권, 열린 세션, 성장설계 배너, 프로필). */
+export function fetchEntry(signal?: AbortSignal) {
+  return requestJson<EntryResponse>("selfeval/reports", entryResponseSchema, {
     method: "GET",
+    signal,
   });
+}
+
+export function fetchSessionDetail(sessionId: string, signal?: AbortSignal) {
+  return requestJson<SessionDetailResponse>(
+    "selfeval/reports",
+    sessionDetailResponseSchema,
+    { method: "GET", search: { sessionId }, signal },
+  );
 }
 
 // ── 리포트(표지 + 01~05장, 명세 No.133) ───────────────────────────────
@@ -141,21 +254,21 @@ export function buildReport(sessionId: string) {
 
 // ── 세션 ──────────────────────────────────────────────────────────────
 export function createSession(input: SessionInput) {
-  return request<SessionResponse>(`${BASE}/session`, {
+  return requestJson<SessionResponse>("selfeval/session", sessionResponseSchema, {
     method: "POST",
     body: { action: "create", ...input },
   });
 }
 
 export function updateSession(sessionId: string, patch: Partial<SessionInput>) {
-  return request<SessionResponse>(`${BASE}/session`, {
+  return requestJson<SessionResponse>("selfeval/session", sessionResponseSchema, {
     method: "POST",
     body: { action: "update", sessionId, ...patch },
   });
 }
 
 export function discardSession(sessionId: string) {
-  return request<{ ok: true }>(`${BASE}/session`, {
+  return requestJson("selfeval/session", sessionDiscardResponseSchema, {
     method: "POST",
     body: { action: "discard", sessionId },
   });

@@ -1,8 +1,21 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-const { apiFetchMock, getAuthHeaderMock } = vi.hoisted(() => ({
+const { apiFetchMock, getAuthHeaderMock, fetchMock } = vi.hoisted(() => ({
   apiFetchMock: vi.fn(),
   getAuthHeaderMock: vi.fn(),
+  fetchMock: vi.fn(),
+}));
+
+// ky 클라이언트(@/lib/http/client)는 세션의 토큰을 supabase 에서 읽는다.
+vi.mock("../supabase", () => ({
+  supabase: {
+    auth: {
+      getSession: async () => ({
+        data: { session: { user: { id: "u1" }, access_token: "tok" } },
+      }),
+    },
+  },
 }));
 
 vi.mock("../apiFetch", async () => {
@@ -15,6 +28,7 @@ vi.mock("../apiFetch", async () => {
   };
 });
 
+import { TimeoutError } from "ky";
 import { ApiFetchTimeoutError } from "../apiFetch";
 import {
   analyzeResolveConflict,
@@ -46,12 +60,36 @@ import {
 const json = (status: number, body: unknown) =>
   ({ status, json: async () => body }) as Response;
 
+// Node 의 Request 는 상대 URL 을 해석하지 못해서 브라우저처럼 문서 주소 기준으로 풀어 준다.
+function stubBrowserRequest() {
+  const NodeRequest = Request;
+  vi.stubGlobal(
+    "Request",
+    class extends NodeRequest {
+      constructor(input: RequestInfo | URL, init?: RequestInit) {
+        super(
+          typeof input === "string" ? new URL(input, location.href) : input,
+          init,
+        );
+      }
+    },
+  );
+}
+
 beforeEach(() => {
   getAuthHeaderMock.mockResolvedValue({ Authorization: "Bearer tok" });
+  stubBrowserRequest();
+  // 요청 본문은 ky 가 읽고 나면 다시 읽을 수 없어서 호출 시점에 복사해 둔다.
+  vi.stubGlobal("fetch", async (request: Request) => {
+    bodies.set(request, await request.clone().text());
+    return fetchMock(request);
+  });
 });
 afterEach(() => {
   apiFetchMock.mockReset();
   getAuthHeaderMock.mockReset();
+  fetchMock.mockReset();
+  vi.unstubAllGlobals();
 });
 
 function lastCall() {
@@ -63,28 +101,101 @@ function lastCall() {
   };
 }
 
+// 옮긴 엔드포인트(reports, session)는 ky 클라이언트로 부른다. 진짜 ky 와 계약 스키마를 쓰고 fetch 만 가짜로 바꾼다.
+function lastRequest() {
+  const [request] = fetchMock.mock.calls.at(-1) as [Request];
+  return request;
+}
+const bodies = new WeakMap<Request, string>();
+function lastBody() {
+  return JSON.parse(bodies.get(lastRequest()) ?? "null");
+}
+const jsonResponse = (body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+const problemResponse = (status: number, body: Record<string, unknown>) =>
+  new Response(
+    JSON.stringify({
+      type: "about:blank",
+      title: "Conflict",
+      status,
+      ...body,
+    }),
+    { status, headers: { "content-type": "application/problem+json" } },
+  );
+
+const ENTRY = {
+  entry: {
+    quota: null,
+    allowed: true,
+    activityCount: 0,
+    openSession: null,
+    growth: null,
+    profile: null,
+    replyResent: 0,
+    academicYearDefault: 2026,
+    timeZone: "Asia/Seoul",
+  },
+  sessions: [],
+};
+
+const SESSION = {
+  id: "s1",
+  status: "draft",
+  currentStep: 1,
+  progress: {},
+  academicYear: 2026,
+  gradeLabel: "고2",
+  semester: 1,
+  area: "subject",
+  subject: "생명과학",
+  activityName: null,
+  schoolPrompt: null,
+  teacherNote: null,
+  targetChars: 500,
+  targetCharsMode: "with_space",
+  career: { career: null, department: null, universities: [] },
+  growthApplied: false,
+  growthSnapshot: null,
+  planItemId: null,
+  replyPending: null,
+  regenerateCount: 0,
+  terminal: null,
+  lastActivityAt: "2026-10-01T00:00:00Z",
+  completedAt: null,
+};
+
 describe("fetchEntry", () => {
-  test("인증 헤더를 실어 GET 하고 성공 본문을 ok 로 돌려준다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true, sessions: [] }));
+  test("인증과 시간대 헤더를 실어 GET 하고 성공 본문을 ok 로 돌려준다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(ENTRY));
     const result = await fetchEntry();
-    const { path, init } = lastCall();
-    expect(path).toBe("/api/selfeval/reports");
-    expect(init.method).toBe("GET");
-    expect(init.headers).toMatchObject({ Authorization: "Bearer tok" });
-    expect(result).toEqual({ kind: "ok", data: { ok: true, sessions: [] } });
+    const request = lastRequest();
+    expect(request.method).toBe("GET");
+    expect(new URL(request.url).pathname).toBe("/api/selfeval/reports");
+    expect(request.headers.get("authorization")).toBe("Bearer tok");
+    expect(request.headers.get("x-time-zone")).toBeTruthy();
+    expect(result).toEqual({ kind: "ok", data: ENTRY });
   });
 
   test("로그인 헤더가 없으면 요청 없이 401 UNAUTHENTICATED 를 돌려준다", async () => {
     getAuthHeaderMock.mockResolvedValue(null);
     const result = await fetchEntry();
-    expect(apiFetchMock).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ kind: "error", status: 401 });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      kind: "error",
+      status: 401,
+      code: "UNAUTHENTICATED",
+    });
   });
 
   test("타임아웃은 timeout, 네트워크 실패는 status 0 NETWORK 로 돌려준다", async () => {
-    apiFetchMock.mockRejectedValueOnce(new ApiFetchTimeoutError());
+    fetchMock.mockImplementationOnce(async (request: Request) => {
+      throw new TimeoutError(request);
+    });
     expect(await fetchEntry()).toEqual({ kind: "timeout" });
-    apiFetchMock.mockRejectedValueOnce(new Error("boom"));
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     expect(await fetchEntry()).toMatchObject({
       kind: "error",
       status: 0,
@@ -92,11 +203,11 @@ describe("fetchEntry", () => {
     });
   });
 
-  test("오류 본문은 code, message, extra 로 풀어 준다", async () => {
-    apiFetchMock.mockResolvedValue(
-      json(409, {
-        ok: false,
-        error: { code: "SESSION_OPEN", message: "작성 중" },
+  test("problem 본문은 code, message(detail), extra(확장 멤버)로 풀어 준다", async () => {
+    fetchMock.mockResolvedValue(
+      problemResponse(409, {
+        detail: "작성 중",
+        code: "SESSION_OPEN",
         openSessionId: "s9",
       }),
     );
@@ -108,40 +219,106 @@ describe("fetchEntry", () => {
       extra: { openSessionId: "s9" },
     });
   });
+
+  test("확장 멤버가 없으면 extra 를 싣지 않는다", async () => {
+    fetchMock.mockResolvedValue(
+      problemResponse(404, { detail: "없어요", code: "SESSION_NOT_FOUND" }),
+    );
+    const result = await fetchEntry();
+    expect(result).toEqual({
+      kind: "error",
+      status: 404,
+      code: "SESSION_NOT_FOUND",
+      message: "없어요",
+    });
+  });
+
+  test("계약과 맞지 않는 성공 본문은 INVALID_RESPONSE 다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ sessions: "x" }));
+    expect(await fetchEntry()).toMatchObject({
+      kind: "error",
+      code: "INVALID_RESPONSE",
+    });
+  });
 });
 
 describe("세션 상세", () => {
   test("sessionId 를 쿼리로 보낸다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
+    fetchMock.mockResolvedValue(jsonResponse({}));
     await fetchSessionDetail("s 1");
-    expect(lastCall().path).toBe("/api/selfeval/reports?sessionId=s+1");
+    const url = new URL(lastRequest().url);
+    expect(url.pathname + url.search).toBe(
+      "/api/selfeval/reports?sessionId=s+1",
+    );
+  });
+
+  test("계약대로의 상세 본문을 ok 로 돌려준다", async () => {
+    const detail = {
+      session: SESSION,
+      activities: [],
+      memos: [],
+      reports: {
+        generation: null,
+        edited: null,
+        verification: null,
+        final: null,
+      },
+      regenerationsLeft: 3,
+      current: null,
+    };
+    fetchMock.mockResolvedValue(jsonResponse(detail));
+    expect(await fetchSessionDetail("s1")).toEqual({
+      kind: "ok",
+      data: detail,
+    });
   });
 });
 
 describe("세션 생성, 수정, 파기", () => {
   test("create 는 action 과 입력 필드를 한 바디로 보낸다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
-    await createSession({ schoolPrompt: "문항" } as never);
-    const { path, init, body } = lastCall();
-    expect(path).toBe("/api/selfeval/session");
-    expect(init.method).toBe("POST");
-    expect(body).toEqual({ action: "create", schoolPrompt: "문항" });
+    fetchMock.mockResolvedValue(jsonResponse({ session: SESSION }));
+    const result = await createSession({ schoolPrompt: "문항" } as never);
+    const request = lastRequest();
+    expect(new URL(request.url).pathname).toBe("/api/selfeval/session");
+    expect(request.method).toBe("POST");
+    expect(await lastBody()).toEqual({
+      action: "create",
+      schoolPrompt: "문항",
+    });
+    expect(result).toEqual({ kind: "ok", data: { session: SESSION } });
   });
 
   test("update 는 sessionId 와 patch 를 보낸다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
+    fetchMock.mockResolvedValue(jsonResponse({ session: SESSION }));
     await updateSession("s1", { growthApplied: false });
-    expect(lastCall().body).toEqual({
+    expect(await lastBody()).toEqual({
       action: "update",
       sessionId: "s1",
       growthApplied: false,
     });
   });
 
-  test("discard 는 sessionId 만 보낸다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
-    await discardSession("s1");
-    expect(lastCall().body).toEqual({ action: "discard", sessionId: "s1" });
+  test("discard 는 sessionId 만 보내고 빈 객체를 ok 로 받는다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({}));
+    const result = await discardSession("s1");
+    expect(await lastBody()).toEqual({ action: "discard", sessionId: "s1" });
+    expect(result).toEqual({ kind: "ok", data: {} });
+  });
+
+  test("검증 실패(400 VALIDATION_FAILED)의 errors 는 extra 로 온다", async () => {
+    fetchMock.mockResolvedValue(
+      problemResponse(400, {
+        detail: "요청 값이 올바르지 않아요.",
+        code: "VALIDATION_FAILED",
+        errors: [{ path: "gradeLabel", message: "Invalid" }],
+      }),
+    );
+    expect(await createSession({} as never)).toMatchObject({
+      kind: "error",
+      status: 400,
+      code: "VALIDATION_FAILED",
+      extra: { errors: [{ path: "gradeLabel", message: "Invalid" }] },
+    });
   });
 });
 

@@ -140,13 +140,13 @@ export type ActivityRecordLike = {
   sources: unknown;
   createdAt: string;
   /** 제출일. 서버가 createdAt 으로 대신한 값은 CandidateRow.submittedAt 에 있다. */
-  submittedAt?: string | null;
-  recordStatus?: RecordStatus | null;
-  summary?: string | null;
-  reflection?: string | null;
-  parentRecordId?: string | null;
-  courseName?: string | null;
-  entryKind?: "performance" | "deep" | "activity" | null;
+  submittedAt?: string | null | undefined;
+  recordStatus?: RecordStatus | null | undefined;
+  summary?: string | null | undefined;
+  reflection?: string | null | undefined;
+  parentRecordId?: string | null | undefined;
+  courseName?: string | null | undefined;
+  entryKind?: "performance" | "deep" | "activity" | null | undefined;
 };
 
 export type RecordStatus = "completed" | "in_progress" | "plan";
@@ -574,12 +574,11 @@ export type SessionListItem = {
 };
 
 export type EntryResponse = {
-  ok: true;
   entry: {
     quota: QuotaSnapshot | null;
     allowed: boolean;
     /** 스쿨멘토에서만 있다. 기관 거부 사유(한도 소진 포함). */
-    tenantReason?: string;
+    tenantReason?: string | undefined;
     activityCount: number;
     openSession: OpenSessionSummary | null;
     growth: EntryGrowth | null;
@@ -646,7 +645,6 @@ export type EvidenceMemoView = {
 };
 
 export type SessionDetailResponse = {
-  ok: true;
   session: SessionView;
   activities: SessionActivityView[];
   memos: EvidenceMemoView[];
@@ -677,7 +675,7 @@ export type SessionInput = {
   planItemId: string | null;
 };
 
-export type SessionResponse = { ok: true; session: SessionView };
+export type SessionResponse = { session: SessionView };
 
 export type ManualInput = {
   activityName: string;

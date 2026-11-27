@@ -22,8 +22,12 @@ import {
   selfevalSessionQuery,
 } from "./queries";
 
+const signal = new AbortController().signal;
+
 async function run(options: { queryFn?: unknown }) {
-  return (options.queryFn as () => Promise<unknown>)();
+  return (
+    options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>
+  )({ signal });
 }
 
 beforeEach(() => {
@@ -62,8 +66,17 @@ describe("옵션", () => {
 
 describe("queryFn", () => {
   test("성공이면 본문을 돌려준다", async () => {
-    fetchEntryMock.mockResolvedValue({ kind: "ok", data: { ok: true } });
-    expect(await run(selfevalEntryQuery("u1"))).toEqual({ ok: true });
+    fetchEntryMock.mockResolvedValue({ kind: "ok", data: { sessions: [] } });
+    expect(await run(selfevalEntryQuery("u1"))).toEqual({ sessions: [] });
+  });
+
+  test("진입과 상세 조회는 쿼리의 취소 신호를 넘긴다", async () => {
+    fetchEntryMock.mockResolvedValue({ kind: "ok", data: {} });
+    fetchSessionDetailMock.mockResolvedValue({ kind: "ok", data: {} });
+    await run(selfevalEntryQuery("u1"));
+    await run(selfevalSessionQuery("u1", "s1"));
+    expect(fetchEntryMock).toHaveBeenCalledWith(signal);
+    expect(fetchSessionDetailMock).toHaveBeenCalledWith("s1", signal);
   });
 
   test("실패는 원본 결과를 든 SelfevalApiError 로 던진다", async () => {
