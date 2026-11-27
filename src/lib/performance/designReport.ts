@@ -28,7 +28,11 @@
 //   아니면 새로 만든다"가 자동으로 성립한다. `regenerate:true`는 재생성 예산(2회)을 태우는
 //   별개 행동이라 그 UI(§5.13에 없음)가 생길 때 함께 배선한다.
 
-import { designReportResponse } from "../../../shared/performance/contract.js";
+import type { z } from "zod";
+import {
+  type DesignReportBodyInput,
+  designReportResponse,
+} from "../../../shared/performance/design-report.js";
 import { api } from "../http/client";
 import { entitlementDeniedMessage } from "../tenantBlock";
 import {
@@ -98,7 +102,6 @@ class DesignReportError extends Error {
  * 외부 앱의 2회 왕복 결함 회피). 그래서 클라이언트에 "확정만 하는" 호출은 없다.
  *
  * @param {{accessToken: string, sessionId: string, topicId: string, regenerate?: boolean}} params
- * @returns {Promise<object>} §8.6 성공 응답 전체.
  * @throws {DesignReportError}
  */
 export async function requestDesignReport({
@@ -112,16 +115,15 @@ export async function requestDesignReport({
   topicId: string;
   regenerate?: boolean;
 }) {
-  // biome-ignore lint/suspicious/noExplicitAny: 화면이 응답을 필드마다 좁혀 읽는다(예전 data 와 같다)
-  let result: PerformanceResult<any>;
+  let result: PerformanceResult<z.output<typeof designReportResponse>>;
 
   try {
     result = await performanceRequest(
       api
         .post("performance/design-report", {
-          json: regenerate
+          json: (regenerate
             ? { sessionId, topicId, regenerate: true }
-            : { sessionId, topicId },
+            : { sessionId, topicId }) satisfies DesignReportBodyInput,
           headers: { Authorization: `Bearer ${accessToken}` },
           timeout: AI_CALL_TIMEOUT_MS,
         })

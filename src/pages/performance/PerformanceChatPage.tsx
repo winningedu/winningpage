@@ -1251,7 +1251,8 @@ export default function PerformanceChatPage() {
         topicId: topic.id,
       });
 
-      setDesignReport(data);
+      // 섹션과 구조는 모델 산출물이라 스키마가 좁히지 않는다. 리포트 컴포넌트가 DesignReport 로 좁혀 읽는다.
+      setDesignReport(data as DesignReport);
       setDesignPhase("ready");
       // §5.13 흐름도(`DesignLoading --> DesignReport`)대로 완성 즉시 모달을 연다.
       setDesignModalOpen(true);

@@ -58,12 +58,6 @@ export const bootstrapResponse = z.looseObject({
   latestDraft: sessionSummarySchema.nullable(),
 });
 
-export const designReportResponse = z.looseObject({
-  charged: z.boolean(),
-  generationCount: z.number(),
-  maxGenerations: z.number(),
-});
-
 export const finalizeResponse = z.looseObject({
   submission: z.unknown(),
   finalReportId: z.string().nullable(),

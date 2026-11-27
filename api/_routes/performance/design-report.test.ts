@@ -1,0 +1,81 @@
+import { describe, expect, test, vi } from "vitest";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
+import {
+  createFakeDb,
+  createFakeSupabase,
+} from "../../_lib/fakeSupabase.testkit.js";
+import {
+  authOnlyDb,
+  rowsDb,
+  SESSION_ID,
+  validationFailedFor,
+} from "./route.testkit.js";
+
+const state = vi.hoisted(() => ({ db: null as unknown }));
+
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => state.db,
+}));
+
+import { app } from "../app.js";
+
+const route = { app, path: "/api/performance/design-report" };
+const GOOD = { sessionId: SESSION_ID, topicId: SESSION_ID };
+
+describe("design-report 요청 형식", () => {
+  test.each([
+    ["sessionId 없음", { ...GOOD, sessionId: undefined }, "sessionId"],
+    ["topicId 가 uuid 아님", { ...GOOD, topicId: "x" }, "topicId"],
+    ["regenerate 가 불리언 아님", { ...GOOD, regenerate: "yes" }, "regenerate"],
+  ])(
+    "%s 이면 400 VALIDATION_FAILED 와 errors 를 낸다",
+    async (_name, body, field) => {
+      state.db = authOnlyDb();
+      const res = await callRoute(route, { method: "POST", body });
+      expect(validationFailedFor(res, field)).toBe(true);
+    },
+  );
+});
+
+describe("design-report 도메인 규칙", () => {
+  test("이용권이 없으면 403 NO_ENTITLEMENT 이다", async () => {
+    const supabase = createFakeSupabase(
+      createFakeDb({
+        rpcs: {
+          fn_tenant_usage_state: () => [{ allowed: false, deny_reason: null }],
+          fn_program_access_state: () => [
+            {
+              allowed: false,
+              program_key: "suhaeng",
+              reason: null,
+              expires_at: null,
+            },
+          ],
+        },
+      }),
+    );
+    Object.assign(supabase.auth, {
+      getUser: async () => ({ data: { user: { id: "me" } }, error: null }),
+    });
+    state.db = supabase;
+    const res = await callRoute(route, { method: "POST", body: GOOD });
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ code: "NO_ENTITLEMENT" });
+  });
+
+  test("세션에 없는 주제는 404 TOPIC_NOT_IN_SESSION 이고 charged 는 false 다", async () => {
+    state.db = rowsDb({
+      performance_sessions: [{ id: SESSION_ID, profile_id: "me" }],
+      performance_topics: [],
+    });
+    const res = await callRoute(route, { method: "POST", body: GOOD });
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({
+      code: "TOPIC_NOT_IN_SESSION",
+      detail: "이 수행평가의 주제가 아니에요.",
+      charged: false,
+    });
+  });
+});
