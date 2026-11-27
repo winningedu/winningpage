@@ -2,8 +2,8 @@ import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";
 import InstagramIcon from "@/components/icons/InstagramIcon";
 import KakaoIcon from "@/components/icons/KakaoIcon";
+import NaverBlogIcon from "@/components/icons/NaverBlogIcon";
 import NaverClipIcon from "@/components/icons/NaverClipIcon";
-import NaverIcon from "@/components/icons/NaverIcon";
 import YoutubeIcon from "@/components/icons/YoutubeIcon";
 import { site } from "@/config/site";
 import { useFooterOperatorImage } from "@/hooks/useFooterOperatorImage";
@@ -61,7 +61,7 @@ function SocialLinks({
     {
       label: "네이버 블로그",
       href: company.naverBlogUrl,
-      Icon: NaverIcon,
+      Icon: NaverBlogIcon,
       badgeClassName: "bg-[#03c75a] text-white",
     },
     {

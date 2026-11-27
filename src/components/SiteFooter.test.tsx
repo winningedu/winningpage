@@ -258,6 +258,20 @@ describe("SiteFooter - 위닝 아이콘 배지", () => {
     siteState.key = "winning";
   });
 
+  it("네이버 블로그 배지는 N이 아니라 소문자 b 마크를 그린다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    for (const link of within(footer).getAllByRole("link", {
+      name: "네이버 블로그",
+    })) {
+      expect(link.querySelector("svg")).toHaveAttribute(
+        "data-icon",
+        "naver-blog",
+      );
+    }
+  });
+
   it("배지는 원이 아니라 둥근 사각형이고 시안 브랜드 색을 쓴다", () => {
     renderFooter();
     const footer = screen.getByRole("contentinfo");
