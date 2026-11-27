@@ -9,7 +9,7 @@ import {
   type MentorApplication,
   mentorApplicationListSchema,
   mentorApplicationSchema,
-} from "../../../../shared/mentor-applications/contract.js";
+} from "../../../../shared/mentor-application/contract.js";
 
 export type MentorApplicationRow = MentorApplication;
 

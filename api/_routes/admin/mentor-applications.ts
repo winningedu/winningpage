@@ -4,9 +4,9 @@
 // GET /api/admin/mentor-applications
 //
 // 멘토 신청 목록 { items }, 최신순. 이 화면은 읽기와 상태 변경만 한다(등록, 삭제 라우트 없음).
-// 권한: 메뉴 mentorApplications(view). 응답 모양은 shared/mentor-applications/contract.ts 를 따른다.
+// 권한: 메뉴 mentorApplications(view). 응답 모양은 shared/mentor-application/contract.ts 를 따른다.
 
-import type { MentorApplicationList } from "../../../shared/mentor-applications/contract.js";
+import type { MentorApplicationList } from "../../../shared/mentor-application/contract.js";
 import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
