@@ -164,7 +164,11 @@
 //   `JSON.parse` 한 줄이고, 형식 강제는 `responseSchema`가 한다.
 
 import type { Context } from "hono";
-import { jsonObjectBody } from "../../../shared/performance/contract.js";
+import type { z } from "zod";
+import {
+  designReportBody,
+  type designReportResponse,
+} from "../../../shared/performance/design-report.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { generateWithRetry, PERFORMANCE_MODEL } from "../../_lib/ai/gemini.js";
 import {
@@ -256,9 +260,6 @@ const STRUCTURE_RETRY = 1;
  * `writing_structure.steps[].title`만 본다.
  */
 const CONCLUSION_STEP_RE = /결론|마무리|후속\s*탐구/;
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * `출처 링크`를 클릭 가능한 `<a href>`로 승격해도 되는가(§8.5 「출처 링크 → `{label, href}`」).
@@ -912,7 +913,7 @@ const guard = user({
 
 export const designReport = userFactory
   .createApp()
-  .post("/", guard, validate("json", jsonObjectBody), async (c) => {
+  .post("/", guard, validate("json", designReportBody), async (c) => {
     const supabaseAdmin = c.var.supabaseAdmin;
     const userId = c.var.user.id;
 
@@ -943,31 +944,7 @@ export const designReport = userFactory
         );
       }
 
-      const body = c.req.valid("json");
-      const sessionId =
-        typeof body.sessionId === "string" ? body.sessionId.trim() : "";
-      const topicId =
-        typeof body.topicId === "string" ? body.topicId.trim() : "";
-      const regenerate = body.regenerate === true;
-
-      if (!UUID_RE.test(sessionId)) {
-        return fail(
-          c,
-          400,
-          "INVALID_SESSION_ID",
-          "sessionId가 올바르지 않습니다.",
-          { charged: false },
-        );
-      }
-      if (!UUID_RE.test(topicId)) {
-        return fail(
-          c,
-          400,
-          "INVALID_TOPIC_ID",
-          "topicId가 올바르지 않습니다.",
-          { charged: false },
-        );
-      }
+      const { sessionId, topicId, regenerate = false } = c.req.valid("json");
 
       // ── 세션 소유권. 없는 세션과 남의 세션을 같은 응답으로 묶어 id 존재 여부가 새지
       //    않게 한다(P8·RPC 단계 1과 같은 취지).
@@ -1052,7 +1029,7 @@ export const designReport = userFactory
             reused: true,
             generationCount: Number(sessionRow.design_generation_count) || 0,
             maxGenerations: MAX_DESIGN_GENERATIONS,
-          });
+          } satisfies z.input<typeof designReportResponse>);
         }
       }
 
@@ -1559,7 +1536,7 @@ export const designReport = userFactory
               STUDENT_HISTORY_PROMPT_LIMIT,
             ),
           },
-        });
+        } satisfies z.input<typeof designReportResponse>);
       } finally {
         scheduleAfterResponse(() => trace.flush(supabaseAdmin));
       }

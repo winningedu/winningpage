@@ -11,13 +11,15 @@
 //         `design`/`evaluation`/`final`은 전부 `.sections` 배열을 최상위에 갖는 동일한
 //         봉투 모양이라(서버가 정규화) `SectionedReportView`에 그대로 넘길 수 있다.
 //   실패  401 UNAUTHENTICATED / 403 NO_ENTITLEMENT / 403 NOT_SESSION_OWNER(상세)
-//         / 400 INVALID_SESSION_ID|INVALID_CURSOR / 405 METHOD_NOT_ALLOWED / 500 INTERNAL
+//         / 400 VALIDATION_FAILED / 405 METHOD_NOT_ALLOWED / 500 INTERNAL
 //         — `design-report.js`/`submission.js`와 같은 `userMessage` 규약으로 감싼다.
 
+import type { z } from "zod";
 import {
+  type ReportsQueryInput,
   reportDetailResponse,
   reportsListResponse,
-} from "../../../shared/performance/contract.js";
+} from "../../../shared/performance/reports.js";
 import { api } from "../http/client";
 import { type PerformanceResult, performanceRequest } from "./apiClient";
 
@@ -28,8 +30,8 @@ const FALLBACK_MESSAGE = {
   UNAUTHENTICATED: "로그인이 필요합니다.",
   NO_ENTITLEMENT: "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
   NOT_SESSION_OWNER: "세션을 찾을 수 없어요.",
-  INVALID_SESSION_ID: "잘못된 세션이에요.",
-  INVALID_CURSOR: "목록을 불러오지 못했어요. 새로고침한 뒤 다시 시도해 주세요.",
+  VALIDATION_FAILED:
+    "목록을 불러오지 못했어요. 새로고침한 뒤 다시 시도해 주세요.",
 };
 
 const GENERIC_MESSAGE =
@@ -57,8 +59,8 @@ function toError(failure: Extract<PerformanceResult<unknown>, { ok: false }>) {
 
 async function callReportsApi<T>(
   accessToken: string,
-  params: URLSearchParams,
-  schema: typeof reportsListResponse | typeof reportDetailResponse,
+  searchParams: ReportsQueryInput,
+  schema: z.ZodType<T>,
 ): Promise<T> {
   let result: PerformanceResult<T>;
 
@@ -66,10 +68,10 @@ async function callReportsApi<T>(
     result = await performanceRequest(
       api
         .get("performance/reports", {
-          searchParams: params,
+          searchParams,
           headers: { Authorization: `Bearer ${accessToken}` },
         })
-        .json(schema) as Promise<T>,
+        .json(schema),
     );
   } catch (error) {
     const wrapped = new ReportsError("NETWORK", NETWORK_ERROR);
@@ -83,8 +85,6 @@ async function callReportsApi<T>(
 
 /**
  * 저장 리포트 목록 1페이지.
- * @param {{accessToken: string, cursor?: string|null, limit?: number}} params
- * @returns {Promise<{items: object[], nextCursor: string|null}>}
  * @throws {ReportsError}
  */
 export async function fetchSavedReportsList({
@@ -96,20 +96,14 @@ export async function fetchSavedReportsList({
   cursor?: string | null;
   limit?: number;
 }) {
-  const params = new URLSearchParams();
-  if (cursor) params.set("cursor", cursor);
-  if (limit) params.set("limit", String(limit));
-  return callReportsApi<{ items: unknown[]; nextCursor: string | null }>(
-    accessToken,
-    params,
-    reportsListResponse,
-  );
+  const searchParams: ReportsQueryInput = {};
+  if (cursor) searchParams.cursor = cursor;
+  if (limit) searchParams.limit = String(limit);
+  return callReportsApi(accessToken, searchParams, reportsListResponse);
 }
 
 /**
  * 저장 리포트 상세(세션 1건 + 설계/평가/최종 리포트 + 제출본 전체).
- * @param {{accessToken: string, sessionId: string}} params
- * @returns {Promise<{session: object, design: object|null, evaluation: object|null, final: object|null, submissions: object[]}>}
  * @throws {ReportsError}
  */
 export async function fetchSavedReportDetail({
@@ -119,12 +113,5 @@ export async function fetchSavedReportDetail({
   accessToken: string;
   sessionId: string;
 }) {
-  const params = new URLSearchParams({ sessionId });
-  return callReportsApi<{
-    session: unknown;
-    design: unknown;
-    evaluation: unknown;
-    final: unknown;
-    submissions: unknown[];
-  }>(accessToken, params, reportDetailResponse);
+  return callReportsApi(accessToken, { sessionId }, reportDetailResponse);
 }

@@ -2,7 +2,7 @@
 // 수행평가 라우트가 "이미 센 세션"을 이 기록으로 판단하는지 session 라우트의 이어받기로 확인한다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { sessionWriteResponse } from "../../../shared/performance/contract.js";
+import { sessionWriteResponse } from "../../../shared/performance/session.js";
 import { callRoute } from "../../_lib/adminRoute.testkit.js";
 
 type Row = Record<string, unknown>;
@@ -72,6 +72,14 @@ const session = {
   status: "in_progress",
   current_step: 3,
   completed_steps: [1, 2],
+  grade_label: "고1",
+  semester: "1학기",
+  school_type: null,
+  subject_group: "과학",
+  subject: "물리",
+  career_goal: "연구원",
+  previous_topic: null,
+  created_at: "2026-11-05T00:00:00Z",
   updated_at: "2026-11-06T00:00:00Z",
 };
 

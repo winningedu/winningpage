@@ -21,11 +21,12 @@
 // 응답 규격
 //   200 { action, ... }   정상. 대상 아님/캐시 적중은 에러가 아니라 status:'skipped'다.
 //   오류는 problem 형식(RFC 9457, 항상 code)이다.
-//   400 ID_REQUIRED / UNKNOWN_ACTION   action·id 누락 등 요청 오류.
+//   400 ID_REQUIRED                    embed-one 에 id 가 없다.
+//   400 VALIDATION_FAILED              action, id, limit, force 의 형식 오류(알 수 없는 action 포함).
 //   401, 403, 405                      토큰 없음/무효, 관리자 아님, POST 아님.
 //   500 EMBED_FAILED                   임베딩 실패(detail 은 원인 문구).
 
-import { jsonObjectBody } from "../../../shared/performance/contract.js";
+import { adminEmbedBody } from "../../../shared/performance/admin-embed.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { performanceTraceContext } from "../../_lib/ai/telemetry/performanceContext.js";
 import { type AiTrace, createAiTrace } from "../../_lib/ai/telemetry/trace.js";
@@ -348,19 +349,9 @@ const guard = admin({
 
 export const adminEmbed = adminFactory
   .createApp()
-  .post("/", guard, validate("json", jsonObjectBody), async (c) => {
+  .post("/", guard, validate("json", adminEmbedBody), async (c) => {
     const supabaseAdmin = c.var.supabaseAdmin;
-    const {
-      action = "embed-one",
-      id,
-      limit,
-      force = false,
-    } = c.req.valid("json") as {
-      action?: unknown;
-      id?: unknown;
-      limit?: unknown;
-      force?: unknown;
-    };
+    const { action, id, limit, force = false } = c.req.valid("json");
     const forceFlag = force === true || force === "true";
 
     // 계기판 기록. 요청 하나에 trace 하나이고, 응답 뒤 finally 에서 한 번 내보낸다.
@@ -371,7 +362,7 @@ export const adminEmbed = adminFactory
           : {
               feature: "embed_one",
               targetKind: "knowledge_item",
-              targetId: typeof id === "string" ? id : null,
+              targetId: id ?? null,
             },
       ),
     );
@@ -382,7 +373,7 @@ export const adminEmbed = adminFactory
           return problemResponse(c, 400, "id가 필요합니다.", "ID_REQUIRED");
         }
 
-        const result = await embedOne(supabaseAdmin, id as string, {
+        const result = await embedOne(supabaseAdmin, id, {
           force: forceFlag,
           telemetry: trace,
         });
@@ -402,13 +393,6 @@ export const adminEmbed = adminFactory
           ...result,
         });
       }
-
-      return problemResponse(
-        c,
-        400,
-        "알 수 없는 action입니다. 'embed-one' 또는 'backfill'.",
-        "UNKNOWN_ACTION",
-      );
     } catch (error) {
       console.error("admin-embed error:", error);
       return problemResponse(c, 500, errorMessage(error), "EMBED_FAILED");

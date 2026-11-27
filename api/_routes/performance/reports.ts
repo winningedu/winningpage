@@ -47,10 +47,17 @@
 //    매칭한다(추가 조인 없이 봉투에 이미 들어있는 값, evaluate.js `buildReportEnvelope`).
 
 import type { Context } from "hono";
+import type { z } from "zod";
+import {
+  type reportDetailResponse,
+  type reportsListResponse,
+  reportsQuery,
+} from "../../../shared/performance/reports.js";
 import type { Json } from "../../../src/types/database.types.js";
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   hasPaidServiceAccess,
   SERVICE_CONFIGS,
@@ -58,10 +65,11 @@ import {
 import type { createSupabaseAdmin } from "../../_lib/supabaseAdmin.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
-const SERVICE_KEY = "suhaeng";
+type ReportsQuery = z.output<typeof reportsQuery>;
+type ReportsList = z.input<typeof reportsListResponse>;
+type ReportDetail = z.input<typeof reportDetailResponse>;
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SERVICE_KEY = "suhaeng";
 
 const LIST_LIMIT_DEFAULT = 20;
 const LIST_LIMIT_MAX = 50;
@@ -266,21 +274,16 @@ async function handleList(
   c: Context<UserEnv>,
   supabaseAdmin: ReturnType<typeof createSupabaseAdmin>,
   userId: string,
+  query: ReportsQuery,
 ) {
-  const rawLimit = parseInt(c.req.query("limit") ?? "", 10);
+  const rawLimit = parseInt(query.limit ?? "", 10);
   const limit = Number.isInteger(rawLimit)
     ? Math.min(Math.max(rawLimit, 1), LIST_LIMIT_MAX)
     : LIST_LIMIT_DEFAULT;
 
-  const cursor = (c.req.query("cursor") ?? "").trim();
-  let cursorIso: string | null = null;
-  if (cursor) {
-    const cursorDate = new Date(cursor);
-    if (Number.isNaN(cursorDate.getTime())) {
-      return fail(c, 400, "INVALID_CURSOR", "cursor가 올바르지 않습니다.");
-    }
-    cursorIso = cursorDate.toISOString();
-  }
+  // 형식(날짜로 읽히는지)은 스키마가 이미 봤다.
+  const cursor = query.cursor ?? "";
+  const cursorIso = cursor ? new Date(cursor).toISOString() : null;
 
   // ── 소유 세션 id 목록. 뷰에는 profile_id가 없어 여기서 좁힌 id 집합이 유일한
   //    소유자 격리 경계다(파일 상단 주석 참고).
@@ -293,7 +296,7 @@ async function handleList(
 
   const ownedSessionIds = (ownedSessions || []).map((row) => row.id);
   if (!ownedSessionIds.length) {
-    return c.json({ items: [], nextCursor: null });
+    return c.json({ items: [], nextCursor: null } satisfies ReportsList);
   }
 
   let viewQuery = supabaseAdmin
@@ -322,7 +325,7 @@ async function handleList(
   // hasMore가 true면 slice(0, limit)로 최소 1개(limit>=1)가 남아 있다.
   const nextCursor = hasMore ? items[items.length - 1]!.updatedAt : null;
 
-  return c.json({ items, nextCursor });
+  return c.json({ items, nextCursor } satisfies ReportsList);
 }
 
 async function handleDetail(
@@ -331,10 +334,6 @@ async function handleDetail(
   userId: string,
   sessionId: string,
 ) {
-  if (!UUID_RE.test(sessionId)) {
-    return fail(c, 400, "INVALID_SESSION_ID", "sessionId가 올바르지 않습니다.");
-  }
-
   // ── 세션 소유권. 없는 세션과 남의 세션을 같은 응답으로 묶어 id 존재 여부가
   //    새지 않게 한다(design-report.js·finalize.js와 같은 관례).
   const { data: sessionRow, error: sessionError } = await supabaseAdmin
@@ -409,7 +408,7 @@ async function handleDetail(
     evaluation: toEvaluationReport(evaluationRow),
     final: toFinalReport(finalRow),
     submissions: ((submissionRows as SubmissionRow[]) || []).map(toSubmission),
-  });
+  } satisfies ReportDetail);
 }
 
 const guard = user({
@@ -422,7 +421,7 @@ const guard = user({
 
 export const reports = userFactory
   .createApp()
-  .get("/", guard, async (c) => {
+  .get("/", guard, validate("query", reportsQuery), async (c) => {
     const supabaseAdmin = c.var.supabaseAdmin;
     const userId = c.var.user.id;
 
@@ -444,12 +443,12 @@ export const reports = userFactory
       );
     }
 
-    const sessionId = (c.req.query("sessionId") ?? "").trim();
+    const query = c.req.valid("query");
 
-    if (sessionId) {
-      return handleDetail(c, supabaseAdmin, userId, sessionId);
+    if (query.sessionId) {
+      return handleDetail(c, supabaseAdmin, userId, query.sessionId);
     }
 
-    return handleList(c, supabaseAdmin, userId);
+    return handleList(c, supabaseAdmin, userId, query);
   })
   .all("/", methodNotAllowed("GET"));

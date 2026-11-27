@@ -7,13 +7,16 @@
 // 그래서 QueryClient를 컴포넌트가 아니라 모듈 top-level에 싱글턴으로 둔다
 // (routeMiddlewareCache.ts의 모듈 레벨 Map과 동일한 이유).
 import { QueryClient, queryOptions } from "@tanstack/react-query";
-import { bootstrapResponse } from "../../shared/performance/contract.js";
+import type { z } from "zod";
+import { bootstrapResponse } from "../../shared/performance/bootstrap.js";
 import { apiFetch, getAuthHeader } from "./apiFetch";
 import { fetchEntitlement } from "./entitlement";
 import { fetchGoalStudent, fetchTodayGoalRecord } from "./goalApi";
 import { ApiError, api } from "./http/client";
 import { performanceRequest } from "./performance/apiClient";
 import { supabase } from "./supabase";
+
+type PerformanceBootstrapPayload = z.output<typeof bootstrapResponse>;
 
 // 4xx 는 다시 해도 같은 결과라 재시도하지 않는다. 그 밖의 에러는 한 번만 재시도한다.
 function retryOnce(failureCount: number, error: Error): boolean {
@@ -228,28 +231,6 @@ export function sessionCheckQueryOptions(userId: string | null) {
 // 갈리면 안 된다) `fetchQuery({ ...옵션, staleTime: 0 })`로 이 staleTime을 우회해
 // 부른다 — 셸은 그 결과로 채워진 캐시를 staleTime 그대로 구독만 한다.
 const PERFORMANCE_BOOTSTRAP_STALE_MS = 15_000;
-
-/** `api/_routes/performance/bootstrap.ts` 응답 중 이 저장소 클라이언트가 실제로 쓰는 필드만
- * 좁혀 선언한다(`session.ts` 상단 주석과 같은 판단 — 전체 계약은 그 파일의 헤더 주석
- * `200 { profile, entitlement, lastSession|null, latestDraft|null }` 참고). */
-export type PerformanceBootstrapPayload = {
-  profile: {
-    name: string | null;
-    schoolType: string | null;
-  };
-  // `PerformanceChatPage`(§5.4 재개 선택 카드)가 gradeLabel 외 필드도 그대로 쓰므로
-  // `summaryOf`가 실제로 내려주는 표시 필드 전부를 좁혀 담는다 — 그 파일의
-  // `LastSessionSummary`와 필드 형태를 맞춘다(값 없음은 DB 컬럼 원본대로 null).
-  lastSession: {
-    sessionId: string;
-    gradeLabel: string | null;
-    semester: string | null;
-    subjectGroup: string | null;
-    subject: string | null;
-    selectedTopicTitle: string | null;
-  } | null;
-  latestDraft: unknown;
-};
 
 // entitlement/goalStudent와 동일한 이유로 queryKey에 userId를 포함한다(리뷰 CRITICAL
 // C1). accessToken은 SessionContext가 이미 들고 있는 값을 그대로 받는다 — 이 파일이

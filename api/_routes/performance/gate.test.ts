@@ -60,7 +60,7 @@ function setup(denyReason: string) {
 const call = () =>
   callRoute(route, {
     method: "POST",
-    body: {},
+    body: { action: "create" },
     headers: { authorization: "Bearer t" },
   });
 

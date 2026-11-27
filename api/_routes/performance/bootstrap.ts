@@ -44,6 +44,8 @@
 //    (sql/54_performance_app.sql (4), 명세서 §9.3).
 
 import type { Context } from "hono";
+import type { z } from "zod";
+import type { bootstrapResponse } from "../../../shared/performance/bootstrap.js";
 import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
@@ -104,8 +106,8 @@ const SESSION_COLUMNS = [
 type SessionRow = {
   id: string;
   status: string;
-  current_step: number | null;
-  completed_steps: unknown;
+  current_step: number;
+  completed_steps: number[] | null;
   grade_label: string | null;
   semester: string | null;
   school_type: string | null;
@@ -389,6 +391,6 @@ export const bootstrap = userFactory
       },
       lastSession: lastSessionRow ? summaryOf(lastSessionRow) : null,
       latestDraft: latestDraftRow ? summaryOf(latestDraftRow) : null,
-    });
+    } satisfies z.input<typeof bootstrapResponse>);
   })
   .all("/", methodNotAllowed("GET"));

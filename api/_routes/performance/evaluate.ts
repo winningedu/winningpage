@@ -85,7 +85,11 @@
 //   전량을 폐기로 지정). 이 파일의 유일한 파싱은 `JSON.parse` 한 줄이다.
 
 import type { Context } from "hono";
-import { jsonObjectBody } from "../../../shared/performance/contract.js";
+import type { z } from "zod";
+import {
+  evaluateBody,
+  type evaluateResponse,
+} from "../../../shared/performance/evaluate.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { generateWithRetry, PERFORMANCE_MODEL } from "../../_lib/ai/gemini.js";
 import {
@@ -157,9 +161,6 @@ const MODEL_TIMEOUT_MS = 50 * 1000;
 
 /** 구조 실패(절단·파싱 실패·계약 위반) 시 재시도 횟수. §8.4 「1회 재요청 후 실패 처리」. */
 const STRUCTURE_RETRY = 1;
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const SESSION_COLUMNS = [
   "id",
@@ -432,7 +433,12 @@ function toClientReport(reportRow: ReportRow | null | undefined) {
     reportRow?.sections && typeof reportRow.sections === "object"
       ? reportRow.sections
       : {}
-  ) as Record<string, unknown>;
+  ) as {
+    sections?: unknown;
+    score?: number;
+    summary?: string;
+    structure?: unknown;
+  };
 
   return {
     id: reportRow?.id ?? null,
@@ -455,7 +461,7 @@ const guard = user({
 
 export const evaluate = userFactory
   .createApp()
-  .post("/", guard, validate("json", jsonObjectBody), async (c) => {
+  .post("/", guard, validate("json", evaluateBody), async (c) => {
     const supabaseAdmin = c.var.supabaseAdmin;
     const userId = c.var.user.id;
 
@@ -484,31 +490,11 @@ export const evaluate = userFactory
         );
       }
 
-      const body = c.req.valid("json");
-      const sessionId =
-        typeof body.sessionId === "string" ? body.sessionId.trim() : "";
-      const submissionId =
-        typeof body.submissionId === "string" ? body.submissionId.trim() : "";
-      const regenerate = body.regenerate === true;
-
-      if (!UUID_RE.test(sessionId)) {
-        return fail(
-          c,
-          400,
-          "INVALID_SESSION_ID",
-          "sessionId가 올바르지 않습니다.",
-          { charged: false },
-        );
-      }
-      if (!UUID_RE.test(submissionId)) {
-        return fail(
-          c,
-          400,
-          "INVALID_SUBMISSION_ID",
-          "submissionId가 올바르지 않습니다.",
-          { charged: false },
-        );
-      }
+      const {
+        sessionId,
+        submissionId,
+        regenerate = false,
+      } = c.req.valid("json");
 
       // ── 게이트 ① 세션 소유권. 없는 세션과 남의 세션을 같은 응답으로 묶는다.
       const { data: sessionRowRaw, error: sessionError } = await supabaseAdmin
@@ -584,7 +570,7 @@ export const evaluate = userFactory
           reused: true,
           evaluationCount: Number(sessionRow.evaluation_count) || 0,
           maxEvaluations: MAX_EVALUATIONS,
-        });
+        } satisfies z.input<typeof evaluateResponse>);
       }
 
       // ── 게이트 ③ 차감된 세션인가. `performance_credit_ledger.session_id`가 UNIQUE라
@@ -1103,7 +1089,7 @@ export const evaluate = userFactory
           evaluationCount:
             Number(commit.evaluation_count) || evaluationCount + 1,
           maxEvaluations: MAX_EVALUATIONS,
-        });
+        } satisfies z.input<typeof evaluateResponse>);
 
         // 응답을 보낸 뒤 이 세션 벡터 1건을 바로 임베딩한다. 같은 날 다음 수행평가의
         // 과거 수행 검색에 직전 기록이 잡히게 하려는 것이다. 실패분은 매일 도는

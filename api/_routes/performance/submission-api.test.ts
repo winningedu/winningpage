@@ -224,11 +224,18 @@ describe("[4] §8.6 엔드포인트 표 실패 코드", () => {
     ).toBe(false);
   });
   test("finalize.ts — action 값은 confirm/new_assessment 2종뿐(외부 승계)", () => {
-    expect(FINALIZE_API.includes('["confirm", "new_assessment"]')).toBe(true);
+    expect(
+      read("shared/performance/finalize.ts").includes(
+        '["confirm", "new_assessment"]',
+      ),
+    ).toBe(true);
   });
   test("submission.ts — mode는 draft/submit 2종", () => {
-    expect(SUBMISSION_API.includes('body.mode === "submit"')).toBe(true);
-    expect(SUBMISSION_API.includes('body.mode === "draft"')).toBe(true);
+    expect(
+      read("shared/performance/submission.ts").includes(
+        'z.enum(["draft", "submit"])',
+      ),
+    ).toBe(true);
   });
 
   test("evaluate.ts — 제출물 게이트 → 재평가 상한 → 시도 카운터 순서", () => {

@@ -66,7 +66,14 @@
 //    따라 회차가 아니라 상한으로 막는다.
 
 import type { Context } from "hono";
-import { jsonObjectBody } from "../../../shared/performance/contract.js";
+import type { z } from "zod";
+import {
+  type clientSubmissionSchema,
+  submissionBody,
+  type submissionFormResponse,
+  submissionQuery,
+  type submissionSaveResponse,
+} from "../../../shared/performance/submission.js";
 import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
@@ -88,6 +95,8 @@ import {
 import type { createSupabaseAdmin } from "../../_lib/supabaseAdmin.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
+type ClientSubmission = z.input<typeof clientSubmissionSchema>;
+
 const SERVICE_KEY = "suhaeng";
 
 /** 세션당 제출본 최대 revision 수 = 최초 1 + 재평가 2(§9.2 상한 표). */
@@ -103,9 +112,6 @@ const MAX_REEVALUATIONS = MAX_REVISIONS - 1;
  */
 const MAX_FIELD_CHARS = 20000;
 const MAX_TOTAL_CHARS = 120000;
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const SESSION_COLUMNS = [
   "id",
@@ -158,9 +164,7 @@ type Schema = ReturnType<typeof resolveSessionSubmissionSchema>["schema"];
 
 type NormalizeFieldsResult =
   | { ok: true; fields: Record<string, string> }
-  | { ok: false; code: "INVALID_FIELDS" }
   | { ok: false; code: "UNKNOWN_FIELD"; field: string }
-  | { ok: false; code: "INVALID_FIELD_VALUE"; field: string }
   | { ok: false; code: "FIELD_TOO_LARGE"; field: string; label: string }
   | { ok: false; code: "SUBMISSION_TOO_LARGE" };
 
@@ -174,18 +178,21 @@ function fail(
   return problemResponse(c, status, message, code, extra);
 }
 
-const trimmed = (value: unknown) => String(value ?? "").trim();
-
-function toClientSubmission(row: SubmissionRow | null) {
+function toClientSubmission(row: SubmissionRow): ClientSubmission;
+function toClientSubmission(row: SubmissionRow | null): ClientSubmission | null;
+function toClientSubmission(
+  row: SubmissionRow | null,
+): ClientSubmission | null {
   if (!row) return null;
   return {
     submissionId: row.id,
     revision: row.revision,
-    fields: row.fields && typeof row.fields === "object" ? row.fields : {},
-    charCounts:
-      row.char_counts && typeof row.char_counts === "object"
-        ? row.char_counts
-        : {},
+    fields: (row.fields && typeof row.fields === "object"
+      ? row.fields
+      : {}) as Record<string, string>,
+    charCounts: (row.char_counts && typeof row.char_counts === "object"
+      ? row.char_counts
+      : {}) as Record<string, unknown>,
     isDraft: row.is_draft === true,
     isFinal: row.is_final === true,
     finalizedAt: row.finalized_at ?? null,
@@ -247,29 +254,23 @@ async function loadLatestSubmission(
 }
 
 /**
- * 요청 `fields` 검증 + 스키마 키만 남긴 정규화.
+ * 요청 `fields`를 제출 스키마에 맞춰 검증하고 정규화한다. 문자열 맵인지는 스키마가 이미 봤다.
  *
  * **스키마에 없는 키는 조용히 버리지 않고 거부한다**(§8.6 `400 UNKNOWN_FIELD`).
  * 버리면 학생이 쓴 내용이 소리 없이 사라지고, 클라이언트 폼이 서버 스키마와
  * 어긋났다는 사실도 드러나지 않는다.
  */
-function normalizeFields(schema: Schema, raw: unknown): NormalizeFieldsResult {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return { ok: false, code: "INVALID_FIELDS" };
-  }
-
+function normalizeFields(
+  schema: Schema,
+  fields: Record<string, string>,
+): NormalizeFieldsResult {
   const allowed = new Map(schema.fields.map((field) => [field.key, field]));
   const clean: Record<string, string> = {};
 
-  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(fields)) {
     const field = allowed.get(key);
     if (!field) return { ok: false, code: "UNKNOWN_FIELD", field: key };
 
-    // 문자열만 받는다. 숫자·객체를 String()으로 흡수하면 `[object Object]`가 학생
-    // 원고로 저장되고 그대로 프롬프트에 실린다.
-    if (typeof value !== "string") {
-      return { ok: false, code: "INVALID_FIELD_VALUE", field: key };
-    }
     if (value.length > MAX_FIELD_CHARS) {
       return {
         ok: false,
@@ -319,10 +320,6 @@ async function authorize(
     );
   }
 
-  if (!UUID_RE.test(sessionId)) {
-    return fail(c, 400, "INVALID_SESSION_ID", "sessionId가 올바르지 않습니다.");
-  }
-
   // 없는 세션과 남의 세션을 같은 응답으로 묶어 id 존재 여부가 새지 않게 한다
   // (형제 라우트와 동일).
   const { data: sessionRow, error: sessionError } = await supabaseAdmin
@@ -348,304 +345,261 @@ const guard = user({
 
 export const submission = userFactory
   .createApp()
-  .on(
-    ["GET", "PUT"],
-    "/",
-    guard,
-    validate("json", jsonObjectBody),
-    async (c) => {
-      const supabaseAdmin = c.var.supabaseAdmin;
-      const userId = c.var.user.id;
-      const body = c.req.valid("json");
-      const sessionId =
-        c.req.method === "GET"
-          ? trimmed(c.req.query("sessionId"))
-          : typeof body.sessionId === "string"
-            ? body.sessionId.trim()
-            : "";
+  .get("/", guard, validate("query", submissionQuery), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
+    const { sessionId } = c.req.valid("query");
 
-      const authorized = await authorize(c, supabaseAdmin, userId, sessionId);
-      if (authorized instanceof Response) return authorized;
-      const sessionRow: SessionRow = authorized;
+    const authorized = await authorize(c, supabaseAdmin, userId, sessionId);
+    if (authorized instanceof Response) return authorized;
+    const sessionRow: SessionRow = authorized;
 
-      const schema = await resolveAndPersistSchema(supabaseAdmin, sessionRow);
+    const schema = await resolveAndPersistSchema(supabaseAdmin, sessionRow);
 
-      // ─────────────────────────────────────────────────────────────────
-      // GET — 제출폼 렌더용. §8.6 표에는 없는 추가분이다.
-      //   STEP5 폼은 ⓐ 필드 목록(서버 소유 스키마)과 ⓑ 이어서 쓸 초안을 함께 알아야
-      //   하는데, 스키마는 이 슬라이스에서 처음 서버로 올라왔고 §8.6이 그 전달 경로를
-      //   따로 규정하지 않았다. 저장 리포트처럼 클라이언트 직접 select로 풀 수도 있지만
-      //   (§8.6 「저장 리포트 조회는 엔드포인트를 만들지 않는다」) 스키마 판정은 세션
-      //   컬럼이 비어 있을 때 **서버가 판정해 채워 넣어야** 하므로 read-only 경로로는
-      //   성립하지 않는다. PUT과 같은 파일에 둔 이유는 판정·정규화 코드를 공유하기 위함이다.
-      // ─────────────────────────────────────────────────────────────────
-      if (c.req.method === "GET") {
-        const latest = await loadLatestSubmission(supabaseAdmin, sessionRow.id);
+    // ─────────────────────────────────────────────────────────────────
+    // GET — 제출폼 렌더용. §8.6 표에는 없는 추가분이다.
+    //   STEP5 폼은 ⓐ 필드 목록(서버 소유 스키마)과 ⓑ 이어서 쓸 초안을 함께 알아야
+    //   하는데, 스키마는 이 슬라이스에서 처음 서버로 올라왔고 §8.6이 그 전달 경로를
+    //   따로 규정하지 않았다. 저장 리포트처럼 클라이언트 직접 select로 풀 수도 있지만
+    //   (§8.6 「저장 리포트 조회는 엔드포인트를 만들지 않는다」) 스키마 판정은 세션
+    //   컬럼이 비어 있을 때 **서버가 판정해 채워 넣어야** 하므로 read-only 경로로는
+    //   성립하지 않는다. PUT과 같은 파일에 둔 이유는 판정·정규화 코드를 공유하기 위함이다.
+    // ─────────────────────────────────────────────────────────────────
+    const latest = await loadLatestSubmission(supabaseAdmin, sessionRow.id);
 
-        return c.json({
-          schema,
-          submission: toClientSubmission(latest),
-          minChars: SUBMISSION_MIN_CHARS,
-          maxRevisions: MAX_REVISIONS,
-        });
-      }
+    return c.json({
+      schema,
+      submission: toClientSubmission(latest),
+      minChars: SUBMISSION_MIN_CHARS,
+      maxRevisions: MAX_REVISIONS,
+    } satisfies z.input<typeof submissionFormResponse>);
+  })
+  .put("/", guard, validate("json", submissionBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
+    const { sessionId, fields: rawFields, mode } = c.req.valid("json");
 
-      // ─────────────────────────────────────────────────────────────────
-      // PUT
-      // ─────────────────────────────────────────────────────────────────
-      const mode =
-        body.mode === "submit"
-          ? "submit"
-          : body.mode === "draft"
-            ? "draft"
-            : null;
-      if (!mode) {
+    const authorized = await authorize(c, supabaseAdmin, userId, sessionId);
+    if (authorized instanceof Response) return authorized;
+    const sessionRow: SessionRow = authorized;
+
+    const schema = await resolveAndPersistSchema(supabaseAdmin, sessionRow);
+
+    // ─────────────────────────────────────────────────────────────────
+    // PUT
+    // ─────────────────────────────────────────────────────────────────
+    const normalized = normalizeFields(schema, rawFields);
+    if (normalized.ok === false) {
+      if (normalized.code === "UNKNOWN_FIELD") {
         return fail(
           c,
           400,
-          "INVALID_MODE",
-          "mode는 'draft' 또는 'submit'이어야 합니다.",
-        );
-      }
-
-      const normalized = normalizeFields(schema, body.fields);
-      if (normalized.ok === false) {
-        if (normalized.code === "UNKNOWN_FIELD") {
-          return fail(
-            c,
-            400,
-            "UNKNOWN_FIELD",
-            "제출폼에 없는 항목이 포함돼 있어요.",
-            {
-              field: normalized.field,
-            },
-          );
-        }
-        if (normalized.code === "INVALID_FIELD_VALUE") {
-          return fail(
-            c,
-            400,
-            "INVALID_FIELD_VALUE",
-            "제출 항목 값은 문자열이어야 합니다.",
-            {
-              field: normalized.field,
-            },
-          );
-        }
-        if (normalized.code === "FIELD_TOO_LARGE") {
-          return fail(
-            c,
-            413,
-            "SUBMISSION_TOO_LARGE",
-            "작성 내용이 너무 깁니다.",
-            {
-              field: normalized.field,
-              maxChars: MAX_FIELD_CHARS,
-            },
-          );
-        }
-        if (normalized.code === "SUBMISSION_TOO_LARGE") {
-          return fail(
-            c,
-            413,
-            "SUBMISSION_TOO_LARGE",
-            "작성 내용이 너무 깁니다.",
-            {
-              maxChars: MAX_TOTAL_CHARS,
-            },
-          );
-        }
-        return fail(
-          c,
-          400,
-          "INVALID_FIELDS",
-          "fields 형식이 올바르지 않습니다.",
-        );
-      }
-
-      const fields = normalized.fields;
-      const { perField, total } = countSubmissionChars(schema, fields);
-
-      // 빈 저장을 만들지 않는다(§8.6 `400 EMPTY_SUBMISSION`). 외부도 같은 자리에서
-      // `저장할 작성 내용이 없습니다.`로 막았다(`index.html:2450`).
-      if (total === 0) {
-        return fail(c, 400, "EMPTY_SUBMISSION", EMPTY_SUBMISSION_MESSAGE);
-      }
-
-      const latest = await loadLatestSubmission(supabaseAdmin, sessionRow.id);
-      // 최신 행이 아직 draft면 그 행을 덮어쓴다(중간 저장 반복). 제출됐거나 확정된
-      // 행이면 새 revision을 연다(위 「revision을 언제 올리는가」).
-      const reuseLatest = Boolean(
-        latest && latest.is_draft === true && latest.is_final !== true,
-      );
-      const targetRevision = reuseLatest
-        ? (latest as SubmissionRow).revision
-        : (latest?.revision || 0) + 1;
-
-      if (targetRevision > MAX_REVISIONS) {
-        return fail(
-          c,
-          409,
-          "REEVALUATION_LIMIT",
-          `제출물은 최대 ${MAX_REEVALUATIONS}번까지 다시 낼 수 있어요.`,
+          "UNKNOWN_FIELD",
+          "제출폼에 없는 항목이 포함돼 있어요.",
           {
-            limit: MAX_REEVALUATIONS,
-            maxRevisions: MAX_REVISIONS,
-            revision: latest?.revision ?? null,
+            field: normalized.field,
           },
         );
       }
-
-      const payload = {
-        fields,
-        char_counts: perField,
-        updated_at: new Date().toISOString(),
-      };
-
-      /**
-       * 기존 revision 덮어쓰기. **`is_draft = true` + `is_final = false` 두 조건이 붙는다.**
-       *
-       * · `is_final = false` — 확정된 최종본은 불변이다(위 Q67 주석).
-       * · `is_draft = true`  — **아직 제출되지 않은 초안만** 덮어쓴다. 재사용 판정
-       *   (`reuseLatest`)은 `loadLatestSubmission()` 스냅샷으로 하는데, 그 select 와 이
-       *   update 사이에 다른 탭이 같은 revision을 `mode:'submit'`으로 제출하거나
-       *   (`is_draft=false`) 평가 커밋이 같은 값을 세우면(sql/58 (4) 단계 3), 이 조건이
-       *   없을 때 뒤늦은 draft 저장이 **이미 채점된 제출본의 본문을 조용히 덮어쓴다**
-       *   (검토 P11). 그러면 `performance_reports`의 평가 리포트(점수·피드백)와
-       *   `performance_submissions.fields`(최종 리포트가 그대로 옮기는 학생 원고,
-       *   `finalize.js buildFinalSections`)가 서로 다른 원고를 가리키게 된다 —
-       *   sql/58 (2) 주석이 못박은 「제출본 자체는 revision별로 전부 남는다」가 깨지는
-       *   유일한 창이었다.
-       *   0행이 되면 아래 `if (!row)`가 409로 갈라 주고, 학생이 다시 저장하면 그때는
-       *   `reuseLatest`가 false라 **새 revision**이 열려 작성 내용을 잃지 않는다.
-       *
-       * 23505 복구 경로도 방금 insert 된 draft 행을 대상으로 하므로 이 조건에 걸리지 않는다.
-       */
-      async function updateRevision(revision: number) {
-        const { data, error } = await supabaseAdmin
-          .from("performance_submissions")
-          .update(payload)
-          .eq("session_id", sessionRow.id)
-          .eq("revision", revision)
-          .eq("is_draft", true)
-          .eq("is_final", false)
-          .select(SUBMISSION_COLUMNS)
-          .maybeSingle();
-
-        if (error) throw new Error(`제출본 저장 실패: ${error.message}`);
-        return (data as SubmissionRow) || null;
-      }
-
-      let row: SubmissionRow | null = null;
-
-      if (reuseLatest) {
-        row = await updateRevision(targetRevision);
-      } else {
-        const { data, error } = await supabaseAdmin
-          .from("performance_submissions")
-          .insert({
-            session_id: sessionRow.id,
-            revision: targetRevision,
-            ...payload,
-            is_draft: true,
-            is_final: false,
-          })
-          .select(SUBMISSION_COLUMNS)
-          .single();
-
-        if (error) {
-          // 23505 = `performance_submissions_session_revision_key`. 다중 탭이 같은
-          // revision을 동시에 열었다는 뜻이므로 **경합에서 진 쪽은 덮어쓰기로 합류한다**
-          // (§8.3이 `(session_id, revision)`을 「draft 원자적 upsert 키」로 규정한 이유).
-          // 마지막 write가 이긴다 — 같은 학생의 같은 초안이라 병합 규칙을 둘 필요가 없다.
-          if (error.code === "23505") {
-            row = await updateRevision(targetRevision);
-          } else {
-            throw new Error(`제출본 생성 실패: ${error.message}`);
-          }
-        } else {
-          row = data as SubmissionRow;
-        }
-      }
-
-      if (!row) {
-        // 0행이 되는 경우는 둘이다 — 그 사이 다른 탭이 이 revision을 **확정**했거나
-        // (`is_final=true`) **제출**했다(`is_draft=false`). 둘 다 「이 revision은 더 이상
-        // 초안이 아니다」이고 사용자 조치도 같다(다시 저장하면 새 revision이 열린다).
-        // 코드는 §8.6 계약에 있는 `SESSION_FINALIZED` 하나로 유지하고 문구만 두 경우를
-        // 함께 말한다 — 코드를 새로 파면 클라이언트 분기(§5.20 code 기준)가 갈린다.
+      if (normalized.code === "FIELD_TOO_LARGE") {
         return fail(
           c,
-          409,
-          "SESSION_FINALIZED",
-          "이미 제출했거나 확정한 제출본은 수정할 수 없어요. 다시 저장하면 새 제출본으로 저장됩니다.",
+          413,
+          "SUBMISSION_TOO_LARGE",
+          "작성 내용이 너무 깁니다.",
           {
-            revision: targetRevision,
+            field: normalized.field,
+            maxChars: MAX_FIELD_CHARS,
           },
         );
       }
-
-      // ── mode:'submit' — 게이트는 **저장 이후**에 본다.
-      //    순서를 뒤집으면 100자에 못 미치는 원고가 저장조차 되지 않아 학생이 쓰던 글을
-      //    잃는다. 여기서 400이 나가도 초안은 이미 남아 있고 응답의 `savedAt`이 그 사실을
-      //    알려 준다(아래 「실패 경로별 잔여 상태」).
-      if (mode === "submit") {
-        const gate = checkSubmissionMinLength(schema, fields);
-
-        if (gate.missingRequired.length) {
-          return fail(
-            c,
-            400,
-            "REQUIRED_FIELD_EMPTY",
-            "필수 항목을 모두 작성해 주세요.",
-            {
-              field: gate.missingRequired[0],
-              missingRequired: gate.missingRequired,
-              ...toClientSubmission(row),
-            },
-          );
-        }
-
-        if (gate.total < gate.threshold) {
-          // 문구는 원문 그대로다(`evaluate-text.js:39`). 원 예외 메시지는 싣지 않는다(§8.6).
-          return fail(
-            c,
-            400,
-            "SUBMISSION_TOO_SHORT",
-            SUBMISSION_TOO_SHORT_MESSAGE,
-            {
-              total: gate.total,
-              threshold: gate.threshold,
-              ...toClientSubmission(row),
-            },
-          );
-        }
-
-        const { data: submitted, error: submitError } = await supabaseAdmin
-          .from("performance_submissions")
-          .update({
-            is_draft: false,
-            submitted_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", row.id)
-          .eq("is_final", false)
-          .select(SUBMISSION_COLUMNS)
-          .maybeSingle();
-
-        if (submitError)
-          throw new Error(`제출 표시 실패: ${submitError.message}`);
-        if (submitted) row = submitted as SubmissionRow;
-      }
-
-      return c.json({
-        ...toClientSubmission(row),
-        mode,
-        schema,
-        charTotal: total,
-        minChars: SUBMISSION_MIN_CHARS,
-        maxRevisions: MAX_REVISIONS,
+      return fail(c, 413, "SUBMISSION_TOO_LARGE", "작성 내용이 너무 깁니다.", {
+        maxChars: MAX_TOTAL_CHARS,
       });
-    },
-  )
+    }
+
+    const fields = normalized.fields;
+    const { perField, total } = countSubmissionChars(schema, fields);
+
+    // 빈 저장을 만들지 않는다(§8.6 `400 EMPTY_SUBMISSION`). 외부도 같은 자리에서
+    // `저장할 작성 내용이 없습니다.`로 막았다(`index.html:2450`).
+    if (total === 0) {
+      return fail(c, 400, "EMPTY_SUBMISSION", EMPTY_SUBMISSION_MESSAGE);
+    }
+
+    const latest = await loadLatestSubmission(supabaseAdmin, sessionRow.id);
+    // 최신 행이 아직 draft면 그 행을 덮어쓴다(중간 저장 반복). 제출됐거나 확정된
+    // 행이면 새 revision을 연다(위 「revision을 언제 올리는가」).
+    const reuseLatest = Boolean(
+      latest && latest.is_draft === true && latest.is_final !== true,
+    );
+    const targetRevision = reuseLatest
+      ? (latest as SubmissionRow).revision
+      : (latest?.revision || 0) + 1;
+
+    if (targetRevision > MAX_REVISIONS) {
+      return fail(
+        c,
+        409,
+        "REEVALUATION_LIMIT",
+        `제출물은 최대 ${MAX_REEVALUATIONS}번까지 다시 낼 수 있어요.`,
+        {
+          limit: MAX_REEVALUATIONS,
+          maxRevisions: MAX_REVISIONS,
+          revision: latest?.revision ?? null,
+        },
+      );
+    }
+
+    const payload = {
+      fields,
+      char_counts: perField,
+      updated_at: new Date().toISOString(),
+    };
+
+    /**
+     * 기존 revision 덮어쓰기. **`is_draft = true` + `is_final = false` 두 조건이 붙는다.**
+     *
+     * · `is_final = false` — 확정된 최종본은 불변이다(위 Q67 주석).
+     * · `is_draft = true`  — **아직 제출되지 않은 초안만** 덮어쓴다. 재사용 판정
+     *   (`reuseLatest`)은 `loadLatestSubmission()` 스냅샷으로 하는데, 그 select 와 이
+     *   update 사이에 다른 탭이 같은 revision을 `mode:'submit'`으로 제출하거나
+     *   (`is_draft=false`) 평가 커밋이 같은 값을 세우면(sql/58 (4) 단계 3), 이 조건이
+     *   없을 때 뒤늦은 draft 저장이 **이미 채점된 제출본의 본문을 조용히 덮어쓴다**
+     *   (검토 P11). 그러면 `performance_reports`의 평가 리포트(점수·피드백)와
+     *   `performance_submissions.fields`(최종 리포트가 그대로 옮기는 학생 원고,
+     *   `finalize.js buildFinalSections`)가 서로 다른 원고를 가리키게 된다 —
+     *   sql/58 (2) 주석이 못박은 「제출본 자체는 revision별로 전부 남는다」가 깨지는
+     *   유일한 창이었다.
+     *   0행이 되면 아래 `if (!row)`가 409로 갈라 주고, 학생이 다시 저장하면 그때는
+     *   `reuseLatest`가 false라 **새 revision**이 열려 작성 내용을 잃지 않는다.
+     *
+     * 23505 복구 경로도 방금 insert 된 draft 행을 대상으로 하므로 이 조건에 걸리지 않는다.
+     */
+    async function updateRevision(revision: number) {
+      const { data, error } = await supabaseAdmin
+        .from("performance_submissions")
+        .update(payload)
+        .eq("session_id", sessionRow.id)
+        .eq("revision", revision)
+        .eq("is_draft", true)
+        .eq("is_final", false)
+        .select(SUBMISSION_COLUMNS)
+        .maybeSingle();
+
+      if (error) throw new Error(`제출본 저장 실패: ${error.message}`);
+      return (data as SubmissionRow) || null;
+    }
+
+    let row: SubmissionRow | null = null;
+
+    if (reuseLatest) {
+      row = await updateRevision(targetRevision);
+    } else {
+      const { data, error } = await supabaseAdmin
+        .from("performance_submissions")
+        .insert({
+          session_id: sessionRow.id,
+          revision: targetRevision,
+          ...payload,
+          is_draft: true,
+          is_final: false,
+        })
+        .select(SUBMISSION_COLUMNS)
+        .single();
+
+      if (error) {
+        // 23505 = `performance_submissions_session_revision_key`. 다중 탭이 같은
+        // revision을 동시에 열었다는 뜻이므로 **경합에서 진 쪽은 덮어쓰기로 합류한다**
+        // (§8.3이 `(session_id, revision)`을 「draft 원자적 upsert 키」로 규정한 이유).
+        // 마지막 write가 이긴다 — 같은 학생의 같은 초안이라 병합 규칙을 둘 필요가 없다.
+        if (error.code === "23505") {
+          row = await updateRevision(targetRevision);
+        } else {
+          throw new Error(`제출본 생성 실패: ${error.message}`);
+        }
+      } else {
+        row = data as SubmissionRow;
+      }
+    }
+
+    if (!row) {
+      // 0행이 되는 경우는 둘이다 — 그 사이 다른 탭이 이 revision을 **확정**했거나
+      // (`is_final=true`) **제출**했다(`is_draft=false`). 둘 다 「이 revision은 더 이상
+      // 초안이 아니다」이고 사용자 조치도 같다(다시 저장하면 새 revision이 열린다).
+      // 코드는 §8.6 계약에 있는 `SESSION_FINALIZED` 하나로 유지하고 문구만 두 경우를
+      // 함께 말한다 — 코드를 새로 파면 클라이언트 분기(§5.20 code 기준)가 갈린다.
+      return fail(
+        c,
+        409,
+        "SESSION_FINALIZED",
+        "이미 제출했거나 확정한 제출본은 수정할 수 없어요. 다시 저장하면 새 제출본으로 저장됩니다.",
+        {
+          revision: targetRevision,
+        },
+      );
+    }
+
+    // ── mode:'submit' — 게이트는 **저장 이후**에 본다.
+    //    순서를 뒤집으면 100자에 못 미치는 원고가 저장조차 되지 않아 학생이 쓰던 글을
+    //    잃는다. 여기서 400이 나가도 초안은 이미 남아 있고 응답의 `savedAt`이 그 사실을
+    //    알려 준다(아래 「실패 경로별 잔여 상태」).
+    if (mode === "submit") {
+      const gate = checkSubmissionMinLength(schema, fields);
+
+      if (gate.missingRequired.length) {
+        return fail(
+          c,
+          400,
+          "REQUIRED_FIELD_EMPTY",
+          "필수 항목을 모두 작성해 주세요.",
+          {
+            field: gate.missingRequired[0],
+            missingRequired: gate.missingRequired,
+            ...toClientSubmission(row),
+          },
+        );
+      }
+
+      if (gate.total < gate.threshold) {
+        // 문구는 원문 그대로다(`evaluate-text.js:39`). 원 예외 메시지는 싣지 않는다(§8.6).
+        return fail(
+          c,
+          400,
+          "SUBMISSION_TOO_SHORT",
+          SUBMISSION_TOO_SHORT_MESSAGE,
+          {
+            total: gate.total,
+            threshold: gate.threshold,
+            ...toClientSubmission(row),
+          },
+        );
+      }
+
+      const { data: submitted, error: submitError } = await supabaseAdmin
+        .from("performance_submissions")
+        .update({
+          is_draft: false,
+          submitted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id)
+        .eq("is_final", false)
+        .select(SUBMISSION_COLUMNS)
+        .maybeSingle();
+
+      if (submitError)
+        throw new Error(`제출 표시 실패: ${submitError.message}`);
+      if (submitted) row = submitted as SubmissionRow;
+    }
+
+    return c.json({
+      ...toClientSubmission(row),
+      mode,
+      schema,
+      charTotal: total,
+      minChars: SUBMISSION_MIN_CHARS,
+      maxRevisions: MAX_REVISIONS,
+    } satisfies z.input<typeof submissionSaveResponse>);
+  })
   .all("/", methodNotAllowed("GET", "PUT"));

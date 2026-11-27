@@ -24,10 +24,17 @@
 
 import { supabase } from "@/lib/supabase";
 import {
+  type AnalyzeGuideBodyInput,
   analyzeGuideResponse,
+} from "../../../shared/performance/analyze-guide.js";
+import {
+  type DiscardAttachmentBodyInput,
   discardAttachmentResponse,
+} from "../../../shared/performance/discard-attachment.js";
+import {
+  type UploadUrlBodyInput,
   uploadUrlResponse,
-} from "../../../shared/performance/contract.js";
+} from "../../../shared/performance/upload-url.js";
 import { api } from "../http/client";
 import {
   AI_CALL_TIMEOUT_MS,
@@ -62,7 +69,7 @@ const RESPONSE_SCHEMA = {
 async function postJson<Path extends keyof typeof RESPONSE_SCHEMA>(
   path: Path,
   accessToken: string,
-  body: Record<string, unknown>,
+  body: UploadUrlBodyInput | AnalyzeGuideBodyInput | DiscardAttachmentBodyInput,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ) {
   try {

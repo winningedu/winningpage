@@ -72,7 +72,11 @@
 // 으로 이어가면 된다(아래 「실패 경로별 잔여 상태」).
 
 import type { Context } from "hono";
-import { jsonObjectBody } from "../../../shared/performance/contract.js";
+import type { z } from "zod";
+import {
+  finalizeBody,
+  type finalizeResponse,
+} from "../../../shared/performance/finalize.js";
 import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
@@ -88,13 +92,8 @@ import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
 const SERVICE_KEY = "suhaeng";
 
-const FINALIZE_ACTIONS = new Set(["confirm", "new_assessment"]);
-
 /** 미차감 후보로 볼 상태. `session.js`의 `UNCHARGED_CANDIDATE_STATUSES`와 같은 축이다. */
 const UNCHARGED_CANDIDATE_STATUSES = ["draft", "in_progress"];
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const SESSION_COLUMNS = [
   "id",
@@ -245,7 +244,7 @@ const guard = user({
 
 export const finalize = userFactory
   .createApp()
-  .post("/", guard, validate("json", jsonObjectBody), async (c) => {
+  .post("/", guard, validate("json", finalizeBody), async (c) => {
     const supabaseAdmin = c.var.supabaseAdmin;
     const userId = c.var.user.id;
 
@@ -273,43 +272,7 @@ export const finalize = userFactory
     // unhandledCode만 보냄). 그래서 이 지점부터는 로컬 try/catch로 감싸
     // 기존 catch 블록의 동작을 그대로 재현한다(배치-2 이슈로 별도 기록).
     try {
-      const body = c.req.valid("json");
-      const sessionId =
-        typeof body.sessionId === "string" ? body.sessionId.trim() : "";
-      const submissionId =
-        typeof body.submissionId === "string" ? body.submissionId.trim() : "";
-      const action =
-        typeof body.action === "string" ? body.action.trim() : "confirm";
-
-      if (!UUID_RE.test(sessionId)) {
-        return fail(
-          c,
-          400,
-          "INVALID_SESSION_ID",
-          "sessionId가 올바르지 않습니다.",
-          { charged: false },
-        );
-      }
-      if (!UUID_RE.test(submissionId)) {
-        return fail(
-          c,
-          400,
-          "INVALID_SUBMISSION_ID",
-          "submissionId가 올바르지 않습니다.",
-          { charged: false },
-        );
-      }
-      if (!FINALIZE_ACTIONS.has(action)) {
-        return fail(
-          c,
-          400,
-          "INVALID_ACTION",
-          "action은 'confirm' 또는 'new_assessment'여야 합니다.",
-          {
-            charged: false,
-          },
-        );
-      }
+      const { sessionId, submissionId, action } = c.req.valid("json");
 
       // ── 세션 소유권. 없는 세션과 남의 세션을 같은 응답으로 묶는다.
       const { data: sessionRow, error: sessionError } = await supabaseAdmin
