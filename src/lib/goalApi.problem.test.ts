@@ -67,10 +67,17 @@ function respond(status: number, body: Record<string, unknown>) {
 
 describe("goalApi 와 problem 응답", () => {
   it("ok 없는 성공 본문을 success 로 읽는다", async () => {
-    respond(200, { schedules: [{ id: 1 }] });
+    const schedule = {
+      id: 1,
+      title: "수행평가",
+      category: "exam",
+      dueDate: "2026-12-01",
+      memo: "",
+    };
+    respond(200, { schedules: [schedule] });
     expect(await fetchGoalSchedules()).toEqual({
       kind: "success",
-      schedules: [{ id: 1 }],
+      schedules: [schedule],
     });
   });
 

@@ -19,6 +19,15 @@ import {
   rankingResponse,
 } from "../../shared/goal/ranking.js";
 import {
+  type GoalSchedule,
+  type ScheduleCreateInput,
+  type ScheduleDeleteInput,
+  type ScheduleUpdateInput,
+  scheduleDeleteResponse,
+  scheduleResponse,
+  schedulesListResponse,
+} from "../../shared/goal/schedules.js";
+import {
   type GoalStudentPayload,
   type GoalTargets,
   studentResponse,
@@ -92,15 +101,6 @@ export interface GoalRecordSummary {
 export interface GoalTomorrowTargets {
   idealHours: number;
   minHours: number;
-}
-
-/** api/_lib/goal/repo.ts buildSchedulePayload(). */
-interface GoalSchedule {
-  id: number;
-  title: string;
-  category: string;
-  dueDate: string;
-  memo: string;
 }
 
 /**
@@ -796,9 +796,11 @@ export async function fetchGoalSchedules(): Promise<FetchGoalSchedulesResult> {
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/schedules", {
-      method: "GET",
-    });
+    response = await goalRequest(
+      "goal/schedules",
+      { method: "GET" },
+      schedulesListResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/schedules 호출 오류:", error);
     return { kind: "error" };
@@ -835,17 +837,19 @@ type SubmitGoalScheduleResult =
 
 async function submitGoalSchedule(
   method: string,
-  body: object,
+  body: ScheduleCreateInput | ScheduleUpdateInput | ScheduleDeleteInput,
+  schema: z.ZodType,
 ): Promise<SubmitGoalScheduleResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/schedules", {
-      method,
-      json: body,
-    });
+    response = await goalRequest(
+      "goal/schedules",
+      { method, json: body },
+      schema,
+    );
   } catch (error) {
     console.error(`[goalApi] ${method} /api/goal/schedules 호출 오류:`, error);
     return { kind: "error" };
@@ -870,34 +874,29 @@ async function submitGoalSchedule(
   return { kind: "error" };
 }
 
-interface GoalScheduleInput {
-  title: string;
-  category: string;
-  dueDate: string;
-  memo?: string;
+// 화면은 종류를 string 으로 들고 있다. 서버가 목록 밖의 값을 400 으로 막는다.
+export async function createGoalSchedule(
+  input: Omit<ScheduleCreateInput, "category"> & { category: string },
+) {
+  return submitGoalSchedule(
+    "POST",
+    input as ScheduleCreateInput,
+    scheduleResponse,
+  );
 }
 
-export async function createGoalSchedule({
-  title,
-  category,
-  dueDate,
-  memo,
-}: GoalScheduleInput) {
-  return submitGoalSchedule("POST", { title, category, dueDate, memo });
+export async function updateGoalSchedule(
+  input: Omit<ScheduleUpdateInput, "category"> & { category: string },
+) {
+  return submitGoalSchedule(
+    "PUT",
+    input as ScheduleUpdateInput,
+    scheduleResponse,
+  );
 }
 
-export async function updateGoalSchedule({
-  id,
-  title,
-  category,
-  dueDate,
-  memo,
-}: GoalScheduleInput & { id: number }) {
-  return submitGoalSchedule("PUT", { id, title, category, dueDate, memo });
-}
-
-export async function deleteGoalSchedule({ id }: { id: number }) {
-  return submitGoalSchedule("DELETE", { id });
+export async function deleteGoalSchedule({ id }: ScheduleDeleteInput) {
+  return submitGoalSchedule("DELETE", { id }, scheduleDeleteResponse);
 }
 
 // GET /api/goal/student · POST /api/goal/intake · /api/goal/plan-tasks(CRUD) 공용 클라이언트.
