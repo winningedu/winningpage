@@ -485,21 +485,85 @@ describe("manualLogs", () => {
 });
 
 describe("리포트", () => {
-  test("조회는 sessionId 를 쿼리로 GET 한다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true, report: null }));
-    await fetchReport("s 1");
-    const { path, init } = lastCall();
-    expect(path).toBe("/api/selfeval/report?sessionId=s+1");
-    expect(init.method).toBe("GET");
+  const REPORT = {
+    sessionId: "s1",
+    finalRevision: 1,
+    status: "ready",
+    attempts: 1,
+    builtAt: "2026-11-23T00:00:00.000Z",
+    payload: { version: 1, composeMissing: false },
+  };
+
+  test("조회는 sessionId 를 쿼리로 GET 하고 ok 없는 본문을 돌려준다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ report: REPORT }));
+    const result = await fetchReport("s 1");
+    const request = lastRequest();
+    expect(request.method).toBe("GET");
+    const url = new URL(request.url);
+    expect(url.pathname).toBe("/api/selfeval/report");
+    expect(url.searchParams.get("sessionId")).toBe("s 1");
+    expect(result).toEqual({ kind: "ok", data: { report: REPORT } });
   });
 
-  test("만들기는 sessionId 만 POST 하고 모델 호출용 긴 타임아웃 경로를 쓴다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true, report: null }));
+  test("취소 신호를 ky 로 넘긴다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ report: REPORT }));
+    const controller = new AbortController();
+    controller.abort();
+    expect(await fetchReport("s1", controller.signal)).toMatchObject({
+      kind: "error",
+    });
+  });
+
+  test("저장본이 없으면 404 REPORT_NOT_FOUND 를 code 로 돌려준다", async () => {
+    fetchMock.mockResolvedValue(
+      problemResponse(404, {
+        detail: "아직 만들어진 리포트가 없어요.",
+        code: "REPORT_NOT_FOUND",
+      }),
+    );
+    expect(await fetchReport("s1")).toEqual({
+      kind: "error",
+      status: 404,
+      code: "REPORT_NOT_FOUND",
+      message: "아직 만들어진 리포트가 없어요.",
+    });
+  });
+
+  test("만들기는 sessionId 만 POST 하고 reused 를 함께 받는다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ reused: true, report: REPORT }));
     const result = await buildReport("s1");
-    expect(result.kind).toBe("ok");
-    expect(lastCall().path).toBe("/api/selfeval/report");
-    expect(lastCall().init.method).toBe("POST");
-    expect(lastCall().body).toEqual({ sessionId: "s1" });
-    expect(apiFetchMock.mock.calls.at(-1)?.[2]).toEqual({ timeoutMs: 70000 });
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(new URL(request.url).pathname).toBe("/api/selfeval/report");
+    expect(lastBody()).toEqual({ sessionId: "s1" });
+    expect(result).toEqual({
+      kind: "ok",
+      data: { reused: true, report: REPORT },
+    });
+  });
+
+  test("만들기의 타임아웃과 REPORT_BUSY 409 를 그대로 돌려준다", async () => {
+    fetchMock.mockImplementationOnce(async (request: Request) => {
+      throw new TimeoutError(request);
+    });
+    expect(await buildReport("s1")).toEqual({ kind: "timeout" });
+    fetchMock.mockResolvedValue(
+      problemResponse(409, { detail: "만드는 중", code: "REPORT_BUSY" }),
+    );
+    expect(await buildReport("s1")).toMatchObject({
+      kind: "error",
+      status: 409,
+      code: "REPORT_BUSY",
+    });
+  });
+
+  test("계약과 맞지 않는 본문은 INVALID_RESPONSE 다", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ report: { ...REPORT, status: "x" } }),
+    );
+    expect(await fetchReport("s1")).toMatchObject({
+      kind: "error",
+      code: "INVALID_RESPONSE",
+    });
   });
 });
