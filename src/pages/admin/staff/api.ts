@@ -23,12 +23,13 @@ import {
   type RoleOption,
   resourceSchema,
   type StaffList,
+  type StaffStatus,
   staffListSchema,
+  staffStatusSchema,
 } from "../../../../shared/staff/contract.js";
 import {
   type StaffDetail,
   type StaffPatchInput,
-  type StaffStatus,
   savedItemsSchema,
   staffDetailSchema,
 } from "../../../../shared/staff/detail.js";
@@ -43,7 +44,7 @@ export type {
   StaffList,
   StaffStatus,
 };
-export { levelSchema, resourceSchema };
+export { levelSchema, resourceSchema, staffStatusSchema };
 
 export const staffKeys = {
   all: ["admin", "staff"] as const,

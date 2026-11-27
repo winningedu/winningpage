@@ -26,8 +26,8 @@ import {
   putStaffPermissions,
   type Resource,
   type RoleOption,
-  type StaffStatus,
   staffKeys,
+  staffStatusSchema,
 } from "./api";
 import { LEVEL_CHOICES, type LevelDraft, sameDraft, toDraft } from "./levels";
 
@@ -168,8 +168,7 @@ function MemberDetail({
       patchStaff(member.profile_id, {
         roleId: roleDraft || null,
         department: deptDraft.trim() || null,
-        // 서버 계약은 세 값만 받는다(shared/staff/detail.ts). 화면 선택지가 그 세 값이다.
-        status: statusDraft as StaffStatus,
+        status: statusDraft,
       }),
     onSuccess: async () => {
       await refresh();
@@ -272,7 +271,13 @@ function MemberDetail({
               <TextInput value={deptDraft} onChange={setDeptDraft} />
             </Field>
             <Field label="상태">
-              <Select value={statusDraft} onChange={setStatusDraft}>
+              <Select
+                value={statusDraft}
+                // 선택지가 계약의 세 값(shared/staff/contract.ts)이라 고른 값은 늘 그 안에 있다.
+                onChange={(value) =>
+                  setStatusDraft(staffStatusSchema.parse(value))
+                }
+              >
                 {ADMIN_MEMBER_STATUS_OPTIONS.map((option) => {
                   const value =
                     typeof option === "object" ? option.value : String(option);

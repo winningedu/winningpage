@@ -6,6 +6,7 @@ import {
   directoryRowSchema,
   levelSchema,
   permissionItemSchema,
+  staffStatusSchema,
 } from "./contract.js";
 
 /** 경로 구간 :profileId. */
@@ -16,10 +17,6 @@ export const STAFF_ERROR = {
   LAST_SUPER_ADMIN: "LAST_SUPER_ADMIN",
 } as const;
 
-export const STAFF_STATUSES = ["invited", "active", "suspended"] as const;
-
-export type StaffStatus = (typeof STAFF_STATUSES)[number];
-
 /** PATCH 본문. 옛 화면 저장 폼의 세 칸만 받고 모르는 키(is_super, profile_id 등)는 400 이다. */
 export const staffPatchBody = z.strictObject({
   roleId: z.guid().nullable(),
@@ -28,7 +25,7 @@ export const staffPatchBody = z.strictObject({
     .trim()
     .nullable()
     .transform((value) => value || null),
-  status: z.enum(STAFF_STATUSES),
+  status: staffStatusSchema,
 });
 
 /** 브라우저가 보내는 모양. */

@@ -9,11 +9,18 @@ export const levelSchema = z.enum(["edit", "view", "none"]);
 
 export type Level = z.output<typeof levelSchema>;
 
+/** admin_members.status 의 CHECK 값. 목록 뷰(admin_member_directory)가 그대로 싣는다. */
+export const STAFF_STATUSES = ["invited", "active", "suspended"] as const;
+
+export const staffStatusSchema = z.enum(STAFF_STATUSES);
+
+export type StaffStatus = z.output<typeof staffStatusSchema>;
+
 export const directoryRowSchema = z.looseObject({
   profile_id: z.string(),
   role_id: text,
   department: text,
-  status: z.string(),
+  status: staffStatusSchema,
   invited_at: text,
   activated_at: text,
   role_name: text,
