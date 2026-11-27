@@ -606,15 +606,6 @@
     "legacyError": 1,
     "legacyHandler": 1
   },
-  "api/_routes/selfeval/manual-logs.ts": {
-    "legacyError": 2,
-    "legacyHandler": 1
-  },
-  "api/_routes/selfeval/report.ts": {
-    "legacyError": 1,
-    "okSuccess": 2,
-    "legacyHandler": 1
-  },
   "api/_routes/selfeval/verify.ts": {
     "legacyError": 1,
     "legacyHandler": 1

@@ -555,33 +555,71 @@ describe("분석, 생성, 검증, 최종 저장", () => {
 
 describe("manualLogs", () => {
   const SID = "s1";
+  const MEMO = {
+    id: "m1",
+    writtenAt: "2026-04-03",
+    text: "광합성 실험",
+    ocr: false,
+    confirmed: false,
+    included: true,
+    nameNotice: false,
+  };
 
-  test("list 는 manual-logs 로 POST 한다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true, memos: [] }));
+  function expectPost() {
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(new URL(request.url).pathname).toBe("/api/selfeval/manual-logs");
+    return lastBody();
+  }
+
+  test("list 는 manual-logs 로 POST 하고 ok 없는 목록을 받는다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ memos: [MEMO] }));
     const r = await manualLogsList(SID);
-    expect(r).toEqual({ kind: "ok", data: { ok: true, memos: [] } });
-    const c = lastCall();
-    expect(c.path).toBe("/api/selfeval/manual-logs");
-    expect(c.body).toEqual({ sessionId: SID, action: "list" });
+    expect(r).toEqual({ kind: "ok", data: { memos: [MEMO] } });
+    expect(expectPost()).toEqual({ sessionId: SID, action: "list" });
   });
 
-  test("upload 는 글이나 파일 하나를 싣는다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true, memos: [] }));
-    await manualLogsUpload(SID, { text: "글" });
-    expect(lastCall().body).toEqual({
+  test("upload 는 글이나 파일 하나를 싣고 사람 이름 표시를 받는다", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ memos: [MEMO], personNameDetected: false }),
+    );
+    const r = await manualLogsUpload(SID, { text: "글" });
+    expect(r).toEqual({
+      kind: "ok",
+      data: { memos: [MEMO], personNameDetected: false },
+    });
+    expect(expectPost()).toEqual({
       sessionId: SID,
       action: "upload",
       text: "글",
     });
+    await manualLogsUpload(SID, {
+      file: { mimeType: "image/png", data: "AA" },
+    });
+    expect(lastBody()).toEqual({
+      sessionId: SID,
+      action: "upload",
+      file: { mimeType: "image/png", data: "AA" },
+    });
   });
 
-  test("update, set-included, delete 본문", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
-    await manualLogsUpdate(SID, "m1", {
+  test("upload 의 타임아웃은 timeout 이다", async () => {
+    fetchMock.mockImplementationOnce(async (request: Request) => {
+      throw new TimeoutError(request);
+    });
+    expect(await manualLogsUpload(SID, { text: "글" })).toEqual({
+      kind: "timeout",
+    });
+  });
+
+  test("update, set-included 는 메모 한 건을, delete 는 빈 본문을 받는다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ memo: MEMO }));
+    const updated = await manualLogsUpdate(SID, "m1", {
       writtenAt: "2026-04-03",
       confirmed: true,
     });
-    expect(lastCall().body).toEqual({
+    expect(updated).toEqual({ kind: "ok", data: { memo: MEMO } });
+    expect(expectPost()).toEqual({
       sessionId: SID,
       action: "update",
       memoId: "m1",
@@ -589,14 +627,18 @@ describe("manualLogs", () => {
       confirmed: true,
     });
     await manualLogsSetIncluded(SID, "m1", false);
-    expect(lastCall().body).toEqual({
+    expect(lastBody()).toEqual({
       sessionId: SID,
       action: "set-included",
       memoId: "m1",
       included: false,
     });
-    await manualLogsDelete(SID, "m1");
-    expect(lastCall().body).toEqual({
+    fetchMock.mockResolvedValue(jsonResponse({}));
+    expect(await manualLogsDelete(SID, "m1")).toEqual({
+      kind: "ok",
+      data: {},
+    });
+    expect(lastBody()).toEqual({
       sessionId: SID,
       action: "delete",
       memoId: "m1",
@@ -604,35 +646,110 @@ describe("manualLogs", () => {
   });
 
   test("서버 오류 코드와 메시지를 그대로 돌려준다", async () => {
-    apiFetchMock.mockResolvedValue(
-      json(422, { ok: false, code: "RECORD_BOOK_DETECTED", message: "거절" }),
+    fetchMock.mockResolvedValue(
+      problemResponse(422, {
+        code: "RECORD_BOOK_DETECTED",
+        detail: "거절",
+      }),
     );
     const r = await manualLogsUpload(SID, { text: "x" });
-    expect(r).toMatchObject({
+    expect(r).toEqual({
       kind: "error",
       status: 422,
       code: "RECORD_BOOK_DETECTED",
       message: "거절",
     });
   });
+
+  test("계약과 맞지 않는 메모는 INVALID_RESPONSE 다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ memos: [{ id: "m1" }] }));
+    expect(await manualLogsList(SID)).toMatchObject({
+      kind: "error",
+      code: "INVALID_RESPONSE",
+    });
+  });
 });
 
 describe("리포트", () => {
-  test("조회는 sessionId 를 쿼리로 GET 한다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true, report: null }));
-    await fetchReport("s 1");
-    const { path, init } = lastCall();
-    expect(path).toBe("/api/selfeval/report?sessionId=s+1");
-    expect(init.method).toBe("GET");
+  const REPORT = {
+    sessionId: "s1",
+    finalRevision: 1,
+    status: "ready",
+    attempts: 1,
+    builtAt: "2026-11-23T00:00:00.000Z",
+    payload: { version: 1, composeMissing: false },
+  };
+
+  test("조회는 sessionId 를 쿼리로 GET 하고 ok 없는 본문을 돌려준다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ report: REPORT }));
+    const result = await fetchReport("s 1");
+    const request = lastRequest();
+    expect(request.method).toBe("GET");
+    const url = new URL(request.url);
+    expect(url.pathname).toBe("/api/selfeval/report");
+    expect(url.searchParams.get("sessionId")).toBe("s 1");
+    expect(result).toEqual({ kind: "ok", data: { report: REPORT } });
   });
 
-  test("만들기는 sessionId 만 POST 하고 모델 호출용 긴 타임아웃 경로를 쓴다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true, report: null }));
+  test("취소 신호를 ky 로 넘긴다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ report: REPORT }));
+    const controller = new AbortController();
+    controller.abort();
+    expect(await fetchReport("s1", controller.signal)).toMatchObject({
+      kind: "error",
+    });
+  });
+
+  test("저장본이 없으면 404 REPORT_NOT_FOUND 를 code 로 돌려준다", async () => {
+    fetchMock.mockResolvedValue(
+      problemResponse(404, {
+        detail: "아직 만들어진 리포트가 없어요.",
+        code: "REPORT_NOT_FOUND",
+      }),
+    );
+    expect(await fetchReport("s1")).toEqual({
+      kind: "error",
+      status: 404,
+      code: "REPORT_NOT_FOUND",
+      message: "아직 만들어진 리포트가 없어요.",
+    });
+  });
+
+  test("만들기는 sessionId 만 POST 하고 reused 를 함께 받는다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ reused: true, report: REPORT }));
     const result = await buildReport("s1");
-    expect(result.kind).toBe("ok");
-    expect(lastCall().path).toBe("/api/selfeval/report");
-    expect(lastCall().init.method).toBe("POST");
-    expect(lastCall().body).toEqual({ sessionId: "s1" });
-    expect(apiFetchMock.mock.calls.at(-1)?.[2]).toEqual({ timeoutMs: 70000 });
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(new URL(request.url).pathname).toBe("/api/selfeval/report");
+    expect(lastBody()).toEqual({ sessionId: "s1" });
+    expect(result).toEqual({
+      kind: "ok",
+      data: { reused: true, report: REPORT },
+    });
+  });
+
+  test("만들기의 타임아웃과 REPORT_BUSY 409 를 그대로 돌려준다", async () => {
+    fetchMock.mockImplementationOnce(async (request: Request) => {
+      throw new TimeoutError(request);
+    });
+    expect(await buildReport("s1")).toEqual({ kind: "timeout" });
+    fetchMock.mockResolvedValue(
+      problemResponse(409, { detail: "만드는 중", code: "REPORT_BUSY" }),
+    );
+    expect(await buildReport("s1")).toMatchObject({
+      kind: "error",
+      status: 409,
+      code: "REPORT_BUSY",
+    });
+  });
+
+  test("계약과 맞지 않는 본문은 INVALID_RESPONSE 다", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ report: { ...REPORT, status: "x" } }),
+    );
+    expect(await fetchReport("s1")).toMatchObject({
+      kind: "error",
+      code: "INVALID_RESPONSE",
+    });
   });
 });

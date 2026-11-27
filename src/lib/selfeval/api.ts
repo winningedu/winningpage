@@ -9,13 +9,27 @@
 // 타입은 types.ts 에 있고 이 파일이 다시 내보낸다. 화면은 이 파일 하나만 import 한다.
 
 import { SchemaValidationError } from "ky";
-import type { z } from "zod";
+import { z } from "zod";
 import {
   pickLinkResponseSchema,
   pickListResponseSchema,
   pickManualResponseSchema,
   pickSelectResponseSchema,
 } from "../../../shared/selfeval/pick.js";
+import {
+  type ManualLogsListResponse,
+  type ManualLogsMemoResponse,
+  type ManualLogsUploadResponse,
+  type manualLogsBody,
+  manualLogsDeleteResponseSchema,
+  manualLogsListResponseSchema,
+  manualLogsMemoResponseSchema,
+  manualLogsUploadResponseSchema,
+} from "../../../shared/selfeval/manual-logs.js";
+import {
+  reportResponseSchema,
+  reportViewSchema,
+} from "../../../shared/selfeval/report.js";
 import { entryResponseSchema } from "../../../shared/selfeval/reports.js";
 import {
   sessionDetailResponseSchema,
@@ -30,7 +44,7 @@ import {
 } from "../growth/apiResult";
 import { ApiError, api } from "../http/client";
 import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "../performance/apiClient";
-import type { ReportResponse } from "./reportTypes";
+import type { ReportPayload, ReportResponse } from "./reportTypes";
 import type {
   AnalysisField,
   AnalyzeEditResponse,
@@ -241,17 +255,27 @@ export function fetchSessionDetail(sessionId: string, signal?: AbortSignal) {
 }
 
 // ── 리포트(표지 + 01~05장, 명세 No.133) ───────────────────────────────
+// 계약의 payload 는 version 만 보는 느슨한 객체다. 화면은 장별 모양(ReportPayload)으로 읽으므로 객체인지만 확인해 좁힌다.
+const reportSchema = reportResponseSchema.extend({
+  report: reportViewSchema.extend({
+    payload: z
+      .custom<ReportPayload>((v) => typeof v === "object" && v !== null)
+      .nullable(),
+  }),
+});
+
 /** 저장된 리포트. 없으면 404 REPORT_NOT_FOUND. */
-export function fetchReport(sessionId: string) {
-  const query = new URLSearchParams({ sessionId });
-  return request<ReportResponse>(`${BASE}/report?${query.toString()}`, {
+export function fetchReport(sessionId: string, signal?: AbortSignal) {
+  return requestJson<ReportResponse>("selfeval/report", reportSchema, {
     method: "GET",
+    search: { sessionId },
+    signal,
   });
 }
 
 /** 만들기, 다시 만들기. 같은 리비전의 완성본은 서버가 다시 만들지 않는다. 모델 호출이라 긴 타임아웃. */
 export function buildReport(sessionId: string) {
-  return request<ReportResponse>(`${BASE}/report`, {
+  return requestJson<ReportResponse>("selfeval/report", reportSchema, {
     method: "POST",
     body: { sessionId },
     ai: true,
@@ -366,56 +390,56 @@ export function pickManual(sessionId: string, input: ManualInput) {
 }
 
 // ── 수기 수행보고 메모(명세 No.158~161) ───────────────────────────────
-export type ManualMemo = {
-  id: string;
-  writtenAt: string | null;
-  text: string;
-  ocr: boolean;
-  confirmed: boolean;
-  included: boolean;
-  /** 사람 이름이나 학교 이름이 보여 지우거나 바꾸라고 안내해야 하는 메모. */
-  nameNotice: boolean;
-};
-
-export type ManualLogsListResponse = { ok: true; memos: ManualMemo[] };
-export type ManualLogsUploadResponse = {
-  ok: true;
-  memos: ManualMemo[];
-  personNameDetected: boolean;
-};
-export type ManualLogsMemoResponse = { ok: true; memo: ManualMemo };
+export type {
+  ManualLogsListResponse,
+  ManualLogsMemoResponse,
+  ManualLogsUploadResponse,
+  ManualMemo,
+} from "../../../shared/selfeval/manual-logs.js";
 
 export type ManualUploadInput =
   | { text: string }
   | { file: { mimeType: string; data: string } };
 
-const MANUAL_LOGS = `${BASE}/manual-logs`;
+type ManualLogsInput = z.input<typeof manualLogsBody>;
+type ManualMemoPatch = Omit<
+  Extract<ManualLogsInput, { action: "update" }>,
+  "sessionId" | "action" | "memoId"
+>;
+
+const MANUAL_LOGS = "selfeval/manual-logs";
 
 export function manualLogsList(sessionId: string) {
-  return request<ManualLogsListResponse>(MANUAL_LOGS, {
-    method: "POST",
-    body: { sessionId, action: "list" },
-  });
+  return requestJson<ManualLogsListResponse>(
+    MANUAL_LOGS,
+    manualLogsListResponseSchema,
+    { method: "POST", body: { sessionId, action: "list" } },
+  );
 }
 
 /** 글자를 읽는 모델을 한 번 부른다. 이용 횟수는 쓰지 않는다. */
 export function manualLogsUpload(sessionId: string, input: ManualUploadInput) {
-  return request<ManualLogsUploadResponse>(MANUAL_LOGS, {
-    method: "POST",
-    body: { sessionId, action: "upload", ...input },
-    ai: true,
-  });
+  return requestJson<ManualLogsUploadResponse>(
+    MANUAL_LOGS,
+    manualLogsUploadResponseSchema,
+    {
+      method: "POST",
+      body: { sessionId, action: "upload", ...input },
+      ai: true,
+    },
+  );
 }
 
 export function manualLogsUpdate(
   sessionId: string,
   memoId: string,
-  patch: { writtenAt?: string; text?: string; confirmed?: boolean },
+  patch: ManualMemoPatch,
 ) {
-  return request<ManualLogsMemoResponse>(MANUAL_LOGS, {
-    method: "POST",
-    body: { sessionId, action: "update", memoId, ...patch },
-  });
+  return requestJson<ManualLogsMemoResponse>(
+    MANUAL_LOGS,
+    manualLogsMemoResponseSchema,
+    { method: "POST", body: { sessionId, action: "update", memoId, ...patch } },
+  );
 }
 
 export function manualLogsSetIncluded(
@@ -423,14 +447,18 @@ export function manualLogsSetIncluded(
   memoId: string,
   included: boolean,
 ) {
-  return request<ManualLogsMemoResponse>(MANUAL_LOGS, {
-    method: "POST",
-    body: { sessionId, action: "set-included", memoId, included },
-  });
+  return requestJson<ManualLogsMemoResponse>(
+    MANUAL_LOGS,
+    manualLogsMemoResponseSchema,
+    {
+      method: "POST",
+      body: { sessionId, action: "set-included", memoId, included },
+    },
+  );
 }
 
 export function manualLogsDelete(sessionId: string, memoId: string) {
-  return request<{ ok: true }>(MANUAL_LOGS, {
+  return requestJson(MANUAL_LOGS, manualLogsDeleteResponseSchema, {
     method: "POST",
     body: { sessionId, action: "delete", memoId },
   });

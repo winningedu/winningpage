@@ -1,3 +1,4 @@
+import type { ManualLogsInput } from "../../../shared/selfeval/manual-logs.js";
 import { SCHOOL_NAME_PATTERN } from "./dictionaries.js";
 
 // 수기 수행보고 메모의 순수 규칙(명세 No.158~161, 90, 91, 140). DB 와 모델 호출은 하지 않는다.
@@ -177,7 +178,6 @@ export type ManualLogsValidation =
   | { ok: true; body: ManualLogsBody }
   | { ok: false; code: string; message: string };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 const bad = (code: string, message: string): ManualLogsValidation => ({
@@ -185,19 +185,22 @@ const bad = (code: string, message: string): ManualLogsValidation => ({
   code,
   message,
 });
-const invalid = () => bad("INVALID_BODY", "요청 형식이 올바르지 않아요.");
 
 function decodedBytes(base64: string): number {
   const pad = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
   return Math.floor((base64.length * 3) / 4) - pad;
 }
 
-function validateUpload(
-  sessionId: string,
-  b: Record<string, unknown>,
-): ManualLogsValidation {
-  const text = typeof b.text === "string" ? b.text.trim() : "";
-  const hasFile = b.file !== undefined && b.file !== null;
+type UploadInput = Extract<ManualLogsInput, { action: "upload" }>;
+type UpdateInput = Extract<ManualLogsInput, { action: "update" }>;
+
+function checkUpload({
+  sessionId,
+  text: rawText,
+  file,
+}: UploadInput): ManualLogsValidation {
+  const text = rawText?.trim() ?? "";
+  const hasFile = file !== undefined && file !== null;
   if ((text === "") === !hasFile) {
     return bad(
       "UPLOAD_INPUT",
@@ -213,20 +216,16 @@ function validateUpload(
     }
     return { ok: true, body: { sessionId, action: "upload", text } };
   }
-  const f = b.file as Record<string, unknown>;
-  if (typeof f.mimeType !== "string" || typeof f.data !== "string") {
-    return invalid();
-  }
-  if (!ALLOWED_FILE_TYPES.includes(f.mimeType)) {
+  if (!ALLOWED_FILE_TYPES.includes(file.mimeType)) {
     return bad(
       "FILE_TYPE",
       "사진(JPG, PNG, WEBP, HEIC)이나 PDF 파일만 올릴 수 있어요.",
     );
   }
-  if (!BASE64.test(f.data)) {
+  if (!BASE64.test(file.data)) {
     return bad("FILE_INVALID", "파일을 읽지 못했어요. 다시 올려 주세요.");
   }
-  if (decodedBytes(f.data) > FILE_MAX_BYTES) {
+  if (decodedBytes(file.data) > FILE_MAX_BYTES) {
     return bad("FILE_TOO_LARGE", "파일은 3MB까지 올릴 수 있어요.");
   }
   return {
@@ -234,69 +233,53 @@ function validateUpload(
     body: {
       sessionId,
       action: "upload",
-      file: { mimeType: f.mimeType, data: f.data },
+      file: { mimeType: file.mimeType, data: file.data },
     },
   };
 }
 
-function validateUpdate(
-  sessionId: string,
-  memoId: string,
-  b: Record<string, unknown>,
-): ManualLogsValidation {
+function checkUpdate(input: UpdateInput): ManualLogsValidation {
+  const { sessionId, memoId, writtenAt, text, confirmed } = input;
   const out: ManualLogsBody & { action: "update" } = {
     sessionId,
     action: "update",
     memoId,
   };
-  if (b.writtenAt !== undefined) {
-    if (validDate(b.writtenAt) === null) {
-      return bad("INVALID_BODY", "날짜는 YYYY-MM-DD 형식이어야 해요.");
-    }
-    out.writtenAt = b.writtenAt as string;
-  }
-  if (b.text !== undefined) {
-    if (typeof b.text !== "string" || b.text.trim() === "") {
+  if (writtenAt !== undefined) out.writtenAt = writtenAt;
+  if (text !== undefined) {
+    if (text.trim() === "") {
       return bad("TEXT_REQUIRED", "메모 글을 비워 둘 수 없어요.");
     }
-    if (b.text.length > MEMO_MAX_CHARS) {
+    if (text.length > MEMO_MAX_CHARS) {
       return bad(
         "TEXT_TOO_LONG",
         `메모는 ${MEMO_MAX_CHARS}자까지 쓸 수 있어요. 나눠서 적어 주세요.`,
       );
     }
-    out.text = b.text;
+    out.text = text;
   }
-  if (b.confirmed !== undefined) {
-    if (typeof b.confirmed !== "boolean") return invalid();
-    out.confirmed = b.confirmed;
-  }
+  if (confirmed !== undefined) out.confirmed = confirmed;
   return { ok: true, body: out };
 }
 
-export function validateManualLogsBody(raw: unknown): ManualLogsValidation {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    return invalid();
+/**
+ * zod 가 모양을 거른 본문에서 학생에게 보이는 코드가 있는 규칙(글 길이, 파일 형식과 크기)을 본다.
+ * 통과하면 서버가 쓰는 본문(글은 앞뒤 공백을 뗀다)을 돌려준다.
+ */
+export function checkManualLogsBody(
+  input: ManualLogsInput,
+): ManualLogsValidation {
+  switch (input.action) {
+    case "list":
+      return { ok: true, body: input };
+    case "upload":
+      return checkUpload(input);
+    case "update":
+      return checkUpdate(input);
+    case "set-included":
+    case "delete":
+      return { ok: true, body: input };
   }
-  const b = raw as Record<string, unknown>;
-  const { sessionId, action } = b;
-  if (typeof sessionId !== "string" || !UUID.test(sessionId)) return invalid();
-  if (action === "list") return { ok: true, body: { sessionId, action } };
-  if (action === "upload") return validateUpload(sessionId, b);
-  if (action !== "update" && action !== "set-included" && action !== "delete") {
-    return invalid();
-  }
-  const memoId = b.memoId;
-  if (typeof memoId !== "string" || !UUID.test(memoId)) return invalid();
-  if (action === "update") return validateUpdate(sessionId, memoId, b);
-  if (action === "delete") {
-    return { ok: true, body: { sessionId, action, memoId } };
-  }
-  if (typeof b.included !== "boolean") return invalid();
-  return {
-    ok: true,
-    body: { sessionId, action, memoId, included: b.included },
-  };
 }
 
 // ---------------------------------------------------------------------------

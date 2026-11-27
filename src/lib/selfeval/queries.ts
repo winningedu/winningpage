@@ -89,7 +89,8 @@ export function selfevalReportQuery(
 ) {
   return queryOptions({
     queryKey: selfevalQueryKeys.report(userId, sessionId),
-    queryFn: async () => unwrap(await fetchReport(sessionId as string)).report,
+    queryFn: async ({ signal }) =>
+      unwrap(await fetchReport(sessionId as string, signal)).report,
     staleTime: SELFEVAL_STALE_MS,
     enabled: !!userId && !!sessionId,
     retry: 0,

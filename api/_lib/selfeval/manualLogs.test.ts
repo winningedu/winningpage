@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
+import type { ManualLogsInput } from "../../../shared/selfeval/manual-logs.js";
 import {
   academicYearWindow,
   checkConfirmable,
+  checkManualLogsBody,
   detectRecordBook,
   isInAcademicYear,
   MEMO_MAX_CHARS,
@@ -10,7 +12,6 @@ import {
   parseExtraction,
   RECORD_BOOK_WORDS,
   splitMemoText,
-  validateManualLogsBody,
 } from "./manualLogs.js";
 
 describe("academicYearWindow", () => {
@@ -153,33 +154,31 @@ describe("needsNameNotice", () => {
 const SID = "11111111-1111-4111-8111-111111111111";
 const MID = "22222222-2222-4222-8222-222222222222";
 
-describe("validateManualLogsBody", () => {
-  test("list 는 세션 id 만 있으면 된다", () => {
-    expect(validateManualLogsBody({ sessionId: SID, action: "list" })).toEqual({
+// 모양(uuid, action, 날짜 형식)은 shared/selfeval/manual-logs.ts 의 zod 스키마가 먼저 거른다. 여기는 학생에게 보이는 코드가 있는 규칙만 본다.
+describe("checkManualLogsBody", () => {
+  const upload = (extra: Record<string, unknown>) =>
+    checkManualLogsBody({
+      sessionId: SID,
+      action: "upload",
+      ...extra,
+    } as ManualLogsInput);
+  const update = (extra: Record<string, unknown>) =>
+    checkManualLogsBody({
+      sessionId: SID,
+      action: "update",
+      memoId: MID,
+      ...extra,
+    } as ManualLogsInput);
+
+  test("list 는 그대로 통과한다", () => {
+    expect(checkManualLogsBody({ sessionId: SID, action: "list" })).toEqual({
       ok: true,
       body: { sessionId: SID, action: "list" },
     });
   });
 
-  test("세션 id 나 동작이 이상하면 INVALID_BODY", () => {
-    for (const body of [
-      null,
-      { action: "list" },
-      { sessionId: "x", action: "list" },
-      { sessionId: SID, action: "nope" },
-    ]) {
-      const r = validateManualLogsBody(body);
-      expect(r.ok).toBe(false);
-      expect(!r.ok && r.code).toBe("INVALID_BODY");
-    }
-  });
-
   test("upload 는 붙여넣은 글 하나를 받는다", () => {
-    const r = validateManualLogsBody({
-      sessionId: SID,
-      action: "upload",
-      text: "  오늘 실험  ",
-    });
+    const r = upload({ text: "  오늘 실험  " });
     expect(r.ok && r.body).toEqual({
       sessionId: SID,
       action: "upload",
@@ -189,64 +188,44 @@ describe("validateManualLogsBody", () => {
 
   test("upload 는 글과 파일을 함께 받지 않고 비어도 받지 않는다", () => {
     const file = { mimeType: "image/png", data: "AAAA" };
-    for (const extra of [{ text: "a", file }, {}, { text: "   " }]) {
-      const r = validateManualLogsBody({
-        sessionId: SID,
-        action: "upload",
-        ...extra,
-      });
+    for (const extra of [
+      { text: "a", file },
+      {},
+      { text: "   " },
+      { file: null },
+    ]) {
+      const r = upload(extra);
       expect(!r.ok && r.code).toBe("UPLOAD_INPUT");
     }
   });
 
   test("붙여넣기가 너무 길면 TEXT_TOO_LONG", () => {
-    const r = validateManualLogsBody({
-      sessionId: SID,
-      action: "upload",
-      text: "a".repeat(PASTE_MAX_CHARS + 1),
-    });
+    const r = upload({ text: "a".repeat(PASTE_MAX_CHARS + 1) });
     expect(!r.ok && r.code).toBe("TEXT_TOO_LONG");
   });
 
   test("파일은 허용 형식만 받는다", () => {
-    const bad = validateManualLogsBody({
-      sessionId: SID,
-      action: "upload",
-      file: { mimeType: "application/zip", data: "AAAA" },
-    });
+    const bad = upload({ file: { mimeType: "application/zip", data: "AAAA" } });
     expect(!bad.ok && bad.code).toBe("FILE_TYPE");
-    const ok = validateManualLogsBody({
-      sessionId: SID,
-      action: "upload",
-      file: { mimeType: "application/pdf", data: "AAAA" },
-    });
+    const ok = upload({ file: { mimeType: "application/pdf", data: "AAAA" } });
     expect(ok.ok).toBe(true);
   });
 
   test("파일이 3MB 를 넘으면 FILE_TOO_LARGE", () => {
     const big = "A".repeat(4 * 1024 * 1024 + 8);
-    const r = validateManualLogsBody({
-      sessionId: SID,
-      action: "upload",
-      file: { mimeType: "image/jpeg", data: big },
-    });
+    const r = upload({ file: { mimeType: "image/jpeg", data: big } });
     expect(!r.ok && r.code).toBe("FILE_TOO_LARGE");
   });
 
   test("base64 가 아니면 FILE_INVALID", () => {
-    const r = validateManualLogsBody({
-      sessionId: SID,
-      action: "upload",
+    const r = upload({
       file: { mimeType: "image/png", data: "not base64 !!" },
     });
     expect(!r.ok && r.code).toBe("FILE_INVALID");
   });
 
-  test("update 는 메모 id 와 바꿀 값을 받는다", () => {
-    const r = validateManualLogsBody({
-      sessionId: SID,
-      action: "update",
-      memoId: MID,
+  test("update 는 메모 id 와 바꿀 값을 그대로 받는다", () => {
+    const r = update({
       writtenAt: "2026-04-03",
       text: "고친 글",
       confirmed: true,
@@ -261,37 +240,27 @@ describe("validateManualLogsBody", () => {
     });
   });
 
-  test("update 의 날짜 형식과 글 길이를 막는다", () => {
-    const base = { sessionId: SID, action: "update", memoId: MID };
-    expect(validateManualLogsBody({ ...base, writtenAt: "4월 3일" }).ok).toBe(
-      false,
-    );
-    expect(validateManualLogsBody({ ...base, text: "" }).ok).toBe(false);
-    expect(validateManualLogsBody({ ...base, text: "a".repeat(301) }).ok).toBe(
-      false,
-    );
+  test("update 의 글이 비면 TEXT_REQUIRED, 300자를 넘으면 TEXT_TOO_LONG", () => {
+    expect(update({ text: "" })).toMatchObject({
+      ok: false,
+      code: "TEXT_REQUIRED",
+    });
+    expect(update({ text: "a".repeat(301) })).toMatchObject({
+      ok: false,
+      code: "TEXT_TOO_LONG",
+    });
   });
 
-  test("set-included 와 delete", () => {
-    expect(
-      validateManualLogsBody({
-        sessionId: SID,
-        action: "set-included",
-        memoId: MID,
-        included: false,
-      }).ok,
-    ).toBe(true);
-    expect(
-      validateManualLogsBody({
-        sessionId: SID,
-        action: "set-included",
-        memoId: MID,
-      }).ok,
-    ).toBe(false);
-    expect(
-      validateManualLogsBody({ sessionId: SID, action: "delete", memoId: MID })
-        .ok,
-    ).toBe(true);
+  test("set-included 와 delete 는 그대로 통과한다", () => {
+    const included = {
+      sessionId: SID,
+      action: "set-included",
+      memoId: MID,
+      included: false,
+    } as const;
+    expect(checkManualLogsBody(included)).toEqual({ ok: true, body: included });
+    const del = { sessionId: SID, action: "delete", memoId: MID } as const;
+    expect(checkManualLogsBody(del)).toEqual({ ok: true, body: del });
   });
 });
 
