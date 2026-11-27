@@ -269,7 +269,7 @@ export const finalize = userFactory
 
     // 아래 본문 처리 중 던져지는 예외는 원래(마이그레이션 전)와 동일하게
     // `{charged:false}` extra를 실은 채 500으로 응답해야 한다 — 공통
-    // defineHandler 최상위 catch는 그 extra를 모른다(고정 unhandledMessage/
+    // 루트 앱 onError(api/_lib/hono/error.ts)는 그 extra를 모른다(고정 unhandledMessage/
     // unhandledCode만 보냄). 그래서 이 지점부터는 로컬 try/catch로 감싸
     // 기존 catch 블록의 동작을 그대로 재현한다(배치-2 이슈로 별도 기록).
     try {

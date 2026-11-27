@@ -42,7 +42,7 @@
       "destination": "/api/app"
     },
     {
-      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))goal/admin(?:/.*)?)",
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$))goal(?:/.*)?)",
       "destination": "/api/app"
     },
     {

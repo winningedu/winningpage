@@ -293,7 +293,7 @@ function normalizeFields(schema: Schema, raw: unknown): NormalizeFieldsResult {
   return { ok: true, fields: clean };
 }
 
-/** 세션 + 이용권 공통부(인증은 defineHandler auth:"user"가 이미 처리했다). 성공하면 `sessionRow`. */
+/** 세션 + 이용권 공통부(인증은 user() 미들웨어가 이미 처리했다). 성공하면 `sessionRow`. */
 async function authorize(
   c: Context,
   supabaseAdmin: ReturnType<typeof createSupabaseAdmin>,

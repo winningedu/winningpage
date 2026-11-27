@@ -2,8 +2,17 @@
 // mock_exam_scores 안 최상위 `records` 배열에 쌓은 회차를, 내 정보 수정이 컬럼을 새 객체로
 // 다시 쓰면서 지우지 않는지 고정한다. DB I/O(repo.js)와 확률 계산(intake.js)은 mock하고,
 // updateStudentRow에 실제로 넘어간 행만 본다.
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { callGoal } from "../../_lib/goal/route.testkit.js";
+
+vi.mock("../../_lib/httpAuth.js", () => ({
+  resolveUser: async () => ({ userId: "u1", user: { id: "u1" }, token: "t" }),
+}));
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({}),
+}));
 
 const updateStudentRowMock = vi.fn();
 const fetchStudentRowMock = vi.fn();
@@ -74,16 +83,11 @@ const mockBody = {
 };
 
 async function callRoute(body: unknown) {
-  const { default: handler } = await import("./intake-update.js");
-  const res = {
-    status: vi.fn().mockReturnThis(),
-    json: vi.fn().mockReturnThis(),
-  };
-  await handler(
-    { method: "POST", body } as unknown as VercelRequest,
-    res as unknown as VercelResponse,
-  );
-  return res;
+  const { status, body: resBody } = await callGoal("intake-update", {
+    method: "POST",
+    body,
+  });
+  return { status, body: resBody as Record<string, unknown> };
 }
 
 function savedUpdate(): Record<string, unknown> {
@@ -100,7 +104,7 @@ describe("intake-update records 보존", () => {
   it("내신을 고쳐도 기존 naesin_scores.records를 같은 내용·순서로 유지한다", async () => {
     const res = await callRoute(naesinBody);
 
-    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.status).toBe(200);
     const update = savedUpdate();
     expect(update.naesin_scores).toMatchObject({ overall: 2, records: rounds });
     expect((update.naesin_scores as { records: unknown }).records).toEqual(
@@ -111,7 +115,7 @@ describe("intake-update records 보존", () => {
   it("모의고사를 고쳐도 기존 mock_exam_scores.records를 같은 내용·순서로 유지한다", async () => {
     const res = await callRoute(mockBody);
 
-    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.status).toBe(200);
     const update = savedUpdate();
     expect(update.mock_exam_scores).toEqual({
       lastRound: "",
@@ -169,7 +173,7 @@ describe("intake-update records 보존", () => {
       lowerUniversity: { university: "연세대", department: "경영학과" },
     });
 
-    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.status).toBe(200);
     const update = savedUpdate();
     expect(update).not.toHaveProperty("naesin_scores");
     expect(update).not.toHaveProperty("mock_exam_scores");

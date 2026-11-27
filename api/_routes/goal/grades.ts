@@ -47,9 +47,10 @@
 // ── 게이트 규약(house style) ─────────────────────────────────────────────
 // 405 → 401 → (조회 200 {allowed:false} / 쓰기 403 PAID_MESSAGE) → 검증 → 처리 → 500.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
 import { GRADE_PERCENTILE } from "../../../src/lib/goal/calc/jeongsi.js";
 import { buildGoalDirectionReport } from "../../_lib/goal/directionReport.js";
+import { goalFail } from "../../_lib/goal/problem.js";
 import {
   fetchStudentRow,
   narrowGoalSession,
@@ -58,10 +59,10 @@ import {
   saveGoalDirectionReport,
   updateStudentGrades,
 } from "../../_lib/goal/repo.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
-
-export const config = { runtime: "nodejs" };
 
 // api/_lib/goal/repo.ts(.js, Stage3 대상)의 openGoalSession 반환 shape은 JSDoc으로만 선언돼
 // 있다 — handleGet/handlePost가 공유하는 세션 매개변수 타입을 그 함수에서 그대로
@@ -284,25 +285,20 @@ export function removeRecord(records: unknown, term: string) {
   return list.filter((_, i) => i !== index);
 }
 
-function readBody(req: VercelRequest) {
-  const body = req.body;
-  if (typeof body !== "string") return body;
+// 본문을 JSON 으로 읽는다. 비었거나 깨졌으면 null 이고, 형식 검사는 각 핸들러가 한다.
+async function readBody(c: Context) {
   try {
-    return JSON.parse(body);
+    return await c.req.json();
   } catch {
     return null;
   }
 }
 
-async function handleGet(
-  _req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handleGet(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
 
   if (!allowed) {
-    return res.status(200).json({
+    return c.json({
       allowed: false,
       ...tenantReasonExtra(session.tenantReason),
     });
@@ -311,13 +307,13 @@ async function handleGet(
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
   const row = await fetchStudentRow(supabaseAdmin, profileId);
   if (!row) {
-    return res.status(200).json({ onboarded: false });
+    return c.json({ onboarded: false });
   }
 
   const naesinScores = row.naesin_scores || {};
   const mockScores = row.mock_exam_scores || {};
 
-  return res.status(200).json({
+  return c.json({
     onboarded: true,
     naesinRecords: Array.isArray(naesinScores.records)
       ? naesinScores.records
@@ -326,38 +322,34 @@ async function handleGet(
   });
 }
 
-async function handlePost(
-  req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handlePost(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
 
   if (!allowed) {
-    return res.status(403).json({
+    return goalFail(c, 403, {
       detail: PAID_MESSAGE,
       ...tenantReasonExtra(session.tenantReason),
     });
   }
 
-  const body = readBody(req);
+  const body = await readBody(c);
   if (!isPlainObject(body))
-    return res.status(400).json({ detail: "요청 본문이 올바르지 않습니다." });
+    return goalFail(c, 400, { detail: "요청 본문이 올바르지 않습니다." });
 
   const type = body.type;
   if (type !== "naesin" && type !== "mock") {
-    return res.status(400).json({ detail: "성적 유형이 올바르지 않습니다." });
+    return goalFail(c, 400, { detail: "성적 유형이 올바르지 않습니다." });
   }
 
   const validated = validateEntry(body.entry, type);
   if (validated.error) {
-    return res.status(validated.error.status).json(validated.error.body);
+    return goalFail(c, validated.error.status, validated.error.body);
   }
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
   const row = await fetchStudentRow(supabaseAdmin, profileId);
   if (!row) {
-    return res.status(404).json({
+    return goalFail(c, 404, {
       detail: "온보딩을 먼저 완료해 주세요.",
       reason: "not_onboarded",
     });
@@ -407,7 +399,7 @@ async function handlePost(
     snapshot,
   });
 
-  return res.status(200).json({ ok: true, record, records });
+  return c.json({ record, records });
 }
 
 /**
@@ -416,43 +408,39 @@ async function handlePost(
  * fetchStudentRow 를 조회하므로 다른 사용자의 행을 절대 볼 수 없다(GET/POST와 동일한
  * 경계, RLS 는 service role 로 우회하지만 이 profileId 스코프가 대신한다).
  */
-async function handlePut(
-  req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handlePut(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
 
   if (!allowed) {
-    return res.status(403).json({
+    return goalFail(c, 403, {
       detail: PAID_MESSAGE,
       ...tenantReasonExtra(session.tenantReason),
     });
   }
 
-  const body = readBody(req);
+  const body = await readBody(c);
   if (!isPlainObject(body))
-    return res.status(400).json({ detail: "요청 본문이 올바르지 않습니다." });
+    return goalFail(c, 400, { detail: "요청 본문이 올바르지 않습니다." });
 
   const type = body.type;
   if (type !== "naesin" && type !== "mock") {
-    return res.status(400).json({ detail: "성적 유형이 올바르지 않습니다." });
+    return goalFail(c, 400, { detail: "성적 유형이 올바르지 않습니다." });
   }
 
   const originalTerm = String(body.term ?? "").trim();
   if (!originalTerm) {
-    return res.status(400).json({ detail: "수정할 회차를 지정해 주세요." });
+    return goalFail(c, 400, { detail: "수정할 회차를 지정해 주세요." });
   }
 
   const validated = validateEntry(body.entry, type);
   if (validated.error) {
-    return res.status(validated.error.status).json(validated.error.body);
+    return goalFail(c, validated.error.status, validated.error.body);
   }
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
   const row = await fetchStudentRow(supabaseAdmin, profileId);
   if (!row) {
-    return res.status(404).json({
+    return goalFail(c, 404, {
       detail: "온보딩을 먼저 완료해 주세요.",
       reason: "not_onboarded",
     });
@@ -464,13 +452,13 @@ async function handlePut(
   const result = replaceRecord(scores.records, originalTerm, record);
 
   if (result === null) {
-    return res.status(404).json({
+    return goalFail(c, 404, {
       detail: "성적 기록을 찾을 수 없습니다.",
       reason: "record_not_found",
     });
   }
   if (result === "collision") {
-    return res.status(400).json({ detail: "이미 사용 중인 회차 이름입니다." });
+    return goalFail(c, 400, { detail: "이미 사용 중인 회차 이름입니다." });
   }
 
   // updateStudentGrades(api/_lib/goal/repo.ts) 구조분해 파라미터 관례, handlePost 참고.
@@ -486,42 +474,38 @@ async function handlePut(
 
   await updateStudentGrades(supabaseAdmin, profileId, patch);
 
-  return res.status(200).json({ ok: true, record, records: result });
+  return c.json({ record, records: result });
 }
 
 /** DELETE — 회차 id(term) 기준 삭제. 소유권 경계는 handlePut 과 동일. */
-async function handleDelete(
-  req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handleDelete(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
 
   if (!allowed) {
-    return res.status(403).json({
+    return goalFail(c, 403, {
       detail: PAID_MESSAGE,
       ...tenantReasonExtra(session.tenantReason),
     });
   }
 
-  const body = readBody(req);
+  const body = await readBody(c);
   if (!isPlainObject(body))
-    return res.status(400).json({ detail: "요청 본문이 올바르지 않습니다." });
+    return goalFail(c, 400, { detail: "요청 본문이 올바르지 않습니다." });
 
   const type = body.type;
   if (type !== "naesin" && type !== "mock") {
-    return res.status(400).json({ detail: "성적 유형이 올바르지 않습니다." });
+    return goalFail(c, 400, { detail: "성적 유형이 올바르지 않습니다." });
   }
 
   const term = String(body.term ?? "").trim();
   if (!term) {
-    return res.status(400).json({ detail: "삭제할 회차를 지정해 주세요." });
+    return goalFail(c, 400, { detail: "삭제할 회차를 지정해 주세요." });
   }
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
   const row = await fetchStudentRow(supabaseAdmin, profileId);
   if (!row) {
-    return res.status(404).json({
+    return goalFail(c, 404, {
       detail: "온보딩을 먼저 완료해 주세요.",
       reason: "not_onboarded",
     });
@@ -532,7 +516,7 @@ async function handleDelete(
   const records = removeRecord(scores.records, term);
 
   if (records === null) {
-    return res.status(404).json({
+    return goalFail(c, 404, {
       detail: "성적 기록을 찾을 수 없습니다.",
       reason: "record_not_found",
     });
@@ -550,36 +534,27 @@ async function handleDelete(
 
   await updateStudentGrades(supabaseAdmin, profileId, patch);
 
-  return res.status(200).json({ ok: true, records });
+  return c.json({ records });
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (
-    req.method !== "GET" &&
-    req.method !== "POST" &&
-    req.method !== "PUT" &&
-    req.method !== "DELETE"
-  ) {
-    return sendError(res, "detail", 405, "Method not allowed");
-  }
+const guard = user({
+  unhandledMessage: "처리 중 오류가 발생했습니다.",
+  logLabel: "goal/grades",
+});
 
-  try {
-    const session = await openGoalSession(req);
-    if (session.error) {
-      return sendError(
-        res,
-        "detail",
-        session.error.status,
-        session.error.body.detail as string,
-      );
+export const grades = userFactory
+  .createApp()
+  .on(["GET", "POST", "PUT", "DELETE"], "/", guard, async (c) => {
+    try {
+      const session = await openGoalSession(c);
+
+      if (c.req.method === "GET") return await handleGet(c, session);
+      if (c.req.method === "POST") return await handlePost(c, session);
+      if (c.req.method === "PUT") return await handlePut(c, session);
+      return await handleDelete(c, session);
+    } catch (error) {
+      console.error("goal/grades error:", error);
+      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
     }
-
-    if (req.method === "GET") return await handleGet(req, res, session);
-    if (req.method === "POST") return await handlePost(req, res, session);
-    if (req.method === "PUT") return await handlePut(req, res, session);
-    return await handleDelete(req, res, session);
-  } catch (error) {
-    console.error("goal/grades error:", error);
-    return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");
-  }
-}
+  })
+  .all("/", methodNotAllowed("GET", "POST", "PUT", "DELETE"));

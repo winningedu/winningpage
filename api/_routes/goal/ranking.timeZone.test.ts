@@ -1,6 +1,5 @@
 // 랭킹의 "오늘"은 요청한 학생의 현지 하루다(서버 UTC 기준 아님).
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const repo = vi.hoisted(() => ({
@@ -12,7 +11,16 @@ vi.mock("../../_lib/goal/repo.js", async (importOriginal) => ({
   ...repo,
 }));
 
-import handler from "./ranking.js";
+vi.mock("../../_lib/httpAuth.js", () => ({
+  resolveUser: async () => ({ userId: "u1", user: { id: "u1" }, token: "t" }),
+}));
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({}),
+}));
+
+import { callGoal } from "../../_lib/goal/route.testkit.js";
 
 const submittedOnFilters: unknown[] = [];
 
@@ -35,19 +43,8 @@ function fakeAdmin() {
 }
 
 async function get() {
-  const out: { body?: Record<string, unknown> } = {};
-  const res = {
-    status: () => res,
-    json: (b: Record<string, unknown>) => {
-      out.body = b;
-      return res;
-    },
-  };
-  await handler(
-    { method: "GET", headers: {} } as unknown as VercelRequest,
-    res as unknown as VercelResponse,
-  );
-  return out.body;
+  const { body } = await callGoal("ranking");
+  return body as Record<string, unknown> | undefined;
 }
 
 beforeEach(() => {

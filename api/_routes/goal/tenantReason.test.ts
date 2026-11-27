@@ -1,7 +1,16 @@
 // 목표관리 라우트의 이용 거부 응답이 스쿨멘토에서만 tenantReason 을 싣는지 고정한다.
 // 조회형은 200 { allowed:false }, 쓰기형은 403 { detail } 이고 위닝 본문은 그대로다.
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { callGoal } from "../../_lib/goal/route.testkit.js";
+
+vi.mock("../../_lib/httpAuth.js", () => ({
+  resolveUser: async () => ({ userId: "u1", user: { id: "u1" }, token: "t" }),
+}));
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({}),
+}));
 
 const session = vi.hoisted(() => ({
   value: { allowed: false, tenantReason: null } as Record<string, unknown>,
@@ -34,32 +43,11 @@ async function call(
   route: Route,
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
 ): Promise<Captured> {
-  const { default: handler } = (await LOADERS[route]()) as {
-    default: (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
-  };
-  const captured: Captured = { status: 0, body: {} };
-  const res = {
-    setHeader: () => undefined,
-    status(code: number) {
-      captured.status = code;
-      return res;
-    },
-    json(payload: Record<string, unknown>) {
-      captured.body = payload;
-      return res;
-    },
-  };
-  await handler(
-    {
-      method,
-      body: {},
-      query: { type: "weekly" },
-      headers: { authorization: "Bearer t" },
-      socket: {},
-    } as unknown as VercelRequest,
-    res as unknown as VercelResponse,
-  );
-  return captured;
+  const { status, body } = await callGoal(route, {
+    method,
+    ...(method === "GET" ? { query: { type: "weekly" } } : { body: {} }),
+  });
+  return { status, body: body as Record<string, unknown> };
 }
 
 const READS: Route[] = [
@@ -110,7 +98,10 @@ describe("goal 라우트 이용 거부 응답", () => {
     it.each(WRITES)("%s %s 는 403 detail 과 tenantReason", async (r, m) => {
       const res = await call(r, m);
       expect(res.status).toBe(403);
-      expect(res.body).toMatchObject({ tenantReason: "outside_period" });
+      expect(res.body).toMatchObject({
+        code: "NO_ENTITLEMENT",
+        tenantReason: "outside_period",
+      });
     });
   });
 

@@ -29,7 +29,8 @@
 // 기간 경계는 순수 달력이다 — 주간 period='그 주 월요일 YMD',
 // 월간 period='YYYY-MM'. 생략하면 오늘(학생 현지) 기준 이번 주/이번 달로 기본값 처리한다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
+import { GOAL_ERROR } from "../../../shared/goal/contract.js";
 import { GRADE_PERCENTILE } from "../../../src/lib/goal/calc/jeongsi.js";
 import {
   bucketTimeSlots,
@@ -67,6 +68,7 @@ import {
 } from "../../../src/lib/goal/report/insights.js";
 import { addDaysYmd, dayStartUtc, ymdIn } from "../../../src/lib/time/day.js";
 import { buildGoalDirectionReport } from "../../_lib/goal/directionReport.js";
+import { goalFail } from "../../_lib/goal/problem.js";
 import {
   checkLinkedPair,
   fetchActiveCohortProfileIds,
@@ -85,10 +87,10 @@ import {
   openGoalSession,
   saveGoalDirectionReport,
 } from "../../_lib/goal/repo.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
-
-export const config = { runtime: "nodejs" };
 
 const VALID_TYPES = ["weekly", "monthly", "direction"];
 
@@ -575,112 +577,107 @@ async function buildDirectionReport({
 // 핸들러
 // ---------------------------------------------------------------------------
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "GET") {
-    return sendError(res, "detail", 405, "Method not allowed");
-  }
+const guard = user({
+  unhandledMessage: "처리 중 오류가 발생했습니다.",
+  logLabel: "goal/report",
+});
 
-  try {
-    const session = await openGoalSession(req);
-    if (session.error) {
-      return sendError(
-        res,
-        "detail",
-        session.error.status,
-        session.error.body.detail as string,
-      );
-    }
+export const report = userFactory
+  .createApp()
+  .get("/", guard, async (c) => {
+    try {
+      const session = await openGoalSession(c);
 
-    const { supabaseAdmin, profileId: requesterId } =
-      narrowGoalSession(session);
+      const { supabaseAdmin, profileId: requesterId } =
+        narrowGoalSession(session);
 
-    const type = req.query?.type;
-    if (typeof type !== "string" || !VALID_TYPES.includes(type)) {
-      return res.status(400).json({
-        detail: "type은 weekly|monthly|direction 중 하나여야 합니다.",
-      });
-    }
-
-    const studentId = parseStudentIdParam(req.query);
-    if (studentId && type === "direction") {
-      return res.status(400).json({
-        detail: "studentId는 weekly|monthly 조회에서만 사용할 수 있습니다.",
-      });
-    }
-
-    // 학부모가 자녀 리포트를 여는 경로 — profileId를 요청자에서 자녀로 바꿔치기하기 전에
-    // 먼저 승인된 쌍인지 서버가 재확인한다(UI 게이트인 fn_parent_children와는 별개 축).
-    let profileId = requesterId;
-    let allowed = session.allowed;
-    if (studentId && studentId !== requesterId) {
-      const linked = await checkLinkedPair(
-        supabaseAdmin,
-        requesterId,
-        studentId,
-      );
-      if (!linked) {
-        return sendError(
-          res,
-          "coded",
-          403,
-          "연결된 자녀가 아닙니다.",
-          "NOT_LINKED",
-        );
+      const type = c.req.query("type");
+      if (typeof type !== "string" || !VALID_TYPES.includes(type)) {
+        return goalFail(c, 400, {
+          detail: "type은 weekly|monthly|direction 중 하나여야 합니다.",
+        });
       }
-      profileId = studentId;
-      allowed = await hasGoalAccessFor(supabaseAdmin, profileId);
-    }
 
-    // 조회형 규약 — student.js와 동일하게 미결제는 에러가 아니다.
-    if (!allowed) {
-      return res.status(200).json({
-        allowed: false,
-        // 자녀 열람(학부모)의 판정은 요청자 사유가 아니라서 싣지 않는다.
-        ...(profileId === requesterId
-          ? tenantReasonExtra(session.tenantReason)
-          : {}),
-      });
-    }
+      const studentId = parseStudentIdParam(c.req.query());
+      if (studentId && type === "direction") {
+        return goalFail(c, 400, {
+          detail: "studentId는 weekly|monthly 조회에서만 사용할 수 있습니다.",
+        });
+      }
 
-    const student = await fetchStudentRow(supabaseAdmin, profileId);
+      // 학부모가 자녀 리포트를 여는 경로 — profileId를 요청자에서 자녀로 바꿔치기하기 전에
+      // 먼저 승인된 쌍인지 서버가 재확인한다(UI 게이트인 fn_parent_children와는 별개 축).
+      let profileId = requesterId;
+      let allowed = session.allowed;
+      if (studentId && studentId !== requesterId) {
+        const linked = await checkLinkedPair(
+          supabaseAdmin,
+          requesterId,
+          studentId,
+        );
+        if (!linked) {
+          return problemResponse(
+            c,
+            403,
+            "연결된 자녀가 아닙니다.",
+            GOAL_ERROR.NOT_LINKED,
+          );
+        }
+        profileId = studentId;
+        allowed = await hasGoalAccessFor(supabaseAdmin, profileId);
+      }
 
-    // daily-record.js requireActiveStudent와 동일한 판정 순서 — 온보딩 미완료/컷 대기 학생은
-    // 리포트를 만들 데이터 기반(rate/cut)이 없다.
-    if (!student?.onboarded_at) {
-      return res.status(409).json({ reason: "not_onboarded" });
-    }
-    if (student.status !== "active") {
-      return res.status(409).json({ reason: "awaiting_cuts" });
-    }
+      // 조회형 규약 — student.js와 동일하게 미결제는 에러가 아니다.
+      if (!allowed) {
+        return c.json({
+          allowed: false,
+          // 자녀 열람(학부모)의 판정은 요청자 사유가 아니라서 싣지 않는다.
+          ...(profileId === requesterId
+            ? tenantReasonExtra(session.tenantReason)
+            : {}),
+        });
+      }
 
-    const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
-    const nowYmd = ymdIn(new Date(), timeZone);
+      const student = await fetchStudentRow(supabaseAdmin, profileId);
 
-    if (type === "direction") {
-      const track = req.query?.track === "jeongsi" ? "jeongsi" : "naesin";
-      const report = await buildDirectionReport({
+      // daily-record.js requireActiveStudent와 동일한 판정 순서 — 온보딩 미완료/컷 대기 학생은
+      // 리포트를 만들 데이터 기반(rate/cut)이 없다.
+      if (!student?.onboarded_at) {
+        return goalFail(c, 409, { reason: "not_onboarded" });
+      }
+      if (student.status !== "active") {
+        return goalFail(c, 409, { reason: "awaiting_cuts" });
+      }
+
+      const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+      const nowYmd = ymdIn(new Date(), timeZone);
+
+      if (type === "direction") {
+        const track = c.req.query("track") === "jeongsi" ? "jeongsi" : "naesin";
+        const report = await buildDirectionReport({
+          supabaseAdmin,
+          profileId,
+          student,
+          track,
+          reportIdParam: c.req.query("reportId"),
+          timeZone,
+        });
+        return c.json({ report });
+      }
+
+      const report = await buildGrowthReport({
         supabaseAdmin,
         profileId,
         student,
-        track,
-        reportIdParam: req.query?.reportId,
+        type,
+        periodParam: c.req.query("period"),
+        nowYmd,
         timeZone,
       });
-      return res.status(200).json({ ok: true, report });
+      return c.json({ report });
+    } catch (error) {
+      console.error("goal/report error:", error);
+      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
     }
-
-    const report = await buildGrowthReport({
-      supabaseAdmin,
-      profileId,
-      student,
-      type,
-      periodParam: req.query?.period,
-      nowYmd,
-      timeZone,
-    });
-    return res.status(200).json({ ok: true, report });
-  } catch (error) {
-    console.error("goal/report error:", error);
-    return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");
-  }
-}
+  })
+  .all("/", methodNotAllowed("GET"));

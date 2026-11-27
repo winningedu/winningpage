@@ -1,6 +1,5 @@
 // 사 #49 — 스쿨멘토에서만 0시간 기록을 저장한다. 핸들러를 repo 경계에서 mock 해 POST 경로를 돌린다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const repo = vi.hoisted(() => ({
@@ -20,31 +19,23 @@ vi.mock("../../_lib/goal/repo.js", async (importOriginal) => ({
   ...repo,
 }));
 
-import handler from "./daily-record.js";
+vi.mock("../../_lib/httpAuth.js", () => ({
+  resolveUser: async () => ({ userId: "u1", user: { id: "u1" }, token: "t" }),
+}));
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({}),
+}));
 
-function makeRes() {
-  const res = {
-    statusCode: 0,
-    body: undefined as unknown,
-    status(code: number) {
-      res.statusCode = code;
-      return res;
-    },
-    json(payload: unknown) {
-      res.body = payload;
-      return res;
-    },
-  };
-  return res;
-}
+import { callGoal } from "../../_lib/goal/route.testkit.js";
 
 async function post(body: Record<string, unknown>) {
-  const res = makeRes();
-  await handler(
-    { method: "POST", body } as unknown as VercelRequest,
-    res as unknown as VercelResponse,
-  );
-  return res;
+  const { status: statusCode, body: resBody } = await callGoal("daily-record", {
+    method: "POST",
+    body,
+  });
+  return { statusCode, body: resBody };
 }
 
 const FULL_DAY = { ideal: 4, min: 2 };
@@ -166,7 +157,10 @@ describe("daily-record POST 0시간", () => {
     vi.stubEnv("SITE", "winning");
     const res = await post(ZERO);
     expect(res.statusCode).toBe(400);
-    expect(res.body).toEqual({ reason: "no_study_time" });
+    expect(res.body).toMatchObject({
+      code: "NO_STUDY_TIME",
+      reason: "no_study_time",
+    });
     expect(repo.upsertDailyRecord).not.toHaveBeenCalled();
   });
 
@@ -174,6 +168,9 @@ describe("daily-record POST 0시간", () => {
     vi.stubEnv("SITE", "");
     const res = await post(ZERO);
     expect(res.statusCode).toBe(400);
-    expect(res.body).toEqual({ reason: "no_study_time" });
+    expect(res.body).toMatchObject({
+      code: "NO_STUDY_TIME",
+      reason: "no_study_time",
+    });
   });
 });

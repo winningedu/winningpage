@@ -19,7 +19,8 @@
 // /app/goal/schedules에서만 호출되므로(App.jsx), 이 분기는 방어적 코드다 — daily-record.js와
 // 달리 status==='active'까지는 요구하지 않는다(중요일정은 확률 계산과 무관하다).
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
+import { goalFail } from "../../_lib/goal/problem.js";
 import {
   buildSchedulePayload,
   deleteSchedule,
@@ -31,10 +32,10 @@ import {
   PAID_MESSAGE,
   updateSchedule,
 } from "../../_lib/goal/repo.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
-
-export const config = { runtime: "nodejs" };
 
 // api/_lib/goal/repo.ts(.js, Stage3 대상)의 openGoalSession 반환 shape을 그 함수 자체에서
 // 추론해 재사용한다(중복 선언 없이 JSDoc이 바뀌면 여기도 함께 따라간다).
@@ -66,11 +67,10 @@ function fail(status: number, body: Record<string, unknown>) {
   return { status, body };
 }
 
-function readBody(req: VercelRequest) {
-  const body = req.body;
-  if (typeof body !== "string") return body;
+// 본문을 JSON 으로 읽는다. 비었거나 깨졌으면 null 이고, 형식 검사는 각 핸들러가 한다.
+async function readBody(c: Context) {
   try {
-    return JSON.parse(body);
+    return await c.req.json();
   } catch {
     return null;
   }
@@ -170,15 +170,11 @@ async function requireOnboardedStudent(
 // 핸들러
 // ---------------------------------------------------------------------------
 
-async function handleGet(
-  _req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handleGet(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
 
   if (!allowed) {
-    return res.status(200).json({
+    return c.json({
       allowed: false,
       ...tenantReasonExtra(session.tenantReason),
     });
@@ -187,24 +183,21 @@ async function handleGet(
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
   const gate = await requireOnboardedStudent(supabaseAdmin, profileId);
   if (gate.error) {
-    return res.status(gate.error.status).json(gate.error.body);
+    return goalFail(c, gate.error.status, gate.error.body);
   }
 
   const rows = await fetchSchedules(supabaseAdmin, profileId);
-  return res
-    .status(200)
-    .json({ ok: true, schedules: rows.map(buildSchedulePayload) });
+  return goalFail(c, 200, {
+    ok: true,
+    schedules: rows.map(buildSchedulePayload),
+  });
 }
 
-async function handlePost(
-  req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handlePost(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
 
   if (!allowed) {
-    return res.status(403).json({
+    return goalFail(c, 403, {
       detail: PAID_MESSAGE,
       ...tenantReasonExtra(session.tenantReason),
     });
@@ -213,32 +206,26 @@ async function handlePost(
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
   const gate = await requireOnboardedStudent(supabaseAdmin, profileId);
   if (gate.error) {
-    return res.status(gate.error.status).json(gate.error.body);
+    return goalFail(c, gate.error.status, gate.error.body);
   }
 
-  const validated = validateScheduleFields(readBody(req));
+  const validated = validateScheduleFields(await readBody(c));
   if (validated.error) {
-    return res.status(validated.error.status).json(validated.error.body);
+    return goalFail(c, validated.error.status, validated.error.body);
   }
 
   const row = await insertSchedule(supabaseAdmin, {
     profile_id: profileId,
     ...validated.value,
   });
-  return res
-    .status(200)
-    .json({ ok: true, schedule: buildSchedulePayload(row) });
+  return goalFail(c, 200, { ok: true, schedule: buildSchedulePayload(row) });
 }
 
-async function handlePut(
-  req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handlePut(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
 
   if (!allowed) {
-    return res.status(403).json({
+    return goalFail(c, 403, {
       detail: PAID_MESSAGE,
       ...tenantReasonExtra(session.tenantReason),
     });
@@ -247,22 +234,22 @@ async function handlePut(
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
   const gate = await requireOnboardedStudent(supabaseAdmin, profileId);
   if (gate.error) {
-    return res.status(gate.error.status).json(gate.error.body);
+    return goalFail(c, gate.error.status, gate.error.body);
   }
 
-  const body = readBody(req);
+  const body = await readBody(c);
   if (!isPlainObject(body)) {
-    return res.status(400).json({ detail: "요청 본문이 올바르지 않습니다." });
+    return goalFail(c, 400, { detail: "요청 본문이 올바르지 않습니다." });
   }
 
   const idResult = validateId(body.id);
   if (idResult.error) {
-    return res.status(idResult.error.status).json(idResult.error.body);
+    return goalFail(c, idResult.error.status, idResult.error.body);
   }
 
   const validated = validateScheduleFields(body);
   if (validated.error) {
-    return res.status(validated.error.status).json(validated.error.body);
+    return goalFail(c, validated.error.status, validated.error.body);
   }
 
   const row = await updateSchedule(
@@ -272,23 +259,17 @@ async function handlePut(
     validated.value,
   );
   if (!row) {
-    return res.status(404).json({ detail: "일정을 찾을 수 없습니다." });
+    return goalFail(c, 404, { detail: "일정을 찾을 수 없습니다." });
   }
 
-  return res
-    .status(200)
-    .json({ ok: true, schedule: buildSchedulePayload(row) });
+  return goalFail(c, 200, { ok: true, schedule: buildSchedulePayload(row) });
 }
 
-async function handleDelete(
-  req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handleDelete(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
 
   if (!allowed) {
-    return res.status(403).json({
+    return goalFail(c, 403, {
       detail: PAID_MESSAGE,
       ...tenantReasonExtra(session.tenantReason),
     });
@@ -297,13 +278,13 @@ async function handleDelete(
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
   const gate = await requireOnboardedStudent(supabaseAdmin, profileId);
   if (gate.error) {
-    return res.status(gate.error.status).json(gate.error.body);
+    return goalFail(c, gate.error.status, gate.error.body);
   }
 
-  const body = readBody(req);
+  const body = await readBody(c);
   const idResult = validateId(isPlainObject(body) ? body.id : undefined);
   if (idResult.error) {
-    return res.status(idResult.error.status).json(idResult.error.body);
+    return goalFail(c, idResult.error.status, idResult.error.body);
   }
 
   const deleted = await deleteSchedule(
@@ -312,34 +293,30 @@ async function handleDelete(
     idResult.value,
   );
   if (!deleted) {
-    return res.status(404).json({ detail: "일정을 찾을 수 없습니다." });
+    return goalFail(c, 404, { detail: "일정을 찾을 수 없습니다." });
   }
 
-  return res.status(200).json({ ok: true });
+  return c.json({});
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!["GET", "POST", "PUT", "DELETE"].includes(req.method || "")) {
-    return sendError(res, "detail", 405, "Method not allowed");
-  }
+const guard = user({
+  unhandledMessage: "처리 중 오류가 발생했습니다.",
+  logLabel: "goal/schedules",
+});
 
-  try {
-    const session = await openGoalSession(req);
-    if (session.error) {
-      return sendError(
-        res,
-        "detail",
-        session.error.status,
-        session.error.body.detail as string,
-      );
+export const schedules = userFactory
+  .createApp()
+  .on(["GET", "POST", "PUT", "DELETE"], "/", guard, async (c) => {
+    try {
+      const session = await openGoalSession(c);
+
+      if (c.req.method === "GET") return await handleGet(c, session);
+      if (c.req.method === "POST") return await handlePost(c, session);
+      if (c.req.method === "PUT") return await handlePut(c, session);
+      return await handleDelete(c, session);
+    } catch (error) {
+      console.error("goal/schedules error:", error);
+      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
     }
-
-    if (req.method === "GET") return await handleGet(req, res, session);
-    if (req.method === "POST") return await handlePost(req, res, session);
-    if (req.method === "PUT") return await handlePut(req, res, session);
-    return await handleDelete(req, res, session);
-  } catch (error) {
-    console.error("goal/schedules error:", error);
-    return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");
-  }
-}
+  })
+  .all("/", methodNotAllowed("GET", "POST", "PUT", "DELETE"));

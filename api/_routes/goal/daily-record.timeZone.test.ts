@@ -1,6 +1,5 @@
 // 학생의 오늘(record_date, submitted_on)이 profiles.time_zone 의 현지 날짜인지 고정한다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const repo = vi.hoisted(() => ({
@@ -20,34 +19,23 @@ vi.mock("../../_lib/goal/repo.js", async (importOriginal) => ({
   ...repo,
 }));
 
-import handler from "./daily-record.js";
+vi.mock("../../_lib/httpAuth.js", () => ({
+  resolveUser: async () => ({ userId: "u1", user: { id: "u1" }, token: "t" }),
+}));
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({}),
+}));
 
-function makeRes() {
-  const res = {
-    statusCode: 0,
-    body: undefined as unknown,
-    status(code: number) {
-      res.statusCode = code;
-      return res;
-    },
-    json(payload: unknown) {
-      res.body = payload;
-      return res;
-    },
-  };
-  return res;
-}
+import { callGoal } from "../../_lib/goal/route.testkit.js";
 
 async function post() {
-  const res = makeRes();
-  await handler(
-    {
-      method: "POST",
-      body: { bodyCondition: "normal", tasks: ["concept"], studyHours: 3 },
-    } as unknown as VercelRequest,
-    res as unknown as VercelResponse,
-  );
-  return res;
+  const { status: statusCode, body } = await callGoal("daily-record", {
+    method: "POST",
+    body: { bodyCondition: "normal", tasks: ["concept"], studyHours: 3 },
+  });
+  return { statusCode, body };
 }
 
 const FULL_DAY = { ideal: 4, min: 2 };

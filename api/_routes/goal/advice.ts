@@ -17,7 +17,7 @@
 // 이 파일은 세션 게이트, DB 조회, Gemini 호출 배선만 한다(api/_lib/goal/repo.ts 파일 헌장과
 // 동일 원칙, daily-record.ts 컨벤션 재사용).
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
 import {
   addDaysYMD,
   getDayIndexFromYMDServer,
@@ -44,6 +44,7 @@ import {
   pickMajorTheme,
   pickPlanMode,
 } from "../../_lib/goal/advice.js";
+import { goalFail } from "../../_lib/goal/problem.js";
 import {
   DEFAULT_TIMER_SUBJECTS,
   fetchAdviceCache,
@@ -61,10 +62,10 @@ import {
   SUBJECT_CODE_TO_LABEL,
   upsertAdviceCache,
 } from "../../_lib/goal/repo.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
-
-export const config = { runtime: "nodejs" };
 
 type GoalSession = Awaited<ReturnType<typeof openGoalSession>>;
 
@@ -77,11 +78,10 @@ function fail(status: number, body: Record<string, unknown>) {
   return { status, body };
 }
 
-function readBody(req: VercelRequest) {
-  const body = req.body;
-  if (typeof body !== "string") return body;
+// 본문을 JSON 으로 읽는다. 비었거나 깨졌으면 null 이고, 형식 검사는 각 핸들러가 한다.
+async function readBody(c: Context) {
   try {
-    return JSON.parse(body);
+    return await c.req.json();
   } catch {
     return null;
   }
@@ -472,14 +472,10 @@ async function generateAndCacheAdvice(
 // GET: 캐시(두 소스) 조회. 둘 다 없으면 intake 즉석 생성(QA 행70 항시 표시,
 // 조언 기능 이전 온보딩 학생 백필). 한 번 생성되면 캐시라 이후 GET은 Gemini를 안 부른다.
 // ---------------------------------------------------------------------------
-async function handleGet(
-  _req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handleGet(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
   if (!allowed) {
-    return res.status(200).json({
+    return c.json({
       allowed: false,
       ...tenantReasonExtra(session.tenantReason),
     });
@@ -488,7 +484,7 @@ async function handleGet(
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
   const gate = await requireActiveStudent(supabaseAdmin, profileId);
   if (gate.error) {
-    return res.status(gate.error.status).json(gate.error.body);
+    return goalFail(c, gate.error.status, gate.error.body);
   }
 
   const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
@@ -509,8 +505,7 @@ async function handleGet(
       now,
       timeZone,
     );
-    return res.status(200).json({
-      ok: true,
+    return c.json({
       intake: payload,
       daily: null,
       intakeFor: ymdIn(now, timeZone),
@@ -520,8 +515,7 @@ async function handleGet(
 
   // 오늘 행이 없으면 가장 최근 행이 온다(QA 행70), 클라이언트가 날짜 라벨을 달 수 있게
   // generated_for를 함께 내려준다.
-  return res.status(200).json({
-    ok: true,
+  return c.json({
     intake: intakeRow?.payload ?? null,
     daily: dailyRow?.payload ?? null,
     intakeFor: intakeRow?.generated_for ?? null,
@@ -532,14 +526,10 @@ async function handleGet(
 // ---------------------------------------------------------------------------
 // POST — 생성(캐시 미스 시)/캐시 반환. body: { source: 'intake'|'daily' }
 // ---------------------------------------------------------------------------
-async function handlePost(
-  req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handlePost(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
   if (!allowed) {
-    return res.status(403).json({
+    return goalFail(c, 403, {
       detail: PAID_MESSAGE,
       ...tenantReasonExtra(session.tenantReason),
     });
@@ -548,15 +538,15 @@ async function handlePost(
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
   const gate = await requireActiveStudent(supabaseAdmin, profileId);
   if (gate.error) {
-    return res.status(gate.error.status).json(gate.error.body);
+    return goalFail(c, gate.error.status, gate.error.body);
   }
 
-  const body = readBody(req);
+  const body = await readBody(c);
   const rawSource = body?.source;
   if (!isValidAdviceSource(rawSource)) {
-    return res
-      .status(400)
-      .json({ detail: "source는 intake 또는 daily여야 합니다." });
+    return goalFail(c, 400, {
+      detail: "source는 intake 또는 daily여야 합니다.",
+    });
   }
   const source = rawSource;
 
@@ -572,7 +562,7 @@ async function handlePost(
     todayYmd,
   );
   if (cached) {
-    return res.status(200).json({ ok: true, ...cached.payload });
+    return c.json({ ...cached.payload });
   }
 
   const payload = await generateAndCacheAdvice(
@@ -584,34 +574,30 @@ async function handlePost(
     timeZone,
   );
 
-  return res.status(200).json({ ok: true, ...payload });
+  return c.json({ ...payload });
 }
 
 // ---------------------------------------------------------------------------
 // 핸들러
 // ---------------------------------------------------------------------------
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "GET" && req.method !== "POST") {
-    return sendError(res, "detail", 405, "Method not allowed");
-  }
+const guard = user({
+  unhandledMessage: "처리 중 오류가 발생했습니다.",
+  logLabel: "goal/advice",
+});
 
-  try {
-    const session = await openGoalSession(req);
-    if (session.error) {
-      return sendError(
-        res,
-        "detail",
-        session.error.status,
-        session.error.body.detail as string,
-      );
-    }
+export const advice = userFactory
+  .createApp()
+  .on(["GET", "POST"], "/", guard, async (c) => {
+    try {
+      const session = await openGoalSession(c);
 
-    if (req.method === "GET") {
-      return await handleGet(req, res, session);
+      if (c.req.method === "GET") {
+        return await handleGet(c, session);
+      }
+      return await handlePost(c, session);
+    } catch (error) {
+      console.error("goal/advice error:", error);
+      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
     }
-    return await handlePost(req, res, session);
-  } catch (error) {
-    console.error("goal/advice error:", error);
-    return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");
-  }
-}
+  })
+  .all("/", methodNotAllowed("GET", "POST"));

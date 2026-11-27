@@ -25,7 +25,7 @@
 // 그래서 카드 제출이 페이지에서 이미 기록한 컨디션·태그를 지우지 않고, 페이지
 // 제출도 카드가 이미 기록한 순공 시간을 지우지 않는다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
 import {
   addDaysYMD,
   calculateDailyBonusV2,
@@ -34,6 +34,7 @@ import {
   VIRTUAL_DAY_NAMES,
 } from "../../../src/lib/goal/calc/index.js";
 import { ymdIn } from "../../../src/lib/time/day.js";
+import { goalFail } from "../../_lib/goal/problem.js";
 import {
   appendProbabilityLog,
   fetchLatestDailyRecord,
@@ -48,11 +49,11 @@ import {
   PAID_MESSAGE,
   upsertDailyRecord,
 } from "../../_lib/goal/repo.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
 import { isSchoolmentorSite } from "../../_lib/site.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
-
-export const config = { runtime: "nodejs" };
 
 // api/_lib/goal/repo.ts(.js, Stage3 대상)의 openGoalSession 반환 shape을 그 함수 자체에서
 // 추론해 재사용한다(중복 선언 없이 JSDoc이 바뀌면 여기도 함께 따라간다).
@@ -185,11 +186,10 @@ function fail(status: number, body: Record<string, unknown>) {
   return { status, body };
 }
 
-function readBody(req: VercelRequest) {
-  const body = req.body;
-  if (typeof body !== "string") return body;
+// 본문을 JSON 으로 읽는다. 비었거나 깨졌으면 null 이고, 형식 검사는 각 핸들러가 한다.
+async function readBody(c: Context) {
   try {
-    return JSON.parse(body);
+    return await c.req.json();
   } catch {
     return null;
   }
@@ -353,16 +353,12 @@ export function buildTomorrowTargets(
 // GET — 오늘(학생 현지) 기록 조회(프리필용)
 // ---------------------------------------------------------------------------
 
-async function handleGet(
-  _req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handleGet(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
 
   // 조회형 규약 — student.js:50-53 과 동일하게 미결제는 에러가 아니다.
   if (!allowed) {
-    return res.status(200).json({
+    return c.json({
       allowed: false,
       ...tenantReasonExtra(session.tenantReason),
     });
@@ -372,7 +368,7 @@ async function handleGet(
 
   const gate = await requireActiveStudent(supabaseAdmin, profileId);
   if (gate.error) {
-    return res.status(gate.error.status).json(gate.error.body);
+    return goalFail(c, gate.error.status, gate.error.body);
   }
   const student = gate.row;
 
@@ -396,8 +392,7 @@ async function handleGet(
   const summary = buildSummaryPayload(record || latestRecord);
   const tomorrowTargets = buildTomorrowTargets(student, recordDate, now);
 
-  return res.status(200).json({
-    ok: true,
+  return c.json({
     record: mergeTimerIntoRecord(
       buildRecordPayload(record),
       recordDate,
@@ -459,16 +454,12 @@ function mergeTimerIntoRecord(
 // POST — 오늘 기록 upsert(부분 제출 허용, 재제출 = 갱신 + delta 재계산)
 // ---------------------------------------------------------------------------
 
-async function handlePost(
-  req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handlePost(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
 
   // 쓰기형이므로 미결제는 403 이다(intake.js:545-548 과 동일 규약).
   if (!allowed) {
-    return res.status(403).json({
+    return goalFail(c, 403, {
       detail: PAID_MESSAGE,
       ...tenantReasonExtra(session.tenantReason),
     });
@@ -478,13 +469,13 @@ async function handlePost(
 
   const gate = await requireActiveStudent(supabaseAdmin, profileId);
   if (gate.error) {
-    return res.status(gate.error.status).json(gate.error.body);
+    return goalFail(c, gate.error.status, gate.error.body);
   }
   const student = gate.row;
 
-  const body = readBody(req);
+  const body = await readBody(c);
   if (!isPlainObject(body)) {
-    return res.status(400).json({ detail: "요청 본문이 올바르지 않습니다." });
+    return goalFail(c, 400, { detail: "요청 본문이 올바르지 않습니다." });
   }
 
   const now = new Date();
@@ -494,7 +485,7 @@ async function handlePost(
   // 실제 달력 모델의 정본 계산 — "제출 N번째"가 아니라 시작일부터 실제 경과 일수.
   const recordIndex = diffDaysYMD(student.actual_start_date, recordDate, now);
   if (!Number.isFinite(recordIndex) || recordIndex < 0) {
-    return res.status(400).json({ reason: "before_start_date" });
+    return goalFail(c, 400, { reason: "before_start_date" });
   }
 
   const [existing, timerSummary, latestRecord] = await Promise.all([
@@ -512,7 +503,7 @@ async function handlePost(
     ? computeCooldownState(latestRecord.submitted_at, now)
     : null;
   if (cooldown?.active) {
-    return res.status(409).json({
+    return goalFail(c, 409, {
       reason: "cooldown",
       submittedAt: cooldown.submittedAt,
       unlocksAt: cooldown.unlocksAt,
@@ -524,13 +515,11 @@ async function handlePost(
   // ── 병합 — 바디에 있는 필드만 교체, 없으면 기존 행 값 유지 ────────────────
   const tasksResult = mapWhitelist(body.tasks, TASK_LABELS, "학습 항목");
   if (tasksResult.error)
-    return res.status(tasksResult.error.status).json(tasksResult.error.body);
+    return goalFail(c, tasksResult.error.status, tasksResult.error.body);
 
   const reasonsResult = mapWhitelist(body.reasons, REASON_LABELS, "방해 요인");
   if (reasonsResult.error)
-    return res
-      .status(reasonsResult.error.status)
-      .json(reasonsResult.error.body);
+    return goalFail(c, reasonsResult.error.status, reasonsResult.error.body);
 
   const tasks =
     tasksResult.value !== undefined ? tasksResult.value : existing?.tasks || [];
@@ -548,7 +537,7 @@ async function handlePost(
     // Set.has()는 런타임에 타입이 달라도(string이 아니어도) 그냥 false를 준다 —
     // as string은 그 동작을 바꾸지 않고 TS 인자 타입만 맞춘다.
     if (!BODY_CONDITIONS.has(body.bodyCondition as string)) {
-      return res.status(400).json({ detail: "컨디션 값이 올바르지 않습니다." });
+      return goalFail(c, 400, { detail: "컨디션 값이 올바르지 않습니다." });
     }
     bodyCondition = body.bodyCondition as string;
   } else {
@@ -559,7 +548,7 @@ async function handlePost(
   let memo: string;
   if (body.memo !== undefined) {
     if (typeof body.memo !== "string") {
-      return res.status(400).json({ detail: "메모 형식이 올바르지 않습니다." });
+      return goalFail(c, 400, { detail: "메모 형식이 올바르지 않습니다." });
     }
     memo = body.memo.trim().slice(0, MEMO_MAX_LENGTH);
   } else {
@@ -574,9 +563,9 @@ async function handlePost(
       !isNumericInput(body.studyHours) ||
       (typeof body.studyHours === "string" && body.studyHours.trim() === "")
     ) {
-      return res
-        .status(400)
-        .json({ detail: "순공 시간 형식이 올바르지 않습니다." });
+      return goalFail(c, 400, {
+        detail: "순공 시간 형식이 올바르지 않습니다.",
+      });
     }
     studyHoursInput = Number(body.studyHours);
   } else {
@@ -590,7 +579,7 @@ async function handlePost(
   // 학생은 항상 0으로 떨어져 아래 no_study_time 게이트에 막힌다.
   // 사 #49 — 스쿨멘토는 0을 허용하므로, 타이머 병합(max)이 삼켜 버리는 음수 입력을 먼저 막는다.
   if (isSchoolmentorSite() && studyHoursInput < 0) {
-    return res.status(400).json({ reason: "no_study_time" });
+    return goalFail(c, 400, { reason: "no_study_time" });
   }
   studyHoursInput = mergeStudyHoursWithTimer(studyHoursInput, timerHours);
 
@@ -602,7 +591,7 @@ async function handlePost(
     (studyHoursInput === 0 && !allowZeroHours) ||
     studyHoursInput > STUDY_HOURS_MAX
   ) {
-    return res.status(400).json({ reason: "no_study_time" });
+    return goalFail(c, 400, { reason: "no_study_time" });
   }
   const studyHours = Math.round(studyHoursInput * 10) / 10;
 
@@ -681,8 +670,7 @@ async function handlePost(
     savedRow.id,
   );
 
-  return res.status(200).json({
-    ok: true,
+  return c.json({
     record: buildRecordPayload(savedRow),
     delta: {
       idealSusi: delta.idealSusiBonus,
@@ -699,28 +687,24 @@ async function handlePost(
 // 핸들러
 // ---------------------------------------------------------------------------
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "GET" && req.method !== "POST") {
-    return sendError(res, "detail", 405, "Method not allowed");
-  }
+const guard = user({
+  unhandledMessage: "처리 중 오류가 발생했습니다.",
+  logLabel: "goal/daily-record",
+});
 
-  try {
-    const session = await openGoalSession(req);
-    if (session.error) {
-      return sendError(
-        res,
-        "detail",
-        session.error.status,
-        session.error.body.detail as string,
-      );
-    }
+export const dailyRecord = userFactory
+  .createApp()
+  .on(["GET", "POST"], "/", guard, async (c) => {
+    try {
+      const session = await openGoalSession(c);
 
-    if (req.method === "GET") {
-      return await handleGet(req, res, session);
+      if (c.req.method === "GET") {
+        return await handleGet(c, session);
+      }
+      return await handlePost(c, session);
+    } catch (error) {
+      console.error("goal/daily-record error:", error);
+      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
     }
-    return await handlePost(req, res, session);
-  } catch (error) {
-    console.error("goal/daily-record error:", error);
-    return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");
-  }
-}
+  })
+  .all("/", methodNotAllowed("GET", "POST"));

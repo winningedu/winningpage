@@ -18,15 +18,14 @@
 //   3) 응답 필드명은 카멜 케이스다. DB 스네이크를 그대로 노출하지 않는다(§9-2).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { VercelRequest } from "@vercel/node";
+import type { Context } from "hono";
 import { addDaysYmd, dayStartUtc, ymdIn } from "../../../src/lib/time/day.js";
-import { resolveUser } from "../httpAuth.js";
+import type { UserEnv } from "../hono/factory.js";
 import {
   clean,
   hasPaidServiceAccess,
   SERVICE_CONFIGS,
 } from "../serviceAccess.js";
-import { createSupabaseAdmin } from "../supabaseAdmin.js";
 import { type TenantDenyReason, tenantReasonOf } from "../tenantUsage.js";
 
 // DB 행은 Database 생성 타입이 없어 열 이름만 알 수 있고 값 타입은 신뢰할 수 없다
@@ -38,15 +37,6 @@ import { type TenantDenyReason, tenantReasonOf } from "../tenantUsage.js";
 // any 로 남겨 마이그레이션 전 동작(런타임·타입 모두)을 그대로 보존한다.
 // biome-ignore lint/suspicious/noExplicitAny: DB 행은 생성된 스키마 타입이 없고, 기존 소비처가 이미 무검사 프로퍼티 접근에 기대고 있다 — 좁히면 8개 소비 파일이 깨진다.
 type Row = any;
-
-// VercelRequest.headers 의 실제 타입(IncomingHttpHeaders)과 구조적으로 맞춘다 —
-// 실제 VercelRequest 를 넘기는 8개 api/goal/*.ts 호출부가 타입 에러 없이 그대로 쓸 수
-// 있게 openGoalSession 의 파라미터를 이만큼만 넓게 잡는다(openGoalSession 내부에서
-// _lib/httpAuth.js 의 resolveUser(req: VercelRequest) 로 넘길 때만 캐스트한다 —
-// resolveUser 시그니처는 api/_lib/httpAuth.ts 소유라 여기서 바꾸지 않는다).
-type VercelLikeRequest = {
-  headers: Record<string, string | string[] | undefined>;
-};
 
 // ---------------------------------------------------------------------------
 // 테이블 · 공통 상수
@@ -60,7 +50,6 @@ export const TABLE_PLAN_TASKS = "goal_plan_tasks";
 
 // create-service-ticket.js:71-73 과 글자 단위로 같은 문구를 쓴다.
 export const PAID_MESSAGE = "유료결제이후 이용해주세요!";
-export const LOGIN_MESSAGE = "로그인이 필요합니다.";
 
 // 컷 4종의 논리 이름. 422 응답의 missing 배열과 GET 응답의 missingCuts 에 그대로 실린다.
 export const CUT_KEYS = [
@@ -116,47 +105,29 @@ export function ymd(value: unknown): string | null {
 // 인증 · 이용권 게이트
 // ---------------------------------------------------------------------------
 
-export type GoalSessionError = {
-  status: number;
-  body: Record<string, unknown>;
-};
-
 export type GoalSessionResult = {
-  error?: GoalSessionError;
-  supabaseAdmin?: SupabaseClient;
-  profileId?: string;
-  allowed?: boolean;
+  supabaseAdmin: SupabaseClient;
+  profileId: string;
+  allowed: boolean;
   /** 스쿨멘토 기관 거부 사유. 위닝은 null 이다. */
-  tenantReason?: TenantDenyReason | null;
+  tenantReason: TenantDenyReason | null;
 };
 
 /**
- * 세션 검증 + 이용권 판정을 한 번에 수행한다.
+ * 요청자 본인의 이용권 판정. 인증은 라우트 앞의 user() 미들웨어가 끝냈다(토큰 없음, 무효는 401).
  *
  * 원본 외부 앱은 admin 액션 2개를 뺀 전 API 가 무인증이고 `code` 문자열만 알면
  * 타인 데이터를 읽고 썼다. 우리는 그 경로를 아예 만들지 않는다 —
- * profile_id 는 오직 auth.getUser(token).user.id 에서만 나온다
- * (check-service-access.js:45-52 와 동일한 절차, profiles 는 조회하지 않는다).
+ * profile_id 는 오직 auth.getUser(token).user.id 에서만 나온다.
  *
  * 미결제 처리는 호출자가 정한다 — 쓰기형은 403, 조회형은 200 {allowed:false}
  * 이기 때문이다(§9-1). 여기서는 판정 결과만 돌려준다.
  */
 export async function openGoalSession(
-  req: VercelLikeRequest,
+  c: Context<UserEnv>,
 ): Promise<GoalSessionResult> {
-  // _lib/httpAuth.js의 resolveUser()로 수렴 — 토큰 없음/무효 두 경우 모두 null을
-  // 돌려주는데, 원본도 두 경우 모두 같은 401 LOGIN_MESSAGE였으므로 동작 동일
-  // (api/docs/refactor-plan.md 배치4). resolveUser는 내부에서 별도
-  // createSupabaseAdmin()을 호출하지만 그 함수는 모듈 스코프 캐시 싱글턴이라
-  // 아래에서 다시 부르는 것과 같은 인스턴스를 돌려준다(api/docs/batch-1-issues.md
-  // 이슈 3과 동일 패턴).
-  const authed = await resolveUser(req as unknown as VercelRequest);
-  if (!authed) {
-    return { error: { status: 401, body: { detail: LOGIN_MESSAGE } } };
-  }
-
-  const supabaseAdmin = createSupabaseAdmin();
-  const profileId = authed.userId;
+  const supabaseAdmin = c.var.supabaseAdmin;
+  const profileId = c.var.user.id;
   // hasPaidServiceAccess는 { allowed, reason } 을 돌려준다(api/_lib/serviceAccess.js
   // 참고) — 이 함수의 반환 계약(allowed:boolean, 위 JSDoc)을 지키기 위해 여기서
   // 뽑아 쓴다. 객체를 그대로 내려보내면 호출부의 `if (!allowed)` 가 항상
@@ -176,22 +147,14 @@ export async function openGoalSession(
   };
 }
 
-/**
- * 호출부(api/goal/*.ts)가 `if (session.error) return ...` 를 통과시킨 뒤에만 쓴다.
- * GoalSessionResult의 supabaseAdmin/profileId는 타입상 optional이지만(error와
- * 상호 배타적인 필드라 TS가 자동으로 좁혀주지 않는다), openGoalSession 구현상
- * error가 없으면 항상 채워져 있다 — 그 사실을 이 한 지점에서만 단언해 호출부마다
- * `!`가 반복되지 않게 한다(신규 헬퍼, 기존 export 시그니처는 바꾸지 않았다).
- */
+/** 판정 결과에서 DB 클라이언트와 본인 id 만 꺼낸다. */
 export function narrowGoalSession(session: GoalSessionResult): {
   supabaseAdmin: SupabaseClient;
   profileId: string;
 } {
   return {
-    // biome-ignore lint/style/noNonNullAssertion: 위 설명 참고 — session.error 체크 이후에만 호출됨
-    supabaseAdmin: session.supabaseAdmin!,
-    // biome-ignore lint/style/noNonNullAssertion: 위 설명 참고 — session.error 체크 이후에만 호출됨
-    profileId: session.profileId!,
+    supabaseAdmin: session.supabaseAdmin,
+    profileId: session.profileId,
   };
 }
 

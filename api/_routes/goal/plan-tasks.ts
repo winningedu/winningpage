@@ -21,7 +21,8 @@
 // src/lib/goalPlanUtils.js). 이 라우트는 단건 CRUD만 알고, 여러 날짜에
 // 걸친 반복 생성은 클라이언트가 POST를 날짜 수만큼 반복 호출해서 만든다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
+import { goalFail } from "../../_lib/goal/problem.js";
 import {
   buildPlanTaskPayload,
   computeWorkbookStatus,
@@ -38,10 +39,10 @@ import {
   updatePlanTask,
   updateWorkbookOwned,
 } from "../../_lib/goal/repo.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
-
-export const config = { runtime: "nodejs" };
 
 // api/_lib/goal/repo.ts(.js, Stage3 대상)의 openGoalSession 반환 shape을 그 함수 자체에서
 // 추론해 재사용한다(중복 선언 없이 JSDoc이 바뀌면 여기도 함께 따라간다).
@@ -68,11 +69,10 @@ function isValidYmd(value: unknown): value is string {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value; // tz-literal-ok: Date.UTC 로 만든 날짜를 되돌려 YYYY-MM-DD 실존 여부만 본다(시간대 무관)
 }
 
-function readBody(req: VercelRequest) {
-  const body = req.body;
-  if (typeof body !== "string") return body;
+// 본문을 JSON 으로 읽는다. 비었거나 깨졌으면 null 이고, 형식 검사는 각 핸들러가 한다.
+async function readBody(c: Context) {
   try {
-    return JSON.parse(body);
+    return await c.req.json();
   } catch {
     return null;
   }
@@ -305,99 +305,87 @@ async function verifyWorkbookLink(
 // 메서드별 핸들러
 // ---------------------------------------------------------------------------
 
-async function handleGet(
-  req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handleGet(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
 
   // 조회형 규약 — 미결제는 에러가 아니다(§ api/_routes/goal/student.js).
   if (!allowed)
-    return res.status(200).json({
+    return c.json({
       allowed: false,
       ...tenantReasonExtra(session.tenantReason),
     });
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
 
-  const from = req.query?.from;
-  const to = req.query?.to;
+  const from = c.req.query("from");
+  const to = c.req.query("to");
   if (!isValidYmd(from) || !isValidYmd(to)) {
-    return res
-      .status(400)
-      .json({ detail: "from/to는 YYYY-MM-DD 형식이어야 합니다." });
+    return goalFail(c, 400, {
+      detail: "from/to는 YYYY-MM-DD 형식이어야 합니다.",
+    });
   }
   if (from > to) {
-    return res.status(400).json({ detail: "from은 to보다 이전이어야 합니다." });
+    return goalFail(c, 400, { detail: "from은 to보다 이전이어야 합니다." });
   }
   const rangeDays =
     (new Date(`${to}T00:00:00Z`).getTime() -
       new Date(`${from}T00:00:00Z`).getTime()) /
     86400000;
   if (rangeDays > MAX_RANGE_DAYS) {
-    return res
-      .status(400)
-      .json({ detail: `조회 기간은 최대 ${MAX_RANGE_DAYS}일까지 가능합니다.` });
+    return goalFail(c, 400, {
+      detail: `조회 기간은 최대 ${MAX_RANGE_DAYS}일까지 가능합니다.`,
+    });
   }
 
   const rows = await fetchPlanTasks(supabaseAdmin, profileId, from, to);
-  return res
-    .status(200)
-    .json({ ok: true, tasks: rows.map(buildPlanTaskPayload) });
+  return goalFail(c, 200, { ok: true, tasks: rows.map(buildPlanTaskPayload) });
 }
 
-async function handlePost(
-  req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handlePost(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
   if (!allowed)
-    return res.status(403).json({
+    return goalFail(c, 403, {
       detail: PAID_MESSAGE,
       ...tenantReasonExtra(session.tenantReason),
     });
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
 
-  const body = readBody(req);
+  const body = await readBody(c);
   if (!isPlainObject(body))
-    return res.status(400).json({ detail: "요청 본문이 올바르지 않습니다." });
+    return goalFail(c, 400, { detail: "요청 본문이 올바르지 않습니다." });
 
   const planDate = validatePlanDate(body.planDate);
   if (planDate.error)
-    return res.status(planDate.error.status).json(planDate.error.body);
+    return goalFail(c, planDate.error.status, planDate.error.body);
 
   const title = validateTitle(body.title);
-  if (title.error) return res.status(title.error.status).json(title.error.body);
+  if (title.error) return goalFail(c, title.error.status, title.error.body);
 
   const subject = validateSubject(body.subject);
   if (subject.error)
-    return res.status(subject.error.status).json(subject.error.body);
+    return goalFail(c, subject.error.status, subject.error.body);
 
   const duration = validateDurationMinutes(body.durationMinutes);
   if (duration.error)
-    return res.status(duration.error.status).json(duration.error.body);
+    return goalFail(c, duration.error.status, duration.error.body);
 
   const link = validateWorkbookLinkFields(body);
-  if (link.error) return res.status(link.error.status).json(link.error.body);
+  if (link.error) return goalFail(c, link.error.status, link.error.body);
 
   const repeatScheduleError = validateRepeatScheduleWithWorkbook(
     body,
     link.value,
   );
   if (repeatScheduleError)
-    return res
-      .status(repeatScheduleError.status)
-      .json(repeatScheduleError.body);
+    return goalFail(c, repeatScheduleError.status, repeatScheduleError.body);
 
   const linkError = await verifyWorkbookLink(
     supabaseAdmin,
     profileId,
     link.value,
   );
-  if (linkError) return res.status(linkError.status).json(linkError.body);
+  if (linkError) return goalFail(c, linkError.status, linkError.body);
 
   const row = await insertPlanTask(supabaseAdmin, {
     profile_id: profileId,
@@ -414,29 +402,25 @@ async function handlePost(
       : {}),
   });
 
-  return res.status(200).json({ ok: true, task: buildPlanTaskPayload(row) });
+  return c.json({ task: buildPlanTaskPayload(row) });
 }
 
-async function handlePut(
-  req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handlePut(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
   if (!allowed)
-    return res.status(403).json({
+    return goalFail(c, 403, {
       detail: PAID_MESSAGE,
       ...tenantReasonExtra(session.tenantReason),
     });
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
 
-  const body = readBody(req);
+  const body = await readBody(c);
   if (!isPlainObject(body))
-    return res.status(400).json({ detail: "요청 본문이 올바르지 않습니다." });
+    return goalFail(c, 400, { detail: "요청 본문이 올바르지 않습니다." });
 
   const id = validateId(body.id);
-  if (id.error) return res.status(id.error.status).json(id.error.body);
+  if (id.error) return goalFail(c, id.error.status, id.error.body);
 
   // 부분 수정 — 요청에 실려온 필드만 검증·반영한다.
   const patch: {
@@ -453,29 +437,28 @@ async function handlePut(
 
   if (body.title !== undefined) {
     const title = validateTitle(body.title);
-    if (title.error)
-      return res.status(title.error.status).json(title.error.body);
+    if (title.error) return goalFail(c, title.error.status, title.error.body);
     patch.title = title.value;
   }
 
   if (body.subject !== undefined) {
     const subject = validateSubject(body.subject);
     if (subject.error)
-      return res.status(subject.error.status).json(subject.error.body);
+      return goalFail(c, subject.error.status, subject.error.body);
     patch.subject = subject.value;
   }
 
   if (body.durationMinutes !== undefined) {
     const duration = validateDurationMinutes(body.durationMinutes);
     if (duration.error)
-      return res.status(duration.error.status).json(duration.error.body);
+      return goalFail(c, duration.error.status, duration.error.body);
     patch.duration_minutes = duration.value;
   }
 
   if (body.planDate !== undefined) {
     const planDate = validatePlanDate(body.planDate);
     if (planDate.error)
-      return res.status(planDate.error.status).json(planDate.error.body);
+      return goalFail(c, planDate.error.status, planDate.error.body);
     patch.plan_date = planDate.value;
   }
 
@@ -486,20 +469,20 @@ async function handlePut(
   if (body.status !== undefined) {
     const status = validateStatus(body.status);
     if (status.error)
-      return res.status(status.error.status).json(status.error.body);
+      return goalFail(c, status.error.status, status.error.body);
     patch.status = status.value;
     patch.done = status.value === "done";
   }
 
   const link = validateWorkbookLinkFields(body);
-  if (link.error) return res.status(link.error.status).json(link.error.body);
+  if (link.error) return goalFail(c, link.error.status, link.error.body);
 
   const linkError = await verifyWorkbookLink(
     supabaseAdmin,
     profileId,
     link.value,
   );
-  if (linkError) return res.status(linkError.status).json(linkError.body);
+  if (linkError) return goalFail(c, linkError.status, linkError.body);
 
   if (link.value) {
     patch.workbook_id = link.value.workbook_id;
@@ -508,11 +491,11 @@ async function handlePut(
   }
 
   if (Object.keys(patch).length === 0) {
-    return res.status(400).json({ detail: "수정할 필드가 없습니다." });
+    return goalFail(c, 400, { detail: "수정할 필드가 없습니다." });
   }
 
   const row = await updatePlanTask(supabaseAdmin, profileId, id.value, patch);
-  if (!row) return res.status(404).json({ detail: "과제를 찾을 수 없습니다." });
+  if (!row) return goalFail(c, 404, { detail: "과제를 찾을 수 없습니다." });
 
   // 문제집 진도 전진(QA 행286-B) — 이번 PUT이 status를 done으로 "전환"했고(과거
   // 상태와 무관하게 이번 요청이 done을 보냈을 때만), 갱신된 행에 workbook_id·page_to가
@@ -547,68 +530,59 @@ async function handlePut(
     }
   }
 
-  return res.status(200).json({ ok: true, task: buildPlanTaskPayload(row) });
+  return c.json({ task: buildPlanTaskPayload(row) });
 }
 
-async function handleDelete(
-  req: VercelRequest,
-  res: VercelResponse,
-  session: GoalSession,
-) {
+async function handleDelete(c: Context<UserEnv>, session: GoalSession) {
   const { allowed } = session;
   if (!allowed)
-    return res.status(403).json({
+    return goalFail(c, 403, {
       detail: PAID_MESSAGE,
       ...tenantReasonExtra(session.tenantReason),
     });
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
 
-  const body = readBody(req);
+  const body = await readBody(c);
   if (!isPlainObject(body))
-    return res.status(400).json({ detail: "요청 본문이 올바르지 않습니다." });
+    return goalFail(c, 400, { detail: "요청 본문이 올바르지 않습니다." });
 
   const id = validateId(body.id);
-  if (id.error) return res.status(id.error.status).json(id.error.body);
+  if (id.error) return goalFail(c, id.error.status, id.error.body);
 
   const deleted = await deletePlanTask(supabaseAdmin, profileId, id.value);
-  if (!deleted)
-    return res.status(404).json({ detail: "과제를 찾을 수 없습니다." });
+  if (!deleted) return goalFail(c, 404, { detail: "과제를 찾을 수 없습니다." });
 
-  return res.status(200).json({ ok: true });
+  return c.json({});
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!["GET", "POST", "PUT", "DELETE"].includes(req.method || "")) {
-    return sendError(res, "detail", 405, "Method not allowed");
-  }
+const guard = user({
+  unhandledMessage: "처리 중 오류가 발생했습니다.",
+  logLabel: "goal/plan-tasks",
+});
 
-  try {
-    const session = await openGoalSession(req);
-    if (session.error) {
-      return sendError(
-        res,
-        "detail",
-        session.error.status,
-        session.error.body.detail as string,
-      );
-    }
+export const planTasks = userFactory
+  .createApp()
+  .on(["GET", "POST", "PUT", "DELETE"], "/", guard, async (c) => {
+    try {
+      const session = await openGoalSession(c);
 
-    switch (req.method) {
-      case "GET":
-        return await handleGet(req, res, session);
-      case "POST":
-        return await handlePost(req, res, session);
-      case "PUT":
-        return await handlePut(req, res, session);
-      case "DELETE":
-        return await handleDelete(req, res, session);
-      default:
-        // 위 405 가드가 이미 걸렀다 — 도달하지 않는다.
-        return sendError(res, "detail", 405, "Method not allowed");
+      switch (c.req.method) {
+        case "GET":
+          return await handleGet(c, session);
+        case "POST":
+          return await handlePost(c, session);
+        case "PUT":
+          return await handlePut(c, session);
+        case "DELETE":
+          return await handleDelete(c, session);
+        default:
+          // 위 405 가드가 이미 걸렀다 — 도달하지 않는다.
+          return goalFail(c, 405, { detail: "Method not allowed" });
+      }
+    } catch (error) {
+      console.error("goal/plan-tasks error:", error);
+      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
     }
-  } catch (error) {
-    console.error("goal/plan-tasks error:", error);
-    return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");
-  }
-}
+  })
+  .all("/", methodNotAllowed("GET", "POST", "PUT", "DELETE"));

@@ -265,7 +265,7 @@ export const analyzeGuide = userFactory
 
     // 아래 본문 처리 중 던져지는 예외는 원래(마이그레이션 전)와 동일하게
     // analyzedIds가 잡혀 있으면 markAttachmentsFailed로 되돌린 뒤 500을 내야
-    // 한다 — 공통 defineHandler 최상위 catch는 이 정리 로직을 모른다. 그래서
+    // 한다 — 공통 루트 앱 onError(api/_lib/hono/error.ts)는 이 정리 로직을 모른다. 그래서
     // 로컬 try/catch로 감싸 기존 catch 블록의 동작을 그대로 재현한다
     // (배치-2 이슈로 별도 기록).
     try {

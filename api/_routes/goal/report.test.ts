@@ -6,6 +6,15 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+vi.mock("../../_lib/httpAuth.js", () => ({
+  resolveUser: async () => ({ userId: "u1", user: { id: "u1" }, token: "t" }),
+}));
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({}),
+}));
+
 const repo = vi.hoisted(() => ({
   student: {} as Record<string, unknown>,
   timeZone: "Asia/Seoul",
@@ -30,24 +39,15 @@ vi.mock("../../_lib/goal/repo.js", () => ({
   fetchEarliestProbabilityLog: async () => null,
 }));
 
-import handler, { parseStudentIdParam, snapshotBounds } from "./report.js";
+import { callGoal } from "../../_lib/goal/route.testkit.js";
+import { parseStudentIdParam, snapshotBounds } from "./report.js";
 
 async function getReport(query: Record<string, string>) {
-  let status = 0;
-  let body: Record<string, unknown> = {};
-  const res = {
-    status(code: number) {
-      status = code;
-      return res;
-    },
-    json(payload: Record<string, unknown>) {
-      body = payload;
-      return res;
-    },
+  const { status, body } = await callGoal("report", { query });
+  return {
+    status,
+    report: (body as Record<string, unknown>).report as Record<string, unknown>,
   };
-  // biome-ignore lint/suspicious/noExplicitAny: 핸들러에 필요한 최소 req/res 모양만 만든다
-  await handler({ method: "GET", query } as any, res as any);
-  return { status, report: body.report as Record<string, unknown> };
 }
 
 describe("성장 리포트 기간 선택 목록", () => {

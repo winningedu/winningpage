@@ -339,7 +339,7 @@ async function backfill(
   };
 }
 
-// 관리자 판정만 보고 메뉴 권한은 보지 않는다(예전 defineHandler 도 permission 없이 auth:"admin" 이었다). 그래서 감사 행도 남지 않는다.
+// 관리자 판정만 보고 메뉴 권한은 보지 않는다(예전 라우트도 메뉴 권한 없이 관리자 인증만 했다). 그래서 감사 행도 남지 않는다.
 const guard = admin({
   permission: "none",
   unhandledMessage: "임베딩 처리 중 오류가 발생했습니다.",

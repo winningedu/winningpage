@@ -2,8 +2,17 @@
 // 조언 기능 이전에 온보딩한 학생은 캐시 행이 없어 빈 상태만 보였다. GET이 두 소스 모두
 // 비어 있을 때 intake 조언을 즉석 생성해 캐시하는지 고정한다. Gemini(callText)는 실패시켜
 // 규칙 기반 폴백 경로로 돌린다.
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { callGoal } from "../../_lib/goal/route.testkit.js";
+
+vi.mock("../../_lib/httpAuth.js", () => ({
+  resolveUser: async () => ({ userId: "u1", user: { id: "u1" }, token: "t" }),
+}));
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({}),
+}));
 
 const fetchLatestAdviceCacheMock = vi.fn();
 const upsertAdviceCacheMock = vi.fn().mockResolvedValue(undefined);
@@ -49,18 +58,8 @@ vi.mock("../../_lib/ai/telemetry/trace.js", () => ({
 }));
 
 async function callGet() {
-  const { default: handler } = await import("./advice.js");
-  const json = vi.fn();
-  const res = {
-    status: vi.fn().mockReturnThis(),
-    json,
-  } as unknown as VercelResponse;
-  res.status = vi.fn().mockReturnValue({ json }) as never;
-  await handler(
-    { method: "GET", headers: { authorization: "Bearer t" } } as VercelRequest,
-    res,
-  );
-  return json.mock.calls[0]?.[0] as Record<string, unknown>;
+  const { body } = await callGoal("advice");
+  return body as Record<string, unknown>;
 }
 
 describe("GET /api/goal/advice", () => {
@@ -93,7 +92,7 @@ describe("GET /api/goal/advice", () => {
         generated_for: localDay,
         origin: "rule",
       });
-      expect(body.ok).toBe(true);
+      expect(body).not.toHaveProperty("ok");
       expect(body.intake).not.toBeNull();
       expect(body.daily).toBeNull();
       expect(body.intakeFor).toBe(localDay);
@@ -112,7 +111,8 @@ describe("GET /api/goal/advice", () => {
 
     expect(upsertAdviceCacheMock).not.toHaveBeenCalled();
     expect(callTextMock).not.toHaveBeenCalled();
-    expect(body.intake).toBe(payload);
+    // 응답은 JSON 으로 오가므로 같은 객체가 아니라 같은 내용이다.
+    expect(body.intake).toEqual(payload);
     expect(body.intakeFor).toBe("2026-10-28");
     expect(body.daily).toBeNull();
   });

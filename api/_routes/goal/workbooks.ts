@@ -11,7 +11,8 @@
 // 아니라 id(korean/math/english/science/etc)다 — 표시 문자열 변환은
 // src/components/goal/subjectTokens.js가 프론트에서 담당한다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
+import { goalFail } from "../../_lib/goal/problem.js";
 import {
   buildWorkbookPayload,
   canShelveWorkbook,
@@ -25,10 +26,10 @@ import {
   PAID_MESSAGE,
   updateWorkbookOwned,
 } from "../../_lib/goal/repo.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
-
-export const config = { runtime: "nodejs" };
 
 // sql/76_goal_workbooks.sql goal_workbooks_subject_check와 정확히 같은 5종.
 // export: src/components/goal/subjectTokens.ts WORKBOOK_SUBJECT_IDS와의 parity
@@ -67,11 +68,10 @@ function fail(detail: string) {
   return { status: 400, body: { detail } };
 }
 
-function readBody(req: VercelRequest) {
-  const body = req.body;
-  if (typeof body !== "string") return body;
+// 본문을 JSON 으로 읽는다. 비었거나 깨졌으면 null 이고, 형식 검사는 각 핸들러가 한다.
+async function readBody(c: Context) {
   try {
-    return JSON.parse(body);
+    return await c.req.json();
   } catch {
     return null;
   }
@@ -180,96 +180,134 @@ function validateShelveBody(body: unknown) {
   return { value: { id } };
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!["GET", "POST", "PUT", "DELETE"].includes(req.method || "")) {
-    return sendError(res, "detail", 405, "Method not allowed");
-  }
+const guard = user({
+  unhandledMessage: "처리 중 오류가 발생했습니다.",
+  logLabel: "goal/workbooks",
+});
 
-  try {
-    const session = await openGoalSession(req);
-    if (session.error) {
-      return sendError(
-        res,
-        "detail",
-        session.error.status,
-        session.error.body.detail as string,
-      );
-    }
+export const workbooks = userFactory
+  .createApp()
+  .on(["GET", "POST", "PUT", "DELETE"], "/", guard, async (c) => {
+    try {
+      const session = await openGoalSession(c);
 
-    const { allowed } = session;
+      const { allowed } = session;
 
-    if (req.method === "GET") {
-      // 조회형 규약 — 미결제는 에러가 아니다(student.js와 동일).
+      if (c.req.method === "GET") {
+        // 조회형 규약 — 미결제는 에러가 아니다(student.js와 동일).
+        if (!allowed)
+          return c.json({
+            allowed: false,
+            ...tenantReasonExtra(session.tenantReason),
+          });
+
+        const { supabaseAdmin, profileId } = narrowGoalSession(session);
+        const rows = await fetchWorkbooks(supabaseAdmin, profileId);
+        return goalFail(c, 200, {
+          ok: true,
+          workbooks: rows.map(buildWorkbookPayload),
+        });
+      }
+
+      // 이하 전부 쓰기형이므로 미결제는 403이다(intake.js와 동일).
       if (!allowed)
-        return res.status(200).json({
-          allowed: false,
+        return goalFail(c, 403, {
+          detail: PAID_MESSAGE,
           ...tenantReasonExtra(session.tenantReason),
         });
 
       const { supabaseAdmin, profileId } = narrowGoalSession(session);
-      const rows = await fetchWorkbooks(supabaseAdmin, profileId);
-      return res
-        .status(200)
-        .json({ ok: true, workbooks: rows.map(buildWorkbookPayload) });
-    }
+      const body = await readBody(c);
 
-    // 이하 전부 쓰기형이므로 미결제는 403이다(intake.js와 동일).
-    if (!allowed)
-      return res.status(403).json({
-        detail: PAID_MESSAGE,
-        ...tenantReasonExtra(session.tenantReason),
-      });
-
-    const { supabaseAdmin, profileId } = narrowGoalSession(session);
-    const body = readBody(req);
-
-    if (req.method === "POST") {
-      const validated = validateCreateBody(body);
-      if (validated.error)
-        return res.status(validated.error.status).json(validated.error.body);
-
-      const { subject, title, totalPages, currentPage } = validated.value;
-      const row = await insertWorkbook(supabaseAdmin, {
-        profile_id: profileId,
-        subject,
-        title,
-        total_pages: totalPages,
-        current_page: currentPage,
-        status: computeWorkbookStatus(currentPage, totalPages),
-      });
-
-      return res
-        .status(200)
-        .json({ ok: true, workbook: buildWorkbookPayload(row) });
-    }
-
-    if (req.method === "PUT") {
-      // "완독! 책장에 꽂기" — status='done'으로 자동 계산된 문제집을 학생이 직접
-      // BookStack으로 옮기는 별도 액션이다(Figma 4026:6046). 시안/원본은 100% 달성 즉시
-      // 자동으로 책장에 꽂지 않고 이 버튼을 눌러야 넘어간다 — title/totalPages/currentPage
-      // 수정 PUT과는 다른 요청이라 body.shelve로 먼저 분기한다.
-      if (isPlainObject(body) && body.shelve === true) {
-        const validated = validateShelveBody(body);
+      if (c.req.method === "POST") {
+        const validated = validateCreateBody(body);
         if (validated.error)
-          return res.status(validated.error.status).json(validated.error.body);
+          return goalFail(c, validated.error.status, validated.error.body);
 
-        const { id } = validated.value;
-        const existing = await fetchWorkbookOwned(supabaseAdmin, id, profileId);
-        if (!existing)
-          return res.status(404).json({ detail: "문제집을 찾을 수 없습니다." });
+        const { subject, title, totalPages, currentPage } = validated.value;
+        const row = await insertWorkbook(supabaseAdmin, {
+          profile_id: profileId,
+          subject,
+          title,
+          total_pages: totalPages,
+          current_page: currentPage,
+          status: computeWorkbookStatus(currentPage, totalPages),
+        });
 
-        if (!canShelveWorkbook(existing.status)) {
-          return res.status(400).json({
-            detail: "아직 완독하지 않은 문제집은 책장에 꽂을 수 없습니다.",
+        return goalFail(c, 200, {
+          ok: true,
+          workbook: buildWorkbookPayload(row),
+        });
+      }
+
+      if (c.req.method === "PUT") {
+        // "완독! 책장에 꽂기" — status='done'으로 자동 계산된 문제집을 학생이 직접
+        // BookStack으로 옮기는 별도 액션이다(Figma 4026:6046). 시안/원본은 100% 달성 즉시
+        // 자동으로 책장에 꽂지 않고 이 버튼을 눌러야 넘어간다 — title/totalPages/currentPage
+        // 수정 PUT과는 다른 요청이라 body.shelve로 먼저 분기한다.
+        if (isPlainObject(body) && body.shelve === true) {
+          const validated = validateShelveBody(body);
+          if (validated.error)
+            return goalFail(c, validated.error.status, validated.error.body);
+
+          const { id } = validated.value;
+          const existing = await fetchWorkbookOwned(
+            supabaseAdmin,
+            id,
+            profileId,
+          );
+          if (!existing)
+            return goalFail(c, 404, { detail: "문제집을 찾을 수 없습니다." });
+
+          if (!canShelveWorkbook(existing.status)) {
+            return goalFail(c, 400, {
+              detail: "아직 완독하지 않은 문제집은 책장에 꽂을 수 없습니다.",
+            });
+          }
+
+          // 이미 꽂혀 있으면 그대로 되돌린다(중복 클릭 방어 — shelved_at을 불필요하게
+          // 다시 밀지 않는다, 최신 완독이 위로 오는 BookStack 정렬이 흔들리지 않게).
+          if (existing.shelved_at) {
+            return goalFail(c, 200, {
+              ok: true,
+              workbook: buildWorkbookPayload(existing),
+            });
+          }
+
+          const updated = await updateWorkbookOwned(
+            supabaseAdmin,
+            id,
+            profileId,
+            {
+              shelved_at: new Date().toISOString(),
+            },
+          );
+          if (!updated)
+            return goalFail(c, 404, { detail: "문제집을 찾을 수 없습니다." });
+          return goalFail(c, 200, {
+            ok: true,
+            workbook: buildWorkbookPayload(updated),
           });
         }
 
-        // 이미 꽂혀 있으면 그대로 되돌린다(중복 클릭 방어 — shelved_at을 불필요하게
-        // 다시 밀지 않는다, 최신 완독이 위로 오는 BookStack 정렬이 흔들리지 않게).
-        if (existing.shelved_at) {
-          return res
-            .status(200)
-            .json({ ok: true, workbook: buildWorkbookPayload(existing) });
+        const validated = validateUpdateBody(body);
+        if (validated.error)
+          return goalFail(c, validated.error.status, validated.error.body);
+
+        const { id, patch } = validated.value;
+        const existing = await fetchWorkbookOwned(supabaseAdmin, id, profileId);
+        if (!existing)
+          return goalFail(c, 404, { detail: "문제집을 찾을 수 없습니다." });
+
+        // 바뀌지 않은 필드는 기존 값을 그대로 되먹여 항상 완전한 행을 쓴다 —
+        // 부분 patch 조립보다 단순하고, current_page/total_pages 조합이 바뀔 때마다
+        // status를 놓치지 않는다(sql/76 status 컬럼 코멘트와 동일 규약).
+        const nextTotalPages = existing.total_pages;
+        const nextCurrentPage = patch.currentPage ?? existing.current_page;
+        if (nextCurrentPage > nextTotalPages) {
+          return goalFail(c, 400, {
+            detail: "현재 페이지는 전체 페이지를 넘을 수 없습니다.",
+          });
         }
 
         const updated = await updateWorkbookOwned(
@@ -277,62 +315,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           id,
           profileId,
           {
-            shelved_at: new Date().toISOString(),
+            title: patch.title ?? existing.title,
+            total_pages: nextTotalPages,
+            current_page: nextCurrentPage,
+            status: computeWorkbookStatus(nextCurrentPage, nextTotalPages),
           },
         );
+
         if (!updated)
-          return res.status(404).json({ detail: "문제집을 찾을 수 없습니다." });
-        return res
-          .status(200)
-          .json({ ok: true, workbook: buildWorkbookPayload(updated) });
+          return goalFail(c, 404, { detail: "문제집을 찾을 수 없습니다." });
+        return goalFail(c, 200, {
+          ok: true,
+          workbook: buildWorkbookPayload(updated),
+        });
       }
 
-      const validated = validateUpdateBody(body);
-      if (validated.error)
-        return res.status(validated.error.status).json(validated.error.body);
+      // DELETE
+      const id = validateId(body?.id);
+      if (!id)
+        return goalFail(c, 400, { detail: "문제집을 찾을 수 없습니다." });
 
-      const { id, patch } = validated.value;
-      const existing = await fetchWorkbookOwned(supabaseAdmin, id, profileId);
-      if (!existing)
-        return res.status(404).json({ detail: "문제집을 찾을 수 없습니다." });
+      const deleted = await deleteWorkbookOwned(supabaseAdmin, id, profileId);
+      if (!deleted)
+        return goalFail(c, 404, { detail: "문제집을 찾을 수 없습니다." });
 
-      // 바뀌지 않은 필드는 기존 값을 그대로 되먹여 항상 완전한 행을 쓴다 —
-      // 부분 patch 조립보다 단순하고, current_page/total_pages 조합이 바뀔 때마다
-      // status를 놓치지 않는다(sql/76 status 컬럼 코멘트와 동일 규약).
-      const nextTotalPages = existing.total_pages;
-      const nextCurrentPage = patch.currentPage ?? existing.current_page;
-      if (nextCurrentPage > nextTotalPages) {
-        return res
-          .status(400)
-          .json({ detail: "현재 페이지는 전체 페이지를 넘을 수 없습니다." });
-      }
-
-      const updated = await updateWorkbookOwned(supabaseAdmin, id, profileId, {
-        title: patch.title ?? existing.title,
-        total_pages: nextTotalPages,
-        current_page: nextCurrentPage,
-        status: computeWorkbookStatus(nextCurrentPage, nextTotalPages),
-      });
-
-      if (!updated)
-        return res.status(404).json({ detail: "문제집을 찾을 수 없습니다." });
-      return res
-        .status(200)
-        .json({ ok: true, workbook: buildWorkbookPayload(updated) });
+      return c.json({});
+    } catch (error) {
+      console.error("goal/workbooks error:", error);
+      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
     }
-
-    // DELETE
-    const id = validateId(body?.id);
-    if (!id)
-      return res.status(400).json({ detail: "문제집을 찾을 수 없습니다." });
-
-    const deleted = await deleteWorkbookOwned(supabaseAdmin, id, profileId);
-    if (!deleted)
-      return res.status(404).json({ detail: "문제집을 찾을 수 없습니다." });
-
-    return res.status(200).json({ ok: true });
-  } catch (error) {
-    console.error("goal/workbooks error:", error);
-    return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");
-  }
-}
+  })
+  .all("/", methodNotAllowed("GET", "POST", "PUT", "DELETE"));

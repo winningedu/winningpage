@@ -20,7 +20,8 @@
 // (b) 하트비트가 5분 넘게 끊긴 열린 세션을 그 시각으로 강제 마감. 둘 다
 // 멱등이라 여러 진입점이 중복 호출해도 안전하다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
+import { goalFail } from "../../_lib/goal/problem.js";
 import {
   addTimerSubject,
   fetchSubjectTargets,
@@ -36,20 +37,19 @@ import {
   touchTimerHeartbeat,
   upsertSubjectTarget,
 } from "../../_lib/goal/repo.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
-
-export const config = { runtime: "nodejs" };
 
 // api/_lib/goal/repo.ts(.js, Stage3 대상)가 세부 세션 행 타입을 내보내지 않아 이 파일
 // 로컬에서만 쓰는 최소 shape. subject/started_at만 이 파일이 실제로 읽는다.
 type TimerSessionRow = { subject: string; started_at: string } | null;
 
-function readBody(req: VercelRequest) {
-  const body = req.body;
-  if (typeof body !== "string") return body;
+// 본문을 JSON 으로 읽는다. 비었거나 깨졌으면 null 이고, 형식 검사는 각 핸들러가 한다.
+async function readBody(c: Context) {
   try {
-    return JSON.parse(body);
+    return await c.req.json();
   } catch {
     return null;
   }
@@ -64,22 +64,14 @@ function runningPayload(row: TimerSessionRow) {
   return row ? { subject: row.subject, startedAt: row.started_at } : null;
 }
 
-async function handleGet(req: VercelRequest, res: VercelResponse) {
-  const session = await openGoalSession(req);
-  if (session.error) {
-    return sendError(
-      res,
-      "detail",
-      session.error.status,
-      session.error.body.detail as string,
-    );
-  }
+async function handleGet(c: Context<UserEnv>) {
+  const session = await openGoalSession(c);
 
   const { allowed } = session;
 
   // 조회형 규약 — 미결제는 에러가 아니다(student.js 관례 동일).
   if (!allowed) {
-    return res.status(200).json({
+    return c.json({
       allowed: false,
       ...tenantReasonExtra(session.tenantReason),
     });
@@ -93,7 +85,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse) {
     fetchVisibleTimerSubjects(supabaseAdmin, profileId),
   ]);
 
-  return res.status(200).json({
+  return c.json({
     date: summary.date,
     serverNow: now.toISOString(),
     running: summary.running,
@@ -104,63 +96,53 @@ async function handleGet(req: VercelRequest, res: VercelResponse) {
   });
 }
 
-async function handlePost(req: VercelRequest, res: VercelResponse) {
-  const session = await openGoalSession(req);
-  if (session.error) {
-    return sendError(
-      res,
-      "detail",
-      session.error.status,
-      session.error.body.detail as string,
-    );
-  }
+async function handlePost(c: Context<UserEnv>) {
+  const session = await openGoalSession(c);
 
   const { allowed } = session;
 
   // 쓰기형이므로 미결제는 403이다(조회형만 200 {allowed:false}).
   if (!allowed) {
-    return res.status(403).json({
+    return goalFail(c, 403, {
       detail: PAID_MESSAGE,
       ...tenantReasonExtra(session.tenantReason),
     });
   }
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
-  const body = readBody(req);
+  const body = await readBody(c);
   const action = body?.action;
   const now = new Date();
 
   if (action === "start") {
     const subject = body?.subject;
     if (!TIMER_SUBJECTS.includes(subject)) {
-      return res.status(400).json({ detail: "유효하지 않은 과목입니다." });
+      return goalFail(c, 400, { detail: "유효하지 않은 과목입니다." });
     }
     const row = await startTimerSession(supabaseAdmin, profileId, subject, now);
-    return res.status(200).json({ ok: true, running: runningPayload(row) });
+    return c.json({ running: runningPayload(row) });
   }
 
   if (action === "stop") {
     const row = await stopTimerSession(supabaseAdmin, profileId, now);
     // 멱등 — 열린 세션이 없었어도(row === null) 200 {ok:true, running:null}.
     void row;
-    return res.status(200).json({ ok: true, running: null });
+    return c.json({ running: null });
   }
 
   if (action === "heartbeat") {
     const row = await touchTimerHeartbeat(supabaseAdmin, profileId, now);
-    return res.status(200).json({ ok: true, running: runningPayload(row) });
+    return c.json({ running: runningPayload(row) });
   }
 
   if (action === "setTarget") {
     const subject = body?.subject;
     const targetHours = body?.targetHours;
     if (!TIMER_SUBJECTS.includes(subject)) {
-      return res.status(400).json({ detail: "유효하지 않은 과목입니다." });
+      return goalFail(c, 400, { detail: "유효하지 않은 과목입니다." });
     }
     if (!isValidTargetHours(targetHours)) {
-      return res
-        .status(400)
-        .json({ detail: "목표 시간은 0~24 사이여야 합니다." });
+      return goalFail(c, 400, { detail: "목표 시간은 0~24 사이여야 합니다." });
     }
     // 다른 액션과 동일하게 선행 reconcile을 거친다 — 목표 설정 자체는 세션에
     // 영향이 없지만, 진입점 전체를 같은 정리 상태로 맞춰 두면 그 직후 GET이
@@ -172,13 +154,13 @@ async function handlePost(req: VercelRequest, res: VercelResponse) {
       subject,
       Number(targetHours),
     );
-    return res.status(200).json({ ok: true, target });
+    return c.json({ target });
   }
 
   if (action === "addSubject") {
     const subject = body?.subject;
     if (!TIMER_SUBJECTS.includes(subject)) {
-      return res.status(400).json({ detail: "유효하지 않은 과목입니다." });
+      return goalFail(c, 400, { detail: "유효하지 않은 과목입니다." });
     }
     // 다른 액션과 동일하게 선행 reconcile — addTimerSubject 자체는 세션에 영향이
     // 없지만 진입점 전체를 같은 정리 상태로 맞춰 둔다(setTarget과 동일 이유).
@@ -188,23 +170,31 @@ async function handlePost(req: VercelRequest, res: VercelResponse) {
       profileId,
       subject,
     );
-    return res.status(200).json({ ok: true, visibleSubjects });
+    return c.json({ visibleSubjects });
   }
 
-  return res.status(400).json({ detail: "알 수 없는 action 입니다." });
+  return goalFail(c, 400, { detail: "알 수 없는 action 입니다." });
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  try {
-    if (req.method === "GET") {
-      return await handleGet(req, res);
+const guard = user({
+  unhandledMessage: "처리 중 오류가 발생했습니다.",
+  logLabel: "goal/timer",
+});
+
+export const timer = userFactory
+  .createApp()
+  .on(["GET", "POST"], "/", guard, async (c) => {
+    try {
+      if (c.req.method === "GET") {
+        return await handleGet(c);
+      }
+      if (c.req.method === "POST") {
+        return await handlePost(c);
+      }
+      return goalFail(c, 405, { detail: "Method not allowed" });
+    } catch (error) {
+      console.error("goal/timer error:", error);
+      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
     }
-    if (req.method === "POST") {
-      return await handlePost(req, res);
-    }
-    return sendError(res, "detail", 405, "Method not allowed");
-  } catch (error) {
-    console.error("goal/timer error:", error);
-    return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");
-  }
-}
+  })
+  .all("/", methodNotAllowed("GET", "POST"));

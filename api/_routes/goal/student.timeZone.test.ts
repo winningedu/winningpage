@@ -1,6 +1,5 @@
 // GET /api/goal/student 가 학생 시간대를 싣고, 최근 7일 창을 학생 현지 날짜로 자르는지 고정한다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const repo = vi.hoisted(() => ({
@@ -18,22 +17,20 @@ vi.mock("../../_lib/goal/repo.js", async (importOriginal) => ({
   ...repo,
 }));
 
-import handler from "./student.js";
+vi.mock("../../_lib/httpAuth.js", () => ({
+  resolveUser: async () => ({ userId: "u1", user: { id: "u1" }, token: "t" }),
+}));
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({}),
+}));
+
+import { callGoal } from "../../_lib/goal/route.testkit.js";
 
 async function get() {
-  const out: { body?: Record<string, unknown> } = {};
-  const res = {
-    status: () => res,
-    json: (b: Record<string, unknown>) => {
-      out.body = b;
-      return res;
-    },
-  };
-  await handler(
-    { method: "GET", headers: {} } as unknown as VercelRequest,
-    res as unknown as VercelResponse,
-  );
-  return out.body;
+  const { body } = await callGoal("student");
+  return body as Record<string, unknown> | undefined;
 }
 
 beforeEach(() => {

@@ -12,7 +12,9 @@
 // row.status: 'active' | 'awaiting_cuts') 이름이 겹치면 혼동되므로, 이 래퍼의 판별자는
 // 의도적으로 `status`가 아니라 `kind`로 둔다.
 
-import { apiFetch, getAuthHeader } from "./apiFetch";
+import type { Options } from "ky";
+import { getAuthHeader } from "./apiFetch";
+import { ApiError, api } from "./http/client";
 import { parseTenantReason, type TenantBlockReason } from "./tenantBlock";
 
 // ---------------------------------------------------------------------------
@@ -242,6 +244,38 @@ async function parseJsonSafe(response: Response): Promise<any> {
   }
 }
 
+/** /api/goal/* 응답. 실패도 던지지 않고 상태와 본문으로 돌려준다. */
+type GoalResponse = {
+  ok: boolean;
+  status: number;
+  // biome-ignore lint/suspicious/noExplicitAny: 엔드포인트마다 응답 모양이 다른 원시 JSON.
+  body: any;
+};
+
+/**
+ * /api/goal/* 호출 하나. ky 클라이언트(src/lib/http/client.ts)가 인증, X-Time-Zone 헤더를 단다.
+ * 실패 본문은 problem(RFC 9457)이고 예전 본문의 detail, reason, tenantReason 은 같은 이름으로 실려 있어 호출부가 그대로 읽는다.
+ * 서버에 닿지 못한 실패(네트워크, 타임아웃)는 던진다. 호출부의 catch 가 { kind: "error" } 로 접는다.
+ */
+async function goalRequest(
+  path: string,
+  options: Options,
+): Promise<GoalResponse> {
+  try {
+    const response = await api(path, options);
+    return {
+      ok: true,
+      status: response.status,
+      body: await parseJsonSafe(response),
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status !== null) {
+      return { ok: false, status: error.status, body: error.problem ?? {} };
+    }
+    throw error;
+  }
+}
+
 /** 이용 거부. 스쿨멘토 화면이 결정 99 문구를 고르도록 서버의 기관 거부 사유를 싣는다(위닝은 null). */
 export type NotAllowed = {
   kind: "not-allowed";
@@ -309,11 +343,10 @@ export async function fetchGoalStudent(): Promise<FetchGoalStudentResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/student", {
+    response = await goalRequest("goal/student", {
       method: "GET",
-      headers: authHeader,
     });
   } catch (error) {
     console.error("[goalApi] GET /api/goal/student 호출 오류:", error);
@@ -327,7 +360,7 @@ export async function fetchGoalStudent(): Promise<FetchGoalStudentResult> {
     return { kind: "error" };
   }
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
 
   if (body?.allowed === false) return notAllowed(body);
 
@@ -386,22 +419,18 @@ export async function submitGoalIntake(
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/intake", {
+    response = await goalRequest("goal/intake", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader,
-      },
-      body: JSON.stringify(body),
+      json: body,
     });
   } catch (error) {
     console.error("[goalApi] POST /api/goal/intake 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return { kind: "success", student: result?.student };
@@ -454,22 +483,18 @@ export async function submitGoalIntakeUpdate(
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/intake-update", {
+    response = await goalRequest("goal/intake-update", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader,
-      },
-      body: JSON.stringify(body),
+      json: body,
     });
   } catch (error) {
     console.error("[goalApi] POST /api/goal/intake-update 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return { kind: "success", student: result?.student };
@@ -534,11 +559,10 @@ export async function fetchTodayGoalRecord(): Promise<FetchTodayGoalRecordResult
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/daily-record", {
+    response = await goalRequest("goal/daily-record", {
       method: "GET",
-      headers: authHeader,
     });
   } catch (error) {
     console.error("[goalApi] GET /api/goal/daily-record 호출 오류:", error);
@@ -556,11 +580,11 @@ export async function fetchTodayGoalRecord(): Promise<FetchTodayGoalRecordResult
     return { kind: "error" };
   }
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
 
   if (body?.allowed === false) return notAllowed(body);
 
-  if (body?.ok === true) {
+  if (response.ok) {
     return {
       kind: "success",
       record: body.record ?? null,
@@ -632,22 +656,18 @@ export async function submitDailyRecord(
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/daily-record", {
+    response = await goalRequest("goal/daily-record", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader,
-      },
-      body: JSON.stringify(body),
+      json: body,
     });
   } catch (error) {
     console.error("[goalApi] POST /api/goal/daily-record 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return {
@@ -719,15 +739,11 @@ async function goalWorkbooksRequest(
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/workbooks", {
+    response = await goalRequest("goal/workbooks", {
       method,
-      headers: {
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-        ...authHeader,
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(body !== undefined ? { json: body } : {}),
     });
   } catch (error) {
     console.error(`[goalApi] ${method} /api/goal/workbooks 호출 오류:`, error);
@@ -735,10 +751,10 @@ async function goalWorkbooksRequest(
   }
 
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return notAllowed(await parseJsonSafe(response));
+  if (response.status === 403) return notAllowed(response.body);
   if (response.status === 404) return { kind: "not-found" };
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 400)
     return { kind: "validation-error", detail: result?.detail };
@@ -852,11 +868,10 @@ export async function fetchGoalSchedules(): Promise<FetchGoalSchedulesResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/schedules", {
+    response = await goalRequest("goal/schedules", {
       method: "GET",
-      headers: authHeader,
     });
   } catch (error) {
     console.error("[goalApi] GET /api/goal/schedules 호출 오류:", error);
@@ -869,10 +884,9 @@ export async function fetchGoalSchedules(): Promise<FetchGoalSchedulesResult> {
     return { kind: "error" };
   }
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
   if (body?.allowed === false) return notAllowed(body);
-  if (body?.ok === true)
-    return { kind: "success", schedules: body.schedules || [] };
+  if (response.ok) return { kind: "success", schedules: body.schedules || [] };
 
   console.error("[goalApi] GET /api/goal/schedules 예상 밖 응답 모양:", body);
   return { kind: "error" };
@@ -900,22 +914,18 @@ async function submitGoalSchedule(
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/schedules", {
+    response = await goalRequest("goal/schedules", {
       method,
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader,
-      },
-      body: JSON.stringify(body),
+      json: body,
     });
   } catch (error) {
     console.error(`[goalApi] ${method} /api/goal/schedules 호출 오류:`, error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return { kind: "success", schedule: result?.schedule };
@@ -996,22 +1006,18 @@ async function requestPlanTasks(
 
   const qs = query ? `?${new URLSearchParams(query).toString()}` : "";
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch(`/api/goal/plan-tasks${qs}`, {
+    response = await goalRequest(`goal/plan-tasks${qs}`, {
       method,
-      headers: {
-        ...(body ? { "Content-Type": "application/json" } : {}),
-        ...authHeader,
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      ...(body ? { json: body } : {}),
     });
   } catch (error) {
     console.error(`[goalApi] ${method} /api/goal/plan-tasks 호출 오류:`, error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 401) return { kind: "no-session" };
   if (response.status === 403) return notAllowed(result);
@@ -1165,11 +1171,10 @@ export async function fetchGoalRanking(): Promise<FetchGoalRankingResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/ranking", {
+    response = await goalRequest("goal/ranking", {
       method: "GET",
-      headers: authHeader,
     });
   } catch (error) {
     console.error("[goalApi] GET /api/goal/ranking 호출 오류:", error);
@@ -1183,11 +1188,11 @@ export async function fetchGoalRanking(): Promise<FetchGoalRankingResult> {
     return { kind: "error" };
   }
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
 
   if (body?.allowed === false) return notAllowed(body);
 
-  if (body?.ok === true) {
+  if (response.ok) {
     return {
       kind: "ok",
       date: body.date,
@@ -1229,11 +1234,10 @@ export async function fetchGoalGrades(): Promise<FetchGoalGradesResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/grades", {
+    response = await goalRequest("goal/grades", {
       method: "GET",
-      headers: authHeader,
     });
   } catch (error) {
     console.error("[goalApi] GET /api/goal/grades 호출 오류:", error);
@@ -1246,7 +1250,7 @@ export async function fetchGoalGrades(): Promise<FetchGoalGradesResult> {
     return { kind: "error" };
   }
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
 
   if (body?.allowed === false) return notAllowed(body);
   if (body?.onboarded === false) return { kind: "not-onboarded" };
@@ -1296,19 +1300,18 @@ export async function addGoalGrade(
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/grades", {
+    response = await goalRequest("goal/grades", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeader },
-      body: JSON.stringify({ type, entry }),
+      json: { type, entry },
     });
   } catch (error) {
     console.error("[goalApi] POST /api/goal/grades 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return {
@@ -1362,19 +1365,18 @@ export async function updateGoalGrade(
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/grades", {
+    response = await goalRequest("goal/grades", {
       method: "PUT",
-      headers: { "Content-Type": "application/json", ...authHeader },
-      body: JSON.stringify({ type, term: originalTerm, entry }),
+      json: { type, term: originalTerm, entry },
     });
   } catch (error) {
     console.error("[goalApi] PUT /api/goal/grades 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return {
@@ -1421,19 +1423,18 @@ export async function deleteGoalGrade(
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/grades", {
+    response = await goalRequest("goal/grades", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json", ...authHeader },
-      body: JSON.stringify({ type, term }),
+      json: { type, term },
     });
   } catch (error) {
     console.error("[goalApi] DELETE /api/goal/grades 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return { kind: "success", records: result?.records || [] };
@@ -1497,15 +1498,11 @@ async function requestGoalTimer(
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/timer", {
+    response = await goalRequest("goal/timer", {
       method,
-      headers: {
-        ...(body ? { "Content-Type": "application/json" } : {}),
-        ...authHeader,
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      ...(body ? { json: body } : {}),
       ...(keepalive ? { keepalive: true } : {}),
     });
   } catch (error) {
@@ -1513,7 +1510,7 @@ async function requestGoalTimer(
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 401) return { kind: "no-session" };
   if (response.status === 403) return notAllowed(result);
@@ -1631,7 +1628,7 @@ export async function addGoalTimerSubject(subject: string) {
 //   { kind: 'not-allowed' }       — 200 {allowed:false}. 이용권 없음.
 //   { kind: 'not-onboarded' }     — 409 reason:'not_onboarded'. 온보딩 자체를 시작 안 함.
 //   { kind: 'awaiting-cuts' }     — 409 reason:'awaiting_cuts'. 컷 대기 중이라 rate/target 미확정.
-//   { kind: 'not-linked' }        — 403 {error:{code:'NOT_LINKED'}}. studentId로 학부모가
+//   { kind: 'not-linked' }        — 403 problem code NOT_LINKED. studentId로 학부모가
 //     조회할 때만 나온다 — 서버가 fn_is_linked_pair로 재확인한 결과 승인된 쌍이 아니다
 //     (api/_routes/goal/report.ts checkLinkedPair, QA 시트 행210).
 //   { kind: 'success', report }   — 200 {ok:true, report}. report는 type별로 모양이 다르다
@@ -1674,11 +1671,10 @@ export async function fetchGoalReport(
   if (type === "direction" && track) params.set("track", track);
   if (studentId) params.set("studentId", studentId);
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch(`/api/goal/report?${params.toString()}`, {
+    response = await goalRequest(`goal/report?${params.toString()}`, {
       method: "GET",
-      headers: authHeader,
     });
   } catch (error) {
     console.error("[goalApi] GET /api/goal/report 호출 오류:", error);
@@ -1687,11 +1683,11 @@ export async function fetchGoalReport(
 
   if (response.status === 401) return { kind: "no-session" };
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
 
   if (response.status === 200) {
     if (body?.allowed === false) return notAllowed(body);
-    if (body?.ok === true) return { kind: "success", report: body.report };
+    if (response.ok) return { kind: "success", report: body.report };
     console.error(
       "[goalApi] GET /api/goal/report 예상 밖 200 응답 모양:",
       body,
@@ -1708,7 +1704,7 @@ export async function fetchGoalReport(
 
   // coded shape(api/_lib/httpResponse.ts) — studentId로 조회했는데 서버 재확인 결과
   // 승인된 학부모-학생 쌍이 아닌 경우만 이 코드가 온다(api/_routes/goal/report.ts checkLinkedPair).
-  if (response.status === 403 && body?.error?.code === "NOT_LINKED") {
+  if (response.status === 403 && body?.code === "NOT_LINKED") {
     return { kind: "not-linked" };
   }
 
@@ -1762,11 +1758,10 @@ export async function fetchGoalAdvice(): Promise<FetchGoalAdviceResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/advice", {
+    response = await goalRequest("goal/advice", {
       method: "GET",
-      headers: authHeader,
     });
   } catch (error) {
     console.error("[goalApi] GET /api/goal/advice 호출 오류:", error);
@@ -1781,11 +1776,11 @@ export async function fetchGoalAdvice(): Promise<FetchGoalAdviceResult> {
     return { kind: "error" };
   }
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
 
   if (body?.allowed === false) return notAllowed(body);
 
-  if (body?.ok === true) {
+  if (response.ok) {
     return {
       kind: "success",
       intake: body.intake ?? null,
@@ -1818,23 +1813,21 @@ export async function generateGoalAdvice(
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/advice", {
+    response = await goalRequest("goal/advice", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeader },
-      body: JSON.stringify({ source }),
+      json: { source },
     });
   } catch (error) {
     console.error("[goalApi] POST /api/goal/advice 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
-  if (response.status === 200 && result?.ok === true) {
-    const { ok, ...advice } = result;
-    return { kind: "success", advice: advice as GoalAdvicePayload };
+  if (response.status === 200) {
+    return { kind: "success", advice: result as GoalAdvicePayload };
   }
 
   if (response.status === 401) return { kind: "no-session" };
