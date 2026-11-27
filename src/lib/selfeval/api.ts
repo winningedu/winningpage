@@ -29,6 +29,11 @@ import {
   type VerifyBodyInput,
   verifyResponse,
 } from "../../../shared/selfeval/verify.js";
+import {
+  type WriteBodyInput,
+  writeEditResponse,
+  writeGenerateResponse,
+} from "../../../shared/selfeval/write.js";
 import { ApiFetchTimeoutError, apiFetch, getAuthHeader } from "../apiFetch";
 import {
   type ApiResult,
@@ -480,25 +485,40 @@ export function analyzeResolveConflict(
 }
 
 // ── 생성 ──────────────────────────────────────────────────────────────
+// 본문의 sections 는 계약이 paragraphs 만 본다. 문단, 문장, 근거의 세부 모양은 hand type 이 맡는다.
+const writeGenerateSchema = writeGenerateResponse.transform(
+  (data) => data as WriteGenerateResponse,
+);
+const writeEditSchema = writeEditResponse.transform(
+  (data) => data as WriteEditResponse,
+);
+
 export function writeGenerate(sessionId: string) {
-  return request<WriteGenerateResponse>(`${BASE}/write`, {
-    method: "POST",
-    body: { sessionId, action: "generate" },
-    ai: true,
-  });
+  const body: WriteBodyInput = { sessionId, action: "generate" };
+  return requestJson<WriteGenerateResponse>(
+    "selfeval/write",
+    writeGenerateSchema,
+    { method: "POST", body, ai: true },
+  );
 }
 
 export function writeEdit(sessionId: string, paragraphs: string[]) {
-  return request<WriteEditResponse>(`${BASE}/write`, {
+  const body: WriteBodyInput = { sessionId, action: "edit", paragraphs };
+  return requestJson<WriteEditResponse>("selfeval/write", writeEditSchema, {
     method: "POST",
-    body: { sessionId, action: "edit", paragraphs },
+    body,
   });
 }
 
 export function writeConfirmFeeling(sessionId: string, sentenceId: string) {
-  return request<WriteEditResponse>(`${BASE}/write`, {
+  const body: WriteBodyInput = {
+    sessionId,
+    action: "confirm-feeling",
+    sentenceId,
+  };
+  return requestJson<WriteEditResponse>("selfeval/write", writeEditSchema, {
     method: "POST",
-    body: { sessionId, action: "confirm-feeling", sentenceId },
+    body,
   });
 }
 
@@ -508,9 +528,15 @@ export function writeRepickEvidence(
   sentenceId: string,
   picks: { refId: string; item: string }[],
 ) {
-  return request<WriteEditResponse>(`${BASE}/write`, {
+  const body: WriteBodyInput = {
+    sessionId,
+    action: "repick-evidence",
+    sentenceId,
+    picks,
+  };
+  return requestJson<WriteEditResponse>("selfeval/write", writeEditSchema, {
     method: "POST",
-    body: { sessionId, action: "repick-evidence", sentenceId, picks },
+    body,
   });
 }
 

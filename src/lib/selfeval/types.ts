@@ -791,14 +791,13 @@ export type WrittenReport = {
 };
 
 export type WriteGenerateResponse = StepMeta & {
-  ok: true;
   report: WrittenReport;
   charged: boolean;
   regenerationsLeft: number;
   currentStep: SessionStep;
 };
 
-export type WriteEditResponse = { ok: true; report: WrittenReport };
+export type WriteEditResponse = { report: WrittenReport };
 
 export type VerifyResponse = StepMeta & {
   verification: {

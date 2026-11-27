@@ -363,6 +363,13 @@ const ANALYSIS = {
   conflicts: [],
 };
 
+const WRITTEN = {
+  id: "r1",
+  revision: 1,
+  sections: { paragraphs: [{ sentences: [] }] },
+  charCount: { withSpace: 10, withoutSpace: 8 },
+};
+
 describe("분석, 생성, 검증, 최종 저장", () => {
   test("분석은 action 으로 run, save, resolve-conflict 가 갈린다", async () => {
     fetchMock.mockImplementation(async () =>
@@ -448,18 +455,40 @@ describe("분석, 생성, 검증, 최종 저장", () => {
   });
 
   test("생성은 generate, edit, confirm-feeling 이 /write 하나로 간다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
-    await writeGenerate("s1");
-    expect(lastCall().path).toBe("/api/selfeval/write");
-    expect(lastCall().body).toEqual({ sessionId: "s1", action: "generate" });
-    await writeEdit("s1", ["a", "b"]);
-    expect(lastCall().body).toEqual({
+    fetchMock.mockImplementation(async () =>
+      jsonResponse(
+        lastBody().action === "generate"
+          ? {
+              report: WRITTEN,
+              charged: true,
+              regenerationsLeft: 2,
+              currentStep: 4,
+              attempts: 1,
+              softIssues: [],
+            }
+          : { report: WRITTEN },
+      ),
+    );
+    const generated = await writeGenerate("s1");
+    expect(new URL(lastRequest().url).pathname).toBe("/api/selfeval/write");
+    expect(lastRequest().method).toBe("POST");
+    expect(await lastBody()).toEqual({ sessionId: "s1", action: "generate" });
+    expect(generated).toMatchObject({
+      kind: "ok",
+      data: { charged: true, regenerationsLeft: 2, report: { id: "r1" } },
+    });
+    const edited = await writeEdit("s1", ["a", "b"]);
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       action: "edit",
       paragraphs: ["a", "b"],
     });
+    expect(edited).toMatchObject({
+      kind: "ok",
+      data: { report: { id: "r1" } },
+    });
     await writeConfirmFeeling("s1", "p1s2");
-    expect(lastCall().body).toEqual({
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       action: "confirm-feeling",
       sentenceId: "p1s2",
@@ -467,14 +496,63 @@ describe("분석, 생성, 검증, 최종 저장", () => {
   });
 
   test("근거 다시 고르기는 repick-evidence 로 문장 id 와 picks 를 보낸다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
+    fetchMock.mockResolvedValue(jsonResponse({ report: WRITTEN }));
     await writeRepickEvidence("s1", "p1s2", [{ refId: "a1", item: "method" }]);
-    expect(lastCall().path).toBe("/api/selfeval/write");
-    expect(lastCall().body).toEqual({
+    expect(new URL(lastRequest().url).pathname).toBe("/api/selfeval/write");
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       action: "repick-evidence",
       sentenceId: "p1s2",
       picks: [{ refId: "a1", item: "method" }],
+    });
+  });
+
+  test("생성 실패 problem 의 확장 멤버(tenantReason, currentStep, attempts, terminal)는 extra 로 온다", async () => {
+    fetchMock.mockResolvedValueOnce(
+      problemResponse(409, {
+        code: "QUOTA_EXHAUSTED",
+        detail: "이용 횟수를 모두 썼어요.",
+        tenantReason: "month_cap",
+      }),
+    );
+    expect(await writeGenerate("s1")).toEqual({
+      kind: "error",
+      status: 409,
+      code: "QUOTA_EXHAUSTED",
+      message: "이용 횟수를 모두 썼어요.",
+      extra: { tenantReason: "month_cap" },
+    });
+    fetchMock.mockResolvedValueOnce(
+      problemResponse(409, {
+        code: "STEP_ORDER",
+        detail: "본문을 먼저 생성해 주세요.",
+        currentStep: 3,
+      }),
+    );
+    expect(await writeEdit("s1", ["a"])).toMatchObject({
+      kind: "error",
+      code: "STEP_ORDER",
+      extra: { currentStep: 3 },
+    });
+    fetchMock.mockResolvedValueOnce(
+      problemResponse(409, {
+        code: "ATTEMPTS_EXHAUSTED",
+        detail: "시도를 모두 썼어요.",
+        terminal: true,
+      }),
+    );
+    expect(await writeGenerate("s1")).toMatchObject({
+      kind: "error",
+      code: "ATTEMPTS_EXHAUSTED",
+      extra: { terminal: true },
+    });
+  });
+
+  test("본문 응답이 계약과 어긋나면 INVALID_RESPONSE 다", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ report: { id: "r1" } }));
+    expect(await writeEdit("s1", ["a"])).toMatchObject({
+      kind: "error",
+      code: "INVALID_RESPONSE",
     });
   });
 
