@@ -21,6 +21,16 @@ import {
   type GoalAdvicePayload,
 } from "../../shared/goal/advice.js";
 import {
+  type DailyRecordInput,
+  dailyRecordGetResponse,
+  dailyRecordPostResponse,
+  type GoalDailyRecord,
+  type GoalProbsBlock,
+  type GoalRecordCooldown,
+  type GoalRecordSummary,
+  type GoalTomorrowTargets,
+} from "../../shared/goal/daily-record.js";
+import {
   type GoalGradeEntryInput,
   type GoalGradeRecord,
   type GoalGradeType,
@@ -79,67 +89,27 @@ import { getAuthHeader } from "./apiFetch";
 import { ApiError, api } from "./http/client";
 import { parseTenantReason, type TenantBlockReason } from "./tenantBlock";
 
-export type { GoalStudentPayload };
+export type {
+  GoalRecordCooldown,
+  GoalRecordSummary,
+  GoalStudentPayload,
+  GoalTomorrowTargets,
+};
 
 // ---------------------------------------------------------------------------
 // 응답 payload 타입, api/_lib/goal/repo.ts buildXxxPayload()/api/goal/*.ts 응답 조립과
 // 실제 select 컬럼(카멜 변환 후)에 맞춰 정의한다.
 // ---------------------------------------------------------------------------
 
-/** 오늘 확률 스냅샷 — api/_routes/goal/daily-record.ts buildProbsPayload(). */
-interface GoalProbsBlock {
-  idealSusi: number | null;
-  idealJungsi: number | null;
-  minSusi: number | null;
-  minJungsi: number | null;
-}
-
-/** api/_routes/goal/daily-record.ts buildRecordPayload(). */
-interface GoalDailyRecord {
-  recordIndex: number | null;
-  recordDate: string;
-  studyHours: number;
-  bodyCondition: string;
-  tasks: string[];
-  reasons: string[];
-  memo: string;
-}
-
-/**
- * QA3 행305 — api/_routes/goal/daily-record.ts computeCooldownState(). 한 번도 제출한
- * 적 없는 학생은 null(잠금 개념 자체가 없다).
- */
-export interface GoalRecordCooldown {
-  active: boolean;
-  submittedAt: string | null;
-  unlocksAt: string | null;
-}
-
-/**
- * QA3 행305 — api/_routes/goal/daily-record.ts buildSummaryPayload(). 잠금 중 요약
- * 패널 전용, 오늘/가장 최근 제출 행이 하나도 없으면 null.
- */
-export interface GoalRecordSummary {
-  studyHours: number;
-  targetIdealHours: number;
-  targetMinHours: number;
-  idealRate: number;
-  minRate: number;
-  deltaIdealSusi: number | null;
-  deltaMinSusi: number | null;
-  deltaIdealJungsi: number | null;
-  deltaMinJungsi: number | null;
-}
-
-/** QA3 행305 — api/_routes/goal/daily-record.ts buildTomorrowTargets(). */
-export interface GoalTomorrowTargets {
-  idealHours: number;
-  minHours: number;
-}
-
 // 응답 본문 shape은 엔드포인트별로 다르고 파싱 실패 시 {}로 접히므로 any로 둔다 —
 // 각 호출부가 옵셔널 체이닝으로 안전하게 좁혀 쓴다(아래 discriminated union 반환
 // 타입이 실제 계약이고, 여기서는 그 값을 만드는 재료일 뿐이다).
+/** 화면은 컨디션, 항목, 방해 요인을 string 으로 들고 있다. 서버가 목록 밖의 값을 400 으로 막는다. */
+type SubmitDailyRecordBody = Omit<
+  DailyRecordInput,
+  "bodyCondition" | "reasons" | "tasks"
+> & { bodyCondition?: string; reasons?: string[]; tasks?: string[] };
+
 /** 응답 본문을 안전하게 JSON으로 파싱한다 — 파싱 실패는 빈 객체로 접는다. */
 // biome-ignore lint/suspicious/noExplicitAny: 엔드포인트마다 응답 모양이 다른 원시 JSON.
 async function parseJsonSafe(response: Response): Promise<any> {
@@ -472,9 +442,11 @@ export async function fetchTodayGoalRecord(): Promise<FetchTodayGoalRecordResult
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/daily-record", {
-      method: "GET",
-    });
+    response = await goalRequest(
+      "goal/daily-record",
+      { method: "GET" },
+      dailyRecordGetResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/daily-record 호출 오류:", error);
     return { kind: "error" };
@@ -535,14 +507,6 @@ export async function fetchTodayGoalRecord(): Promise<FetchTodayGoalRecordResult
 //   { kind: 'validation-error', detail }    — 그 외 400(잘못된 컨디션·태그 코드 등).
 //   { kind: 'success', record, delta, probs, recordCount } — 200 {ok:true, ...}.
 //   { kind: 'error' }                       — 네트워크 오류·5xx·예상 밖 상태코드.
-interface SubmitDailyRecordBody {
-  studyHours?: number;
-  bodyCondition?: string;
-  reasons?: string[];
-  tasks?: string[];
-  memo?: string;
-}
-
 export type SubmitDailyRecordResult =
   | { kind: "no-session" }
   | NotAllowed
@@ -569,10 +533,11 @@ export async function submitDailyRecord(
 
   let response: GoalResponse;
   try {
-    response = await goalRequest("goal/daily-record", {
-      method: "POST",
-      json: body,
-    });
+    response = await goalRequest(
+      "goal/daily-record",
+      { method: "POST", json: body },
+      dailyRecordPostResponse,
+    );
   } catch (error) {
     console.error("[goalApi] POST /api/goal/daily-record 호출 오류:", error);
     return { kind: "error" };

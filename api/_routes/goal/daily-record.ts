@@ -26,6 +26,12 @@
 // 제출도 카드가 이미 기록한 순공 시간을 지우지 않는다.
 
 import type { Context } from "hono";
+import type { z } from "zod";
+import {
+  dailyRecordBody,
+  type dailyRecordGetResponse,
+  type dailyRecordPostResponse,
+} from "../../../shared/goal/daily-record.js";
 import {
   addDaysYMD,
   calculateDailyBonusV2,
@@ -52,6 +58,7 @@ import {
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import { isSchoolmentorSite } from "../../_lib/site.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
@@ -170,59 +177,12 @@ function mergeStudyHoursWithTimer(manualHours: number, timerHours: number) {
 // 값 검증 헬퍼 (api/_routes/goal/intake.js 관례 재사용 — 화이트리스트 우선, 클라이언트 값 불신)
 // ---------------------------------------------------------------------------
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function isNumericInput(raw: unknown) {
-  return typeof raw === "number" || typeof raw === "string";
-}
-
 // unwrapped {status, body}를 돌려준다 — 호출부가 항상 `return { error: fail(...) }`
 // 형태의 object literal로 감싸야 TS가 형제 프로퍼티를 undefined로 자동 추론해
 // gate.error / tasksResult.error 접근이 좁혀진다(순수 타입 추론 편의, 런타임
 // JSON 응답 바이트는 이전과 동일 — { error: { status, body } }).
 function fail(status: number, body: Record<string, unknown>) {
   return { status, body };
-}
-
-// 본문을 JSON 으로 읽는다. 비었거나 깨졌으면 null 이고, 형식 검사는 각 핸들러가 한다.
-async function readBody(c: Context) {
-  try {
-    return await c.req.json();
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 코드값 배열 → 한글 라벨 배열. body 에 키 자체가 없으면(undefined) "미제출"로 보고
- * value:undefined 를 돌려준다(병합 단계에서 기존 값을 유지하는 신호) — 빈 배열([])과
- * 다르다(빈 배열은 "전부 지움"이라는 유효한 제출이다).
- */
-function mapWhitelist(
-  rawArray: unknown,
-  labelMap: Record<string, string>,
-  label: string,
-) {
-  if (rawArray === undefined) return { value: undefined };
-  if (!Array.isArray(rawArray)) {
-    return {
-      error: fail(400, { detail: `${label} 형식이 올바르지 않습니다.` }),
-    };
-  }
-
-  const mapped: string[] = [];
-  for (const code of rawArray) {
-    const mappedLabel = labelMap[String(code)];
-    if (!mappedLabel) {
-      return {
-        error: fail(400, { detail: `${label}에 알 수 없는 값이 있습니다.` }),
-      };
-    }
-    mapped.push(mappedLabel);
-  }
-  return { value: mapped };
 }
 
 // ---------------------------------------------------------------------------
@@ -260,8 +220,7 @@ async function requireActiveStudent(
 
 /** DB 행(snake) → API 응답 record 블록(camel). GET/POST 응답이 완전히 같은 모양을 쓴다. */
 // biome-ignore lint/suspicious/noExplicitAny: api/_lib/goal/repo.ts fetchTodayRecord가 타입을 내보내지 않는다(Stage3 대상).
-function buildRecordPayload(row: any) {
-  if (!row) return null;
+function recordPayload(row: any) {
   return {
     recordIndex: num(row.record_index),
     recordDate: row.record_date,
@@ -271,6 +230,11 @@ function buildRecordPayload(row: any) {
     reasons: row.reasons || [],
     memo: row.memo || "",
   };
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: api/_lib/goal/repo.ts fetchTodayRecord가 타입을 내보내지 않는다(Stage3 대상).
+function buildRecordPayload(row: any) {
+  return row ? recordPayload(row) : null;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: api/_lib/goal/repo.ts fetchStudentStateRow가 타입을 내보내지 않는다(Stage3 대상).
@@ -361,7 +325,7 @@ async function handleGet(c: Context<UserEnv>, session: GoalSession) {
     return c.json({
       allowed: false,
       ...tenantReasonExtra(session.tenantReason),
-    });
+    } satisfies z.input<typeof dailyRecordGetResponse>);
   }
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
@@ -410,7 +374,7 @@ async function handleGet(c: Context<UserEnv>, session: GoalSession) {
     cooldown,
     summary,
     tomorrowTargets,
-  });
+  } satisfies z.input<typeof dailyRecordGetResponse>);
 }
 
 /**
@@ -454,7 +418,11 @@ function mergeTimerIntoRecord(
 // POST — 오늘 기록 upsert(부분 제출 허용, 재제출 = 갱신 + delta 재계산)
 // ---------------------------------------------------------------------------
 
-async function handlePost(c: Context<UserEnv>, session: GoalSession) {
+async function handlePost(
+  c: Context<UserEnv>,
+  session: GoalSession,
+  body: z.output<typeof dailyRecordBody>,
+) {
   const { allowed } = session;
 
   // 쓰기형이므로 미결제는 403 이다(intake.js:545-548 과 동일 규약).
@@ -472,11 +440,6 @@ async function handlePost(c: Context<UserEnv>, session: GoalSession) {
     return goalFail(c, gate.error.status, gate.error.body);
   }
   const student = gate.row;
-
-  const body = await readBody(c);
-  if (!isPlainObject(body)) {
-    return goalFail(c, 400, { detail: "요청 본문이 올바르지 않습니다." });
-  }
 
   const now = new Date();
   const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
@@ -513,64 +476,32 @@ async function handlePost(c: Context<UserEnv>, session: GoalSession) {
   const timerHours = round1(timerSummary.totalSeconds / 3600);
 
   // ── 병합 — 바디에 있는 필드만 교체, 없으면 기존 행 값 유지 ────────────────
-  const tasksResult = mapWhitelist(body.tasks, TASK_LABELS, "학습 항목");
-  if (tasksResult.error)
-    return goalFail(c, tasksResult.error.status, tasksResult.error.body);
+  // 코드 목록의 모양은 zod 계약이 이미 막았다. 코드값을 한글 라벨로 바꾼다.
+  const tasks = body.tasks
+    ? body.tasks.map((code) => TASK_LABELS[code])
+    : existing?.tasks || [];
+  const reasons = body.reasons
+    ? body.reasons.map((code) => REASON_LABELS[code])
+    : existing?.reasons || [];
 
-  const reasonsResult = mapWhitelist(body.reasons, REASON_LABELS, "방해 요인");
-  if (reasonsResult.error)
-    return goalFail(c, reasonsResult.error.status, reasonsResult.error.body);
-
-  const tasks =
-    tasksResult.value !== undefined ? tasksResult.value : existing?.tasks || [];
-  const reasons =
-    reasonsResult.value !== undefined
-      ? reasonsResult.value
-      : existing?.reasons || [];
-
-  // bodyCondition — 신규 값이 오면 화이트리스트 검증, 없으면 기존 값 유지, 그마저
+  // bodyCondition — 신규 값이 있으면 그 값, 없으면 기존 값 유지, 그마저
   // 없으면(오늘 첫 제출이 카드-only) ''(빈 문자열)로 둔다. bonusV2 는 ''를
   // CONDITION_MULTIPLIER 미매칭 → normal(1.0) 로 적용한다(팀장 지시 "카드 최초 제출은
   // condition 미보유 허용" 규칙).
-  let bodyCondition: string;
-  if (body.bodyCondition !== undefined) {
-    // Set.has()는 런타임에 타입이 달라도(string이 아니어도) 그냥 false를 준다 —
-    // as string은 그 동작을 바꾸지 않고 TS 인자 타입만 맞춘다.
-    if (!BODY_CONDITIONS.has(body.bodyCondition as string)) {
-      return goalFail(c, 400, { detail: "컨디션 값이 올바르지 않습니다." });
-    }
-    bodyCondition = body.bodyCondition as string;
-  } else {
-    bodyCondition = existing?.body_condition || "";
-  }
+  const bodyCondition = body.bodyCondition ?? existing?.body_condition ?? "";
 
   // memo — trim + 1000자 컷. 신규 값이 없으면 기존 값 유지.
-  let memo: string;
-  if (body.memo !== undefined) {
-    if (typeof body.memo !== "string") {
-      return goalFail(c, 400, { detail: "메모 형식이 올바르지 않습니다." });
-    }
-    memo = body.memo.trim().slice(0, MEMO_MAX_LENGTH);
-  } else {
-    memo = existing?.memo || "";
-  }
+  const memo =
+    body.memo !== undefined
+      ? body.memo.trim().slice(0, MEMO_MAX_LENGTH)
+      : existing?.memo || "";
 
   // studyHours — 병합 결과에 최종 검증을 건다(부분 제출이라 "이 요청에 studyHours가
   // 없었다"와 "0시간을 제출했다"를 구분해야 한다 — 후자만 명시적 400 사유를 준다).
-  let studyHoursInput: number;
-  if (body.studyHours !== undefined) {
-    if (
-      !isNumericInput(body.studyHours) ||
-      (typeof body.studyHours === "string" && body.studyHours.trim() === "")
-    ) {
-      return goalFail(c, 400, {
-        detail: "순공 시간 형식이 올바르지 않습니다.",
-      });
-    }
-    studyHoursInput = Number(body.studyHours);
-  } else {
-    studyHoursInput = num(existing?.study_hours) ?? 0;
-  }
+  let studyHoursInput =
+    body.studyHours !== undefined
+      ? Number(body.studyHours)
+      : (num(existing?.study_hours) ?? 0);
 
   // QA 행303·305 — 열공 타이머로 잰 시간을 여기서도 반영한다(병합 정책은
   // mergeStudyHoursWithTimer 헤더 참고, GET(mergeTimerIntoRecord)과 동일). 이게 없으면
@@ -671,7 +602,7 @@ async function handlePost(c: Context<UserEnv>, session: GoalSession) {
   );
 
   return c.json({
-    record: buildRecordPayload(savedRow),
+    record: recordPayload(savedRow),
     delta: {
       idealSusi: delta.idealSusiBonus,
       idealJungsi: delta.idealJungsiBonus,
@@ -680,7 +611,7 @@ async function handlePost(c: Context<UserEnv>, session: GoalSession) {
     },
     probs,
     recordCount: num(stateRow?.record_count) ?? 0,
-  });
+  } satisfies z.input<typeof dailyRecordPostResponse>);
 }
 
 // ---------------------------------------------------------------------------
@@ -692,19 +623,23 @@ const guard = user({
   logLabel: "goal/daily-record",
 });
 
+// 세션을 열어 핸들러에 넘기고, 처리하지 못한 오류는 500 으로 접는다.
+async function run(
+  c: Context<UserEnv>,
+  handle: (session: GoalSession) => Promise<Response>,
+) {
+  try {
+    return await handle(await openGoalSession(c));
+  } catch (error) {
+    console.error("goal/daily-record error:", error);
+    return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
+  }
+}
+
 export const dailyRecord = userFactory
   .createApp()
-  .on(["GET", "POST"], "/", guard, async (c) => {
-    try {
-      const session = await openGoalSession(c);
-
-      if (c.req.method === "GET") {
-        return await handleGet(c, session);
-      }
-      return await handlePost(c, session);
-    } catch (error) {
-      console.error("goal/daily-record error:", error);
-      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
-    }
-  })
+  .get("/", guard, (c) => run(c, (session) => handleGet(c, session)))
+  .post("/", guard, validate("json", dailyRecordBody), (c) =>
+    run(c, (session) => handlePost(c, session, c.req.valid("json"))),
+  )
   .all("/", methodNotAllowed("GET", "POST"));
