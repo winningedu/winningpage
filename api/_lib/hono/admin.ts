@@ -67,7 +67,7 @@ interface RouteOptions {
 export interface AdminRouteOptions extends RouteOptions {
   /**
    * 메뉴 권한. key 는 메뉴 키이거나 요청에서 뽑는 함수다(본문을 읽어야 하면 async 도 된다. 던진 RouteParamError 는 400). level 생략 시 GET, HEAD 는 view, 나머지는 edit.
-   * "none" 은 관리자 인증만 보고 메뉴 권한 판정과 감사 행을 건너뛴다. api/_routes/adminRoutes.test.ts 허용 목록의 파일만 쓸 수 있다.
+   * "none" 은 관리자 인증만 보고 메뉴 권한 판정과 감사 행을 건너뛴다. api/_routes/adminRoutes.test.ts 허용 목록의 파일과 api/_routes/app.test.ts 허용 목록의 경로만 쓸 수 있다.
    */
   permission:
     | "none"
@@ -98,15 +98,27 @@ function prepare(
   if (timeZone) c.set("timeZone", timeZone);
 }
 
-// 라우트 표 가드(api/_routes/app.test.ts)가 메서드 라우트의 첫 미들웨어가 인증인지 본다.
-const authMiddlewares = new WeakSet<MiddlewareHandler>();
+/** 인증 미들웨어가 거는 것. "menu" 는 메뉴 권한 판정까지, "none" 은 관리자 판정만 한다. */
+export type RouteAuth =
+  | { auth: "admin"; permission: "menu" | "none" }
+  | { auth: "user" };
 
-export function isAuthMiddleware(handler: unknown): boolean {
-  return authMiddlewares.has(handler as MiddlewareHandler);
+// 라우트 표 가드(api/_routes/app.test.ts)가 메서드 라우트의 첫 미들웨어가 인증인지, 관리자 경로면 메뉴 권한을 거는지 본다.
+const authMiddlewares = new WeakMap<MiddlewareHandler, RouteAuth>();
+
+export function routeAuth(handler: unknown): RouteAuth | undefined {
+  return authMiddlewares.get(handler as MiddlewareHandler);
 }
 
-function registered<T extends MiddlewareHandler>(middleware: T): T {
-  authMiddlewares.add(middleware);
+export function isAuthMiddleware(handler: unknown): boolean {
+  return routeAuth(handler) !== undefined;
+}
+
+function registered<T extends MiddlewareHandler>(
+  middleware: T,
+  auth: RouteAuth,
+): T {
+  authMiddlewares.set(middleware, auth);
   return middleware;
 }
 
@@ -156,6 +168,10 @@ export const admin = (options: AdminRouteOptions) =>
       );
       await next();
     }),
+    {
+      auth: "admin",
+      permission: options.permission === "none" ? "none" : "menu",
+    },
   );
 
 /** defineHandler auth:"user". 관리자가 되기 전 사용자가 부르는 라우트(admin/me/activate)용. */
@@ -177,4 +193,5 @@ export const user = (options: RouteOptions) =>
       c.set("supabaseAdmin", createSupabaseAdmin());
       await next();
     }),
+    { auth: "user" },
   );

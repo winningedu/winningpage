@@ -17,8 +17,8 @@ const ALLOWLIST: Record<string, string> = {
 
 /**
  * defineHandler({ ... }) 호출마다 auth:"admin" 과 permission 이 있는지 보고, 어긋난 점을 돌려준다.
- * Hono 앱 파일(.createApp())은 admin({ ... }) 마다 permission 이 있는지만 본다. 메서드 라우트마다 인증 미들웨어가 붙었는지는
- * 라우트 표 가드(api/_routes/app.test.ts)가 실제 앱에서 본다.
+ * Hono 앱 파일(.createApp())은 admin({ ... }) 마다 permission 이 있는지만 본다. 메서드 라우트마다 첫 미들웨어가 메뉴 권한을 거는
+ * admin() 인지(허용 목록 경로 제외)는 라우트 표 가드(api/_routes/app.test.ts)가 실제 앱에서 본다.
  */
 function checkAdminRouteSource(source: string): string[] {
   if (/\.createApp\(\)|create(Admin|Root)App\(\)/.test(source)) {
