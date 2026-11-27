@@ -52,7 +52,8 @@ export type SessionCreateValidation =
 /** 기존 값에 patch 를 덮고 생성과 같은 규칙으로 다시 검증한다. */
 export function applySessionPatch(
   current: Partial<SessionInput>,
-  patch: Partial<SessionInput>,
+  // 계약의 수정 바디(partial)는 보내지 않은 키를 두지 않는다. 타입만 undefined 를 허용한다.
+  patch: { [K in keyof SessionInput]?: SessionInput[K] | undefined },
 ): SessionCreateValidation {
   const parsed = sessionBasicsSchema.safeParse({ ...current, ...patch });
   return parsed.success

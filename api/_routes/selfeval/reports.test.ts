@@ -1,7 +1,15 @@
 // GET /api/selfeval/reports: 진입과 목록, 세션 상세. Hono 라우트를 루트 앱으로 부른다.
 // DB 읽기는 db.ts 함수를 가짜로 바꾼다. 응답은 계약 스키마(shared/selfeval)로 읽어 서버와 브라우저가 같은 모양인지 본다.
 
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  type Mock,
+  test,
+  vi,
+} from "vitest";
 import { entryResponseSchema } from "../../../shared/selfeval/reports.js";
 import { sessionDetailResponseSchema } from "../../../shared/selfeval/session.js";
 import { callRoute, createAdminFake } from "../../_lib/adminRoute.testkit.js";
@@ -9,7 +17,7 @@ import type { SessionListRow, SessionRow } from "../../_lib/selfeval/rows.js";
 
 const kit = vi.hoisted(() => ({
   admin: null as unknown,
-  db: {} as Record<string, ReturnType<typeof vi.fn>>,
+  db: {} as Record<string, Mock<(...args: unknown[]) => unknown>>,
 }));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({

@@ -1,7 +1,15 @@
 // POST /api/selfeval/session 의 create, update, discard 흐름. Hono 라우트를 루트 앱으로 부른다.
 // DB 쓰기는 db.ts 함수를 가짜로 바꾼다. 응답은 계약 스키마(shared/selfeval/session.ts)로 읽는다.
 
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  type Mock,
+  test,
+  vi,
+} from "vitest";
 import {
   sessionDiscardResponseSchema,
   sessionResponseSchema,
@@ -11,7 +19,7 @@ import type { SessionRow } from "../../_lib/selfeval/rows.js";
 
 const kit = vi.hoisted(() => ({
   admin: null as unknown,
-  db: {} as Record<string, ReturnType<typeof vi.fn>>,
+  db: {} as Record<string, Mock<(...args: unknown[]) => unknown>>,
   access: { allowed: true, tenantReason: null as string | null },
   quota: { quotaRemaining: null as number | null },
 }));
