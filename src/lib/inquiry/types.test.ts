@@ -22,12 +22,14 @@ import { AREA_LABELS, AREAS } from "./types";
 const SERVER = resolve(process.cwd(), "api/_lib/inquiry/types.ts");
 const CLIENT = resolve(process.cwd(), "src/lib/inquiry/types.ts");
 
-/** `export type Name = ...;` 한 선언을 공백 정규화해 꺼낸다. 주석은 뺀다. */
+/** `[export] type Name = ...;` 한 선언을 공백 정규화해 꺼낸다. 주석은 뺀다. */
 function declaration(source: string, name: string): string | null {
   const stripped = source
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/\/\/.*$/gm, "");
-  const match = new RegExp(`export type ${name} =([\\s\\S]*?);`).exec(stripped);
+  const match = new RegExp(`(?:export )?type ${name} =([\\s\\S]*?);`).exec(
+    stripped,
+  );
   return match ? (match[1] ?? "").replace(/\s+/g, " ").trim() : null;
 }
 
