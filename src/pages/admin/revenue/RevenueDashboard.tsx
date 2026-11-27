@@ -43,7 +43,7 @@ function formatMoney(value: number): string {
   return `${Math.round(value).toLocaleString("ko-KR")}원`;
 }
 
-export type RevenuePending = {
+type RevenuePending = {
   /** 환불 신청 중 아직 승인/반려가 안 난 건. */
   approvalWaiting: number;
   /** 승인은 났고 실제 환불 처리가 안 끝난 건. */

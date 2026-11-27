@@ -90,7 +90,7 @@ export const gradeBoundsOf = (q4: unknown) => {
  * M3 q6s scores are 원점수 for table 10, whatever q4 says: the 성취평가제 range
  * (customer answer 2026-11-24 학습진단 5번).
  */
-export const MIDDLE_SCORE_BOUNDS = gradeBoundsOf(ACHIEVEMENT_Q4);
+const MIDDLE_SCORE_BOUNDS = gradeBoundsOf(ACHIEVEMENT_Q4);
 
 const inBounds = (value: unknown, { min, max }: { min: number; max: number }) =>
   typeof value === "number" &&

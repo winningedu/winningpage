@@ -8,7 +8,7 @@ export type ServiceKey =
   | "selfeval"
   | "inquiry";
 
-export type VerdictLevel = "good" | "caution" | "risk" | "no_data";
+type VerdictLevel = "good" | "caution" | "risk" | "no_data";
 export type Signal = "focus" | "caution" | "insufficient" | "stable";
 
 export interface PickerStudent {
@@ -36,7 +36,7 @@ export interface Axis {
   missingServices: string[];
 }
 
-export interface Competency {
+interface Competency {
   key: string;
   name: string;
   score: number | null;
@@ -85,7 +85,7 @@ export interface Coaching {
   serviceCards: ServiceCard[];
 }
 
-export interface GoalOpinion {
+interface GoalOpinion {
   summary: string;
   details: {
     recordFlow: string;
@@ -95,7 +95,7 @@ export interface GoalOpinion {
   } | null;
 }
 
-export interface CoachingText {
+interface CoachingText {
   priorityTask: string | null;
   points: string[];
   gradeInputCheck: string | null;
@@ -117,13 +117,13 @@ export interface ServiceCard {
   detail: string;
 }
 
-export interface ServiceDetailTable {
+interface ServiceDetailTable {
   heading: string;
   columns: string[];
   rows: string[][];
 }
 
-export interface DiagnosisBar {
+interface DiagnosisBar {
   group: "execution" | "readiness";
   name: string;
   score: number;

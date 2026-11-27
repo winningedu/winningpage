@@ -1,6 +1,6 @@
 // 신규 서비스 3종(성장설계, 자기평가, 심화탐구)의 노출 게이트용 순수 데이터와 판정.
 // env나 site에 의존하지 않아 sites.ts(vite.config.js도 공유)가 타입을 가져다 쓸 수 있다.
-export const GATEABLE_PROGRAMS = ["growth", "selfeval", "inquiry"] as const;
+const GATEABLE_PROGRAMS = ["growth", "selfeval", "inquiry"] as const;
 
 export type GateableProgram = (typeof GATEABLE_PROGRAMS)[number];
 

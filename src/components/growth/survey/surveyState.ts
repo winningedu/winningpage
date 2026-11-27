@@ -25,12 +25,12 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-export function isPick(v: unknown): v is SurveyPick {
+function isPick(v: unknown): v is SurveyPick {
   return isRecord(v) && typeof v.name === "string" && v.name.trim() !== "";
 }
 
 /** 문항 형식에 맞는 값만 돌려주고, 아니면 undefined. 서버 검증과 같은 기준이다. */
-export function sanitizeValue(
+function sanitizeValue(
   q: SurveyQuestion,
   value: unknown,
 ): SurveyValue | undefined {
@@ -176,7 +176,7 @@ export function firstUnansweredNumber(
 }
 
 // ── 짧은 답 ───────────────────────────────────────────────────────────
-export const SHORT_ANSWER_MIN = 10;
+const SHORT_ANSWER_MIN = 10;
 
 /** 서술 답이 10자 미만이면 안내를 띄운다(No.142). 입력을 막지는 않고, 빈 입력은 안내하지 않는다. */
 export function isShortAnswer(text: string): boolean {

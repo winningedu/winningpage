@@ -1,4 +1,4 @@
-export interface SameNameStudent {
+interface SameNameStudent {
   grade: string | null;
   groupName: string | null;
   className: string | null;

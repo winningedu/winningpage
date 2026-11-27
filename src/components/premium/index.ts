@@ -18,7 +18,6 @@ export { default as PremiumNumberedCards } from "./PremiumNumberedCards";
 export { default as PremiumNumberedList } from "./PremiumNumberedList";
 export { default as PremiumPhotoSteps } from "./PremiumPhotoSteps";
 export { default as PremiumProgramTabs } from "./PremiumProgramTabs";
-export { default as PremiumRoadmapDiagram } from "./PremiumRoadmapDiagram";
 export { default as PremiumRoadmapSection } from "./PremiumRoadmapSection";
 export { default as PremiumSectionHeading } from "./PremiumSectionHeading";
 export { default as PremiumStatsPills } from "./PremiumStatsPills";

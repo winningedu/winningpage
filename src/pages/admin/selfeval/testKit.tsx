@@ -8,7 +8,7 @@ import SelfevalSessionsAdmin from "./SelfevalSessionsAdmin";
 
 export const LIST_PATH = "admin/selfeval-sessions";
 
-export const ITEM = {
+const ITEM = {
   id: "s-1",
   profileId: "p-1",
   studentName: "최학생",

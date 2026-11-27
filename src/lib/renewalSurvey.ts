@@ -62,7 +62,7 @@ export function getStepPath(step: number | string) {
   return `/app/learning-diagnosis/survey/${step}`;
 }
 
-export const surveyMainQuestions: SurveyQuestion[] = (
+const surveyMainQuestions: SurveyQuestion[] = (
   renewalSurveyQuestions as SurveyQuestion[]
 )
   .filter((question) => question.number != null)
@@ -79,7 +79,7 @@ export const surveyEmbeddedByParent: Record<string, SurveyQuestion[]> = (
     return map;
   }, {});
 
-export function getStepQuestions(step: number) {
+function getStepQuestions(step: number) {
   return surveyMainQuestions.filter((question) => question.page === step);
 }
 
@@ -88,7 +88,7 @@ export function getStepQuestions(step: number) {
  * - 중첩 문항(number:null / extra.embeddedIn)은 surveyMainQuestions 단계에서 이미 제외된다.
  * - `optional: true` 로 표시된 선택입력 문항(q19 주관식)은 화면에는 나오지만 요건에서 뺀다.
  */
-export function getStepRequiredQuestions(step: number) {
+function getStepRequiredQuestions(step: number) {
   return getStepQuestions(step).filter(
     (question) => question.optional !== true,
   );

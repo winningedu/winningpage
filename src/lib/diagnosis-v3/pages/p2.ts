@@ -48,7 +48,7 @@ const itemRung = (answers: DiagnosisV3Answers, no: number, source: string) => {
 };
 
 /** q3 is one of the clear-target options (22 r29, r35 먼 목표). */
-export const isClearGoal = (q3: number) => q3 >= CLEAR_FROM && q3 <= CLEAR_TO;
+const isClearGoal = (q3: number) => q3 >= CLEAR_FROM && q3 <= CLEAR_TO;
 
 const itemScore = (answers: DiagnosisV3Answers, no: number) => {
   const answer = answers.q9.items[no - 1];
@@ -57,7 +57,7 @@ const itemScore = (answers: DiagnosisV3Answers, no: number) => {
 };
 
 /** 14 q3r MOT:IN / MOT:EX counts of the picked reasons. */
-export function motivationCounts(answers: DiagnosisV3Answers) {
+function motivationCounts(answers: DiagnosisV3Answers) {
   const picked = (answers.q3r ?? []).map((ordinal) =>
     OPTIONS.q3r.find((o) => o.ordinal === ordinal),
   );

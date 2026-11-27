@@ -2,7 +2,7 @@
 // 이후 화면과 PDF 가 같은 모양으로 읽는다. 학생 이름은 담지 않는다(No.90, 134).
 // 숫자, 목록, 꼬리표, 문장 번호, 반영률, 라벨은 코드가 정하고 모델 문장만 explanation, summary 류 칸에 들어간다.
 
-export type ReportTagKind = "P" | "D" | "A" | "H";
+type ReportTagKind = "P" | "D" | "A" | "H";
 
 /** 꼬리표 문자열. 예: P1, D2, A1, H3. */
 export type ReportTag = string;
@@ -37,7 +37,7 @@ export type ReportSentence = {
   needsConfirm: boolean;
 };
 
-export type ReportParagraph = {
+type ReportParagraph = {
   sentences: ReportSentence[];
 };
 
@@ -150,7 +150,7 @@ export type ReportCh04 = {
   summary: string;
 };
 
-export type ReportCounts = {
+type ReportCounts = {
   completedReports: number;
   subjectCount: number;
   reflectedReports: number;
@@ -158,7 +158,7 @@ export type ReportCounts = {
   linkedSubjects: string[];
 };
 
-export type ReportCardState = "ok" | "none" | "error";
+type ReportCardState = "ok" | "none" | "error";
 
 export type ReportTextCard = {
   state: ReportCardState;
@@ -173,7 +173,7 @@ export type ReportTagCard = {
   inProgressTags: ReportTag[];
 };
 
-export type ReportSelfevalCard = {
+type ReportSelfevalCard = {
   total: number;
   linked: number;
   allLinked: boolean;

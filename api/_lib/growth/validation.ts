@@ -273,9 +273,6 @@ function checkKnownEvidence(
  */
 export const MAX_MODEL_ATTEMPTS_PER_STEP = 10;
 
-/** @deprecated MAX_MODEL_ATTEMPTS_PER_STEP 를 쓴다. */
-export const MAX_MODEL_ATTEMPTS_PER_SESSION = MAX_MODEL_ATTEMPTS_PER_STEP;
-
 /** 검증 실패 시 해당 단계 재요청에 붙일 문제 목록(No.88). */
 export function buildRetryNote(issues: ValidationIssue[]): string[] {
   const notes = issues.map((i) =>

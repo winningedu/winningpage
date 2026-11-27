@@ -30,7 +30,7 @@ const NARR_IDS = (COPY_SHEETS["04_진단서술"] ?? [])
   .filter((id) => id.startsWith("NARR_"));
 
 /** 04 id of the area and state: NARR_<code>_<04 C>. */
-export function narrId(code: AreaCode, state: AreaState): string {
+function narrId(code: AreaCode, state: AreaState): string {
   const ids = NARR_IDS.filter((id) => id.startsWith("NARR_" + code + "_"));
   const id = ids[STATE_ORDER.indexOf(state)];
   if (id === undefined) throw new Error("no NARR row for " + code + state);

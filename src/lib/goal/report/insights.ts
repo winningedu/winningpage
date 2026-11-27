@@ -431,7 +431,7 @@ export function buildDirectionSummary({
 }
 
 /** 과목(군)별 공부 방향 본문(SubjectDirectionCard.body) — 구간별 정형 문장, 도메인 콘텐츠(교재 추천)는 다루지 않는다(D13). */
-export function buildSubjectDirectionBody(subject: DirectionSubject): string {
+function buildSubjectDirectionBody(subject: DirectionSubject): string {
   if (subject.zone === "strong") {
     return `${subject.name}은(는) 목표선 위에서 안정적으로 유지되고 있습니다. 지금 수준을 유지하면서 다른 과목에 시간을 더 배분해도 좋습니다.`;
   }

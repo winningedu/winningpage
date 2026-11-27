@@ -8,7 +8,7 @@ import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
 import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import MembersAdmin from "./MembersAdmin";
 
-export interface HttpMock {
+interface HttpMock {
   get: Mock;
   post: Mock;
   patch: Mock;
@@ -32,7 +32,7 @@ export function routeApi(mock: Mock, routes: Record<string, Route>): void {
   });
 }
 
-export const CONFIG = {
+const CONFIG = {
   title: "회원",
   searchPlaceholder: "검색",
   columns: [],

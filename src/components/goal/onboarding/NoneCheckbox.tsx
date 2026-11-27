@@ -9,7 +9,7 @@ type NoneCheckboxProps = {
   label?: string;
 };
 
-export default function NoneCheckbox({
+function NoneCheckbox({
   checked,
   onChange,
   label = "없음",

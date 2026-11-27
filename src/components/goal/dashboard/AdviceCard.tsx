@@ -14,10 +14,10 @@ import { ymdIn } from "@/lib/time/day";
 // QA 행70, 조언은 기록 제출 때만 생성돼 다음 날 기록 전에는 오늘 행이 없다. 서버가 가장 최근
 // 행을 내려주면 generatedFor가 오늘(KST)이 아닐 때 "10월 28일 조언" 라벨을 붙인다. 조언이 한
 // 번도 없으면(data null) 빈 박스 대신 안내 문구 한 줄을 보여준다(가짜 조언 상수는 쓰지 않는다).
-export type AdviceCardSection = { label: string; body: string };
-export type AdviceCardMajorTip = { department: string; text: string };
+type AdviceCardSection = { label: string; body: string };
+type AdviceCardMajorTip = { department: string; text: string };
 
-export type AdviceCardData = {
+type AdviceCardData = {
   section: AdviceCardSection;
   majorTips: AdviceCardMajorTip[];
 } | null;

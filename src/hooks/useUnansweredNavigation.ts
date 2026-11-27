@@ -18,7 +18,7 @@ type SurveyQuestion = {
 
 const HIGHLIGHT_AUTO_DISMISS_MS = 3000;
 
-export function useUnansweredNavigation(
+function useUnansweredNavigation(
   requiredQuestions: SurveyQuestion[],
   answers: Record<string | number, unknown> | null | undefined,
 ) {

@@ -8,7 +8,7 @@ import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
 import AdminMembersAdmin from "./AdminMembersAdmin";
 import AdminRolesAdmin from "./AdminRolesAdmin";
 
-export interface HttpMock {
+interface HttpMock {
   get: Mock;
   post: Mock;
   patch: Mock;
@@ -36,11 +36,11 @@ export function routeApi(mock: Mock, routes: Record<string, Route>): void {
   });
 }
 
-export const MEMBERS_CONFIG = {
+const MEMBERS_CONFIG = {
   title: "관리자 계정",
   searchPlaceholder: "검색",
 };
-export const ROLES_CONFIG = { title: "권한 관리", searchPlaceholder: "검색" };
+const ROLES_CONFIG = { title: "권한 관리", searchPlaceholder: "검색" };
 
 function renderAt(path: string, element: React.ReactElement, url: string) {
   const router = createMemoryRouter([{ path, element }], {

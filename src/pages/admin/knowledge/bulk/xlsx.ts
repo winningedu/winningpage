@@ -15,7 +15,7 @@ import * as XLSX from "xlsx";
 // 서버 정확 일치와 같은 정규화 규칙을 쓰려고 잎 모듈을 그대로 가져온다.
 import { contentHash } from "../../../../../api/_lib/knowledge/dedupe.js";
 
-export const KNOWLEDGE_BULK_ID_HEADER = "id";
+const KNOWLEDGE_BULK_ID_HEADER = "id";
 const SHEET_NAME = "지식DB";
 
 export type KnowledgeBulkField = {
@@ -65,7 +65,7 @@ export function exportKnowledgeRowsToXlsx(
   return workbook;
 }
 
-export type ParsedKnowledgeRow = {
+type ParsedKnowledgeRow = {
   /** 엑셀 행 번호. 헤더가 1행이라 첫 데이터 행이 2다. */
   rowNo: number;
   id: string | null;
@@ -75,7 +75,7 @@ export type ParsedKnowledgeRow = {
   hash: string;
 };
 
-export type KnowledgeParseError = { rowNo: number; reason: string };
+type KnowledgeParseError = { rowNo: number; reason: string };
 
 export type KnowledgeParseResult = {
   inserts: ParsedKnowledgeRow[];

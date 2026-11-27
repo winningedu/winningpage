@@ -18,7 +18,7 @@ import TeacherDialog, {
   DialogFooter,
 } from "./TeacherDialog";
 
-export const UNISSUED_KEY = ["console", "teachers", "unissued"] as const;
+const UNISSUED_KEY = ["console", "teachers", "unissued"] as const;
 const FAILED_MESSAGE = "계정을 발급하지 못했어요. 잠시 뒤 다시 시도해 주세요";
 
 interface Unissued {

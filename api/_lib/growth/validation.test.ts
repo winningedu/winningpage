@@ -6,7 +6,6 @@ import {
   canRetry,
   collectText,
   findForbiddenPhrases,
-  MAX_MODEL_ATTEMPTS_PER_SESSION,
   MAX_MODEL_ATTEMPTS_PER_STEP,
   type ValidationContext,
   validateStep,
@@ -372,7 +371,6 @@ describe("buildRetryNote / canRetry(No.88, No.89)", () => {
 
   test("단계별 시도 상한 10: 9회까지 허용, 10회부터 거부", () => {
     expect(MAX_MODEL_ATTEMPTS_PER_STEP).toBe(10);
-    expect(MAX_MODEL_ATTEMPTS_PER_SESSION).toBe(MAX_MODEL_ATTEMPTS_PER_STEP);
     expect(canRetry(9)).toBe(true);
     expect(canRetry(10)).toBe(false);
     expect(canRetry(11)).toBe(false);

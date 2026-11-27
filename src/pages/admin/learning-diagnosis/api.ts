@@ -18,8 +18,6 @@ import {
   questionSchema,
 } from "../../../../shared/learning-diagnosis/contract.js";
 
-export type { OptionRow, ProgramRow, QuestionRow };
-
 const BASE = "admin/learning-diagnosis";
 
 const keys = {

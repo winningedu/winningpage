@@ -961,7 +961,7 @@ export function buildNaesinSubjectMetrics(
 }
 
 /** 정시 리포트용 과목 4개 지표. entry 는 mock_exam_scores.records[] 원소 또는 온보딩 고정 회차. */
-export function buildJeongsiSubjectMetrics(
+function buildJeongsiSubjectMetrics(
   student: GoalStudentRow,
   entry: GoalScoreEntry | null | undefined,
 ): {
@@ -995,7 +995,7 @@ export function buildJeongsiSubjectMetrics(
  * 정시 "종합 백분위" — 4과목 단순 평균(frozen calcJeongsiCompositeFE 는 영어 감점 등 온보딩 base
  * 확률 산출 전용 파이프라인이라 이 표시용 요약에는 재사용하지 않는다, 판단 지점).
  */
-export function computeJeongsiComposite(
+function computeJeongsiComposite(
   entry: GoalScoreEntry | null | undefined,
 ): number {
   const hasSubjects = entry?.subjects && typeof entry.subjects === "object";

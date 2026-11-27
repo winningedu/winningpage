@@ -6,7 +6,7 @@ import { STEP_LABELS } from "./stepLabels";
 
 // 리포트 생성 화면의 표시 규칙(순수). 훅 상태를 문구와 배지로 바꾼다.
 
-export const MAX_ATTEMPTS = 10;
+const MAX_ATTEMPTS = 10;
 export const PRICING_PATH = "/pricing?service=growth";
 
 export type StepBadge = "완료" | "진행 중" | "대기" | "실패";

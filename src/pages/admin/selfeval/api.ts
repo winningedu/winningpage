@@ -19,8 +19,6 @@ import {
   selfevalSessionsRequestParams,
 } from "./query";
 
-export type { SelfevalSessionsPage };
-
 export const selfevalKeys = {
   all: ["admin", "selfeval-sessions"] as const,
   lists: () => [...selfevalKeys.all, "list"] as const,

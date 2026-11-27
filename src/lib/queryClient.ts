@@ -38,7 +38,7 @@ export const queryClient = new QueryClient({
 /** entitlement queryFn이 판정 불가(allowed===null) 상태를 캐싱하지 않도록 던지는
  * 전용 에러 — 리뷰 CRITICAL/H2 대응. 성공 데이터로 캐싱되면 서버 장애 중인
  * 결제 사용자가 최대 staleTime만큼 "판정 불가"를 그대로 재사용받을 위험이 있다. */
-export class EntitlementCheckFailedError extends Error {
+class EntitlementCheckFailedError extends Error {
   constructor() {
     super("entitlement-check-failed");
     this.name = "EntitlementCheckFailedError";
@@ -48,7 +48,7 @@ export class EntitlementCheckFailedError extends Error {
 /** goalStudent queryFn이 kind:'error'(판정 불가) 상태를 캐싱하지 않도록 던지는
  * 전용 에러 — EntitlementCheckFailedError와 동일한 이유. kind:'no-session'/
  * 'not-allowed'는 정상 판정이라 여기 해당하지 않는다(그대로 캐싱). */
-export class GoalStudentCheckFailedError extends Error {
+class GoalStudentCheckFailedError extends Error {
   constructor() {
     super("goal-student-check-failed");
     this.name = "GoalStudentCheckFailedError";

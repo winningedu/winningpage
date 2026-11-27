@@ -11,7 +11,7 @@ const TABLE = "learning_diagnosis_v2_survey_copy";
 type SurveyCopyRow = { copy_key: string; copy_value: string };
 
 /** 조회 실패·0행이면 빈 Map — 호출부는 오버라이드 0건으로 취급해 원본 그대로 렌더한다. */
-export async function fetchSurveyCopyOverrides(): Promise<Map<string, string>> {
+async function fetchSurveyCopyOverrides(): Promise<Map<string, string>> {
   const { data, error } = await supabase
     .from(TABLE)
     .select("copy_key, copy_value");
@@ -29,7 +29,7 @@ export async function fetchSurveyCopyOverrides(): Promise<Map<string, string>> {
  * 옵션 라벨을 오버라이드하면서 exclusiveCodes 를 경유해 함께 재계산한다 — 안 하면 q10/q12 의
  * "특별히 큰 어려움은 없어요" 류 배타 선택지가 문구 수정 한 번에 조용히 깨진다.
  */
-export function applySurveyCopyOverrides<T extends { id: string }>(
+function applySurveyCopyOverrides<T extends { id: string }>(
   questions: T[],
   overrideMap: Map<string, string> | null | undefined,
 ): T[] {

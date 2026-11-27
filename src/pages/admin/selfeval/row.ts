@@ -4,10 +4,10 @@ import type {
   SelfevalSessionItem,
 } from "../../../../shared/selfeval-session/contract.js";
 
-export type { SelfevalSessionDetail, SelfevalSessionItem };
+export type { SelfevalSessionItem };
 export type SelfevalTerminal = NonNullable<SelfevalSessionItem["terminal"]>;
 
-export const SELFEVAL_STEP_COUNT = 6;
+const SELFEVAL_STEP_COUNT = 6;
 
 export const SELFEVAL_STATUS_OPTIONS = [
   "draft",

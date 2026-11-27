@@ -26,7 +26,7 @@ import { STEP_COUNT } from "./stepLabels";
 //   failed   --retry--> running(같은 단계)
 //   failed, idle --sync--> 목록의 open.progress 로 진행 갱신(크론이 이어갔을 수 있다)
 
-export type GenerationPhase =
+type GenerationPhase =
   | "idle"
   | "running"
   | "waiting"
@@ -60,10 +60,10 @@ export type GenerationEngineDeps = {
   onState: (state: GenerationState) => void;
 };
 
-export const RUNNING_RETRY_MS = 3000;
-export const RUNNING_RETRY_LIMIT = 20;
-export const SUPERSEDED_WAIT_MS = 1000;
-export const ORDER_RETRY_LIMIT = 3;
+const RUNNING_RETRY_MS = 3000;
+const RUNNING_RETRY_LIMIT = 20;
+const SUPERSEDED_WAIT_MS = 1000;
+const ORDER_RETRY_LIMIT = 3;
 
 export function firstPendingStep(progress: StepProgress[]): number | null {
   for (let step = 1; step <= STEP_COUNT; step++) {

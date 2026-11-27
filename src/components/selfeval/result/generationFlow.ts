@@ -12,7 +12,7 @@ import { parseTenantReason, type TenantBlockReason } from "@/lib/tenantBlock";
 //   running --모델 실패, STEP_ORDER, 타임아웃, 네트워크, 그 밖--> failed
 //   failed  --retry--> running
 
-export type FlowPhase =
+type FlowPhase =
   | "idle"
   | "running"
   | "waiting"

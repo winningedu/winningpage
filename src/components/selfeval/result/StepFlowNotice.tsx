@@ -18,7 +18,7 @@ import type { FlowState } from "./generationFlow";
 // 모델 단계(분석, 생성, 검증)의 진행 중, 실패, 종결, 한도 안내 카드(시안 35, 51).
 // 세 화면이 같은 상태 머신을 쓰므로 문구만 kind 로 갈라 한 곳에서 그린다.
 
-export type FlowKind = "analysis" | "write" | "verify";
+type FlowKind = "analysis" | "write" | "verify";
 
 const RUNNING_TEXT: Record<FlowKind, string> = {
   analysis: "11개 항목으로 정리하는 중",

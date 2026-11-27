@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 // 모두 그대로 이식) — 다른 점은 side banner/university 조회와 묶여 있던 단일 Promise.all에서
 // 분리되어 독립 effect로 fetch된다는 것뿐(둘 다 마운트 시 1회 fetch라 체감 타이밍은 동일).
 
-export type MentorPhotoLayout = {
+type MentorPhotoLayout = {
   top: number;
   left: number;
   width: number;
@@ -16,7 +16,7 @@ export type MentorPhotoLayout = {
   crop?: { top: string; height: string };
 };
 
-export type MentorRow = {
+type MentorRow = {
   id: string | number;
   mentor_name?: string;
   badge?: string;
@@ -34,7 +34,7 @@ export type NormalizedMentor = MentorRow & {
 };
 
 // title_lines가 문자열(JSON)로 오는 경우 방어 파싱 — 실패/비배열이면 null(카드 미노출 유도)
-export function normalizeMentorRow(row: MentorRow): NormalizedMentor {
+function normalizeMentorRow(row: MentorRow): NormalizedMentor {
   let titleLines = row.title_lines;
   if (typeof titleLines === "string") {
     try {

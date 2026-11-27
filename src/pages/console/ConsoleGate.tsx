@@ -14,7 +14,7 @@ import {
   useConsoleMeQuery,
 } from "./useConsoleMe";
 
-export const FIRST_PASSWORD_PATH = "/teacher/first-password";
+const FIRST_PASSWORD_PATH = "/teacher/first-password";
 export const PROXY_SELECT_PATH = "/teacher/proxy";
 
 function GateMessage({

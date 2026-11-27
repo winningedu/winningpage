@@ -63,7 +63,7 @@ export function toMyMenuRole(kind: string): MyMenuRole {
 }
 
 // Header.tsx가 profile에서 MY 메뉴 역할을 정하는 규칙.
-export function resolveMyMenuRole(input: {
+function resolveMyMenuRole(input: {
   role?: string | null;
   memberType?: string | null;
 }): MyMenuRole {

@@ -73,7 +73,7 @@ function resolveConstraint(
 // cascadeLevels: q15(cascade 타입) 전용 fetch 상태(options/loading/error) — SurveyStepShell 의
 // useAdmissionCascade 가 소유하고 여기를 거쳐 AnswerField 로 내려간다(B-1 확정). 다른 문항 타입은
 // 이 prop 을 받지 않는다 — AnswerField 가 question.type === 'cascade' 일 때만 소비한다.
-export default function QuestionCardList({
+function QuestionCardList({
   questions,
   answers,
   onAnswer,

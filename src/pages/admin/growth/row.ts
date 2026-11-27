@@ -3,9 +3,9 @@ import type { GrowthReport } from "../../../../shared/growth-report/contract.js"
 
 export type GrowthReportItem = GrowthReport;
 export type GrowthReportTerminal = NonNullable<GrowthReport["terminal"]>;
-export type GrowthReportProgress = GrowthReport["progress"][number];
+type GrowthReportProgress = GrowthReport["progress"][number];
 
-export const GROWTH_STEP_COUNT = 8;
+const GROWTH_STEP_COUNT = 8;
 
 export const GROWTH_STATUS_OPTIONS = [
   "draft",

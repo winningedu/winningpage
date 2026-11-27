@@ -28,7 +28,7 @@ type SubjectChipProps = {
   className?: string;
 };
 
-export default function SubjectChip({
+function SubjectChip({
   label,
   size = "md",
   color = "etc",
@@ -45,3 +45,5 @@ export default function SubjectChip({
     </span>
   );
 }
+
+export {};

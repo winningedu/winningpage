@@ -2,7 +2,7 @@
 import { FIT_LABELS } from "@/lib/inquiry/labels";
 import type { DesignView, SectionGroup, SectionId } from "@/lib/inquiry/types";
 
-export const GROUP_LABELS: Record<SectionGroup, string> = {
+const GROUP_LABELS: Record<SectionGroup, string> = {
   intro: "서론",
   body: "본론",
   conclusion: "결론",
@@ -18,7 +18,7 @@ export const SOURCE_TABLE_NOTE =
 export const SCORE_FORMULA =
   "항목 점수 = 배점 × 수준(0~4) ÷ 4. 서비스 내부 기준이에요";
 
-export const GUIDANCE_ONLY_META = "작성 지침, 점수 미반영";
+const GUIDANCE_ONLY_META = "작성 지침, 점수 미반영";
 
 export function lengthText(recommendedChars: number | null): string {
   return recommendedChars === null
@@ -26,7 +26,7 @@ export function lengthText(recommendedChars: number | null): string {
     : `권장 ${recommendedChars}자 이상`;
 }
 
-export type SectionCard = {
+type SectionCard = {
   id: SectionId;
   numeral: string;
   title: string;

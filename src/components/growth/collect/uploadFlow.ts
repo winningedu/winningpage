@@ -11,7 +11,7 @@ import type {
 
 // 서버 ALLOWED_UPLOAD_MIME, MAX_UPLOAD_BYTES(api/_lib/growth/intake/extraction.ts)와 같아야 한다.
 // api/ 는 클라이언트 번들과 분리돼 import 하지 못해 복제한다. 사전 검사는 UX 용이고 강제는 서버 몫이다.
-export const ALLOWED_MIME_TYPES = [
+const ALLOWED_MIME_TYPES = [
   "application/pdf",
   "image/png",
   "image/jpeg",
@@ -19,11 +19,10 @@ export const ALLOWED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ] as const;
 export const ACCEPT_ATTRIBUTE = ".pdf,.png,.jpg,.jpeg,.txt,.docx";
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export const LIMIT_MESSAGE = "이 학기에는 파일을 10개까지 올릴 수 있어요";
-export const EXTRACT_FAILED_MESSAGE =
-  "글자를 읽지 못했어요. 직접 입력에 적어 주세요";
+const EXTRACT_FAILED_MESSAGE = "글자를 읽지 못했어요. 직접 입력에 적어 주세요";
 const UPLOAD_FAILED_MESSAGE =
   "파일을 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.";
 const TIMEOUT_MESSAGE =

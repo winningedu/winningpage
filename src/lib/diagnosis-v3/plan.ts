@@ -17,7 +17,7 @@ import type {
   ScheduleEvent,
 } from "./types.js";
 
-export type ExamOps = DiagnosisV3Scores["examOps"];
+type ExamOps = DiagnosisV3Scores["examOps"];
 export type Plan = DiagnosisV3Scores["plan"];
 type Week = PlanTask["week"];
 
@@ -125,7 +125,7 @@ const [EXAMOPS_MIN_GAP, EXAMOPS_BEFORE, EXAMOPS_DEFAULT_DAY] = match(
 const DAY_MS = 86_400_000;
 
 /** Day number of a date, Day 1 = diagnosedAt. */
-export function dayOfDate(diagnosedAt: IsoDate, date: IsoDate): number {
+function dayOfDate(diagnosedAt: IsoDate, date: IsoDate): number {
   const diff =
     Date.parse(`${date}T00:00:00Z`) - Date.parse(`${diagnosedAt}T00:00:00Z`);
   return Math.round(diff / DAY_MS) + 1;
@@ -314,7 +314,7 @@ export function formatDue(date: IsoDate): string {
 const LOG_MINUTES = Number(match(planCell(30), /^(\d+)분$/)[1]);
 
 // 21 C31: target run rate per week, "1주 50%"
-export const RATES: readonly number[] = [
+const RATES: readonly number[] = [
   ...planCell(31).matchAll(/(\d)주 (\d+)%/g),
 ].map((m) => Number(m[2]));
 

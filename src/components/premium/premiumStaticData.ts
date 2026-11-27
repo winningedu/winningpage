@@ -40,7 +40,7 @@ export type PremiumAchievement = {
   count: number;
 };
 
-export type PremiumMentorPhoto = {
+type PremiumMentorPhoto = {
   top: number;
   left: number;
   width: number;

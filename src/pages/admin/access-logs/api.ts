@@ -9,11 +9,7 @@ import {
   accessLogPageSchema,
 } from "../../../../shared/access-log/contract.js";
 
-export type {
-  AccessLogEntry,
-  AccessLogKind,
-  AccessLogPage,
-} from "../../../../shared/access-log/contract.js";
+export type { AccessLogEntry } from "../../../../shared/access-log/contract.js";
 
 export interface AccessLogFilter {
   tenantCode: string;

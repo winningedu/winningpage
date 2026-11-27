@@ -12,7 +12,7 @@ type StepperRowProps = {
   step?: number;
 };
 
-export default function StepperRow({
+function StepperRow({
   label,
   value,
   unit,
@@ -55,3 +55,5 @@ export default function StepperRow({
     </div>
   );
 }
+
+export {};

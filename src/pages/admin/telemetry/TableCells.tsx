@@ -19,7 +19,7 @@ export function Th({
   );
 }
 
-export function Td({
+function Td({
   children,
   className,
 }: {

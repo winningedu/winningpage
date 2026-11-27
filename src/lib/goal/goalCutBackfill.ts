@@ -334,7 +334,7 @@ export interface GoalJungsiBackfillSourceRow {
 // goal_university_cuts upsert payload — cut_type이 항상 'jungsi'인 것만 다르고
 // 나머지 7개 키는 GoalCutBackfillPayload와 동일한 규약(§ computeGoalCutBackfill
 // 머리말 "정확히 8개 키" 주석과 동일한 이유).
-export interface GoalJungsiCutBackfillPayload {
+interface GoalJungsiCutBackfillPayload {
   cut_type: "jungsi";
   university_key: string;
   university_name: string;
@@ -345,7 +345,7 @@ export interface GoalJungsiCutBackfillPayload {
   source_year: number;
 }
 
-export interface GoalJungsiCutBackfillStats {
+interface GoalJungsiCutBackfillStats {
   universityCount: number;
   pairCount: number;
   totalRows: number;
