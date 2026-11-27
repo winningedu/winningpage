@@ -36,6 +36,7 @@ import { toast } from "@/components/ui/toast";
 import { AdminSectionRoute } from "./Admin";
 import { TestQueryProvider } from "./admin/engine/testQuery";
 import { ConfirmAdminHost } from "./admin/shared/confirmAdmin";
+import { SectionEditAccessProvider } from "./admin/shared/sectionEditAccess";
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -56,7 +57,9 @@ function renderPopups() {
   return render(
     <TestQueryProvider>
       <MemoryRouter initialEntries={["/admin/popups"]}>
-        <AdminSectionRoute section="popups" />
+        <SectionEditAccessProvider value={true}>
+          <AdminSectionRoute section="popups" />
+        </SectionEditAccessProvider>
         <ConfirmAdminHost />
       </MemoryRouter>
     </TestQueryProvider>,

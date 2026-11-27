@@ -1843,7 +1843,8 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                     {column.render ? (
                       column.render(row)
                     ) : column.type === "universityNameMeta" &&
-                      onOpenMetaEdit ? (
+                      onOpenMetaEdit &&
+                      !config.readOnly ? (
                       <button
                         type="button"
                         onClick={() => onOpenMetaEdit(row)}
@@ -1999,7 +2000,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                           고치는 경량 모달(AdmissionMetaEditModal) 진입점.
                           admissionGuidelines 1개 메뉴에만 켠다 — hideRowEdit과
                           같은 "공용 렌더 + config 스위치" 패턴. */}
-                    {config.showMetaEdit && (
+                    {config.showMetaEdit && !config.readOnly && (
                       <button
                         type="button"
                         onClick={() => onOpenMetaEdit?.(row)}
@@ -2024,7 +2025,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                       </button>
                     )}
 
-                    {config.knowledgeReview && (
+                    {config.knowledgeReview && !config.readOnly && (
                       <button
                         type="button"
                         onClick={() => onMarkReviewed?.(row)}
@@ -2035,7 +2036,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                       </button>
                     )}
 
-                    {activeKey === "refundRequests" && (
+                    {activeKey === "refundRequests" && !config.readOnly && (
                       <button
                         type="button"
                         onClick={() => onCompleteRefund?.(row)}
