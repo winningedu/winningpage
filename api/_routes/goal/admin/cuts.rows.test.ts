@@ -1,29 +1,33 @@
 // GET /api/goal/admin/cuts/rows 계약 검증.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { seedAdmin } from "../../../../_lib/admin-sections/sectionTestKit.js";
+import { cutsRowsResponse } from "../../../../shared/goal/admin-cuts.js";
+import { seedAdmin } from "../../../_lib/admin-sections/sectionTestKit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../../_lib/console/consoleTestKit.js";
 import {
   type CutsDb,
   createCutsAdmin,
   createCutsDb,
-} from "../../../../_lib/goal/cutsTestKit.js";
+} from "../../../_lib/goal/cutsTestKit.js";
+import { callHandler } from "../../../_lib/tenantRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   db: null as unknown as CutsDb,
 }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createCutsAdmin(kit.state, kit.db),
 }));
 
-import handler from "./rows.js";
+import { app } from "../../app.js";
+
+const handler = { app, path: "/api/goal/admin/cuts/rows" };
 
 const MENU = "goalUniversityCuts";
 const call = (query: Record<string, string> = {}) =>
@@ -54,6 +58,7 @@ describe("GET /api/goal/admin/cuts/rows", () => {
   test("id 오름차순으로 화면이 읽던 아홉 컬럼만 돌려준다(비활성 행 포함)", async () => {
     seedAdmin(kit.state, "view", MENU);
     const r = await call();
+    expect(() => cutsRowsResponse.parse(r.body)).not.toThrow();
     expect(r.status).toBe(200);
     const body = r.body as { items: { id: number }[]; next: number | null };
     expect(body.items.map((row) => row.id)).toEqual([1, 2, 3]);

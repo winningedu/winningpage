@@ -21,50 +21,42 @@
 //   405                           POST 아님.
 //   500                           RPC 실패, 서버 설정 누락 등.
 //
-// createSupabaseAdmin() 설정 오류(500) 문구는 defineHandler(api/_lib/handler.ts)
-// 최상위 catch가 식별해 "서버 설정이 올바르지 않습니다."로 복원한다 — 라우트별
-// unhandledMessage로 뭉개지던 문제는 batch-8에서 해소됐다.
-//
-// goal-admin 앱의 리셋 버튼 UI는 이번 범위 밖이다(PR #63, 이 브랜치엔 미포함) —
-// 이 엔드포인트는 백엔드만 완성한다.
+// goal-admin 앱의 리셋 버튼 UI 는 GoalStudentsAdmin 이 이 엔드포인트를 부른다.
 
-import { z } from "zod";
-import { defineHandler } from "../../../_lib/handler.js";
-import { sendError } from "../../../_lib/httpResponse.js";
+import { resetStudentBody } from "../../../../shared/goal/admin-students.js";
+import { PROBLEM_CODE } from "../../../../shared/http/codes.js";
+import { admin } from "../../../_lib/hono/admin.js";
+import { adminFactory } from "../../../_lib/hono/factory.js";
+import { methodNotAllowed, ProblemError } from "../../../_lib/hono/problem.js";
+import { validate } from "../../../_lib/hono/validate.js";
 
-export const config = { runtime: "nodejs" };
-
-export default defineHandler({
-  methods: ["POST"],
-  auth: "admin",
-  errorShape: "problem",
+const guard = admin({
   permission: { key: "goalStudents" },
-  body: z.object({ profileId: z.string().uuid() }),
   // 기존 학생 기록을 되돌리는 리셋이라 수정으로 남긴다.
   audit: { action: "update" },
   unhandledMessage: "처리 중 오류가 발생했습니다.",
   logLabel: "goal/admin/reset-student",
-  handler: async (_req, res, ctx) => {
-    const { error } = await ctx.supabaseAdmin.rpc("fn_goal_reset_student", {
-      p_profile_id: ctx.body.profileId,
+});
+
+export const resetStudent = adminFactory
+  .createApp()
+  .post("/", guard, validate("json", resetStudentBody), async (c) => {
+    const { error } = await c.var.supabaseAdmin.rpc("fn_goal_reset_student", {
+      p_profile_id: c.req.valid("json").profileId,
     });
 
     if (error) {
       if (String(error.message || "").includes("goal_student_not_found")) {
-        sendError(
-          res,
-          "problem",
+        throw new ProblemError(
           404,
           "해당 학생을 찾을 수 없습니다.",
-          "NOT_FOUND",
+          PROBLEM_CODE.NOT_FOUND,
         );
-        return;
       }
       console.error("goal/admin/reset-student RPC 오류:", error);
-      sendError(res, "problem", 500, "리셋 처리에 실패했습니다.");
-      return;
+      throw new ProblemError(500, "리셋 처리에 실패했습니다.", undefined);
     }
 
-    res.status(204).end();
-  },
-});
+    return c.body(null, 204);
+  })
+  .all("/", methodNotAllowed("POST"));

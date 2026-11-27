@@ -1,30 +1,37 @@
 // GET, POST /api/goal/admin/cuts/backfill 계약 검증.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { seedAdmin } from "../../../../_lib/admin-sections/sectionTestKit.js";
 import {
-  callHandler,
+  backfillApplyResponse,
+  backfillPreviewResponse,
+} from "../../../../shared/goal/admin-cuts.js";
+import { seedAdmin } from "../../../_lib/admin-sections/sectionTestKit.js";
+import {
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../../_lib/console/consoleTestKit.js";
 import {
   type CutsCall,
   type CutsDb,
   createCutsAdmin,
   createCutsDb,
-} from "../../../../_lib/goal/cutsTestKit.js";
+} from "../../../_lib/goal/cutsTestKit.js";
+import { callHandler } from "../../../_lib/tenantRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   db: null as unknown as CutsDb,
 }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createCutsAdmin(kit.state, kit.db),
 }));
 
-import handler from "./backfill.js";
+import { app } from "../../app.js";
+
+const handler = { app, path: "/api/goal/admin/cuts/backfill" };
 
 const MENU = "goalUniversityCuts";
 const preview = (query: Record<string, string> = {}) =>
@@ -135,6 +142,7 @@ describe("GET /api/goal/admin/cuts/backfill", () => {
   test("보존 모드 미리보기: 산출, 겹침, 보존, name 축 충돌, 고아를 센다", async () => {
     seedAdmin(kit.state, "view", MENU);
     const r = await preview();
+    expect(() => backfillPreviewResponse.parse(r.body)).not.toThrow();
     expect(r.status).toBe(200);
     const body = r.body as {
       sourceRowCount: number;
@@ -220,6 +228,7 @@ describe("POST /api/goal/admin/cuts/backfill", () => {
   test("미리보기와 같으면 8개 키로 upsert 하고 보존, name 축 충돌 행은 빼며 고아는 끄기만 한다", async () => {
     seedAdmin(kit.state, "edit", MENU);
     const r = await apply(goodBody);
+    expect(() => backfillApplyResponse.parse(r.body)).not.toThrow();
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ applied: 6, deactivated: 2 });
 

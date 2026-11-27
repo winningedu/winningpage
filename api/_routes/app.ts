@@ -3,8 +3,10 @@
 
 import { createRootApp } from "../_lib/hono/root.js";
 import { admin } from "./admin/app.js";
+import { goal } from "./goal/app.js";
 import { selfeval } from "./selfeval/app.js";
 
 export const app = createRootApp()
   .route("/api/admin", admin)
+  .route("/api/goal", goal)
   .route("/api/selfeval", selfeval);

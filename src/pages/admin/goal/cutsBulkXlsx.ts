@@ -34,7 +34,10 @@
 import * as XLSX from "xlsx";
 
 import { clean } from "@/lib/admissionParsing.js";
-import { type CutType, GOAL_CUT_RANGE } from "@/lib/goal/cutRange";
+import {
+  type CutType,
+  GOAL_CUT_RANGE,
+} from "../../../../shared/goal/cutRange.js";
 
 // 기존 import 경로(configs/goal.ts 등)를 그대로 쓰도록 다시 내보낸다.
 export { GOAL_CUT_RANGE };

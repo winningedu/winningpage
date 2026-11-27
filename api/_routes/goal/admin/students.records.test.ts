@@ -2,33 +2,40 @@
 // 구 RLS: goal_daily_records 는 is_winning_admin() 읽기만 있었다(goal_daily_records_admin_select).
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { seedAdmin } from "../../../../../_lib/admin-sections/sectionTestKit.js";
+import { goalRecordsResponse } from "../../../../shared/goal/admin-students.js";
+import { seedAdmin } from "../../../_lib/admin-sections/sectionTestKit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
-} from "../../../../../_lib/console/consoleTestKit.js";
+} from "../../../_lib/console/consoleTestKit.js";
 import {
   createGoalAdmin,
   createGoalDb,
   type GoalDb,
-} from "../../../../../_lib/goal/adminStudentsTestKit.js";
+} from "../../../_lib/goal/adminStudentsTestKit.js";
+import { callHandler } from "../../../_lib/tenantRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   db: null as unknown as GoalDb,
 }));
 
-vi.mock("../../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createGoalAdmin(kit.state, kit.db),
 }));
 
-import handler from "./records.js";
+import { app } from "../../app.js";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const get = (query: Record<string, string> = {}) =>
-  callHandler(handler, undefined, "GET", { id: ID, ...query });
+  callHandler(
+    { app, path: "/api/goal/admin/students/:id/records" },
+    undefined,
+    "GET",
+    { id: ID, ...query },
+  );
 
 beforeEach(() => {
   kit.state = createKitState();
@@ -48,6 +55,7 @@ beforeEach(() => {
 describe("GET /api/goal/admin/students/:id/records", () => {
   test("limit 을 생략하면 30건, record_index 내림차순, total 은 전체 건수", async () => {
     const r = await get();
+    expect(() => goalRecordsResponse.parse(r.body)).not.toThrow();
     expect(r.status).toBe(200);
     const body = r.body as { items: { record_index: number }[]; total: number };
     expect(body.total).toBe(45);

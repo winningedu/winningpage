@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { seedAdmin } from "../../../_lib/admin-sections/sectionTestKit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
 } from "../../../_lib/console/consoleTestKit.js";
@@ -13,6 +12,7 @@ import {
   createGoalDb,
   type GoalDb,
 } from "../../../_lib/goal/adminStudentsTestKit.js";
+import { callHandler } from "../../../_lib/tenantRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
@@ -20,11 +20,14 @@ const kit = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createGoalAdmin(kit.state, kit.db),
 }));
 
-import handler from "./reset-student.js";
+import { app } from "../../app.js";
+
+const handler = { app, path: "/api/goal/admin/reset-student" };
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const post = (body: unknown) => callHandler(handler, body, "POST");

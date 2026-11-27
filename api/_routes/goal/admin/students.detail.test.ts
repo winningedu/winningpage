@@ -2,32 +2,39 @@
 // goal_probability_logs 와 슬롯별 현재 컷을 돌려준다. 읽기 전용(구 RLS 에 쓰기 정책 없음).
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { seedAdmin } from "../../../../_lib/admin-sections/sectionTestKit.js";
+import { goalStudentDetailResponse } from "../../../../shared/goal/admin-students.js";
+import { seedAdmin } from "../../../_lib/admin-sections/sectionTestKit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
-} from "../../../../_lib/console/consoleTestKit.js";
+} from "../../../_lib/console/consoleTestKit.js";
 import {
   createGoalAdmin,
   createGoalDb,
   type GoalDb,
-} from "../../../../_lib/goal/adminStudentsTestKit.js";
+} from "../../../_lib/goal/adminStudentsTestKit.js";
+import { callHandler } from "../../../_lib/tenantRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   db: null as unknown as GoalDb,
 }));
 
-vi.mock("../../../../_lib/supabaseAdmin.js", () => ({
+vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createGoalAdmin(kit.state, kit.db),
 }));
 
-import handler from "./[id].js";
+import { app } from "../../app.js";
+
+const one = (id: string) => ({
+  app,
+  path: `/api/goal/admin/students/${id}`,
+});
 
 const ID = "11111111-1111-4111-8111-111111111111";
-const get = (id: string = ID) => callHandler(handler, undefined, "GET", { id });
+const get = (id: string = ID) => callHandler(one(id), undefined, "GET");
 
 const student = {
   profile_id: ID,
@@ -78,6 +85,7 @@ beforeEach(() => {
 describe("GET /api/goal/admin/students/:id", () => {
   test("학생, 상태, 프로필, 로그(오름차순)를 돌려준다", async () => {
     const r = await get();
+    expect(() => goalStudentDetailResponse.parse(r.body)).not.toThrow();
     expect(r.status).toBe(200);
     const body = r.body as Record<string, unknown>;
     expect(body.student).toEqual(student);
@@ -145,7 +153,7 @@ describe("GET /api/goal/admin/students/:id", () => {
   });
 
   test("GET 외 메서드는 405", async () => {
-    const r = await callHandler(handler, {}, "POST", { id: ID });
+    const r = await callHandler(one(ID), {}, "POST");
     expect(r.status).toBe(405);
   });
 });

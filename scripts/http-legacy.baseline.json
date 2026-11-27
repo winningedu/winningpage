@@ -349,36 +349,6 @@
     "okSuccess": 2,
     "legacyHandler": 1
   },
-  "api/_routes/goal/admin/cuts/backfill.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/cuts/bulk.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/cuts/jungsi-missing.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/cuts/rows.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/cuts/summary.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/resend-report.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/reset-student.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/students.ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/students/[id].ts": {
-    "legacyHandler": 1
-  },
-  "api/_routes/goal/admin/students/[id]/records.ts": {
-    "legacyHandler": 1
-  },
   "api/_routes/goal/advice.ts": {
     "legacyError": 7,
     "outsideHandler": 1,

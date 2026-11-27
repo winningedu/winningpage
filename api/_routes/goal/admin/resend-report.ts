@@ -23,7 +23,11 @@
 // [studentProfileId] 하나로 넘기면 그 학생 한 명분만 조회한다(기록이 없어도
 // 항목은 만들어진다 — "기록이 없어도 재발송 허용" 요구사항).
 
-import { z } from "zod";
+import {
+  type ResendReportResult,
+  resendReportBody,
+} from "../../../../shared/goal/admin-students.js";
+import { PROBLEM_CODE } from "../../../../shared/http/codes.js";
 import {
   diffDaysYMD,
   getMondayYMD,
@@ -46,11 +50,11 @@ import {
   sendMonthlyReport,
   sendWeeklyReport,
 } from "../../../_lib/goal/reportSend.js";
-import { defineHandler } from "../../../_lib/handler.js";
-import { sendError } from "../../../_lib/httpResponse.js";
+import { admin } from "../../../_lib/hono/admin.js";
+import { adminFactory } from "../../../_lib/hono/factory.js";
+import { methodNotAllowed, ProblemError } from "../../../_lib/hono/problem.js";
+import { validate } from "../../../_lib/hono/validate.js";
 import { maskPhone } from "../../../_lib/phoneCode.js";
-
-export const config = { runtime: "nodejs" };
 
 export type ResendKind = "daily" | "weekly" | "monthly";
 
@@ -145,17 +149,7 @@ export function validateResendPeriod(
   return { ok: true, startYmd };
 }
 
-export type ResendReportResponse = {
-  sent: number;
-  failed: number;
-  skipped: number;
-  recipients: Array<{
-    parentProfileId: string;
-    phone: string;
-    status: "sent" | "failed" | "skipped";
-    reason?: string;
-  }>;
-};
+export type ResendReportResponse = ResendReportResult;
 
 /** sendXFor 결과 → 응답 규격. 전화번호는 여기서 마스킹한다(원본을 응답에 싣지 않는다). */
 export function buildResendResponse(
@@ -181,22 +175,17 @@ export function buildResendResponse(
   return { sent, failed, skipped, recipients };
 }
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "admin",
-  errorShape: "problem",
+const guard = admin({
   permission: { key: "goalStudents" },
-  // kind, periodKey 는 validateResendPeriod 가 한글 사유와 함께 검증한다(형식과 2주 규칙이 한 곳에 있다).
-  body: z.object({
-    studentProfileId: z.string().min(1),
-    kind: z.unknown(),
-    periodKey: z.unknown(),
-  }),
   unhandledMessage: "리포트 알림톡 재발송 중 오류가 발생했습니다.",
   logLabel: "goal/admin/resend-report",
-  handler: async (_req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const { studentProfileId, kind, periodKey } = ctx.body;
+});
+
+export const resendReport = adminFactory
+  .createApp()
+  .post("/", guard, validate("json", resendReportBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const { studentProfileId, kind, periodKey } = c.req.valid("json");
 
     // 발송 시각과 "오늘"은 리포트를 받는 학생의 시간대 기준이다.
     const { data: studentRow, error: studentError } = await supabaseAdmin
@@ -208,12 +197,10 @@ export default defineHandler({
       throw new Error(`학생 시간대 조회 실패: ${studentError.message}`);
     }
     if (!studentRow) {
-      return void sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         404,
         "학생을 찾을 수 없습니다.",
-        "NOT_FOUND",
+        PROBLEM_CODE.NOT_FOUND,
       );
     }
 
@@ -224,12 +211,10 @@ export default defineHandler({
       new Date(),
     );
     if (!validation.ok) {
-      return void sendError(
-        res,
-        "problem",
+      throw new ProblemError(
         400,
         validation.detail,
-        "VALIDATION_FAILED",
+        PROBLEM_CODE.VALIDATION_FAILED,
       );
     }
 
@@ -280,6 +265,6 @@ export default defineHandler({
       });
     }
 
-    return void res.status(200).json(buildResendResponse(result));
-  },
-});
+    return c.json(buildResendResponse(result));
+  })
+  .all("/", methodNotAllowed("POST"));
