@@ -253,6 +253,37 @@ async function handleSelect(
   });
 }
 
+async function handleManual(
+  c: Context<UserEnv>,
+  db: Db,
+  userId: string,
+  session: SessionRow,
+  input: Extract<PickBody, { action: "manual" }>["input"],
+) {
+  const activityRecordId = await insertManualActivity(
+    db,
+    manualToRecordInsert(input, userId),
+  );
+  await replaceSessionActivities(db, userId, session.id, [
+    manualSelectionRow(
+      session.id,
+      userId,
+      activityRecordId,
+      manualToAnalysis(input),
+    ),
+  ]);
+  const step = nextStepAfterManualPick(session.current_step);
+  await updateSession(db, userId, session.id, {
+    current_step: step,
+    last_activity_at: new Date().toISOString(),
+  });
+  return c.json({
+    activityRecordId,
+    selection: { coreId: activityRecordId, supportIds: [] },
+    currentStep: step,
+  });
+}
+
 async function handleLinkEdit(
   c: Context<UserEnv>,
   db: Db,
@@ -341,6 +372,13 @@ export const pickRecords = userFactory
   .post("/", guard, validate("json", pickBody), async (c) => {
     const body: PickBody = c.req.valid("json");
     const { supabaseAdmin: db, user: me } = c.var;
+    // 직접 입력의 필수 항목은 도메인 규칙이라 이용권과 세션을 보기 전에 거른다.
+    if (body.action === "manual") {
+      const checked = validateManualInput(body.input);
+      if (!checked.ok) {
+        throw selfevalProblem(400, checked.code, checked.message);
+      }
+    }
     const access = await readSelfevalAccess(db, me.id);
     if (!access.allowed) {
       throw selfevalProblem(
@@ -369,6 +407,6 @@ export const pickRecords = userFactory
     ) {
       return handleLinkEdit(c, db, me.id, session, body);
     }
-    throw new Error(`아직 옮기지 않은 action: ${body.action}`);
+    return handleManual(c, db, me.id, session, body.input);
   })
   .all("/", methodNotAllowed("POST"));

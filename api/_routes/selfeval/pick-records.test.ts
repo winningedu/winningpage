@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   pickLinkResponseSchema,
   pickListResponseSchema,
+  pickManualResponseSchema,
   pickSelectResponseSchema,
 } from "../../../shared/selfeval/pick.js";
 import { callRoute, createAdminFake } from "../../_lib/adminRoute.testkit.js";
@@ -18,6 +19,7 @@ const m = vi.hoisted(() => ({
   loadUsedActivityIds: vi.fn(),
   loadSessionActivities: vi.fn(),
   loadRecordLinks: vi.fn(),
+  insertManualActivity: vi.fn(),
   insertModelLinks: vi.fn(),
   saveRecordLink: vi.fn(),
   replaceSessionActivities: vi.fn(),
@@ -47,6 +49,7 @@ vi.mock("../../_lib/selfeval/db.js", async (importOriginal) => ({
   loadUsedActivityIds: m.loadUsedActivityIds,
   loadSessionActivities: m.loadSessionActivities,
   loadRecordLinks: m.loadRecordLinks,
+  insertManualActivity: m.insertManualActivity,
   insertModelLinks: m.insertModelLinks,
   saveRecordLink: m.saveRecordLink,
   replaceSessionActivities: m.replaceSessionActivities,
@@ -497,6 +500,82 @@ describe("pick-records select", () => {
       excludedIds: ["a"],
       warnings: ["다른 기록과 이어지는 지점을 찾지 못했어요"],
     });
+  });
+});
+
+describe("pick-records manual", () => {
+  const input = {
+    activityName: " 로봇 제작 ",
+    subjectOrArea: "물리학",
+    gradeLabel: "고2",
+    semester: 1,
+    motive: "m",
+    concept: "c",
+    action: "a",
+    method: "me",
+    result: "r 3",
+    role: "ro",
+    limitation: "l",
+    next: "n",
+  };
+
+  test("saves the manual activity as the core and moves to step 3", async () => {
+    m.insertManualActivity.mockResolvedValue("new-id");
+    const res = await call({ action: "manual", input });
+    expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty("ok");
+    expect(pickManualResponseSchema.parse(res.body)).toEqual({
+      activityRecordId: "new-id",
+      selection: { coreId: "new-id", supportIds: [] },
+      currentStep: 3,
+    });
+    expect(m.insertManualActivity.mock.calls[0]?.[1]).toMatchObject({
+      profile_id: "admin-1",
+      source_program: "manual",
+      topic: "로봇 제작",
+    });
+    expect(m.replaceSessionActivities).toHaveBeenCalledTimes(1);
+    expect(m.updateSession).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "s1",
+      expect.objectContaining({ current_step: 3 }),
+    );
+  });
+
+  test("a blank activity name keeps ACTIVITY_NAME_REQUIRED and its message, before any lookup", async () => {
+    const res = await call({
+      action: "manual",
+      input: { ...input, activityName: " " },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: "ACTIVITY_NAME_REQUIRED",
+      detail: "활동 이름을 입력해 주세요.",
+    });
+    expect(m.readSelfevalAccess).not.toHaveBeenCalled();
+    expect(m.insertManualActivity).not.toHaveBeenCalled();
+  });
+
+  test("a blank subject keeps SUBJECT_REQUIRED and its message", async () => {
+    const res = await call({
+      action: "manual",
+      input: { ...input, subjectOrArea: "" },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: "SUBJECT_REQUIRED",
+      detail: "과목이나 영역을 입력해 주세요.",
+    });
+  });
+
+  test("a wrong grade is a 400 VALIDATION_FAILED problem", async () => {
+    const res = await call({
+      action: "manual",
+      input: { ...input, gradeLabel: "고9" },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: "VALIDATION_FAILED" });
   });
 });
 
