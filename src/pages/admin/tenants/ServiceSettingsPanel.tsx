@@ -98,6 +98,7 @@ function ServiceSettingsForm({
   settings,
   defaults,
 }: ServiceSettingsFormProps) {
+  // view 권한이면 저장 버튼을 감추고 입력칸도 읽기 전용으로 둔다.
   const canEdit = useCanEditSection();
   const [rows, setRows] = useState<ServiceRowForm[]>(() =>
     buildServiceRows(settings),
@@ -178,6 +179,7 @@ function ServiceSettingsForm({
                 type="checkbox"
                 aria-label={`${row.label} 제공`}
                 checked={row.provided}
+                disabled={!canEdit}
                 onChange={(e) => toggle(row, e.target.checked)}
               />
               {row.label}
@@ -199,6 +201,7 @@ function ServiceSettingsForm({
                   onChange={(e) =>
                     patchRow(row.programKey, { startsOn: e.target.value })
                   }
+                  readOnly={!canEdit}
                   className={INPUT_CLASS}
                 />
                 <Input
@@ -208,6 +211,7 @@ function ServiceSettingsForm({
                   onChange={(e) =>
                     patchRow(row.programKey, { endsOn: e.target.value })
                   }
+                  readOnly={!canEdit}
                   className={INPUT_CLASS}
                 />
                 <Input
@@ -218,6 +222,7 @@ function ServiceSettingsForm({
                   onChange={(e) =>
                     patchRow(row.programKey, { monthlyLimit: e.target.value })
                   }
+                  readOnly={!canEdit}
                   className={INPUT_CLASS}
                 />
                 <Input
@@ -229,6 +234,7 @@ function ServiceSettingsForm({
                   onChange={(e) =>
                     patchRow(row.programKey, { termLimit: e.target.value })
                   }
+                  readOnly={!canEdit}
                   className={INPUT_CLASS}
                 />
               </div>

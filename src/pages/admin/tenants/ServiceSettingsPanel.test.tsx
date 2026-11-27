@@ -320,6 +320,49 @@ describe("ServiceSettingsPanel view 권한", () => {
     expect(screen.queryAllByRole("button", { name: /저장$/ })).toHaveLength(0);
   });
 
+  test("view 권한이면 제공 체크박스는 막히고 한도와 날짜 칸은 읽기 전용이다", async () => {
+    db.settings = [
+      {
+        program_key: "diagnose",
+        enabled: true,
+        starts_on: null,
+        ends_on: null,
+        monthly_limit: 2,
+        term_limit: 8,
+      },
+    ];
+    canEdit = false;
+    renderPanel();
+
+    expect(await screen.findByLabelText("학습진단 제공")).toBeDisabled();
+    for (const name of ["시작일", "종료일", "월 한도", "학기 한도"]) {
+      expect(screen.getByLabelText(`학습진단 ${name}`)).toHaveAttribute(
+        "readonly",
+      );
+    }
+  });
+
+  test("edit 권한이면 제공 체크박스와 한도 칸을 고칠 수 있다", async () => {
+    db.settings = [
+      {
+        program_key: "diagnose",
+        enabled: true,
+        starts_on: null,
+        ends_on: null,
+        monthly_limit: 2,
+        term_limit: 8,
+      },
+    ];
+    renderPanel();
+
+    expect(await screen.findByLabelText("학습진단 제공")).toBeEnabled();
+    for (const name of ["시작일", "종료일", "월 한도", "학기 한도"]) {
+      expect(screen.getByLabelText(`학습진단 ${name}`)).not.toHaveAttribute(
+        "readonly",
+      );
+    }
+  });
+
   test("edit 권한이면 서비스마다 저장 버튼이 있다", async () => {
     renderPanel();
 
