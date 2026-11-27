@@ -1,10 +1,4 @@
 // 목표관리 학생, 학부모 라우트(/api/goal/*) 공통 계약. 관리자 라우트 계약은 admin-cuts.ts, admin-students.ts 다.
-// 요청 본문은 라우트가 예전 그대로 직접 검사한다(400 문구를 지킨다). 그래서 본문 스키마는 JSON 이면 받는다.
-
-import { z } from "zod";
-
-/** JSON 본문. Content-Type 이 JSON 이 아니면 빈 객체로 검사한다(예전 req.body 없음과 같다). */
-export const goalJsonBody = z.unknown();
 
 /**
  * 실패 code. 예전 본문의 reason 이 있으면 그 대문자가 code 이고 reason 은 확장 멤버로도 남는다.
