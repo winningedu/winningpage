@@ -37,6 +37,14 @@ function renderFooter() {
   );
 }
 
+const SOCIAL_LABELS = [
+  "카카오톡 채널",
+  "네이버 블로그",
+  "네이버 클립",
+  "유튜브",
+  "인스타그램",
+];
+
 // 시안(운영위탁 줄 세 개)과 글자 그대로 같아야 한다.
 const COMPANY_LINES = [
   "(운영위탁) 상호명: 주식회사 위닝로직 | 대표: 강원석 | 소프트웨어 사업자",
@@ -200,20 +208,44 @@ describe("SiteFooter - 위닝", () => {
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 
-  it("옛 푸터의 메뉴 컬럼과 소셜 아이콘은 없다", () => {
+  it("옛 푸터의 메뉴 컬럼은 없다", () => {
     renderFooter();
     const footer = screen.getByRole("contentinfo");
 
     expect(within(footer).queryByRole("navigation")).not.toBeInTheDocument();
-    for (const name of [
-      "카카오톡 채널",
-      "네이버 블로그",
-      "유튜브",
-      "인스타그램",
-    ]) {
-      expect(
-        within(footer).queryByRole("link", { name }),
-      ).not.toBeInTheDocument();
+  });
+});
+
+describe("SiteFooter - 위닝 SNS 아이콘", () => {
+  beforeEach(() => {
+    siteState.key = "winning";
+  });
+
+  it("카카오, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램 순서로 새 탭 링크를 보인다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+    const links = within(footer)
+      .getAllByRole("link")
+      .filter((link) =>
+        SOCIAL_LABELS.includes(link.getAttribute("aria-label") ?? ""),
+      );
+
+    // 모바일(로고 아래)과 데스크톱(오른쪽) 자리에 한 벌씩, 화면 크기에 따라 하나만 보인다.
+    expect(links.map((link) => link.getAttribute("aria-label"))).toEqual([
+      ...SOCIAL_LABELS,
+      ...SOCIAL_LABELS,
+    ]);
+    expect(links.slice(0, 5).map((link) => link.getAttribute("href"))).toEqual([
+      "https://pf.kakao.com/_EfjwX",
+      "https://blog.naver.com/winningedu",
+      "https://clip.naver.com/@winningedu",
+      "https://www.youtube.com/@winningedu-100",
+      "https://www.instagram.com/winningedu.official/",
+    ]);
+    for (const link of links) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+      expect(link.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     }
   });
 });

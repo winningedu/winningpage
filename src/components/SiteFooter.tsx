@@ -1,5 +1,10 @@
 import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";
+import InstagramIcon from "@/components/icons/InstagramIcon";
+import KakaoIcon from "@/components/icons/KakaoIcon";
+import NaverClipIcon from "@/components/icons/NaverClipIcon";
+import NaverIcon from "@/components/icons/NaverIcon";
+import YoutubeIcon from "@/components/icons/YoutubeIcon";
 import { site } from "@/config/site";
 import { useFooterOperatorImage } from "@/hooks/useFooterOperatorImage";
 
@@ -33,6 +38,70 @@ function roadAddress(address: string) {
 // 통신판매업자 정보 공개 페이지(공정거래위원회). 사업자등록번호는 숫자만 넣는다.
 function ftcBizInfoUrl(bizRegNo: string) {
   return `https://www.ftc.go.kr/bizCommPop.do?wrkr_no=${bizRegNo.replaceAll("-", "")}`;
+}
+
+// 소셜 아이콘: 순서 고정(카카오톡, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램).
+function SocialLinks({
+  company,
+  className,
+}: {
+  company: typeof site.company;
+  className: string;
+}) {
+  const items = [
+    {
+      label: "카카오톡 채널",
+      href: company.kakaoChannelUrl,
+      Icon: KakaoIcon,
+      badgeClassName: "bg-[#fee500] text-[#191919]",
+    },
+    {
+      label: "네이버 블로그",
+      href: company.naverBlogUrl,
+      Icon: NaverIcon,
+      badgeClassName: "bg-[#03c75a] text-white",
+    },
+    {
+      label: "네이버 클립",
+      href: company.naverClipUrl,
+      Icon: NaverClipIcon,
+      badgeClassName: "bg-[#6f4dce] text-[#adff5f]",
+    },
+    {
+      label: "유튜브",
+      href: company.youtubeUrl,
+      Icon: YoutubeIcon,
+      badgeClassName: "bg-[#ff0000] text-white",
+    },
+    {
+      label: "인스타그램",
+      href: company.instagramUrl,
+      Icon: InstagramIcon,
+      badgeClassName: "text-white",
+      style: {
+        background:
+          "linear-gradient(45deg, #f9ce34 0%, #ee2a7b 50%, #6228d7 100%)",
+      },
+    },
+  ];
+
+  return (
+    <div className={`items-center gap-4 ${className}`}>
+      {items.map(({ label, href, Icon, badgeClassName, style }) => (
+        <a
+          key={label}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={label}
+          style={style}
+          className={`inline-flex size-8 items-center justify-center rounded-full transition hover:opacity-90 ${badgeClassName}`}
+        >
+          <Icon className="size-4" aria-hidden="true" />
+        </a>
+      ))}
+    </div>
+  );
 }
 
 // 두 사이트 공용 푸터. 브랜드 자리, 운영 형태, 저작권 문구는 site.footer, 회사 정보는 site.company 를 따른다.
@@ -87,6 +156,7 @@ export default function SiteFooter() {
                   {footer.brand.text}
                 </p>
               )}
+              <SocialLinks company={company} className="mt-4 flex lg:hidden" />
               <div className="mt-[1.031rem] break-keep text-[0.8125rem] leading-[1.675rem] text-footer-b2b-info">
                 <p>
                   <PipeItems
@@ -128,19 +198,22 @@ export default function SiteFooter() {
                 )}
               </div>
             </div>
-            <div className="flex shrink-0 gap-[1.6625rem] text-[0.8125rem] leading-5 font-semibold text-footer-b2b-link lg:pt-[0.4375rem]">
-              <Link
-                to="/privacy"
-                className="relative whitespace-nowrap font-bold text-footer-b2b-privacy after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
-              >
-                개인정보처리방침
-              </Link>
-              <Link
-                to="/terms"
-                className="relative whitespace-nowrap after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
-              >
-                이용약관
-              </Link>
+            <div className="flex shrink-0 flex-col items-start gap-6 lg:items-end lg:gap-4">
+              <SocialLinks company={company} className="hidden lg:flex" />
+              <div className="flex shrink-0 gap-[1.6625rem] text-[0.8125rem] leading-5 font-semibold text-footer-b2b-link lg:pt-[0.4375rem]">
+                <Link
+                  to="/privacy"
+                  className="relative whitespace-nowrap font-bold text-footer-b2b-privacy after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
+                >
+                  개인정보처리방침
+                </Link>
+                <Link
+                  to="/terms"
+                  className="relative whitespace-nowrap after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
+                >
+                  이용약관
+                </Link>
+              </div>
             </div>
           </div>
         </div>
