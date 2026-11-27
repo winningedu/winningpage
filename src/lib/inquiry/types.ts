@@ -49,13 +49,6 @@ type GenerationMode =
   | "design_report"
   | "evaluation_report";
 
-/** 생성 응답 status 허용값(No.122). */
-type ResponseStatus =
-  | "ok"
-  | "provisional"
-  | "needs_selection"
-  | "needs_evidence";
-
 /** 보고서 8절 식별자(No.6). */
 export type SectionId = "I" | "II" | "III" | "IV" | "V" | "VI" | "VII" | "VIII";
 
@@ -179,14 +172,6 @@ type TopicDetail = {
   fitReason: string | null;
   /** 예비 주제일 때 이전 활동 확인 질문 3개(No.146). */
   followUpQuestions: string[];
-};
-
-type Topic = {
-  idx: 1 | 2 | 3;
-  linkKind: LinkKind;
-  linkageType: LinkageType;
-  fit: Fit;
-  detail: TopicDetail;
 };
 
 /** 설계 리포트 절별 설계(No.60). */

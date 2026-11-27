@@ -10,7 +10,6 @@ import {
   selfevalRecoverResultSchema,
 } from "../../../../shared/selfeval-ops/contract.js";
 import {
-  type SelfevalSessionsPage,
   selfevalSessionDetail,
   selfevalSessionsPage,
 } from "../../../../shared/selfeval-session/contract.js";

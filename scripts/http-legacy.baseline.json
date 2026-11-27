@@ -688,9 +688,6 @@
   "src/lib/diagnosisSubmitApi.ts": {
     "legacyFetch": 1
   },
-  "src/lib/diagnosisSurveyCopyOverrides.ts": {
-    "browserDb": 1
-  },
   "src/lib/entitlement.ts": {
     "legacyFetch": 1
   },

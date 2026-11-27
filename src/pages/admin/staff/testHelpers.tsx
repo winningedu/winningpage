@@ -8,14 +8,6 @@ import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
 import AdminMembersAdmin from "./AdminMembersAdmin";
 import AdminRolesAdmin from "./AdminRolesAdmin";
 
-interface HttpMock {
-  get: Mock;
-  post: Mock;
-  patch: Mock;
-  put: Mock;
-  delete: Mock;
-}
-
 type Route = unknown | (() => unknown);
 
 // 경로별 응답을 정한다. Error 를 돌려주면 그 오류로 실패하고, 응답은 호출부가 넘긴 zod 스키마로 검증한다.

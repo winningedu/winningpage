@@ -293,15 +293,6 @@ export type ReportStepResponse = {
   completion?: { issuedAt: string; planItemCount: number };
 };
 
-/** 실패 응답의 extra 에 실리는 필드(attempts, issues, progress, terminal). */
-type ReportStepFailureExtra = {
-  attempts?: number;
-  issues?: unknown;
-  progress?: StepProgress[];
-  /** true 면 회차가 종결된 것이다. */
-  terminal?: true;
-};
-
 // ── 저장 리포트(reports) ──────────────────────────────────────────────
 type ReportStatus = "draft" | "in_progress" | "completed" | "archived";
 

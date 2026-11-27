@@ -8,7 +8,6 @@ import {
 } from "../../../../shared/tenants/contract.js";
 import {
   type PurgeLogEntry,
-  type PurgePreview,
   type PurgeResult,
   purgeLogsSchema,
   purgePreviewSchema,

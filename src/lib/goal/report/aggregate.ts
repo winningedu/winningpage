@@ -878,13 +878,6 @@ const NAESIN_SUBJECT_ORDER = [
   { key: "science", name: "탐구군" },
 ] as const;
 
-const JEONGSI_SUBJECT_ORDER = [
-  { key: "korean", name: "국어" },
-  { key: "math", name: "수학" },
-  { key: "english", name: "영어" },
-  { key: "science", name: "탐구" },
-] as const;
-
 /** 백분위 → 9등급(GRADE_PERCENTILE 역조회). 표 밖 값은 경계 등급으로 clamp. */
 export function percentileToGrade(percentile: number): number {
   const p = clamp0to100(percentile);
@@ -958,50 +951,4 @@ export function buildNaesinSubjectMetrics(
       grade,
     };
   });
-}
-
-/** 정시 리포트용 과목 4개 지표. entry 는 mock_exam_scores.records[] 원소 또는 온보딩 고정 회차. */
-function buildJeongsiSubjectMetrics(
-  student: GoalStudentRow,
-  entry: GoalScoreEntry | null | undefined,
-): {
-  name: string;
-  zoneLabel: string;
-  zone: GoalDirectionZone;
-  badge: string;
-  percentile: number;
-}[] {
-  const idealCut = toNum(student.ideal_jungsi_cut, null);
-  const minCut = toNum(student.min_jungsi_cut, null);
-  const hasSubjects = entry?.subjects && typeof entry.subjects === "object";
-
-  return JEONGSI_SUBJECT_ORDER.map(({ key, name }) => {
-    const percentile = hasSubjects
-      ? (toNum(entry?.subjects?.[key], toNum(entry?.value) ?? 0) ?? 0)
-      : (toNum(entry?.value) ?? 0);
-    const zone = classifyJeongsiZone(percentile, idealCut, minCut);
-    const grade = percentileToGrade(percentile);
-    return {
-      name,
-      zoneLabel: ZONE_LABELS[zone],
-      zone,
-      badge: `${grade}등급 (백분위 ${round1(percentile)})`,
-      percentile,
-    };
-  });
-}
-
-/**
- * 정시 "종합 백분위" — 4과목 단순 평균(frozen calcJeongsiCompositeFE 는 영어 감점 등 온보딩 base
- * 확률 산출 전용 파이프라인이라 이 표시용 요약에는 재사용하지 않는다, 판단 지점).
- */
-function computeJeongsiComposite(
-  entry: GoalScoreEntry | null | undefined,
-): number {
-  const hasSubjects = entry?.subjects && typeof entry.subjects === "object";
-  if (!hasSubjects) return round1(entry?.value);
-  const values = JEONGSI_SUBJECT_ORDER.map(
-    ({ key }) => toNum(entry?.subjects?.[key]) ?? 0,
-  );
-  return round1(values.reduce((s, v) => s + v, 0) / values.length);
 }

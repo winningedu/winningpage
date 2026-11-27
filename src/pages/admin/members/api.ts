@@ -39,7 +39,6 @@ export type LinkedPerson = MemberLinks["items"][number];
 export type ProgramAccessRow = MemberServices["items"][number];
 export type OrderRow = MemberOrders["items"][number];
 export type MessageLogRow = MemberMessages["items"][number];
-type TenantOption = z.infer<typeof tenantOptionsSchema>["items"][number];
 
 export const memberKeys = {
   all: ["admin", "members"] as const,

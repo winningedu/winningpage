@@ -429,14 +429,3 @@ export function buildDirectionSummary({
     body: `${spreadSentence} ${gapSentence}${worstDesc}${closingSentence}`,
   };
 }
-
-/** 과목(군)별 공부 방향 본문(SubjectDirectionCard.body) — 구간별 정형 문장, 도메인 콘텐츠(교재 추천)는 다루지 않는다(D13). */
-function buildSubjectDirectionBody(subject: DirectionSubject): string {
-  if (subject.zone === "strong") {
-    return `${subject.name}은(는) 목표선 위에서 안정적으로 유지되고 있습니다. 지금 수준을 유지하면서 다른 과목에 시간을 더 배분해도 좋습니다.`;
-  }
-  if (subject.zone === "improve") {
-    return `${subject.name}은(는) 최소 목표는 넘었지만 이상 목표에는 아직 못 미칩니다. 취약 단원 위주로 보완하면 목표선에 가까워집니다.`;
-  }
-  return `${subject.name}은(는) 아직 최소 목표선에 미치지 못합니다. 다른 과목보다 우선적으로 시간을 배분해 기초부터 다시 다지는 것이 필요합니다.`;
-}

@@ -1,8 +1,5 @@
 // 서버 계약(GET /api/admin/selfeval-sessions)의 행 모양과 표시 변환.
-import type {
-  SelfevalSessionDetail,
-  SelfevalSessionItem,
-} from "../../../../shared/selfeval-session/contract.js";
+import type { SelfevalSessionItem } from "../../../../shared/selfeval-session/contract.js";
 
 export type { SelfevalSessionItem };
 export type SelfevalTerminal = NonNullable<SelfevalSessionItem["terminal"]>;

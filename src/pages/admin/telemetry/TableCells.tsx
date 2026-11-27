@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { TableCell, TableHead } from "@/components/ui/table";
+import { TableHead } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 export function Th({
@@ -16,17 +16,5 @@ export function Th({
     >
       {children}
     </TableHead>
-  );
-}
-
-function Td({
-  children,
-  className,
-}: {
-  children?: ReactNode;
-  className?: string;
-}) {
-  return (
-    <TableCell className={cn("px-3 py-3", className)}>{children}</TableCell>
   );
 }

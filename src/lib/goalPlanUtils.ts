@@ -6,7 +6,7 @@
 // — goal_daily_records의 "가상 날짜"(actual_start_date + record_index)와 무관한
 // 별개 개념이라 그 모듈은 쓰지 않는다.
 
-import { addDaysYMD, getMondayYMD, kstYMD } from "./goal/calc/index.js";
+import { addDaysYMD, getMondayYMD } from "./goal/calc/index.js";
 import { ymdIn } from "./time/day.js";
 import { browserTimeZone } from "./time/zone.js";
 // 호출부(StudyPlanRail.jsx 등)가 "오늘" YMD가 필요할 때 calc 배럴을 따로 또 import하지

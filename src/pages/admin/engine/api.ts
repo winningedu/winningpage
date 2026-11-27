@@ -4,7 +4,6 @@
 import { z } from "zod";
 import { api } from "@/lib/http/client";
 import {
-  type SectionRow,
   type SectionValuesBody,
   sectionExportSchema,
   sectionListSchema,

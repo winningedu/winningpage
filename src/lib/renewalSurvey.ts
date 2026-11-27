@@ -68,17 +68,6 @@ const surveyMainQuestions: SurveyQuestion[] = (
   .filter((question) => question.number != null)
   .sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
 
-export const surveyEmbeddedByParent: Record<string, SurveyQuestion[]> = (
-  renewalSurveyQuestions as SurveyQuestion[]
-)
-  .filter((question) => question.extra?.embeddedIn)
-  .reduce<Record<string, SurveyQuestion[]>>((map, question) => {
-    const parentId = question.extra?.embeddedIn as string;
-    if (!map[parentId]) map[parentId] = [];
-    map[parentId].push(question);
-    return map;
-  }, {});
-
 function getStepQuestions(step: number) {
   return surveyMainQuestions.filter((question) => question.page === step);
 }

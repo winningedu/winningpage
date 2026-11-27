@@ -27,38 +27,10 @@ export type TargetCharsMode = "with_space" | "without_space";
 
 type ModelStepKey = "link" | "analyze" | "write" | "verify";
 
-const MODEL_STEP_KEYS: readonly ModelStepKey[] = [
-  "link",
-  "analyze",
-  "write",
-  "verify",
-];
-
-type StepStatus = "pending" | "running" | "ok" | "failed";
-
-type StepIssue = {
-  code: string;
-  message: string;
-  path?: string;
-};
-
-type StepRecord = {
-  status: StepStatus;
-  attempts: number;
-  startedAt: string | null;
-  finishedAt: string | null;
-  issues: StepIssue[];
-};
-
 type StepTerminal = {
   reason: string;
   at: string;
   step: ModelStepKey | null;
-};
-
-type StepState = {
-  steps: Partial<Record<ModelStepKey, StepRecord>>;
-  terminal?: StepTerminal;
 };
 
 /** 진로 정보(명세 No.25). student_profiles 의 career, department, universities 와 같은 뜻. */
@@ -354,8 +326,6 @@ export type CharCount = {
   withoutSpace: number;
 };
 
-type ReportType = "generation" | "edited" | "verification" | "final";
-
 // ---------------------------------------------------------------------------
 // 검증(명세 No.53~62, No.76)
 // ---------------------------------------------------------------------------
@@ -484,19 +454,11 @@ export type PromotedRecord = {
 // 상수
 // ---------------------------------------------------------------------------
 
-// 세션 만료 일수, 단계 선점 만료, 단계 시간 예산은 서버와 함께 쓰는 계약 값이다.
-const GROWTH_STALE_DAYS = 180;
-const FIT_AUTO_SELECT_THRESHOLD = 40;
-const CANDIDATE_LIMIT = 20;
 export const MAX_SUPPORT_ACTIVITIES = 2;
 export const MAX_REGENERATIONS = 3;
 export const MAX_MODEL_ATTEMPTS_PER_STEP = 10;
 export const DEFAULT_TARGET_CHARS = 500;
 export const TARGET_TOLERANCE = 0.05;
-const MIN_LENGTH_CHARS = 400;
-const MIN_SENTENCES = 4;
-const CLICHE_DENSITY_MAX = 2.0;
-const SHORT_TARGET_MAX = 300;
 
 // ---------------------------------------------------------------------------
 // API 계약(api/_lib/selfeval/view.ts, sessionBody.ts, pickBody.ts, manual.ts)
