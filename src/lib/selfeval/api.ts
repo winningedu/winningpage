@@ -10,6 +10,11 @@
 
 import { SchemaValidationError } from "ky";
 import type { z } from "zod";
+import {
+  type AnalyzeBodyInput,
+  analyzeEditResponse,
+  analyzeRunResponse,
+} from "../../../shared/selfeval/analyze.js";
 import { entryResponseSchema } from "../../../shared/selfeval/reports.js";
 import {
   sessionDetailResponseSchema,
@@ -254,17 +259,25 @@ export function buildReport(sessionId: string) {
 
 // ── 세션 ──────────────────────────────────────────────────────────────
 export function createSession(input: SessionInput) {
-  return requestJson<SessionResponse>("selfeval/session", sessionResponseSchema, {
-    method: "POST",
-    body: { action: "create", ...input },
-  });
+  return requestJson<SessionResponse>(
+    "selfeval/session",
+    sessionResponseSchema,
+    {
+      method: "POST",
+      body: { action: "create", ...input },
+    },
+  );
 }
 
 export function updateSession(sessionId: string, patch: Partial<SessionInput>) {
-  return requestJson<SessionResponse>("selfeval/session", sessionResponseSchema, {
-    method: "POST",
-    body: { action: "update", sessionId, ...patch },
-  });
+  return requestJson<SessionResponse>(
+    "selfeval/session",
+    sessionResponseSchema,
+    {
+      method: "POST",
+      body: { action: "update", sessionId, ...patch },
+    },
+  );
 }
 
 export function discardSession(sessionId: string) {
@@ -417,21 +430,24 @@ export function manualLogsDelete(sessionId: string, memoId: string) {
 // ── 분석 ──────────────────────────────────────────────────────────────
 /** 모델로 11항목을 분석한다. 직접 입력 활동은 모델 없이 바로 돌아온다. */
 export function analyzeRun(sessionId: string) {
-  return request<AnalyzeRunResponse>(`${BASE}/analyze`, {
-    method: "POST",
-    body: { sessionId, action: "run" },
-    ai: true,
-  });
+  const body: AnalyzeBodyInput = { sessionId, action: "run" };
+  return requestJson<AnalyzeRunResponse>(
+    "selfeval/analyze",
+    analyzeRunResponse,
+    { method: "POST", body, ai: true },
+  );
 }
 
 export function analyzeSave(
   sessionId: string,
   edits: Partial<Record<AnalysisField, string>>,
 ) {
-  return request<AnalyzeEditResponse>(`${BASE}/analyze`, {
-    method: "POST",
-    body: { sessionId, action: "save", edits },
-  });
+  const body: AnalyzeBodyInput = { sessionId, action: "save", edits };
+  return requestJson<AnalyzeEditResponse>(
+    "selfeval/analyze",
+    analyzeEditResponse,
+    { method: "POST", body },
+  );
 }
 
 export function analyzeResolveConflict(
@@ -439,10 +455,17 @@ export function analyzeResolveConflict(
   index: number,
   choice: ConflictChoice,
 ) {
-  return request<AnalyzeEditResponse>(`${BASE}/analyze`, {
-    method: "POST",
-    body: { sessionId, action: "resolve-conflict", index, choice },
-  });
+  const body: AnalyzeBodyInput = {
+    sessionId,
+    action: "resolve-conflict",
+    index,
+    choice,
+  };
+  return requestJson<AnalyzeEditResponse>(
+    "selfeval/analyze",
+    analyzeEditResponse,
+    { method: "POST", body },
+  );
 }
 
 // ── 생성 ──────────────────────────────────────────────────────────────

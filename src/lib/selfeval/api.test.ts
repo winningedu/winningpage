@@ -344,24 +344,106 @@ describe("활동 선택", () => {
   });
 });
 
+const ANALYSIS_FIELDS = [
+  "motive",
+  "concept",
+  "action",
+  "method",
+  "result",
+  "role",
+  "collaboration",
+  "learning",
+  "career",
+  "limitation",
+  "next",
+];
+const ANALYSIS = {
+  values: Object.fromEntries(ANALYSIS_FIELDS.map((k) => [k, "값"])),
+  sources: Object.fromEntries(ANALYSIS_FIELDS.map((k) => [k, "record"])),
+  conflicts: [],
+};
+
 describe("분석, 생성, 검증, 최종 저장", () => {
   test("분석은 action 으로 run, save, resolve-conflict 가 갈린다", async () => {
-    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
-    await analyzeRun("s1");
-    expect(lastCall().path).toBe("/api/selfeval/analyze");
-    expect(lastCall().body).toEqual({ sessionId: "s1", action: "run" });
-    await analyzeSave("s1", { result: "고친 값" });
-    expect(lastCall().body).toEqual({
+    fetchMock.mockImplementation(async () =>
+      jsonResponse(
+        lastBody().action === "run"
+          ? {
+              analysis: ANALYSIS,
+              conflicts: [],
+              analysisSource: "model",
+              currentStep: 3,
+              attempts: 1,
+              softIssues: [],
+            }
+          : { analysis: ANALYSIS },
+      ),
+    );
+    const run = await analyzeRun("s1");
+    expect(new URL(lastRequest().url).pathname).toBe("/api/selfeval/analyze");
+    expect(lastRequest().method).toBe("POST");
+    expect(await lastBody()).toEqual({ sessionId: "s1", action: "run" });
+    expect(run).toMatchObject({
+      kind: "ok",
+      data: { analysisSource: "model", currentStep: 3, attempts: 1 },
+    });
+    const save = await analyzeSave("s1", { result: "고친 값" });
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       action: "save",
       edits: { result: "고친 값" },
     });
+    expect(save).toEqual({ kind: "ok", data: { analysis: ANALYSIS } });
     await analyzeResolveConflict("s1", 1, "b");
-    expect(lastCall().body).toEqual({
+    expect(await lastBody()).toEqual({
       sessionId: "s1",
       action: "resolve-conflict",
       index: 1,
       choice: "b",
+    });
+  });
+
+  test("분석 실패 problem 의 STEP_ORDER currentStep 과 STEP_VALIDATION_FAILED 확장 멤버는 extra 로 온다", async () => {
+    fetchMock.mockResolvedValueOnce(
+      problemResponse(409, {
+        code: "STEP_ORDER",
+        detail: "앞 단계가 아직 끝나지 않았어요.",
+        currentStep: 1,
+      }),
+    );
+    expect(await analyzeRun("s1")).toEqual({
+      kind: "error",
+      status: 409,
+      code: "STEP_ORDER",
+      message: "앞 단계가 아직 끝나지 않았어요.",
+      extra: { currentStep: 1 },
+    });
+    fetchMock.mockResolvedValueOnce(
+      problemResponse(422, {
+        code: "STEP_VALIDATION_FAILED",
+        detail: "분석 결과를 확인하지 못했어요.",
+        attempts: 3,
+        terminal: true,
+        issues: [{ code: "EMPTY", message: "비었어요" }],
+      }),
+    );
+    expect(await analyzeRun("s1")).toMatchObject({
+      kind: "error",
+      status: 422,
+      code: "STEP_VALIDATION_FAILED",
+      extra: {
+        attempts: 3,
+        terminal: true,
+        issues: [{ code: "EMPTY", message: "비었어요" }],
+      },
+    });
+  });
+
+  test("분석 응답이 계약과 어긋나면 INVALID_RESPONSE 다", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ analysis: "x" }));
+    expect(await analyzeRun("s1")).toMatchObject({
+      kind: "error",
+      code: "INVALID_RESPONSE",
     });
   });
 
