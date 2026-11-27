@@ -13,6 +13,7 @@ import {
   toastSuccess,
   toastWarning,
 } from "@/pages/admin/shared/adminToast";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import {
   type CouponRow,
@@ -98,6 +99,8 @@ function CouponFormView({
   editingRow?: CouponRow;
 }) {
   const navigate = useNavigate();
+  // view 권한이면 저장과 코드 생성 버튼을 그리지 않는다.
+  const canEdit = useCanEditSection();
   const listQuery = useCouponList();
   const save = useSaveCoupon(editingRow?.id);
   // 저장하면 목록 캐시가 비워져 tenants 가 사라진다. 저장 중에 고른 소속이 풀리지
@@ -378,14 +381,16 @@ function CouponFormView({
                       onChange={(e) => patch({ code: e.target.value })}
                       className={`${INPUT_CLASS} font-mono`}
                     />
-                    <Button
-                      type="button"
-                      onClick={applyGiftCodePreset}
-                      variant="outline"
-                      size="lg"
-                    >
-                      선물 쿠폰 코드 생성
-                    </Button>
+                    {canEdit && (
+                      <Button
+                        type="button"
+                        onClick={applyGiftCodePreset}
+                        variant="outline"
+                        size="lg"
+                      >
+                        선물 쿠폰 코드 생성
+                      </Button>
+                    )}
                   </div>
                   <span className="text-xs font-bold text-gray-500">
                     {GIFT_CODE_PRESET_HINT_TEXT}
@@ -466,15 +471,17 @@ function CouponFormView({
           취소
         </Button>
 
-        <Button
-          type="button"
-          onClick={submit}
-          disabled={save.isPending}
-          size="lg"
-          className="font-semibold"
-        >
-          저장
-        </Button>
+        {canEdit && (
+          <Button
+            type="button"
+            onClick={submit}
+            disabled={save.isPending}
+            size="lg"
+            className="font-semibold"
+          >
+            저장
+          </Button>
+        )}
       </div>
     </div>
   );

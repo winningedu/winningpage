@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import GrowthReportsAdmin from "./GrowthReportsAdmin";
 import { GROWTH_REPORTS_PATH } from "./paths";
 
@@ -41,7 +42,10 @@ export const archivedItem = reportItem({
   },
 });
 
-export function renderGrowth(initialPath = GROWTH_REPORTS_PATH) {
+export function renderGrowth(
+  initialPath = GROWTH_REPORTS_PATH,
+  canEdit = true,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -55,9 +59,11 @@ export function renderGrowth(initialPath = GROWTH_REPORTS_PATH) {
     { initialEntries: [initialPath] },
   );
   const view = render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
   return { router, client, ...view };
 }

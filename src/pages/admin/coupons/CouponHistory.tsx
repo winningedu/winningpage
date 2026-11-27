@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { toastError, toastSuccess } from "@/pages/admin/shared/adminToast";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
@@ -48,6 +49,8 @@ export default function CouponHistory() {
   const query = useRedemptions(id);
   useLoadErrorToast(query.error);
   const voidRedemption = useVoidRedemption(id);
+  // view 권한이면 무효화 버튼을 그리지 않는다.
+  const canEdit = useCanEditSection();
 
   const coupon = couponQuery.data;
   const historyRows = query.data?.items ?? [];
@@ -212,7 +215,7 @@ export default function CouponHistory() {
                       </TableCell>
 
                       <TableCell className="sticky right-0 border-l border-gray-100 bg-white px-3 py-3 whitespace-normal">
-                        {voided ? (
+                        {voided || !canEdit ? (
                           <div className="text-center text-gray-300">-</div>
                         ) : voidingId === row.id ? (
                           // 2단계 액션. 확인 문구(window.confirm)를 쓰려면 새

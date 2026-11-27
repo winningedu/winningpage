@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { ApiError } from "@/lib/http/client";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import SectionCopyPanel from "./SectionCopyPanel";
 
 const mocks = vi.hoisted(() => ({
@@ -26,13 +27,18 @@ function apiError(status: number, detail: string) {
   return new ApiError({ status, code: "X", detail });
 }
 
-function renderPanel(sectionKey: "services" | "mentor" | "acceptance") {
+function renderPanel(
+  sectionKey: "services" | "mentor" | "acceptance",
+  canEdit = true,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <SectionCopyPanel sectionKey={sectionKey} />
+      <SectionEditAccessProvider value={canEdit}>
+        <SectionCopyPanel sectionKey={sectionKey} />
+      </SectionEditAccessProvider>
     </QueryClientProvider>,
   );
 }
@@ -45,6 +51,19 @@ beforeEach(() => {
 });
 
 describe("SectionCopyPanel", () => {
+  test("view 권한이면 저장 버튼을 감추고 edit 권한이면 보인다", async () => {
+    const view = renderPanel("services", false);
+    await waitFor(() =>
+      expect(screen.getByLabelText("큰제목")).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("button", { name: "저장" })).toBeNull();
+    view.unmount();
+    renderPanel("services", true);
+    expect(
+      await screen.findByRole("button", { name: "저장" }),
+    ).toBeInTheDocument();
+  });
+
   test("저장된 값을 입력창에 채우고 섹션 경로와 signal 로 읽는다", async () => {
     mocks.get.mockResolvedValue({
       section_key: "services",

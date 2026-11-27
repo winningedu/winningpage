@@ -55,6 +55,7 @@ vi.mock("@/pages/admin/tenants/TenantDetail", () => ({
 import { Toaster } from "@/components/ui/toast";
 import { ApiError } from "@/lib/http/client";
 import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import TenantsAdmin from "./TenantsAdmin";
 import { tenantKeys } from "./tenantQueries";
 
@@ -97,6 +98,7 @@ beforeEach(() => {
   state.rows = ROWS;
   state.graceDays = 30;
   state.created = null;
+  canEdit = true;
   state.listError = null;
   state.createError = null;
   state.creates = [];
@@ -109,6 +111,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+// 지금 메뉴의 편집 권한. 기본은 edit 이고, view 시험에서만 끈다.
+let canEdit = true;
+
 function renderAdmin(path = "/admin/tenants") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -119,11 +124,13 @@ function renderAdmin(path = "/admin/tenants") {
     { initialEntries: [path] },
   );
   render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-      <ConfirmAdminHost />
-      <Toaster />
-    </QueryClientProvider>,
+    <SectionEditAccessProvider value={canEdit}>
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+        <ConfirmAdminHost />
+        <Toaster />
+      </QueryClientProvider>
+    </SectionEditAccessProvider>,
   );
   return { router, reset, client };
 }
@@ -686,5 +693,38 @@ describe("TenantsAdmin 오류 안내", () => {
     );
     expect(state.creates).toHaveLength(0);
     expect(alertSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("TenantsAdmin view 권한", () => {
+  test("view 권한이면 목록에 등록 버튼이 없다", async () => {
+    canEdit = false;
+    renderAdmin();
+    await screen.findByText("한빛고");
+
+    expect(screen.queryByRole("button", { name: "등록" })).toBeNull();
+  });
+
+  test("edit 권한이면 목록에 등록 버튼이 있다", async () => {
+    renderAdmin();
+    await screen.findByText("한빛고");
+
+    expect(screen.getByRole("button", { name: "등록" })).toBeTruthy();
+  });
+
+  test("view 권한으로 등록 주소에 바로 들어오면 저장 버튼이 없고 취소만 남는다", async () => {
+    canEdit = false;
+    renderAdmin("/admin/tenants/new");
+    await screen.findByText("기관 관리 등록");
+
+    expect(screen.queryByRole("button", { name: "등록" })).toBeNull();
+    expect(screen.getByRole("button", { name: "취소" })).toBeTruthy();
+  });
+
+  test("edit 권한이면 등록 폼에 등록 버튼이 있다", async () => {
+    renderAdmin("/admin/tenants/new");
+    await screen.findByText("기관 관리 등록");
+
+    expect(screen.getByRole("button", { name: "등록" })).toBeTruthy();
   });
 });

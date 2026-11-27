@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { Toaster } from "@/components/ui/toast";
+import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import MentorApplicationsAdmin from "./MentorApplicationsAdmin";
 
 export const BASE = "admin/mentor-applications";
@@ -34,6 +35,7 @@ export function renderMentor(
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   }),
+  canEdit = true,
 ) {
   const router = createMemoryRouter(
     [
@@ -46,7 +48,9 @@ export function renderMentor(
   );
   const view = render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
+      <SectionEditAccessProvider value={canEdit}>
+        <RouterProvider router={router} />
+      </SectionEditAccessProvider>
       <Toaster />
     </QueryClientProvider>,
   );

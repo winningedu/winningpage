@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table";
 import { AdminTableFrame } from "@/pages/admin/shared/AdminTableFrame";
 import { ActionButton } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import {
   evalKeys,
@@ -27,6 +28,7 @@ export default function QueriesTab({
 }: {
   knowledgeType: KnowledgeType;
 }) {
+  const canEdit = useCanEditSection();
   const queryClient = useQueryClient();
   const [toggleError, setToggleError] = useState("");
   const [editing, setEditing] = useState<GoldenQuery | "new" | null>(null);
@@ -69,7 +71,11 @@ export default function QueriesTab({
             활성 <span className="text-primary">{activeCount}</span>문항
           </span>
         )}
-        <ActionButton onClick={() => setEditing("new")}>질의 추가</ActionButton>
+        {canEdit && (
+          <ActionButton onClick={() => setEditing("new")}>
+            질의 추가
+          </ActionButton>
+        )}
       </div>
       {list.isPending ? (
         <AdminTableSkeleton columns={7} label="문제집을 불러오는 중" />
@@ -119,21 +125,23 @@ export default function QueriesTab({
                   </TableCell>
                   <Td>{item.is_active ? "활성" : "비활성"}</Td>
                   <TableCell>
-                    <div className="flex gap-2">
-                      <ActionButton
-                        variant="light"
-                        onClick={() => setEditing(item)}
-                      >
-                        편집
-                      </ActionButton>
-                      <ActionButton
-                        variant={item.is_active ? "danger" : "light"}
-                        onClick={() => toggle.mutate(item)}
-                        disabled={toggle.isPending}
-                      >
-                        {item.is_active ? "비활성" : "다시 활성"}
-                      </ActionButton>
-                    </div>
+                    {canEdit && (
+                      <div className="flex gap-2">
+                        <ActionButton
+                          variant="light"
+                          onClick={() => setEditing(item)}
+                        >
+                          편집
+                        </ActionButton>
+                        <ActionButton
+                          variant={item.is_active ? "danger" : "light"}
+                          onClick={() => toggle.mutate(item)}
+                          disabled={toggle.isPending}
+                        >
+                          {item.is_active ? "비활성" : "다시 활성"}
+                        </ActionButton>
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

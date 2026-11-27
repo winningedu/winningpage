@@ -8,6 +8,7 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { studentSearchQueryOptions } from "@/pages/admin/shared/studentSearch";
 import { SERVICE_PROGRAMS } from "./serviceSettings";
@@ -57,6 +58,7 @@ const withoutActor = (rows: ReturnType<typeof resetPayloads>): UsageRow[] =>
   rows.map(({ updated_by: _actor, ...row }) => row);
 
 export default function StudentUsageAdmin() {
+  const canEdit = useCanEditSection();
   const [term, setTerm] = useState("");
   const [submittedTerm, setSubmittedTerm] = useState("");
   const studentSearch = useQuery(
@@ -254,23 +256,25 @@ export default function StudentUsageAdmin() {
               </div>
             );
           })}
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={save}
-              disabled={busy || dirty.size === 0 || selected.length === 0}
-              className="inline-flex h-9 items-center bg-primary px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {`선택한 ${selected.length}명에게 저장`}
-            </button>
-            <ActionButton
-              variant="light"
-              disabled={busy || selected.length === 0}
-              onClick={() => write(withoutActor(resetPayloads(selected, "")))}
-            >
-              기관 설정으로 되돌리기
-            </ActionButton>
-          </div>
+          {canEdit && (
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={save}
+                disabled={busy || dirty.size === 0 || selected.length === 0}
+                className="inline-flex h-9 items-center bg-primary px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {`선택한 ${selected.length}명에게 저장`}
+              </button>
+              <ActionButton
+                variant="light"
+                disabled={busy || selected.length === 0}
+                onClick={() => write(withoutActor(resetPayloads(selected, "")))}
+              >
+                기관 설정으로 되돌리기
+              </ActionButton>
+            </div>
+          )}
         </div>
       )}
 

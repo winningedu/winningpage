@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { ActionButton } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { fetchServiceSettings, putServiceSetting } from "./api";
 import {
@@ -97,6 +98,7 @@ function ServiceSettingsForm({
   settings,
   defaults,
 }: ServiceSettingsFormProps) {
+  const canEdit = useCanEditSection();
   const [rows, setRows] = useState<ServiceRowForm[]>(() =>
     buildServiceRows(settings),
   );
@@ -236,19 +238,21 @@ function ServiceSettingsForm({
                 {TERM_MONTHS_NOTICE}
               </p>
             )}
-            <div className="mt-3 flex items-center gap-3">
-              <ActionButton
-                onClick={() => save(row)}
-                disabled={saving !== null}
-              >
-                {row.label} 저장
-              </ActionButton>
-              {messages[row.programKey] && (
-                <span className="text-sm font-medium text-gray-700">
-                  {messages[row.programKey]}
-                </span>
-              )}
-            </div>
+            {canEdit && (
+              <div className="mt-3 flex items-center gap-3">
+                <ActionButton
+                  onClick={() => save(row)}
+                  disabled={saving !== null}
+                >
+                  {row.label} 저장
+                </ActionButton>
+                {messages[row.programKey] && (
+                  <span className="text-sm font-medium text-gray-700">
+                    {messages[row.programKey]}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         );
       })}

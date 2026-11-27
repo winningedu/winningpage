@@ -31,6 +31,7 @@ vi.mock("./http/client", () => ({
 import {
   adminPermissionsQueryOptions,
   canAccessSection,
+  canEditSection,
 } from "./adminPermissions";
 
 const tenantsView: AdminPermissionMap = new Map([["tenants", "view"]]);
@@ -110,5 +111,43 @@ describe("canAccessSection 별칭 키", () => {
     expect(canAccessSection(tenantsView, false, "memberPurge")).toBe(false);
     expect(canAccessSection(tenantsView, true, "memberPurgeLogs")).toBe(false);
     expect(canAccessSection(tenantsView, false, "tenants")).toBe(true);
+  });
+});
+
+describe("canEditSection", () => {
+  test("edit 권한이면 쓰기를 연다", () => {
+    expect(canEditSection(new Map([["popups", "edit"]]), false, "popups")).toBe(
+      true,
+    );
+  });
+
+  test("view 권한이면 쓰기를 닫는다", () => {
+    expect(canEditSection(new Map([["popups", "view"]]), false, "popups")).toBe(
+      false,
+    );
+  });
+
+  test("맵에 없는 메뉴는 쓰기를 닫는다(fail-closed)", () => {
+    expect(canEditSection(new Map(), false, "popups")).toBe(false);
+  });
+
+  test("별칭 메뉴는 원래 메뉴 키의 권한을 따른다", () => {
+    expect(
+      canEditSection(new Map([["tenants", "edit"]]), false, "memberPurge"),
+    ).toBe(true);
+    expect(canEditSection(tenantsView, false, "memberPurge")).toBe(false);
+  });
+
+  test("별칭 메뉴는 사이트 플래그가 꺼져 있으면 쓰기를 닫는다", () => {
+    state.hqTenantAdmin = false;
+    expect(
+      canEditSection(new Map([["tenants", "edit"]]), false, "memberPurge"),
+    ).toBe(false);
+  });
+
+  test("최고 관리자 전용 메뉴는 최고 관리자만 쓴다", () => {
+    const all: AdminPermissionMap = new Map([["adminMembers", "edit"]]);
+    expect(canEditSection(all, false, "adminMembers")).toBe(false);
+    expect(canEditSection(all, true, "adminMembers")).toBe(true);
   });
 });

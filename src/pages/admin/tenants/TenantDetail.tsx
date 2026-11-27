@@ -10,6 +10,7 @@ import {
   Select,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminDetailSkeleton } from "@/pages/admin/shared/skeletons/AdminDetailSkeleton";
 import { useUnsavedGuard } from "@/pages/admin/shared/useUnsavedGuard";
 import { fetchTenantDetail, patchTenant, type TenantDetailRow } from "./api";
@@ -148,6 +149,7 @@ function TenantDetailBody({
   const tenantId = tenant.id;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const canEdit = useCanEditSection();
   const [form, setForm] = useState<TenantFormValues>(() =>
     tenantFormFromRow(tenant),
   );
@@ -414,9 +416,11 @@ function TenantDetailBody({
             </div>
 
             <div className="mt-6 flex items-center gap-4">
-              <ActionButton onClick={save} disabled={saving}>
-                {saving ? "저장 중..." : "저장"}
-              </ActionButton>
+              {canEdit && (
+                <ActionButton onClick={save} disabled={saving}>
+                  {saving ? "저장 중..." : "저장"}
+                </ActionButton>
+              )}
               {message && (
                 <span className="text-sm font-medium text-gray-700">
                   {message}

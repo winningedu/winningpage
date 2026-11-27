@@ -66,6 +66,17 @@ const openProof = async () =>
     await screen.findByRole("button", { name: /증빙 파일 열람/ }),
   );
 
+test("view 권한이면 상태 저장 버튼을 감추고 edit 권한이면 보인다", async () => {
+  const view = renderMentor(`${PATH}/${ID1}`, undefined, false);
+  await screen.findByRole("button", { name: /증빙 파일 열람/ });
+  expect(screen.queryByRole("button", { name: "상태 저장" })).toBeNull();
+  view.unmount();
+  renderMentor(`${PATH}/${ID1}`, undefined, true);
+  expect(
+    await screen.findByRole("button", { name: "상태 저장" }),
+  ).toBeInTheDocument();
+});
+
 test("상세를 받는 동안 스켈레톤을 보인다", async () => {
   on("GET", `${BASE}/${ID1}`, () => new Promise(() => {}));
   renderMentor(`${PATH}/${ID1}`);

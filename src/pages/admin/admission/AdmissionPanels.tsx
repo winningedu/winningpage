@@ -27,6 +27,7 @@ import {
 } from "@/pages/admin/shared/adminErrors";
 import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
+import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminLineSkeleton } from "@/pages/admin/shared/skeletons/AdminLineSkeleton";
 import { pad2, triggerXlsxDownload } from "@/pages/admin/shared/xlsxDownload";
 import { chunkItemsBySize } from "./chunkItems";
@@ -86,6 +87,8 @@ function AdmissionActiveYearSummary({ rows }) {
   const notSet =
     yearQuery.error instanceof ApiError && yearQuery.error.code === "NOT_FOUND";
   const [draftYear, setDraftYear] = useState("");
+  // view 권한이면 공개 연도는 보기만 한다(서버가 쓰기를 403 으로 막는다).
+  const canEdit = useCanEditSection();
 
   useEffect(() => {
     if (activeYear !== null) setDraftYear(String(activeYear));
@@ -154,26 +157,28 @@ function AdmissionActiveYearSummary({ rows }) {
           </>
         )}
       </div>
-      <div className="flex items-center gap-2">
-        <Input
-          type="number"
-          value={draftYear}
-          onChange={(e) => setDraftYear(e.target.value)}
-          min={2000}
-          max={2100}
-          disabled={loadingActiveYear || saving}
-          className="h-9 w-24 font-medium"
-          aria-label="새 공개 연도"
-        />
-        <Button
-          size="lg"
-          type="button"
-          onClick={handleChangeYear}
-          disabled={loadingActiveYear || saving}
-        >
-          {saving ? "저장 중…" : "변경"}
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            value={draftYear}
+            onChange={(e) => setDraftYear(e.target.value)}
+            min={2000}
+            max={2100}
+            disabled={loadingActiveYear || saving}
+            className="h-9 w-24 font-medium"
+            aria-label="새 공개 연도"
+          />
+          <Button
+            size="lg"
+            type="button"
+            onClick={handleChangeYear}
+            disabled={loadingActiveYear || saving}
+          >
+            {saving ? "저장 중…" : "변경"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -246,6 +251,8 @@ const BULK_XLSX_RAW_CATEGORY_KEYS = Object.keys(HWP_SECTION_JSON_KEYS);
 const GUIDELINES_APPLY_MAX_BYTES = 3 * 1024 * 1024;
 
 function AdmissionBulkXlsxPanel({ rows, onReload }) {
+  // view 권한이면 엑셀 업로드와 적용을 그리지 않는다. 다운로드는 읽기라 남긴다.
+  const canEdit = useCanEditSection();
   const [exportTruncatedCells, setExportTruncatedCells] = useState<
     ReturnType<typeof exportAdmissionRowsToXlsx>["truncatedCells"]
   >([]);
@@ -391,22 +398,26 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
           >
             {`엑셀 다운로드 (전체 ${totalRows}행)`}
           </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            엑셀 업로드
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx"
-            onChange={handleFileChange}
-            className="hidden"
-            aria-label="모집요강 xlsx 파일 선택"
-          />
+          {canEdit && (
+            <>
+              <Button
+                variant="outline"
+                size="lg"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                엑셀 업로드
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx"
+                onChange={handleFileChange}
+                className="hidden"
+                aria-label="모집요강 xlsx 파일 선택"
+              />
+            </>
+          )}
         </div>
       </div>
 
@@ -671,6 +682,8 @@ async function readAllResults(
 }
 
 function AdmissionResultsBulkXlsxPanel({ onReload }) {
+  // view 권한이면 엑셀 업로드와 적용을 그리지 않는다. 다운로드는 읽기라 남긴다.
+  const canEdit = useCanEditSection();
   const queryClient = useQueryClient();
   const [fetchProgress, setFetchProgress] = useState<{
     done: number;
@@ -872,25 +885,29 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
               ? `읽는 중… ${fetchProgress.done.toLocaleString()} / ${fetchProgress.total.toLocaleString()}행`
               : `엑셀 다운로드 (전체 ${totalRowCount === null ? "-" : totalRowCount.toLocaleString()}행)`}
           </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={busy}
-          >
-            {idSetProgress
-              ? `업로드 검증 준비 중… ${idSetProgress.done.toLocaleString()} / ${idSetProgress.total.toLocaleString()}행`
-              : "엑셀 업로드"}
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx"
-            onChange={handleFileChange}
-            className="hidden"
-            aria-label="입결정보 xlsx 파일 선택"
-          />
+          {canEdit && (
+            <>
+              <Button
+                variant="outline"
+                size="lg"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={busy}
+              >
+                {idSetProgress
+                  ? `업로드 검증 준비 중… ${idSetProgress.done.toLocaleString()} / ${idSetProgress.total.toLocaleString()}행`
+                  : "엑셀 업로드"}
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx"
+                onChange={handleFileChange}
+                className="hidden"
+                aria-label="입결정보 xlsx 파일 선택"
+              />
+            </>
+          )}
         </div>
       </div>
 
