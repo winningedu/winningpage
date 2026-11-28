@@ -30,9 +30,7 @@ import { maskName } from "../../_lib/console/maskName.js";
 import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
-import { nodeHeaders } from "../../_lib/hono/request.js";
 import { validate } from "../../_lib/hono/validate.js";
-import { getBearerToken } from "../../_lib/serviceAccess.js";
 import { isSchoolmentorSite } from "../../_lib/site.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -93,17 +91,13 @@ export const tenantsPurge = adminFactory
       const userId = c.var.userId as string;
       const { tenantId, targetIds } = c.req.valid("json");
 
-      // 실행자 이메일은 로그에 남긴다. 관리자 판정은 user 를 싣지 않아 토큰으로 다시 읽는다.
-      const { data: authData } = await c.var.supabaseAdmin.auth.getUser(
-        getBearerToken({ headers: nodeHeaders(c) }),
-      );
-
+      // 실행자 이메일은 로그에 남긴다. 관리자 판정에서 이미 읽은 값을 쓴다.
       const { data, error } = await c.var.supabaseAdmin.rpc(
         "fn_anonymize_expired_b2b_members",
         {
           p_tenant: tenantId,
           p_actor_profile: userId,
-          p_actor_email: authData.user?.email ?? undefined,
+          p_actor_email: c.var.userEmail ?? undefined,
           p_targets: targetIds,
         },
       );

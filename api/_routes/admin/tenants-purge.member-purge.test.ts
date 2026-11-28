@@ -114,6 +114,8 @@ describe("POST /api/admin/tenants/member-purge", () => {
     const r = await post(BODY);
 
     expect(r.status).toBe(200);
+    // 실행자 이메일은 관리자 판정에서 이미 읽었으므로 사용자를 다시 읽지 않는다.
+    expect(kit.state.getUserCalls).toBe(1);
     expect(r.body).toEqual({
       deleted: 3,
       excluded: 1,

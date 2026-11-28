@@ -402,10 +402,6 @@ describe("POST /api/admin/access-logs", () => {
       data: [{ resource_key: "members", level: "view" }],
       error: null,
     });
-    kit.state.auth.getUserById.mockResolvedValue({
-      data: { user: { email: "hq@example.com" } },
-      error: null,
-    });
   });
 
   test("본문 메뉴의 view 권한이면 토큰 사용자와 인증 이메일로 적재하고 201 로 id 를 돌려준다", async () => {
@@ -418,7 +414,9 @@ describe("POST /api/admin/access-logs", () => {
       createdAt: "2026-11-24T01:02:03Z",
     });
     expect(accessLogCreatedSchema.safeParse(r.body).success).toBe(true);
-    expect(kit.state.auth.getUserById).toHaveBeenCalledWith("hq-1");
+    // 이메일은 관리자 판정에서 이미 읽었으므로 사용자를 다시 읽지 않는다.
+    expect(kit.state.auth.getUserById).not.toHaveBeenCalled();
+    expect(kit.state.getUserCalls).toBe(1);
     expect(kit.state.inserts).toEqual([
       {
         table: "admin_access_logs",
@@ -512,10 +510,7 @@ describe("POST /api/admin/access-logs", () => {
   });
 
   test("인증 이메일을 못 구하면 500 이고 적재하지 않는다", async () => {
-    kit.state.auth.getUserById.mockResolvedValue({
-      data: { user: { email: null } },
-      error: null,
-    });
+    kit.state.user = { id: "hq-1", email: "" };
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     const r = await post(VALID_POST);

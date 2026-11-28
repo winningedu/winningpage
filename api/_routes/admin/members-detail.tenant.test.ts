@@ -184,6 +184,17 @@ describe("PUT /api/admin/members/:id/tenant", () => {
     expect(rpcCalls).toHaveLength(0);
   });
 
+  test("권한 조회는 관리자 판정과 같은 요청 안에서 한 번만 한다", async () => {
+    const r = await put({ tenantId: TENANT });
+
+    expect(r.status).toBe(200);
+    expect(
+      kit.state.events.filter(
+        (e) => e === "rpc:fn_admin_effective_permissions",
+      ),
+    ).toHaveLength(1);
+  });
+
   test("없는 회원은 404 NOT_FOUND 이고 RPC 를 부르지 않는다", async () => {
     const r = await put({ tenantId: TENANT }, OTHER_ID);
 

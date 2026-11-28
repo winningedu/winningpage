@@ -4,6 +4,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createFactory } from "hono/factory";
 import type { AdminAuditAction } from "../accessLog/adminWrite.js";
+import type { EffectivePermissionsRead } from "../adminPermission.js";
 
 /** 루트 앱 미들웨어(요청 로그, 오류 처리)가 읽는 값. 라우트 미들웨어가 채운다. */
 export type BaseVariables = {
@@ -34,6 +35,10 @@ export type AdminEnv = {
     supabaseAdmin: SupabaseClient;
     /** X-Time-Zone 헤더가 있고 유효할 때만 있다. */
     timeZone: string | undefined;
+    /** 관리자 판정에서 읽은 실행자 인증 이메일(없으면 null). 관리자 판정을 통과한 뒤에만 있다. */
+    userEmail: string | null | undefined;
+    /** 관리자 본인의 fn_admin_effective_permissions 읽기. 권한 판정에 넘기면 같은 요청 안에서 한 번만 부른다. 관리자 판정을 통과한 뒤에만 있다. */
+    effectivePermissions: EffectivePermissionsRead | undefined;
     /** 관리자 판정과 권한 키가 정해진 뒤에만 있다. 관리자 앱의 adminAudit 이 응답 뒤에 쓴다. */
     audit: AuditTarget | undefined;
   };

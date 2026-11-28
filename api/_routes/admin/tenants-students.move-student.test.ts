@@ -102,6 +102,19 @@ describe("POST /api/admin/tenants/move-student", () => {
     expect(kit.state.inserts).toHaveLength(0);
   });
 
+  test("실행자 이메일은 관리자 판정에서 이미 읽었으므로 사용자를 다시 읽지 않는다", async () => {
+    const r = await post(VALID);
+
+    expect(r.status).toBe(200);
+    expect(kit.state.getUserCalls).toBe(1);
+    expect(kit.state.inserts).toContainEqual(
+      expect.objectContaining({
+        table: "admin_access_logs",
+        row: expect.objectContaining({ actor_email: "hq@example.com" }),
+      }),
+    );
+  });
+
   test("성공하면 본문의 값으로 이동 함수를 실행자와 함께 부르고 결과를 돌려준다", async () => {
     const r = await post(VALID);
 

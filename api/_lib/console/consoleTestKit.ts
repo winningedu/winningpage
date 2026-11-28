@@ -8,6 +8,8 @@ import { vi } from "vitest";
 type Result = { data?: unknown; error?: unknown };
 
 export interface KitState {
+  /** auth.getUser(token) 를 부른 횟수. 이미 아는 사용자를 또 읽지 않는지 본다. */
+  getUserCalls: number;
   user: { id: string; email: string } | null;
   actor: {
     kind: string;
@@ -115,6 +117,7 @@ export function createKitState(): KitState {
       return { data: { user: { id: "auth-user-1" } }, error: null };
     });
   return {
+    getUserCalls: 0,
     user: { id: "profile-1", email: "admin@example.com" },
     actor: schoolAdminActor(),
     rpc: {},
@@ -145,10 +148,13 @@ export function createKitState(): KitState {
 export function createFakeAdmin(state: KitState) {
   return {
     auth: {
-      getUser: async () => ({
-        data: { user: state.user },
-        error: state.user ? null : { message: "bad" },
-      }),
+      getUser: async () => {
+        state.getUserCalls += 1;
+        return {
+          data: { user: state.user },
+          error: state.user ? null : { message: "bad" },
+        };
+      },
       admin: state.auth,
     },
     rpc: (name: string, args: Record<string, unknown>) => {

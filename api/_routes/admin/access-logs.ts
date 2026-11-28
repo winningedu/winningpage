@@ -216,10 +216,9 @@ export const accessLogs = adminFactory
   .post("/", postGuard, validate("json", accessLogWriteBody), async (c) => {
     const body = c.req.valid("json");
     const profileId = c.var.userId as string;
-    const { data: authUser, error: authError } =
-      await c.var.supabaseAdmin.auth.admin.getUserById(profileId);
-    const email = authUser?.user?.email;
-    if (authError || !email) throw new Error("auth user lookup failed");
+    // 실행자 이메일은 관리자 판정에서 이미 읽었다.
+    const email = c.var.userEmail;
+    if (!email) throw new Error("auth user lookup failed");
 
     const { data, error } = await c.var.supabaseAdmin
       .from("admin_access_logs")

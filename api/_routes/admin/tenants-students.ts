@@ -37,10 +37,8 @@ import {
   ProblemError,
   problemResponse,
 } from "../../_lib/hono/problem.js";
-import { nodeHeaders } from "../../_lib/hono/request.js";
 import { validate } from "../../_lib/hono/validate.js";
 import { SERVICE_CREDIT_PROGRAMS } from "../../_lib/service-credit/programs.js";
-import { getBearerToken } from "../../_lib/serviceAccess.js";
 import { isSchoolmentorSite } from "../../_lib/site.js";
 
 const MEMBERS_RESOURCE_KEY = "members";
@@ -128,6 +126,7 @@ const tenantsViewRequired = adminFactory.createMiddleware(async (c, next) => {
     c.var.userId as string,
     "tenants",
     "view",
+    c.var.effectivePermissions,
   );
   await next();
 });
@@ -199,12 +198,7 @@ export const tenantsStudents = adminFactory
         {
           supabaseAdmin: c.var.supabaseAdmin,
           userId,
-          user:
-            (
-              await c.var.supabaseAdmin.auth.getUser(
-                getBearerToken({ headers: nodeHeaders(c) }),
-              )
-            ).data.user ?? undefined,
+          user: { email: c.var.userEmail ?? null },
           console: {
             kind: "hq",
             tenantId: moved.tenant_id,

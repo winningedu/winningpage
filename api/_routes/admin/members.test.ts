@@ -97,14 +97,23 @@ describe("GET /api/admin/members", () => {
     expect(kit.db.calls.some((c) => c.table === "tenants")).toBe(false);
   });
 
-  test("tenants 권한 조회가 실패하면 null 로 흘리지 않고 500 이다", async () => {
+  test("권한 조회는 관리자 판정과 같은 요청 안에서 한 번만 한다", async () => {
+    const r = await get();
+
+    expect(r.status).toBe(200);
+    expect(
+      kit.state.events.filter(
+        (e) => e === "rpc:fn_admin_effective_permissions",
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("권한 조회가 실패하면 null 로 흘리지 않고 500 이다", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const perms = kit.state.rpc.fn_admin_effective_permissions;
-    let n = 0;
-    kit.state.rpc.fn_admin_effective_permissions = (args) =>
-      ++n === 1
-        ? (perms?.(args) ?? { data: [], error: null })
-        : { data: null, error: { message: "boom" } };
+    kit.state.rpc.fn_admin_effective_permissions = () => ({
+      data: null,
+      error: { message: "boom" },
+    });
 
     const r = await get();
 

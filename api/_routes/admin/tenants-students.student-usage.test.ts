@@ -129,6 +129,17 @@ afterEach(() => {
 });
 
 describe("GET /api/admin/tenants/student-usage", () => {
+  test("권한 조회는 관리자 판정과 같은 요청 안에서 한 번만 한다", async () => {
+    const r = await get({ profileId: STUDENT });
+
+    expect(r.status).toBe(200);
+    expect(
+      kit.state.events.filter(
+        (e) => e === "rpc:fn_admin_effective_permissions",
+      ),
+    ).toHaveLength(1);
+  });
+
   test.each([
     ["권한 없음", []],
     ["none", [{ resource_key: "serviceCreditAdjust", level: "none" }]],

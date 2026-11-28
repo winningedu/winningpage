@@ -22,9 +22,7 @@ import {
 import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
-import { nodeHeaders } from "../../_lib/hono/request.js";
 import { validate } from "../../_lib/hono/validate.js";
-import { getBearerToken } from "../../_lib/serviceAccess.js";
 
 interface TeacherRow {
   id: string;
@@ -64,17 +62,13 @@ export const tenantsSchoolAdmins = adminFactory
       const { tenantId, name, phone, position, email, landline } =
         c.req.valid("json");
 
-      // 감사 로그의 실행자 이메일용. 관리자 판정은 user 를 싣지 않아 토큰으로 다시 읽는다.
-      const { data: authData } = await c.var.supabaseAdmin.auth.getUser(
-        getBearerToken({ headers: nodeHeaders(c) }),
-      );
-
+      // 감사 로그의 실행자 이메일용. 관리자 판정에서 이미 읽은 값을 쓴다.
       try {
         const result = await registerTeacherWithAccount(
           {
             supabaseAdmin: c.var.supabaseAdmin,
             userId,
-            user: authData.user ?? undefined,
+            user: { email: c.var.userEmail ?? null },
             // 대행 세션 없이 본사 관리자가 직접 하는 일이라 proxySessionId 는 비어 있다.
             console: {
               kind: "hq",

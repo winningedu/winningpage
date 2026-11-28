@@ -82,7 +82,11 @@ export const membersDetail = adminFactory
   .get("/:id", detailGuard, validate("param", memberIdParams), async (c) => {
     const db = c.var.supabaseAdmin;
     const { id } = c.req.valid("param");
-    const canViewTenants = await canViewTenantNames(db, c.var.userId as string);
+    const canViewTenants = await canViewTenantNames(
+      db,
+      c.var.userId as string,
+      c.var.effectivePermissions,
+    );
 
     const { data, error } = await db
       .from("profiles")
@@ -106,6 +110,7 @@ export const membersDetail = adminFactory
       const canViewTenants = await canViewTenantNames(
         db,
         c.var.userId as string,
+        c.var.effectivePermissions,
       );
       const body = c.req.valid("json");
       const values: Record<string, string | null> = {};
@@ -144,6 +149,7 @@ export const membersDetail = adminFactory
       const canViewTenants = await canViewTenantNames(
         db,
         c.var.userId as string,
+        c.var.effectivePermissions,
       );
 
       const siteKey = getSiteKey();

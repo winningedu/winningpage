@@ -85,6 +85,8 @@ describe("POST /api/admin/tenants/school-admin", () => {
     const r = await post(VALID);
 
     expect(r.status).toBe(200);
+    // 실행자 이메일은 관리자 판정에서 이미 읽었으므로 사용자를 다시 읽지 않는다.
+    expect(kit.state.getUserCalls).toBe(1);
     const body = r.body as Record<string, unknown>;
     expect(body).not.toHaveProperty("ok");
     expect(body).toMatchObject({
