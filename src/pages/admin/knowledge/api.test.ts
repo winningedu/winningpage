@@ -89,7 +89,7 @@ describe("postKnowledgeDedupe", () => {
 
 describe("postKnowledgeBulk", () => {
   const request = {
-    knowledgeType: "topic_pattern",
+    knowledgeType: "topic_pattern" as const,
     inserts: [],
     updates: [],
   };

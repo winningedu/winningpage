@@ -22,6 +22,7 @@
 // 판단은 api/_lib/knowledge/dedupe.ts, 계약 검증은 knowledge-dedupe.test.ts.
 
 import type { KnowledgeDedupeResult } from "../../../shared/knowledge/contract.js";
+import { knowledgeDedupeBody } from "../../../shared/knowledge/request.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { performanceTraceContext } from "../../_lib/ai/telemetry/performanceContext.js";
 import { createAiTrace } from "../../_lib/ai/telemetry/trace.js";
@@ -29,11 +30,7 @@ import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
 import { validate } from "../../_lib/hono/validate.js";
-import { knowledgeBodySchema } from "../../_lib/knowledge/bodySchema.js";
-import {
-  detectKnowledgeDuplicates,
-  validateDedupeBody,
-} from "../../_lib/knowledge/dedupe.js";
+import { detectKnowledgeDuplicates } from "../../_lib/knowledge/dedupe.js";
 import { knowledgePermissionKey } from "../../_lib/knowledge/permission.js";
 import {
   buildKnowledgeSearchText,
@@ -58,54 +55,45 @@ const guard = admin({
 
 export const knowledgeDedupe = adminFactory
   .createApp()
-  .post(
-    "/",
-    guard,
-    validate("json", knowledgeBodySchema(validateDedupeBody)),
-    async (c) => {
-      const body = c.req.valid("json");
-      const db = c.var.supabaseAdmin;
+  .post("/", guard, validate("json", knowledgeDedupeBody), async (c) => {
+    const body = c.req.valid("json");
+    const db = c.var.supabaseAdmin;
 
-      const existing: Array<{ id: string; title: string; content: string }> =
-        [];
-      for (let from = 0; ; from += EXISTING_PAGE_SIZE) {
-        const { data, error } = await db
-          .from(KNOWLEDGE_TABLE)
-          .select("id, title, content")
-          .eq("knowledge_type", body.knowledgeType)
-          .order("id", { ascending: true })
-          .range(from, from + EXISTING_PAGE_SIZE - 1);
-        if (error) throw new Error(`기존 행 조회 실패: ${error.message}`);
-        existing.push(...(data ?? []));
-        if (!data || data.length < EXISTING_PAGE_SIZE) break;
-      }
+    const existing: Array<{ id: string; title: string; content: string }> = [];
+    for (let from = 0; ; from += EXISTING_PAGE_SIZE) {
+      const { data, error } = await db
+        .from(KNOWLEDGE_TABLE)
+        .select("id, title, content")
+        .eq("knowledge_type", body.knowledgeType)
+        .order("id", { ascending: true })
+        .range(from, from + EXISTING_PAGE_SIZE - 1);
+      if (error) throw new Error(`기존 행 조회 실패: ${error.message}`);
+      existing.push(...(data ?? []));
+      if (!data || data.length < EXISTING_PAGE_SIZE) break;
+    }
 
-      const trace = createAiTrace(
-        performanceTraceContext({ feature: "knowledge_dedupe" }),
-      );
-      try {
-        const items = await detectKnowledgeDuplicates(body, {
-          existing,
-          embed: (item) => embedText(buildKnowledgeSearchText(item), trace),
-          searchNear: async (embedding, minSimilarity) => {
-            const { data, error } = await db.rpc(
-              "fn_knowledge_near_duplicates",
-              {
-                // pgvector 인자는 생성 타입이 string 이지만 supabase-js 가 number[] 를 그대로 직렬화한다.
-                query_embedding: embedding as unknown as string,
-                filter_knowledge_type: body.knowledgeType,
-                min_similarity: minSimilarity,
-                match_count: NEAR_MATCH_COUNT,
-              },
-            );
-            if (error) throw new Error(`근사 중복 조회 실패: ${error.message}`);
-            return data ?? [];
-          },
-        });
-        return c.json({ items } satisfies KnowledgeDedupeResult);
-      } finally {
-        scheduleAfterResponse(() => trace.flush(db));
-      }
-    },
-  )
+    const trace = createAiTrace(
+      performanceTraceContext({ feature: "knowledge_dedupe" }),
+    );
+    try {
+      const items = await detectKnowledgeDuplicates(body, {
+        existing,
+        embed: (item) => embedText(buildKnowledgeSearchText(item), trace),
+        searchNear: async (embedding, minSimilarity) => {
+          const { data, error } = await db.rpc("fn_knowledge_near_duplicates", {
+            // pgvector 인자는 생성 타입이 string 이지만 supabase-js 가 number[] 를 그대로 직렬화한다.
+            query_embedding: embedding as unknown as string,
+            filter_knowledge_type: body.knowledgeType,
+            min_similarity: minSimilarity,
+            match_count: NEAR_MATCH_COUNT,
+          });
+          if (error) throw new Error(`근사 중복 조회 실패: ${error.message}`);
+          return data ?? [];
+        },
+      });
+      return c.json({ items } satisfies KnowledgeDedupeResult);
+    } finally {
+      scheduleAfterResponse(() => trace.flush(db));
+    }
+  })
   .all("/", methodNotAllowed("POST"));

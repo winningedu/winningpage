@@ -3,6 +3,7 @@
 
 import { MAX_BULK_ROWS } from "../../../../../api/_lib/knowledge/bulk.js";
 import type {
+  BulkKnowledgeType,
   DedupeItem,
   DedupeResult,
 } from "../../../../../api/_lib/knowledge/dedupe.js";
@@ -33,11 +34,11 @@ export async function runDedupe({
   dispatch,
   dedupe,
 }: {
-  knowledgeType: string;
+  knowledgeType: BulkKnowledgeType;
   parse: KnowledgeParseResult;
   dispatch: Dispatch;
   dedupe: (request: {
-    knowledgeType: string;
+    knowledgeType: BulkKnowledgeType;
     items: DedupeItem[];
   }) => Promise<DedupeResult[]>;
 }): Promise<void> {
@@ -76,7 +77,7 @@ export async function runApply({
   bulk,
   backfill,
 }: {
-  knowledgeType: string;
+  knowledgeType: BulkKnowledgeType;
   parse: KnowledgeParseResult;
   selected: ReadonlySet<number>;
   dispatch: Dispatch;

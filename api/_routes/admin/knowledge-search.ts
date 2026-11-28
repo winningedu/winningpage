@@ -28,6 +28,7 @@
 // 판단은 api/_lib/knowledge/preview.ts, 계약 검증은 knowledge-search.test.ts.
 
 import type { SearchPreviewResult } from "../../../shared/knowledge/contract.js";
+import { knowledgeSearchBody } from "../../../shared/knowledge/request.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { performanceTraceContext } from "../../_lib/ai/telemetry/performanceContext.js";
 import { createAiTrace } from "../../_lib/ai/telemetry/trace.js";
@@ -35,12 +36,10 @@ import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
 import { validate } from "../../_lib/hono/validate.js";
-import { knowledgeBodySchema } from "../../_lib/knowledge/bodySchema.js";
 import { knowledgePermissionKey } from "../../_lib/knowledge/permission.js";
 import {
   buildSearchPreviewItems,
   buildSearchPreviewRpc,
-  validateSearchPreviewBody,
 } from "../../_lib/knowledge/preview.js";
 import { embedText } from "../../_lib/performance/embeddings.js";
 import { buildKnowledgeQueryText } from "../../_lib/performance/knowledge.js";
@@ -55,53 +54,48 @@ const guard = admin({
 
 export const knowledgeSearch = adminFactory
   .createApp()
-  .post(
-    "/",
-    guard,
-    validate("json", knowledgeBodySchema(validateSearchPreviewBody)),
-    async (c) => {
-      const body = c.req.valid("json");
-      const db = c.var.supabaseAdmin;
-      const queryText = buildKnowledgeQueryText(body);
+  .post("/", guard, validate("json", knowledgeSearchBody), async (c) => {
+    const body = c.req.valid("json");
+    const db = c.var.supabaseAdmin;
+    const queryText = buildKnowledgeQueryText(body);
 
-      const trace = createAiTrace(
-        performanceTraceContext({ feature: "knowledge_search_preview" }),
+    const trace = createAiTrace(
+      performanceTraceContext({ feature: "knowledge_search_preview" }),
+    );
+    try {
+      const embedding = await embedText(queryText, trace);
+      const rpc = buildSearchPreviewRpc(body, embedding);
+      // pgvector 인자는 생성 타입이 string 이지만 supabase-js 가 number[] 를 그대로 직렬화한다.
+      const queryEmbedding = rpc.args.query_embedding as unknown as string;
+      const { data, error } =
+        rpc.fn === "match_winning_suhaeng_hybrid"
+          ? await db.rpc(rpc.fn, {
+              ...rpc.args,
+              query_embedding: queryEmbedding,
+            })
+          : await db.rpc(rpc.fn, {
+              ...rpc.args,
+              query_embedding: queryEmbedding,
+            });
+      if (error) throw new Error(`검색 실패: ${error.message}`);
+
+      const { threshold, items } = buildSearchPreviewItems(
+        body.knowledgeType,
+        data ?? [],
+        body.mode,
       );
-      try {
-        const embedding = await embedText(queryText, trace);
-        const rpc = buildSearchPreviewRpc(body, embedding);
-        // pgvector 인자는 생성 타입이 string 이지만 supabase-js 가 number[] 를 그대로 직렬화한다.
-        const queryEmbedding = rpc.args.query_embedding as unknown as string;
-        const { data, error } =
+      return c.json({
+        mode: body.mode,
+        threshold,
+        queryText,
+        keywordQuery:
           rpc.fn === "match_winning_suhaeng_hybrid"
-            ? await db.rpc(rpc.fn, {
-                ...rpc.args,
-                query_embedding: queryEmbedding,
-              })
-            : await db.rpc(rpc.fn, {
-                ...rpc.args,
-                query_embedding: queryEmbedding,
-              });
-        if (error) throw new Error(`검색 실패: ${error.message}`);
-
-        const { threshold, items } = buildSearchPreviewItems(
-          body.knowledgeType,
-          data ?? [],
-          body.mode,
-        );
-        return c.json({
-          mode: body.mode,
-          threshold,
-          queryText,
-          keywordQuery:
-            rpc.fn === "match_winning_suhaeng_hybrid"
-              ? rpc.args.query_keywords
-              : null,
-          items,
-        } satisfies SearchPreviewResult);
-      } finally {
-        scheduleAfterResponse(() => trace.flush(db));
-      }
-    },
-  )
+            ? rpc.args.query_keywords
+            : null,
+        items,
+      } satisfies SearchPreviewResult);
+    } finally {
+      scheduleAfterResponse(() => trace.flush(db));
+    }
+  })
   .all("/", methodNotAllowed("POST"));

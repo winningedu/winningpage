@@ -22,6 +22,7 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import type { SearchPreviewMode } from "../../../../../api/_lib/knowledge/preview.js";
+import { bulkKnowledgeTypeSchema } from "../../../../../shared/knowledge/contract.js";
 import { postSearchPreview, type SearchPreviewResult } from "../api";
 import { errorMessage } from "../errorMessage";
 import SearchResultTable from "./SearchResultTable";
@@ -63,9 +64,9 @@ const EMPTY_FORM: PreviewForm = {
 };
 
 export default function SearchPreview({ config }: { config: PreviewConfig }) {
-  const knowledgeType = String(config.fixedValues.knowledge_type) as
-    | "topic_pattern"
-    | "verified_resource";
+  const knowledgeType = bulkKnowledgeTypeSchema.parse(
+    config.fixedValues.knowledge_type,
+  );
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<PreviewForm>(EMPTY_FORM);
   // 기본값은 학생 요청 경로와 같다. 주제 추천은 다른 과목을 포함하고 자료 검색은 뺀다.
