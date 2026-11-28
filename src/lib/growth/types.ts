@@ -381,7 +381,7 @@ type PlanPeriod = "course_selection" | "semester" | "vacation";
 type PlanPriority = "required" | "recommended";
 export type PlanProgram = "school" | "self" | "deep";
 type PlanDoneSource = "manual" | "self" | "deep";
-export type Axis = string;
+type Axis = string;
 
 export type PlanItemView = {
   id: string;
