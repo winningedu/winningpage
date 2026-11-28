@@ -50,7 +50,7 @@ export const homeSectionCopy = adminFactory
       .maybeSingle();
     if (error) throw new Error("home_section_copy read failed");
     if (!data) throw notFound("섹션 제목");
-    return c.json(data as SectionCopy);
+    return c.json(data satisfies SectionCopy);
   })
   // PUT: 섹션 키 기준 upsert. 본문 오류는 예전처럼 한 줄짜리 400 VALIDATION_FAILED(path body)다.
   .put("/:sectionKey", guard, async (c) => {
@@ -71,6 +71,6 @@ export const homeSectionCopy = adminFactory
       .from("home_section_copy")
       .upsert(row, { onConflict: "section_key" });
     if (error) throw new Error("home_section_copy upsert failed");
-    return c.json(row);
+    return c.json(row satisfies SectionCopy);
   })
   .all("/:sectionKey", methodNotAllowed("GET", "PUT"));

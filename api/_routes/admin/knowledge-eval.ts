@@ -24,6 +24,7 @@ import {
   goldenPatchBody,
   goldenPatchQuery,
   type RunResponse,
+  type RunsResponse,
   type SweepResponse,
 } from "../../../shared/knowledge-eval/contract.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
@@ -106,7 +107,7 @@ export const knowledgeEval = adminFactory
         verified_resource: productionEvalParams("verified_resource"),
       },
       items: data ?? [],
-    });
+    } satisfies RunsResponse);
   })
   .post("/", evalGuard, validate("json", evalBodySchema), async (c) => {
     const startedAt = Date.now();

@@ -59,7 +59,7 @@ export const mentorApplicationsDetail = adminFactory
         .maybeSingle();
       if (error) throw new Error("mentor application read failed");
       if (!data) throw notFound(WHAT);
-      return c.json(data as MentorApplication);
+      return c.json(data satisfies MentorApplication);
     },
   )
   // PATCH /:id: 상태만 바꾼다. 닿은 행이 없으면 404.
@@ -77,7 +77,7 @@ export const mentorApplicationsDetail = adminFactory
         .maybeSingle();
       if (error) throw new Error("mentor application update failed");
       if (!data) throw notFound(WHAT);
-      return c.json(data as MentorApplication);
+      return c.json(data satisfies MentorApplication);
     },
   )
   .all("/:id", methodNotAllowed("GET", "PATCH"))

@@ -204,6 +204,7 @@ export const citationItemSchema = z.object({
 export type CitationItem = z.infer<typeof citationItemSchema>;
 
 export const citationsSchema = z.object({ items: z.array(citationItemSchema) });
+export type Citations = z.infer<typeof citationsSchema>;
 
 export const modelPricingSchema = z.object({
   input_usd_per_1m: z.number(),

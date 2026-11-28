@@ -9,13 +9,8 @@ const DIR = import.meta.dirname;
 
 /** 파일별 satisfies 없는 c.json 호출 수. 고치면 이 표에서 줄이거나 지운다. */
 const BASELINE: Record<string, number> = {
-  "ai-telemetry.ts": 1,
   "coupons.ts": 10,
-  "home-section-copy.ts": 2,
-  "knowledge-eval.ts": 1,
   "members-detail.ts": 3,
-  "mentor-applications-detail.ts": 2,
-  "premium-book.ts": 3,
   "sections.ts": 5,
   "tenants-detail.ts": 2,
   "tenants-purge.ts": 1,
