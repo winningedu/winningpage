@@ -1,6 +1,6 @@
 // 지식 검색 품질 평가 API 계약. 서버(api/_routes/admin/knowledge-eval.ts)는 요청 스키마로 검증하고,
 // 브라우저(src/pages/admin/knowledge/evals/api.ts)는 응답 스키마로 검증한다.
-// 평가 실행 본문(run, sweep)은 값 규칙과 한국어 사유를 api/_lib/knowledge/eval/metrics.ts 가 맡는다.
+// 평가 실행 본문(run, sweep)의 값 규칙과 한국어 사유는 request.ts 가 맡는다.
 
 import { z } from "zod";
 import { uuidId } from "../http/params.js";

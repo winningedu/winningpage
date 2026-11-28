@@ -3,6 +3,10 @@
 //
 // 운영 검색 상수와 학생 요청 경로는 바꾸지 않는다. 평가 실행만 파라미터를 덮어쓴다.
 
+import type {
+  EvalOverrides,
+  SweepGrid,
+} from "../../../../shared/knowledge-eval/request.js";
 import {
   buildKnowledgeKeywordQueryFor,
   buildKnowledgeQueryText,
@@ -12,7 +16,7 @@ import {
   resolveFilterSubject,
   TOPIC_MAX_ITEMS,
 } from "../../performance/knowledge.js";
-import { type BulkKnowledgeType, isBulkKnowledgeType } from "../dedupe.js";
+import type { BulkKnowledgeType } from "../dedupe.js";
 
 /** 기대 id 별 반환 목록 안의 순위(1부터). 반환 목록에 없으면 null 이다. */
 export function rankOf(
@@ -109,221 +113,58 @@ export function productionEvalParams(
   };
 }
 
-// 평가 파라미터 허용 범위. match_count 상한 20 은 두 RPC 본문의 least(match_count, 20) 과 같다.
-const PARAM_RULES: Record<
-  keyof EvalParams,
-  { min: number; max: number; integer: boolean }
-> = {
-  matchThreshold: { min: 0, max: 1, integer: false },
-  rrfK: { min: 1, max: 200, integer: true },
-  fullTextWeight: { min: 0, max: 5, integer: false },
-  semanticWeight: { min: 0, max: 5, integer: false },
-  matchCount: { min: 1, max: 20, integer: true },
-};
-
-const PARAM_KEYS = Object.keys(PARAM_RULES) as (keyof EvalParams)[];
-
-type ParamsResult =
-  | { ok: true; params: EvalParams }
-  | { ok: false; reason: string };
-
 /**
- * 운영값 위에 덮어쓰기 값을 합치고 범위를 검사한다. 값이 undefined 나 null 이면 운영값을 둔다.
- * 화면이 빈 칸을 보내지 않으므로 빈 문자열도 운영값으로 본다.
+ * 운영값 위에 덮어쓰기 값을 합친다. 값이 없으면(undefined) 운영값을 둔다.
+ * 값의 범위는 요청 스키마(shared/knowledge-eval/request.ts)가 이미 봤다.
  */
-export function buildEvalParams(input: {
-  knowledgeType: BulkKnowledgeType;
-  overrides?: unknown;
-}): ParamsResult {
-  const params = productionEvalParams(input.knowledgeType);
-  const { overrides } = input;
-  if (overrides === undefined || overrides === null)
-    return { ok: true, params };
-  if (typeof overrides !== "object" || Array.isArray(overrides)) {
-    return { ok: false, reason: "params 는 객체여야 합니다." };
+export function mergeEvalParams(
+  knowledgeType: BulkKnowledgeType,
+  overrides: EvalOverrides,
+): EvalParams {
+  const params = productionEvalParams(knowledgeType);
+  for (const key of Object.keys(params) as (keyof EvalParams)[]) {
+    const value = overrides[key];
+    if (value !== undefined) params[key] = value;
   }
-  const source = overrides as Record<string, unknown>;
-  for (const key of PARAM_KEYS) {
-    const value = source[key];
-    if (value === undefined || value === null || value === "") continue;
-    const rule = PARAM_RULES[key];
-    if (
-      typeof value !== "number" ||
-      !Number.isFinite(value) ||
-      value < rule.min ||
-      value > rule.max ||
-      (rule.integer && !Number.isInteger(value))
-    ) {
-      const kind = rule.integer ? "정수" : "숫자";
-      return {
-        ok: false,
-        reason: `${key} 는 ${rule.min}부터 ${rule.max} 사이 ${kind}여야 합니다.`,
-      };
-    }
-    params[key] = value;
-  }
-  return { ok: true, params };
-}
-
-/** 조합 비교 한 번에 돌리는 조합 수 상한. */
-export const SWEEP_MAX_COMBOS = 24;
-
-function numberList(value: unknown): number[] | null {
-  if (value === undefined || value === null) return [];
-  if (!Array.isArray(value)) return null;
-  return value.every((v) => typeof v === "number") ? (value as number[]) : null;
-}
-
-function weightPairList(
-  value: unknown,
-): { fullText: number; semantic: number }[] | null {
-  if (value === undefined || value === null) return [];
-  if (!Array.isArray(value)) return null;
-  const ok = value.every(
-    (pair) =>
-      pair &&
-      typeof pair === "object" &&
-      typeof pair.fullText === "number" &&
-      typeof pair.semantic === "number",
-  );
-  return ok ? (value as { fullText: number; semantic: number }[]) : null;
+  return params;
 }
 
 /**
  * rrf_k 목록 x 가중치 쌍 목록 x threshold 목록의 조합. 빈 축은 운영값 하나로 채우고,
- * match_count 는 운영값을 그대로 둔다. 조합마다 buildEvalParams 와 같은 범위 검사를 한다.
+ * match_count 는 운영값을 그대로 둔다. 조합 수와 값 범위는 요청 스키마가 이미 봤다.
  */
-export function buildSweepGrid(input: {
-  knowledgeType: BulkKnowledgeType;
-  grid: unknown;
-}): { ok: true; combos: EvalParams[] } | { ok: false; reason: string } {
-  const { grid } = input;
-  if (!grid || typeof grid !== "object" || Array.isArray(grid)) {
-    return { ok: false, reason: "grid 는 객체여야 합니다." };
-  }
-  const source = grid as Record<string, unknown>;
-  const rrfKs = numberList(source.rrfK);
-  const thresholds = numberList(source.matchThreshold);
-  const weights = weightPairList(source.weights);
-  if (!rrfKs || !thresholds || !weights) {
-    return {
-      ok: false,
-      reason:
-        "grid 는 rrfK 숫자 목록, weights 가중치 쌍 목록, matchThreshold 숫자 목록입니다.",
-    };
-  }
-
-  const base = productionEvalParams(input.knowledgeType);
-  const rrfAxis = rrfKs.length ? rrfKs : [base.rrfK];
-  const weightAxis = weights.length
-    ? weights
+export function expandSweepGrid(
+  knowledgeType: BulkKnowledgeType,
+  grid: SweepGrid,
+): EvalParams[] {
+  const base = productionEvalParams(knowledgeType);
+  const rrfAxis = grid.rrfK.length ? grid.rrfK : [base.rrfK];
+  const weightAxis = grid.weights.length
+    ? grid.weights
     : [{ fullText: base.fullTextWeight, semantic: base.semanticWeight }];
-  const thresholdAxis = thresholds.length ? thresholds : [base.matchThreshold];
-
-  const total = rrfAxis.length * weightAxis.length * thresholdAxis.length;
-  if (total > SWEEP_MAX_COMBOS) {
-    return {
-      ok: false,
-      reason: `조합은 ${SWEEP_MAX_COMBOS}개까지입니다. 지금 ${total}개입니다.`,
-    };
-  }
+  const thresholdAxis = grid.matchThreshold.length
+    ? grid.matchThreshold
+    : [base.matchThreshold];
 
   const combos: EvalParams[] = [];
   for (const rrfK of rrfAxis) {
     for (const pair of weightAxis) {
       for (const matchThreshold of thresholdAxis) {
-        const result = buildEvalParams({
-          knowledgeType: input.knowledgeType,
-          overrides: {
-            rrfK,
-            fullTextWeight: pair.fullText,
-            semanticWeight: pair.semantic,
-            matchThreshold,
-          },
+        combos.push({
+          ...base,
+          rrfK,
+          fullTextWeight: pair.fullText,
+          semanticWeight: pair.semantic,
+          matchThreshold,
         });
-        if (!result.ok) return result;
-        combos.push(result.params);
       }
     }
   }
-  return { ok: true, combos };
+  return combos;
 }
 
 /** 평가 검색 방식. hybrid 는 학생 요청 경로의 1차 경로이고 vector 는 폴백 경로다. */
 export type EvalMode = "vector" | "hybrid";
-
-/** 메모 길이 상한. */
-const NOTE_MAX_CHARS = 500;
-
-export type EvalRequest =
-  | {
-      action: "run";
-      knowledgeType: BulkKnowledgeType;
-      mode: EvalMode;
-      params: EvalParams;
-      note: string | null;
-    }
-  | {
-      action: "sweep";
-      knowledgeType: BulkKnowledgeType;
-      combos: EvalParams[];
-      note: string | null;
-    };
-
-/** POST /api/admin/knowledge-eval 바디 검증. 조합 비교는 RRF 를 바꾸는 실험이라 hybrid 로만 돈다. */
-export function parseEvalRequest(
-  raw: unknown,
-): { ok: true; request: EvalRequest } | { ok: false; reason: string } {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return { ok: false, reason: "요청 바디가 올바르지 않습니다." };
-  }
-  const source = raw as Record<string, unknown>;
-  if (source.action !== "run" && source.action !== "sweep") {
-    return { ok: false, reason: "action 은 run 또는 sweep 입니다." };
-  }
-  if (!isBulkKnowledgeType(source.knowledgeType)) {
-    return { ok: false, reason: "knowledgeType 이 올바르지 않습니다." };
-  }
-  const knowledgeType = source.knowledgeType;
-
-  if (
-    source.note !== undefined &&
-    source.note !== null &&
-    typeof source.note !== "string"
-  ) {
-    return { ok: false, reason: "note 는 문자열이어야 합니다." };
-  }
-  const note =
-    typeof source.note === "string"
-      ? source.note.trim().slice(0, NOTE_MAX_CHARS) || null
-      : null;
-
-  if (source.action === "sweep") {
-    const grid = buildSweepGrid({ knowledgeType, grid: source.grid });
-    if (!grid.ok) return grid;
-    return {
-      ok: true,
-      request: { action: "sweep", knowledgeType, combos: grid.combos, note },
-    };
-  }
-
-  const mode = source.mode ?? "hybrid";
-  if (mode !== "vector" && mode !== "hybrid") {
-    return { ok: false, reason: "mode 는 vector 또는 hybrid 입니다." };
-  }
-  const params = buildEvalParams({ knowledgeType, overrides: source.params });
-  if (!params.ok) return params;
-  return {
-    ok: true,
-    request: {
-      action: "run",
-      knowledgeType,
-      mode,
-      params: params.params,
-      note,
-    },
-  };
-}
 
 /** knowledge_golden_queries 행 중 평가가 읽는 필드. */
 export type GoldenQuery = {

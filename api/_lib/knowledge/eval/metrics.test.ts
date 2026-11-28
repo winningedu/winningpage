@@ -11,15 +11,14 @@ import {
   TOPIC_MAX_ITEMS,
 } from "../../performance/knowledge.js";
 import {
-  buildEvalParams,
   buildEvalQueryText,
   buildEvalRpc,
-  buildSweepGrid,
+  expandSweepGrid,
   HYBRID_FULL_TEXT_WEIGHT,
   HYBRID_RRF_K,
   HYBRID_SEMANTIC_WEIGHT,
+  mergeEvalParams,
   mrr,
-  parseEvalRequest,
   rankOf,
   recallAtK,
   scoreCombos,
@@ -78,27 +77,37 @@ describe("summarizeRun", () => {
   });
 });
 
-describe("buildEvalParams", () => {
+describe("mergeEvalParams", () => {
   test("덮어쓰기 값이 없으면 지식 유형별 운영 검색값을 쓴다", () => {
-    expect(buildEvalParams({ knowledgeType: "topic_pattern" })).toEqual({
-      ok: true,
-      params: {
-        matchThreshold: TOPIC_MATCH_THRESHOLD,
-        rrfK: 60,
-        fullTextWeight: 1,
-        semanticWeight: 1,
-        matchCount: Math.max(TOPIC_MAX_ITEMS * 2, 10),
-      },
+    expect(mergeEvalParams("topic_pattern", {})).toEqual({
+      matchThreshold: TOPIC_MATCH_THRESHOLD,
+      rrfK: 60,
+      fullTextWeight: 1,
+      semanticWeight: 1,
+      matchCount: Math.max(TOPIC_MAX_ITEMS * 2, 10),
     });
-    expect(buildEvalParams({ knowledgeType: "verified_resource" })).toEqual({
-      ok: true,
-      params: {
-        matchThreshold: RESOURCE_MATCH_THRESHOLD,
-        rrfK: 60,
-        fullTextWeight: 1,
-        semanticWeight: 1,
-        matchCount: Math.max(RESOURCE_MAX_ITEMS * 2, 10),
-      },
+    expect(mergeEvalParams("verified_resource", {})).toEqual({
+      matchThreshold: RESOURCE_MATCH_THRESHOLD,
+      rrfK: 60,
+      fullTextWeight: 1,
+      semanticWeight: 1,
+      matchCount: Math.max(RESOURCE_MAX_ITEMS * 2, 10),
+    });
+  });
+
+  test("들어온 값만 운영값 위에 덮어쓴다", () => {
+    expect(
+      mergeEvalParams("topic_pattern", {
+        rrfK: 20,
+        semanticWeight: 2.5,
+        matchThreshold: undefined,
+      }),
+    ).toEqual({
+      matchThreshold: TOPIC_MATCH_THRESHOLD,
+      rrfK: 20,
+      fullTextWeight: 1,
+      semanticWeight: 2.5,
+      matchCount: Math.max(TOPIC_MAX_ITEMS * 2, 10),
     });
   });
 });
@@ -124,121 +133,57 @@ describe("하이브리드 운영값", () => {
   });
 });
 
-describe("buildEvalParams 덮어쓰기", () => {
-  test("들어온 값만 운영값 위에 덮어쓰고 null 과 빈 값은 운영값을 둔다", () => {
-    const result = buildEvalParams({
-      knowledgeType: "topic_pattern",
-      overrides: { rrfK: 20, semanticWeight: 2.5, matchThreshold: null },
-    });
-    expect(result).toEqual({
-      ok: true,
-      params: {
-        matchThreshold: TOPIC_MATCH_THRESHOLD,
-        rrfK: 20,
-        fullTextWeight: 1,
-        semanticWeight: 2.5,
-        matchCount: Math.max(TOPIC_MAX_ITEMS * 2, 10),
-      },
-    });
-  });
-
-  test.each([
-    [{ matchThreshold: -0.1 }, "matchThreshold"],
-    [{ matchThreshold: 1.1 }, "matchThreshold"],
-    [{ rrfK: 0 }, "rrfK"],
-    [{ rrfK: 201 }, "rrfK"],
-    [{ rrfK: 10.5 }, "rrfK"],
-    [{ fullTextWeight: 5.1 }, "fullTextWeight"],
-    [{ semanticWeight: -1 }, "semanticWeight"],
-    [{ matchCount: 0 }, "matchCount"],
-    [{ matchCount: 21 }, "matchCount"],
-    [{ matchCount: 3.5 }, "matchCount"],
-    [{ matchThreshold: "0.5" }, "matchThreshold"],
-  ])("범위를 벗어난 값 %o 는 %s 이유로 거절한다", (overrides, key) => {
-    const result = buildEvalParams({
-      knowledgeType: "topic_pattern",
-      overrides,
-    });
-    expect(result.ok).toBe(false);
-    expect(result.ok === false && result.reason).toContain(key);
-  });
-
-  test("경계값은 받는다", () => {
-    const result = buildEvalParams({
-      knowledgeType: "verified_resource",
-      overrides: {
-        matchThreshold: 0,
-        rrfK: 200,
-        fullTextWeight: 0,
-        semanticWeight: 5,
-        matchCount: 20,
-      },
-    });
-    expect(result.ok).toBe(true);
-  });
-
-  test("overrides 가 객체가 아니면 거절한다", () => {
-    expect(
-      buildEvalParams({ knowledgeType: "topic_pattern", overrides: 3 }).ok,
-    ).toBe(false);
-  });
-});
-
-describe("buildSweepGrid", () => {
+describe("expandSweepGrid", () => {
   test("rrf_k, 가중치 쌍, threshold 목록의 모든 조합을 운영 match_count 로 만든다", () => {
-    const result = buildSweepGrid({
-      knowledgeType: "topic_pattern",
-      grid: {
-        rrfK: [20, 60],
-        weights: [
-          { fullText: 1, semantic: 1 },
-          { fullText: 0.5, semantic: 1.5 },
-        ],
-        matchThreshold: [0.5],
-      },
+    const combos = expandSweepGrid("topic_pattern", {
+      rrfK: [20, 60],
+      weights: [
+        { fullText: 1, semantic: 1 },
+        { fullText: 0.5, semantic: 1.5 },
+      ],
+      matchThreshold: [0.5],
     });
     const matchCount = Math.max(TOPIC_MAX_ITEMS * 2, 10);
-    expect(result).toEqual({
-      ok: true,
-      combos: [
-        {
-          rrfK: 20,
-          fullTextWeight: 1,
-          semanticWeight: 1,
-          matchThreshold: 0.5,
-          matchCount,
-        },
-        {
-          rrfK: 20,
-          fullTextWeight: 0.5,
-          semanticWeight: 1.5,
-          matchThreshold: 0.5,
-          matchCount,
-        },
-        {
-          rrfK: 60,
-          fullTextWeight: 1,
-          semanticWeight: 1,
-          matchThreshold: 0.5,
-          matchCount,
-        },
-        {
-          rrfK: 60,
-          fullTextWeight: 0.5,
-          semanticWeight: 1.5,
-          matchThreshold: 0.5,
-          matchCount,
-        },
-      ],
-    });
+    expect(combos).toEqual([
+      {
+        rrfK: 20,
+        fullTextWeight: 1,
+        semanticWeight: 1,
+        matchThreshold: 0.5,
+        matchCount,
+      },
+      {
+        rrfK: 20,
+        fullTextWeight: 0.5,
+        semanticWeight: 1.5,
+        matchThreshold: 0.5,
+        matchCount,
+      },
+      {
+        rrfK: 60,
+        fullTextWeight: 1,
+        semanticWeight: 1,
+        matchThreshold: 0.5,
+        matchCount,
+      },
+      {
+        rrfK: 60,
+        fullTextWeight: 0.5,
+        semanticWeight: 1.5,
+        matchThreshold: 0.5,
+        matchCount,
+      },
+    ]);
   });
 
   test("빈 목록 축은 운영값 하나로 채운다", () => {
-    const result = buildSweepGrid({
-      knowledgeType: "verified_resource",
-      grid: { rrfK: [10], weights: [], matchThreshold: [] },
-    });
-    expect(result.ok && result.combos).toEqual([
+    expect(
+      expandSweepGrid("verified_resource", {
+        rrfK: [10],
+        weights: [],
+        matchThreshold: [],
+      }),
+    ).toEqual([
       {
         rrfK: 10,
         fullTextWeight: 1,
@@ -247,111 +192,6 @@ describe("buildSweepGrid", () => {
         matchCount: Math.max(RESOURCE_MAX_ITEMS * 2, 10),
       },
     ]);
-  });
-
-  test("조합이 24개를 넘으면 거절한다", () => {
-    const result = buildSweepGrid({
-      knowledgeType: "topic_pattern",
-      grid: {
-        rrfK: [10, 20, 30, 40, 50],
-        weights: [
-          { fullText: 1, semantic: 1 },
-          { fullText: 2, semantic: 1 },
-        ],
-        matchThreshold: [0.4, 0.5, 0.6],
-      },
-    });
-    expect(result.ok).toBe(false);
-    expect(result.ok === false && result.reason).toContain("24");
-  });
-
-  test("범위를 벗어난 값이 섞이면 거절한다", () => {
-    const result = buildSweepGrid({
-      knowledgeType: "topic_pattern",
-      grid: { rrfK: [0], weights: [], matchThreshold: [] },
-    });
-    expect(result.ok === false && result.reason).toContain("rrfK");
-  });
-
-  test("grid 모양이 틀리면 거절한다", () => {
-    expect(
-      buildSweepGrid({ knowledgeType: "topic_pattern", grid: { rrfK: 3 } }).ok,
-    ).toBe(false);
-    expect(
-      buildSweepGrid({
-        knowledgeType: "topic_pattern",
-        grid: { weights: [{ fullText: 1 }] },
-      }).ok,
-    ).toBe(false);
-  });
-});
-
-describe("parseEvalRequest", () => {
-  test("run 은 지식 유형, 모드, 합쳐진 파라미터, 메모를 돌려준다", () => {
-    expect(
-      parseEvalRequest({
-        action: "run",
-        knowledgeType: "topic_pattern",
-        mode: "vector",
-        params: { rrfK: 30 },
-        note: " 첫 측정 ",
-      }),
-    ).toEqual({
-      ok: true,
-      request: {
-        action: "run",
-        knowledgeType: "topic_pattern",
-        mode: "vector",
-        params: {
-          matchThreshold: TOPIC_MATCH_THRESHOLD,
-          rrfK: 30,
-          fullTextWeight: 1,
-          semanticWeight: 1,
-          matchCount: Math.max(TOPIC_MAX_ITEMS * 2, 10),
-        },
-        note: "첫 측정",
-      },
-    });
-  });
-
-  test("run 의 mode 기본값은 hybrid 이고 메모가 없으면 null 이다", () => {
-    const result = parseEvalRequest({
-      action: "run",
-      knowledgeType: "verified_resource",
-    });
-    expect(result.ok && result.request).toMatchObject({
-      mode: "hybrid",
-      note: null,
-    });
-  });
-
-  test("sweep 은 조합 목록을 돌려주고 모드는 hybrid 로 고정이다", () => {
-    const result = parseEvalRequest({
-      action: "sweep",
-      knowledgeType: "topic_pattern",
-      grid: { rrfK: [20, 60] },
-    });
-    expect(result.ok && result.request.action).toBe("sweep");
-    expect(
-      result.ok && result.request.action === "sweep" && result.request.combos,
-    ).toHaveLength(2);
-  });
-
-  test.each([
-    [null, "요청"],
-    [{ action: "delete", knowledgeType: "topic_pattern" }, "action"],
-    [{ action: "run", knowledgeType: "x" }, "knowledgeType"],
-    [{ action: "run", knowledgeType: "topic_pattern", mode: "bm25" }, "mode"],
-    [{ action: "run", knowledgeType: "topic_pattern", note: 3 }, "note"],
-    [
-      { action: "run", knowledgeType: "topic_pattern", params: { rrfK: 0 } },
-      "rrfK",
-    ],
-    [{ action: "sweep", knowledgeType: "topic_pattern" }, "grid"],
-  ])("잘못된 요청 %o 는 %s 이유로 거절한다", (raw, key) => {
-    const result = parseEvalRequest(raw);
-    expect(result.ok).toBe(false);
-    expect(result.ok === false && result.reason).toContain(key);
   });
 });
 
@@ -448,8 +288,7 @@ describe("buildEvalRpc", () => {
 });
 
 describe("scoreCombos", () => {
-  const base = buildEvalParams({ knowledgeType: "verified_resource" });
-  const params = base.ok ? base.params : (undefined as never);
+  const params = mergeEvalParams("verified_resource", {});
   const queries = [
     { ...golden, id: "q1", expected_resource_ids: ["r1", "r2"] },
     { ...golden, id: "q2", selected_topic: "", expected_resource_ids: ["r9"] },
