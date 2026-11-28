@@ -23,7 +23,9 @@
 // 조립 규칙은 api/_lib/selfeval/view.ts 의 순수 함수가 가지고, 이 파일은 DB 읽기와 응답을 잇는다.
 
 import type { Context } from "hono";
+import type { z } from "zod";
 import { SELFEVAL_ERROR } from "../../../shared/selfeval/contract.js";
+import type { entryResponseSchema } from "../../../shared/selfeval/reports.js";
 import { reportsQuery } from "../../../shared/selfeval/reports.js";
 import { completePlanItemFromProgram } from "../../_lib/growth/plan/complete.js";
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
@@ -120,7 +122,7 @@ async function list(c: Context<UserEnv>, db: Db, userId: string) {
       timeZone,
     }),
     sessions: sessions.map((s) => listItem(s, scores.get(s.id) ?? null)),
-  });
+  } satisfies z.output<typeof entryResponseSchema>);
 }
 
 async function detail(

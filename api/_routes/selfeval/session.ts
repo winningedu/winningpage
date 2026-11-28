@@ -19,7 +19,11 @@
 import type { Context } from "hono";
 import type { z } from "zod";
 import { SELFEVAL_ERROR } from "../../../shared/selfeval/contract.js";
-import { sessionBody } from "../../../shared/selfeval/session.js";
+import {
+  sessionBody,
+  type sessionDiscardResponseSchema,
+  type sessionResponseSchema,
+} from "../../../shared/selfeval/session.js";
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, validationFailed } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
@@ -102,7 +106,9 @@ async function create(
     buildSessionRow(input, userId, { snapshot }),
   );
   if (!inserted.ok) throw await sessionOpenConflict(db, userId);
-  return c.json({ session: detailBody(inserted.session, [], []).session });
+  return c.json({
+    session: detailBody(inserted.session, [], []).session,
+  } satisfies z.output<typeof sessionResponseSchema>);
 }
 
 async function update(
@@ -131,7 +137,9 @@ async function update(
     ...buildSessionPatch(merged.input, session),
     last_activity_at: new Date().toISOString(),
   });
-  return c.json({ session: detailBody(updated, [], []).session });
+  return c.json({
+    session: detailBody(updated, [], []).session,
+  } satisfies z.output<typeof sessionResponseSchema>);
 }
 
 async function discard(
@@ -158,7 +166,7 @@ async function discard(
       "이미 닫힌 세션이에요.",
     );
   }
-  return c.json({});
+  return c.json({} satisfies z.output<typeof sessionDiscardResponseSchema>);
 }
 
 export const session = userFactory

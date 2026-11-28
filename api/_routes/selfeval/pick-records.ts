@@ -32,7 +32,12 @@
 // 규칙은 pick.ts, pickList.ts, pickBody.ts, link*.ts, steps/link.ts 에서 검증한다.
 
 import type { Context } from "hono";
-import { type PickBody, pickBody } from "../../../shared/selfeval/pick.js";
+import type { z } from "zod";
+import {
+  type PickBody,
+  pickBody,
+  type pickListResponseSchema,
+} from "../../../shared/selfeval/pick.js";
 import { callStructured } from "../../_lib/ai/gemini.js";
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
@@ -196,7 +201,11 @@ async function handleList(
   session: SessionRow,
 ) {
   requirePickStep(session);
-  return c.json(await listPayload(db, userId, session));
+  return c.json(
+    (await listPayload(db, userId, session)) satisfies z.output<
+      typeof pickListResponseSchema
+    >,
+  );
 }
 
 async function handleSelect(

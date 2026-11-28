@@ -20,6 +20,7 @@ import {
   progress,
   routeForStep,
 } from "./session.js";
+import { careerOf } from "./steps/shared.js";
 import {
   type ActivityRecordLike,
   type CharCount,
@@ -100,14 +101,13 @@ export type EntryInput = {
 };
 
 function profileView(profile: StudentProfileRow) {
+  const semester: 1 | 2 | null =
+    profile.semester === 1 ? 1 : profile.semester === 2 ? 2 : null;
   return {
     gradeLabel: GRADES.includes(profile.grade as HighGrade)
       ? (profile.grade as HighGrade)
       : null,
-    semester:
-      profile.semester === 1 || profile.semester === 2
-        ? profile.semester
-        : null,
+    semester,
     career: profile.career,
     department: profile.department,
     universities: profile.universities,
@@ -250,7 +250,7 @@ export function detailBody(
       teacherNote: session.teacher_note,
       targetChars: session.target_chars,
       targetCharsMode: session.target_chars_mode,
-      career: session.career,
+      career: careerOf(session),
       growthApplied: session.growth_applied,
       growthSnapshot: session.growth_snapshot,
       planItemId: session.plan_item_id,

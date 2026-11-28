@@ -20,6 +20,8 @@
 // 요청, 응답 계약은 shared/selfeval/report.ts 다. payload 의 장별 모양은 src/lib/selfeval/reportTypes.ts 다. 조립 규칙은 api/_lib/selfeval/report/ 의 순수 함수에서 검증한다.
 
 import type { Context } from "hono";
+import type { z } from "zod";
+import type { reportResponseSchema } from "../../../shared/selfeval/report.js";
 import {
   type ReportViewShape,
   reportBody,
@@ -95,7 +97,9 @@ async function read(c: Context<UserEnv>, sessionId: string) {
       "아직 만들어진 리포트가 없어요.",
     );
   }
-  return c.json({ report: toView(stored) });
+  return c.json({
+    report: toView(stored),
+  } satisfies z.output<typeof reportResponseSchema>);
 }
 
 async function build(c: Context<UserEnv>, sessionId: string) {
@@ -132,7 +136,7 @@ async function build(c: Context<UserEnv>, sessionId: string) {
       return c.json({
         reused: outcome.reused,
         report: toView(outcome.report),
-      });
+      } satisfies z.output<typeof reportResponseSchema>);
     case "no_final":
       throw selfevalProblem(
         409,

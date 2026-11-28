@@ -112,6 +112,10 @@ jobs:
       - name: http legacy
         run: npm run check:http-legacy
 
+      # Promise.all 배열 안의 await 는 읽기를 하나씩 실행하게 만든다. 적중은 0이다.
+      - name: await in parallel
+        run: npm run check:await-in-parallel
+
       # 안 쓰는 파일, 의존성, export가 다시 쌓이지 않게 막는다. 예외는 knip.jsonc에 이유와 함께 둔다.
       - name: knip
         run: npm run check:knip

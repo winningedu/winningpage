@@ -2,7 +2,7 @@
 // DB 에 묶인 얇은 계층이라 단위 테스트는 두지 않고, 변환 규칙은 rows.ts 와 stages.ts 에서 검증한다.
 
 import type { ReportStepKey } from "../../../../src/lib/selfeval/reportTypes.js";
-import { type Db, must } from "../../growth/intake/collectDb.js";
+import { type Db, must, mustRead } from "../../growth/intake/collectDb.js";
 import type { SessionRow } from "../rows.js";
 import type { Improvement } from "../types.js";
 import type {
@@ -187,55 +187,55 @@ export async function loadReportInput(
     stages,
     topImprovement,
   ] = await Promise.all([
-    must(
-      await db
+    mustRead<{ activity_record_id: string; role: "core" | "support" }[]>(
+      db
         .from("selfeval_session_activities")
         .select("activity_record_id, role")
         .eq("session_id", session.id)
         .eq("profile_id", userId),
       "selfeval_session_activities 조회 실패",
-    ) as { activity_record_id: string; role: "core" | "support" }[],
-    must(
-      await db
+    ),
+    mustRead<ActivityRow[]>(
+      db
         .from("activity_records")
         .select(ACTIVITY_COLUMNS)
         .eq("profile_id", userId)
         .in("source_program", ["performance", "deep", "manual"]),
       "activity_records 조회 실패",
-    ) as ActivityRow[],
-    must(
-      await db
+    ),
+    mustRead<{ id: string; written_at: string | null; text: string }[]>(
+      db
         .from("selfeval_manual_logs")
         .select("id, written_at, text")
         .eq("session_id", session.id)
         .eq("confirmed", true)
         .eq("included", true),
       "selfeval_manual_logs 조회 실패",
-    ) as { id: string; written_at: string | null; text: string }[],
-    must(
-      await db
+    ),
+    mustRead<LinkRow[]>(
+      db
         .from("selfeval_record_links")
         .select(LINK_COLUMNS)
         .eq("session_id", session.id),
       "selfeval_record_links 조회 실패",
-    ) as LinkRow[],
-    must(
-      await db
+    ),
+    mustRead<{ subject: string | null }[]>(
+      db
         .from("selfeval_sessions")
         .select("subject")
         .eq("profile_id", userId)
         .eq("status", "completed")
         .eq("area", "subject"),
       "selfeval_sessions 완료 과목 조회 실패",
-    ) as { subject: string | null }[],
-    must(
-      await db
+    ),
+    mustRead<{ grade: string | null } | null>(
+      db
         .from("student_profiles")
         .select("grade")
         .eq("profile_id", userId)
         .maybeSingle(),
       "student_profiles 조회 실패",
-    ) as { grade: string | null } | null,
+    ),
     loadSteps(db, userId),
     loadStages(db, userId, session, tz),
     loadTopImprovement(db, userId, session.id),

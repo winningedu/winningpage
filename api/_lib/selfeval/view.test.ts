@@ -289,6 +289,17 @@ describe("entryBody", () => {
   });
 });
 
+describe("detailBody career", () => {
+  it("DB 기본값 빈 진로 객체는 계약 모양으로 내보낸다", () => {
+    const body = detailBody(session({ career: {} }), [], []);
+    expect(body.session.career).toEqual({
+      career: null,
+      department: null,
+      universities: [],
+    });
+  });
+});
+
 describe("detailBody", () => {
   const record = { id: "a1" } as ActivityRecordLike;
   const act = {

@@ -34,6 +34,7 @@ const session = (p: Partial<SessionRow> = {}) =>
     current_step: 5,
     plan_item_id: null,
     reply_pending: null,
+    career: {},
     ...p,
   }) as SessionRow;
 

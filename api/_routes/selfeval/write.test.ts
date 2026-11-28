@@ -72,6 +72,7 @@ beforeEach(() => {
     status: "in_progress",
     current_step: 4,
     step_state: {},
+    career: {},
   });
   kit.loadReports.mockReset();
   kit.loadReports.mockResolvedValue([generationRow]);

@@ -2,7 +2,7 @@
 // activity_records 의 새 컬럼, 기록 연결, 수기 메모를 읽는다. service_role 로 읽으므로 모든 쿼리에
 // 세션 또는 profile_id 조건을 건다. 단위 테스트는 두지 않는다(db.ts 와 같은 약속).
 
-import { type Db, must } from "../growth/intake/collectDb.js";
+import { type Db, must, mustRead } from "../growth/intake/collectDb.js";
 import type { LinkInfo, MemoRow, RecordExtras } from "./evidenceSources.js";
 import type { RecordStatus } from "./types.js";
 
@@ -71,32 +71,32 @@ export async function loadEvidenceRows(
   const [extraRows, linkRows, memoRows] = await Promise.all([
     recordIds.length === 0
       ? Promise.resolve([] as ExtraDbRow[])
-      : (must(
-          await db
+      : mustRead<ExtraDbRow[]>(
+          db
             .from("activity_records")
             .select("id, record_status, entry_kind, summary, reflection")
             .eq("profile_id", userId)
             .in("id", recordIds),
           "activity_records 근거 컬럼 조회 실패",
-        ) as ExtraDbRow[]),
-    must(
-      await db
+        ),
+    mustRead<LinkDbRow[]>(
+      db
         .from("selfeval_record_links")
         .select(
           "from_record_id, to_record_id, link_type, strength, source, confirmed, deleted, note, quote_from, quote_to",
         )
         .eq("session_id", sessionId),
       "selfeval_record_links 조회 실패",
-    ) as LinkDbRow[],
-    must(
-      await db
+    ),
+    mustRead<MemoDbRow[]>(
+      db
         .from("selfeval_manual_logs")
         .select("id, written_at, text, confirmed, included, belongs_to")
         .eq("session_id", sessionId)
         .order("written_at", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true }),
       "selfeval_manual_logs 조회 실패",
-    ) as MemoDbRow[],
+    ),
   ]);
   const selected = new Set(recordIds);
   return {

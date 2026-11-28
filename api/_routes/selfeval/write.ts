@@ -27,7 +27,9 @@
 //
 // 핸들러 본문은 DB 에 묶여 단위 테스트는 단계 함수를 가짜로 바꾼다. 규칙은 api/_lib/selfeval/steps/write.ts 에서 검증한다.
 
+import type { z } from "zod";
 import { SELFEVAL_ERROR } from "../../../shared/selfeval/contract.js";
+import type { writeGenerateResponse } from "../../../shared/selfeval/write.js";
 import { writeBody } from "../../../shared/selfeval/write.js";
 import { callStructured } from "../../_lib/ai/gemini.js";
 import { userFactory } from "../../_lib/hono/factory.js";
@@ -79,12 +81,19 @@ export const write = userFactory
         startedAt,
       });
       return c.json(
-        outcomeBody(out, (r) => ({
-          report: r.report,
-          charged: r.charged,
-          regenerationsLeft: r.regenerationsLeft,
-          currentStep: r.currentStep,
-        })),
+        outcomeBody(
+          out,
+          (r) =>
+            ({
+              report: r.report,
+              charged: r.charged,
+              regenerationsLeft: r.regenerationsLeft,
+              currentStep: r.currentStep,
+            }) satisfies Omit<
+              z.output<typeof writeGenerateResponse>,
+              "attempts" | "softIssues"
+            >,
+        ),
       );
     }
 
