@@ -825,9 +825,6 @@
   "src/pages/renewal/FreeDiagnosisReport.tsx": {
     "browserDb": 1
   },
-  "src/pages/renewal/diagnosisStudentName.ts": {
-    "browserDb": 1
-  },
   "src/pages/services/Callmentor.tsx": {
     "browserDb": 1
   },
