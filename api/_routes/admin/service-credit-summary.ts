@@ -33,6 +33,9 @@ export const serviceCreditSummary = adminFactory
   .get("/", guard, validate("query", summaryQuery), async (c) => {
     const db = c.var.supabaseAdmin;
     const { profileId } = c.req.valid("query");
+    // 이용권 요약 읽기는 학생 확인과 함께 시작한다. 응답은 학생 확인(404)이 먼저다.
+    const credits = readServiceCredits(db, profileId);
+    credits.catch(() => {});
     // 화면이 새로고침해도 학생 이름을 보이도록 같이 돌려준다.
     const { data: student, error } = await db
       .from("profiles")
@@ -49,7 +52,7 @@ export const serviceCreditSummary = adminFactory
     }
     return c.json({
       student: { id: student.id, name: student.name, email: student.email },
-      items: await readServiceCredits(db, profileId),
+      items: await credits,
     } satisfies ServiceCreditSummary);
   })
   .all("/", methodNotAllowed("GET"));

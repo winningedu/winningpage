@@ -19,6 +19,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Context } from "hono";
+import { allInOrder } from "../../../src/lib/concurrency/allInOrder.js";
 import { addDaysYmd, dayStartUtc, ymdIn } from "../../../src/lib/time/day.js";
 import type { UserEnv } from "../hono/factory.js";
 import {
@@ -1611,9 +1612,17 @@ export async function reconcileTimerState(
   supabaseAdmin: SupabaseClient,
   profileId: string,
   now: Date = new Date(),
+  /** 호출부가 이미 읽은 학생 시간대. 주면 다시 읽지 않는다. */
+  knownTimeZone?: string,
 ): Promise<Row | null> {
-  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
-  let open = await fetchOpenTimerSession(supabaseAdmin, profileId);
+  // 시간대와 열린 세션 읽기는 서로 기다릴 필요가 없다.
+  const [timeZone, firstOpen] = await allInOrder(
+    knownTimeZone === undefined
+      ? getStudentTimeZone(supabaseAdmin, profileId)
+      : Promise.resolve(knownTimeZone),
+    fetchOpenTimerSession(supabaseAdmin, profileId),
+  );
+  let open = firstOpen;
   const today = ymdIn(now, timeZone);
 
   // 자정을 여러 날 건너뛴 방치 세션도 유한 시간에 끝나도록 상한을 둔다
@@ -1658,7 +1667,12 @@ export async function startTimerSession(
   now: Date = new Date(),
 ): Promise<Row> {
   const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
-  const open = await reconcileTimerState(supabaseAdmin, profileId, now);
+  const open = await reconcileTimerState(
+    supabaseAdmin,
+    profileId,
+    now,
+    timeZone,
+  );
   if (open) {
     await closeTimerSessionRow(supabaseAdmin, open, now, "switch");
   }
@@ -1737,9 +1751,17 @@ export async function fetchTimerDaySummary(
   supabaseAdmin: SupabaseClient,
   profileId: string,
   now: Date = new Date(),
+  /** 호출부가 이미 읽은 학생 시간대. 주면 다시 읽지 않는다. */
+  knownTimeZone?: string,
 ): Promise<TimerDaySummary> {
-  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
-  const open = await reconcileTimerState(supabaseAdmin, profileId, now);
+  const timeZone =
+    knownTimeZone ?? (await getStudentTimeZone(supabaseAdmin, profileId));
+  const open = await reconcileTimerState(
+    supabaseAdmin,
+    profileId,
+    now,
+    timeZone,
+  );
   const today = ymdIn(now, timeZone);
 
   const { data, error } = await supabaseAdmin

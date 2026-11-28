@@ -28,6 +28,7 @@ export const members = adminFactory
     const canViewTenants = await canViewTenantNames(
       supabase,
       c.var.userId as string,
+      c.var.effectivePermissions,
     );
     const [profiles, access, tenants] = await Promise.all([
       supabase

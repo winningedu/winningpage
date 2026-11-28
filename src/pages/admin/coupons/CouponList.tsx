@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,

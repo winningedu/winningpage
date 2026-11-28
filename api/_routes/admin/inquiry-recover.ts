@@ -81,11 +81,22 @@ export const inquiryRecover = adminFactory
     }
     const row = source as RecoverSourceRow;
 
-    const { data: assetData, error: assetError } = await db
-      .from("inquiry_assets")
-      .select(ASSET_COLUMNS)
-      .eq("session_id", row.id)
-      .order("position", { ascending: true });
+    const openMessage = "이 학생에게 진행 중인 세션이 있어 복구할 수 없습니다.";
+    // 자산 읽기와 미완 세션 확인은 서로 기다릴 필요가 없다. 오류는 확인 순서대로 본다.
+    const [{ data: assetData, error: assetError }, openRead] =
+      await Promise.all([
+        db
+          .from("inquiry_assets")
+          .select(ASSET_COLUMNS)
+          .eq("session_id", row.id)
+          .order("position", { ascending: true }),
+        db
+          .from("inquiry_sessions")
+          .select("id")
+          .eq("profile_id", row.profile_id)
+          .in("status", ["draft", "in_progress"])
+          .limit(1),
+      ]);
     if (assetError)
       throw new Error(`inquiry_assets 조회 실패: ${assetError.message}`);
 
@@ -103,13 +114,7 @@ export const inquiryRecover = adminFactory
       throw new ProblemError(409, message, plan.code);
     }
 
-    const openMessage = "이 학생에게 진행 중인 세션이 있어 복구할 수 없습니다.";
-    const { data: open, error: openError } = await db
-      .from("inquiry_sessions")
-      .select("id")
-      .eq("profile_id", row.profile_id)
-      .in("status", ["draft", "in_progress"])
-      .limit(1);
+    const { data: open, error: openError } = openRead;
     if (openError) throw new Error(`미완 세션 조회 실패: ${openError.message}`);
     if ((open ?? []).length > 0) {
       throw new ProblemError(

@@ -11,6 +11,7 @@ import {
   type Respond,
   type Result,
 } from "../../_lib/adminRoute.testkit.js";
+import { gateReads } from "../../_lib/gatedReads.testkit.js";
 
 const kit = vi.hoisted(() => ({
   admin: null as unknown,
@@ -159,13 +160,35 @@ describe("GET /api/admin/coupons/:id/grants", () => {
     expect(console.warn).toHaveBeenCalled();
   });
 
-  test("없는 쿠폰은 404 NOT_FOUND 이고 행을 읽지 않는다", async () => {
+  test("쿠폰 확인과 이력 읽기를 함께 시작한다", async () => {
+    setup();
+    const { admin, gate } = gateReads(
+      kit.admin as ReturnType<typeof createAdminFake>,
+      (target) =>
+        target.kind === "from" &&
+        (target.name === "coupons" || target.name === "coupon_grants"),
+    );
+    kit.admin = admin;
+
+    const request = get();
+    await vi.waitFor(() => expect(gate.started.length).toBeGreaterThan(0));
+    await gate.settle();
+    expect([...gate.started].sort()).toEqual([
+      "from:coupon_grants",
+      "from:coupons",
+    ]);
+    gate.release();
+
+    expect((await request).status).toBe(200);
+  });
+
+  test("없는 쿠폰은 이력 읽기를 함께 시작해도 404 NOT_FOUND 이고 이력을 싣지 않는다", async () => {
     tables.coupons = ok(null);
-    const admin = setup();
+    setup();
     const r = await get();
     expect(r.status).toBe(404);
     expect(problemCode(r.body)).toBe("NOT_FOUND");
-    expect(admin.queries.map((q) => q.table)).not.toContain("coupon_grants");
+    expect(r.body).not.toHaveProperty("items");
   });
 
   test.each([["uuid 가 아닌 id", { id: "abc" }]])(

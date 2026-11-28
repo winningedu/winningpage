@@ -46,6 +46,7 @@
 import type { Context } from "hono";
 import type { z } from "zod";
 import type { bootstrapResponse } from "../../../shared/performance/bootstrap.js";
+import { allInOrder } from "../../../src/lib/concurrency/allInOrder.js";
 import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
@@ -254,42 +255,52 @@ export const bootstrap = userFactory
     // ── 회차 스냅샷. 판정과 독립이라 실패해도 진입을 막지 않는다
     //    (check-service-access.js와 같은 취급 — 부가 정보를 못 읽었다고
     //     결제 완료 사용자를 튕기면 안 된다).
-    let quota = await readQuotaSnapshot(supabaseAdmin, userId, null);
-    try {
-      quota = await readQuotaSnapshot(
-        supabaseAdmin,
-        userId,
-        await findProgramAccessRow(supabaseAdmin, userId, serviceConfig),
-      );
-    } catch (quotaError) {
-      console.error(
-        "performance/bootstrap quota lookup 실패(무시):",
-        quotaError,
-      );
-    }
+    // 회차 스냅샷, 프로필, 최근 세션은 서로 기다릴 필요가 없어 함께 시작한다.
+    const quotaRead = (async () => {
+      let snapshot = await readQuotaSnapshot(supabaseAdmin, userId, null);
+      try {
+        snapshot = await readQuotaSnapshot(
+          supabaseAdmin,
+          userId,
+          await findProgramAccessRow(supabaseAdmin, userId, serviceConfig),
+        );
+      } catch (quotaError) {
+        console.error(
+          "performance/bootstrap quota lookup 실패(무시):",
+          quotaError,
+        );
+      }
+      return snapshot;
+    })();
 
     // ── 프로필 표시 정보. 인사말(`반갑습니다, 김형준님!` §5.4)과 사이드바
     //    프로필이 쓴다. school_type은 세션 생성 시 스냅샷으로 복사되는 값이며
     //    (sql/54_performance_app.sql (1-1)), 비어 있으면 null 그대로 내린다 —
     //    외부 앱처럼 '일반고'를 채워 넣지 않는다(이식 금지 항목).
-    const { data: profileRow, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("id, name, school_type, school_name")
-      .eq("id", userId)
-      .maybeSingle();
+    // ── 최근 세션. archived는 사용자가 스스로 치운 것이므로 후보에서 뺀다.
+    const [
+      quota,
+      { data: profileRow, error: profileError },
+      { data: sessionRows, error: sessionError },
+    ] = await allInOrder(
+      quotaRead,
+      supabaseAdmin
+        .from("profiles")
+        .select("id, name, school_type, school_name")
+        .eq("id", userId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("performance_sessions")
+        .select(SESSION_COLUMNS)
+        .eq("profile_id", userId)
+        .neq("status", "archived")
+        .order("updated_at", { ascending: false })
+        .limit(RECENT_SESSION_LIMIT),
+    );
 
     if (profileError) {
       throw new Error(`프로필 조회 실패: ${profileError.message}`);
     }
-
-    // ── 최근 세션. archived는 사용자가 스스로 치운 것이므로 후보에서 뺀다.
-    const { data: sessionRows, error: sessionError } = await supabaseAdmin
-      .from("performance_sessions")
-      .select(SESSION_COLUMNS)
-      .eq("profile_id", userId)
-      .neq("status", "archived")
-      .order("updated_at", { ascending: false })
-      .limit(RECENT_SESSION_LIMIT);
 
     if (sessionError) {
       throw new Error(`세션 조회 실패: ${sessionError.message}`);

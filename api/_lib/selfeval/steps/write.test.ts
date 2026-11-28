@@ -540,6 +540,28 @@ describe("runWrite", () => {
     expect(out).toEqual({ kind: "quota_exhausted" });
   });
 
+  it("성공 뒤 차감과 저장된 리포트 읽기를 함께 시작한다", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mocks.consumeCredit.mockReturnValue(
+      gate.then(() => ({ status: "charged", charged: true })),
+    );
+    mocks.loadReports.mockReturnValue(
+      gate.then(() => [reportRow({ id: "r9", revision: 1 })]),
+    );
+
+    const run = runWrite(db, "u1", session(), [], deps());
+    await vi.waitFor(() => {
+      expect(mocks.consumeCredit).toHaveBeenCalledTimes(1);
+      expect(mocks.loadReports).toHaveBeenCalledTimes(1);
+    });
+    release();
+
+    expect(await run).toMatchObject({ kind: "ok" });
+  });
+
   it("첫 생성 성공 뒤 차감하고 저장된 리포트와 남은 재생성 횟수를 돌려준다", async () => {
     mocks.loadReports.mockResolvedValue([reportRow({ id: "r9", revision: 1 })]);
     const out = await runWrite(db, "u1", session(), [], deps());

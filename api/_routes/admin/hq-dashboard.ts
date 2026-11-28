@@ -43,6 +43,7 @@ import {
   statsQuery,
 } from "../../../shared/hq-dashboard/contract.js";
 import { PROBLEM_CODE } from "../../../shared/http/codes.js";
+import { allInOrder } from "../../../src/lib/concurrency/allInOrder.js";
 import { addDaysYmd } from "../../../src/lib/time/day.js";
 import { hasSectionPermission } from "../../_lib/adminPermission.js";
 import { fetchAllRows } from "../../_lib/console/paging.js";
@@ -247,7 +248,13 @@ export const hqDashboard = adminFactory
 
     if (view === "log") {
       const [namesVisible, log] = await Promise.all([
-        hasSectionPermission(db, userId, "members", "view"),
+        hasSectionPermission(
+          db,
+          userId,
+          "members",
+          "view",
+          c.var.effectivePermissions,
+        ),
         db.rpc("fn_hq_login_log", {
           p_from: from,
           p_to: to,
@@ -298,12 +305,13 @@ export const hqDashboard = adminFactory
       return (data ?? []) as BucketRow[];
     };
 
-    const series = await buckets(from, to, grain, mauMode);
-    const days =
-      grain === "day" ? series : await buckets(from, to, "day", mauMode);
     const mauFrom =
       mauMode === "calendar" ? `${to.slice(0, 8)}01` : addDaysYmd(to, -29);
-    const [mauRows, first] = await Promise.all([
+    // 네 읽기는 서로의 결과를 쓰지 않는다. 함께 시작하고 오류는 앞선 읽기부터 본다.
+    const seriesRead = buckets(from, to, grain, mauMode);
+    const [series, days, mauRows, first] = await allInOrder(
+      seriesRead,
+      grain === "day" ? seriesRead : buckets(from, to, "day", mauMode),
       buckets(mauFrom, to, "month", mauMode),
       db
         .from("profile_login_slots")
@@ -311,7 +319,7 @@ export const hqDashboard = adminFactory
         .order("slot_start", { ascending: true })
         .limit(1)
         .maybeSingle(),
-    ]);
+    );
     if (first.error)
       throw new Error(`profile_login_slots 조회 실패: ${first.error.message}`);
     const firstSlot = (first.data as { slot_start: string } | null)?.slot_start;

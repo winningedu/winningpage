@@ -247,3 +247,34 @@ describe("인증과 메서드", () => {
     });
   });
 });
+
+describe("세션과 리포트 읽기", () => {
+  test("세션 읽기와 리포트 읽기를 함께 시작한다", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    kit.loadSession.mockReturnValue(
+      gate.then(() => ({ id: ID, status: "in_progress" })),
+    );
+    kit.loadReports.mockReturnValue(gate.then(() => []));
+
+    const request = post({ sessionId: ID, promoted });
+    await vi.waitFor(() => {
+      expect(kit.loadSession).toHaveBeenCalledTimes(1);
+      expect(kit.loadReports).toHaveBeenCalledTimes(1);
+    });
+    release();
+
+    await request;
+  });
+
+  test("없는 세션은 리포트 읽기가 실패해도 404 이다", async () => {
+    kit.loadSession.mockResolvedValue(null);
+    kit.loadReports.mockRejectedValue(new Error("읽지 않아야 하는 결과"));
+
+    const r = await post({ sessionId: ID, promoted });
+
+    expect(r.status).toBe(404);
+  });
+});

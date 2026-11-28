@@ -9,6 +9,9 @@ import { RouteParamError } from "../handler.js";
 import { ProblemError } from "../hono/problem.js";
 
 export const TMP_BUCKET = "admin-uploads-tmp";
+
+/** 임시 객체 확인(info)을 한꺼번에 시작하는 수. 한 요청이 스토리지를 수백 번 부르지 않게 묶는다. */
+export const STORAGE_PARALLEL = 10;
 export const PUBLIC_BUCKET = "banners";
 
 /** 임시 업로드 URL과 읽기 URL 유효 시간(2시간). */

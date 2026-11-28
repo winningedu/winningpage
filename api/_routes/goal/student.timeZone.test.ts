@@ -11,6 +11,7 @@ const repo = vi.hoisted(() => ({
   fetchProbabilityHistory: vi.fn(),
   fetchProfileName: vi.fn(),
   fetchRecordsInRange: vi.fn(),
+  fetchUniversityCut: vi.fn(),
 }));
 vi.mock("../../_lib/goal/repo.js", async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -114,5 +115,56 @@ describe("GET /api/goal/student 응답 계약", () => {
       allowed: false,
       tenantReason: "month_cap",
     });
+  });
+});
+
+describe("student 읽기", () => {
+  test("시간대, 확률 이력, 이름 읽기를 재계산 확인과 함께 시작한다", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // 정시 컷 지연 재계산이 필요한 학생. 컷 읽기가 끝나지 않아도 나머지 읽기는 시작해야 한다.
+    repo.fetchStudentRow.mockResolvedValue({
+      status: "active",
+      onboarded_at: "2026-01-01",
+      school_type: "high",
+      base_ideal_jungsi: null,
+      current_mogo: 80,
+      ideal_university: "가대",
+      ideal_department: "영문",
+      min_university: "나대",
+      min_department: "국문",
+    });
+    repo.fetchUniversityCut.mockReturnValue(gate.then(() => null));
+    repo.getStudentTimeZone.mockResolvedValue("Asia/Seoul");
+    repo.fetchProbabilityHistory.mockReturnValue(gate.then(() => []));
+    repo.fetchProfileName.mockReturnValue(gate.then(() => "학생"));
+    repo.fetchStudentStateRow.mockReturnValue(gate.then(() => null));
+
+    const request = get();
+    await vi.waitFor(() => {
+      expect(repo.getStudentTimeZone).toHaveBeenCalledTimes(1);
+      expect(repo.fetchProbabilityHistory).toHaveBeenCalledTimes(1);
+      expect(repo.fetchProfileName).toHaveBeenCalledTimes(1);
+    });
+    release();
+
+    await request;
+  });
+
+  test("컷 대기 학생은 시간대 읽기가 실패해도 시간대를 쓰지 않고 응답한다", async () => {
+    repo.fetchStudentRow.mockResolvedValue({
+      status: "awaiting_cuts",
+      onboarded_at: null,
+    });
+    repo.getStudentTimeZone.mockRejectedValue(
+      new Error("읽지 않아야 하는 결과"),
+    );
+
+    const body = await get();
+
+    expect(body).not.toHaveProperty("timeZone");
+    expect(repo.getStudentTimeZone).not.toHaveBeenCalled();
   });
 });

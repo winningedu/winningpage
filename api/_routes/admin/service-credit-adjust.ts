@@ -64,6 +64,12 @@ export const serviceCreditAdjust = adminFactory
     const actorId = c.var.userId;
     if (!actorId) throw new Error("관리자 id 가 없습니다.");
 
+    // 차감이면 이용권 요약 읽기를 회원 확인과 함께 시작한다. 응답은 회원 확인(404, 400)이 먼저다.
+    const creditRead =
+      body.delta > 0
+        ? undefined
+        : readServiceCredit(db, body.profileId, body.programKey);
+    creditRead?.catch(() => {});
     const { data: profile, error: profileError } = await db
       .from("profiles")
       .select("id, member_type, role")
@@ -86,7 +92,7 @@ export const serviceCreditAdjust = adminFactory
       );
     }
 
-    if (body.delta > 0) {
+    if (creditRead === undefined) {
       const { error: insertError } = await db
         .from("program_access_grants")
         .insert(buildAdjustGrantRow(body, actorId, new Date().toISOString()));
@@ -96,10 +102,7 @@ export const serviceCreditAdjust = adminFactory
         );
     } else {
       // 사전 확인은 친절한 거부용이다. 최종 판정은 DB 함수가 잠금 안에서 다시 한다.
-      const check = checkDeduction(
-        await readServiceCredit(db, body.profileId, body.programKey),
-        -body.delta,
-      );
+      const check = checkDeduction(await creditRead, -body.delta);
       if (!check.ok) throw new ProblemError(409, check.message, check.code);
       const { data, error: deductError } = await db.rpc(
         "fn_admin_deduct_service_credit",

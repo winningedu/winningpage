@@ -165,6 +165,28 @@ beforeEach(() => {
   mocks.post.mockResolvedValue({ inserted: 1, updated: 1 });
 });
 
+describe("엑셀 검증 읽기", () => {
+  test("파일 읽기가 끝나지 않아도 기존 컷 전량 읽기를 먼저 시작한다", async () => {
+    renderPanels();
+    await screen.findByText(/전체 4건/);
+    mocks.get.mockClear();
+    const file = new File(["x"], "cuts.xlsx");
+    Object.defineProperty(file, "arrayBuffer", {
+      value: () => new Promise<ArrayBuffer>(() => {}),
+    });
+
+    fireEvent.change(screen.getByLabelText("목표관리 대학 컷 xlsx 파일 선택"), {
+      target: { files: [file] },
+    });
+
+    await waitFor(() =>
+      expect(
+        mocks.get.mock.calls.filter(([url]) => url === "goal/admin/cuts/rows"),
+      ).toHaveLength(1),
+    );
+  });
+});
+
 describe("현황 요약", () => {
   test("서버 요약의 건수와 정시 컷 없는 조합 수를 보여준다", async () => {
     renderPanels();

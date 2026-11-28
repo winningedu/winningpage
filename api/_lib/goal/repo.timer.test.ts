@@ -19,7 +19,9 @@ function fakeSupabase(timeZone: string | null, sessions: Row[]) {
     profiles: timeZone === null ? [] : [{ id: "p1", time_zone: timeZone }],
     goal_timer_sessions: sessions,
   };
+  const reads: string[] = [];
   const from = (name: string) => {
+    reads.push(name);
     const filters: ((r: Row) => boolean)[] = [];
     let mode: "select" | "insert" | "update" = "select";
     let payload: Row = {};
@@ -67,7 +69,7 @@ function fakeSupabase(timeZone: string | null, sessions: Row[]) {
     };
     return q;
   };
-  return { client: { from } as never, sessions };
+  return { client: { from } as never, sessions, reads };
 }
 
 describe("getStudentTimeZone", () => {
@@ -137,5 +139,60 @@ describe("타이머 하루 경계", () => {
       new Date("2026-11-22T15:30:00Z"),
     );
     expect(summary.date).toBe("2026-11-22");
+  });
+});
+
+describe("학생 시간대는 요청 안에서 한 번만 읽는다", () => {
+  it("startTimerSession", async () => {
+    const { client, reads } = fakeSupabase("Asia/Seoul", []);
+    await startTimerSession(
+      client,
+      "p1",
+      "math",
+      new Date("2026-11-22T15:30:00Z"),
+    );
+    expect(reads.filter((name) => name === "profiles")).toHaveLength(1);
+  });
+
+  it("fetchTimerDaySummary", async () => {
+    const { client, reads } = fakeSupabase("Asia/Seoul", []);
+    await fetchTimerDaySummary(client, "p1", new Date("2026-11-22T15:30:00Z"));
+    expect(reads.filter((name) => name === "profiles")).toHaveLength(1);
+  });
+
+  it("reconcileTimerState 는 시간대와 열린 세션을 함께 읽기 시작한다", async () => {
+    const { client } = fakeSupabase("Asia/Seoul", []);
+    const base = (
+      client as unknown as { from: (name: string) => Record<string, unknown> }
+    ).from;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started: string[] = [];
+    const gated = {
+      from: (name: string) => {
+        const q = base(name);
+        const original = q.maybeSingle as () => Promise<unknown>;
+        q.maybeSingle = async () => {
+          started.push(name);
+          await gate;
+          return original();
+        };
+        return q;
+      },
+    } as never;
+
+    const run = reconcileTimerState(
+      gated,
+      "p1",
+      new Date("2026-11-22T15:30:00Z"),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    expect([...started].sort()).toEqual(["goal_timer_sessions", "profiles"]);
+    release();
+
+    expect(await run).toBeNull();
   });
 });

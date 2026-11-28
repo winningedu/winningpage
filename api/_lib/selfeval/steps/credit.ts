@@ -2,6 +2,7 @@
 // 정본 차감과 되돌림은 DB RPC 가 하고, 여기서는 선점 전 확인과 호출 결과 해석만 한다.
 // 성장설계 api/_lib/growth/report/advance.ts 의 차감 처리와 같은 방침이다.
 
+import { startEarly } from "../../../../src/lib/concurrency/startEarly.js";
 import { isSchoolmentorSite } from "../../site.js";
 import type { TenantDenyReason } from "../../tenantUsage.js";
 import { hasSelfevalAccess, readSelfevalQuota } from "../access.js";
@@ -54,8 +55,10 @@ export async function checkChargeGate(
       : { kind: "no_entitlement", ...reason };
   }
   if (!needsCharge(session)) return null;
+  // 한도 읽기는 이용권 확인과 함께 시작한다. 이용권이 없으면 한도 결과는 쓰지 않는다.
+  const quotaRead = startEarly(readSelfevalQuota(db, userId));
   if (!(await hasSelfevalAccess(db, userId))) return { kind: "no_entitlement" };
-  const quota = await readSelfevalQuota(db, userId);
+  const quota = await quotaRead;
   if (quota.quotaRemaining === 0) return { kind: "quota_exhausted" };
   return null;
 }

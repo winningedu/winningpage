@@ -169,6 +169,7 @@ import {
   designReportBody,
   type designReportResponse,
 } from "../../../shared/performance/design-report.js";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { generateWithRetry, PERFORMANCE_MODEL } from "../../_lib/ai/gemini.js";
 import {
@@ -969,12 +970,28 @@ export const designReport = userFactory
 
       // ── 주제 소유권(§8.6 `404 TOPIC_NOT_IN_SESSION`). **세션 id로 묶어서** 조회하므로
       //    남의 세션 주제 id를 넣으면 애초에 행이 나오지 않는다.
-      const { data: topicRow, error: topicError } = await supabaseAdmin
-        .from("performance_topics")
-        .select("id,round,idx,title,detail")
-        .eq("id", topicId)
-        .eq("session_id", sessionRow.id)
-        .maybeSingle();
+      // 주제, 기존 설계 리포트, 차감 여부는 세션과 요청 값으로 정해져 서로 기다릴 필요가 없다.
+      // 함께 시작하고, 판정은 아래 원래 순서대로 한다(앞선 판정이 응답을 정하면 뒤 결과는 쓰지 않는다).
+      const chargedRead = startEarly(
+        chargedPerformanceSessionIds(supabaseAdmin, userId, [sessionRow.id]),
+      );
+      const [
+        { data: topicRow, error: topicError },
+        { data: existingReport, error: existingError },
+      ] = await Promise.all([
+        supabaseAdmin
+          .from("performance_topics")
+          .select("id,round,idx,title,detail")
+          .eq("id", topicId)
+          .eq("session_id", sessionRow.id)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("performance_reports")
+          .select(REPORT_COLUMNS)
+          .eq("session_id", sessionRow.id)
+          .eq("report_type", "design")
+          .maybeSingle(),
+      ]);
 
       if (topicError) throw new Error(`주제 조회 실패: ${topicError.message}`);
       if (!topicRow) {
@@ -988,13 +1005,6 @@ export const designReport = userFactory
       }
 
       // ── 기존 설계 리포트(세션당 최대 1행, sql/57 (2)).
-      const { data: existingReport, error: existingError } = await supabaseAdmin
-        .from("performance_reports")
-        .select(REPORT_COLUMNS)
-        .eq("session_id", sessionRow.id)
-        .eq("report_type", "design")
-        .maybeSingle();
-
       if (existingError)
         throw new Error(`설계 리포트 조회 실패: ${existingError.message}`);
 
@@ -1083,11 +1093,7 @@ export const designReport = userFactory
       //    (sql/54 1-7). 이 파일은 차감하지 않으므로 **읽기만** 한다.
       //    정상 흐름에서 주제가 있는 세션은 반드시 차감을 거쳤다(주제는 recommend-topics
       //    성공 경로에서만 저장된다) — 그래서 이건 통상 경로가 아니라 방어선이다.
-      const charged = await chargedPerformanceSessionIds(
-        supabaseAdmin,
-        userId,
-        [sessionRow.id],
-      );
+      const charged = await chargedRead;
 
       if (!charged.has(sessionRow.id)) {
         return fail(

@@ -3,7 +3,7 @@
 // 적재에 실패하면 예외를 던진다. 호출부(쓰기 라우트)는 이를 잡지 않으므로 defineHandler 가
 // 500 을 내고, 남기지 못한 변경은 성공으로 끝나지 않는다. 임시 비밀번호는 meta 에 넣지 않는다.
 
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ConsoleActor, ConsoleActorKind } from "./actor.js";
 
 export type ConsoleAuditAction =
@@ -33,7 +33,7 @@ export interface ConsoleAuditEntry {
 export interface ConsoleAuditCtx {
   supabaseAdmin: SupabaseClient;
   userId?: string | undefined;
-  user?: User | undefined;
+  user?: { email?: string | null | undefined } | undefined;
   console: ConsoleActor;
 }
 

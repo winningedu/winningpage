@@ -2,7 +2,10 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PROBLEM_CODE } from "../../../shared/http/codes.js";
-import { hasSectionPermission } from "../adminPermission.js";
+import {
+  type EffectivePermissionsRead,
+  hasSectionPermission,
+} from "../adminPermission.js";
 import { ProblemError } from "../hono/problem.js";
 
 export type MemberRow = Record<string, unknown> & { tenant_id?: string | null };
@@ -14,8 +17,9 @@ export type MemberRow = Record<string, unknown> & { tenant_id?: string | null };
 export function canViewTenantNames(
   admin: SupabaseClient,
   profileId: string,
+  effective?: EffectivePermissionsRead,
 ): Promise<boolean> {
-  return hasSectionPermission(admin, profileId, "tenants", "view");
+  return hasSectionPermission(admin, profileId, "tenants", "view", effective);
 }
 
 /**

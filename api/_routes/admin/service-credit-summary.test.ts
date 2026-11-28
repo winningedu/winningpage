@@ -9,6 +9,7 @@ import {
   queriesOn,
   type Respond,
 } from "../../_lib/adminRoute.testkit.js";
+import { gateReads } from "../../_lib/gatedReads.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
@@ -98,8 +99,8 @@ describe("GET /api/admin/service-credit-summary", () => {
     expect(admin.rpcCalls.every((c) => c.args.p_profile_id === PID)).toBe(true);
   });
 
-  test("회원이 없으면 404 PROFILE_NOT_FOUND 이고 이용권을 읽지 않는다", async () => {
-    const admin = setup();
+  test("회원이 없으면 이용권 읽기를 함께 시작해도 404 PROFILE_NOT_FOUND 이다", async () => {
+    setup();
     profiles = () => ({ data: null, error: null });
     const r = await get();
     expect(r.status).toBe(404);
@@ -107,9 +108,7 @@ describe("GET /api/admin/service-credit-summary", () => {
     expect((r.body as { detail: string }).detail).toBe(
       "회원을 찾을 수 없습니다.",
     );
-    expect(
-      admin.rpcCalls.some((c) => c.name === "fn_program_access_grants_summary"),
-    ).toBe(false);
+    expect(r.body).not.toHaveProperty("items");
   });
 
   test("회원 조회 오류는 500 이다", async () => {
@@ -151,5 +150,40 @@ describe("GET /api/admin/service-credit-summary", () => {
     setup();
     summaryError = { message: "boom" };
     expect((await get()).status).toBe(500);
+  });
+
+  test("회원 확인과 서비스별 이용권 요약 읽기를 함께 시작한다", async () => {
+    setup();
+    const { admin, gate } = gateReads(
+      kit.admin as ReturnType<typeof createAdminFake>,
+      (target) =>
+        (target.kind === "from" &&
+          target.name === "profiles" &&
+          target.nth === 1) ||
+        (target.kind === "rpc" &&
+          target.name === "fn_program_access_grants_summary"),
+    );
+    kit.admin = admin;
+
+    const request = get();
+    await vi.waitFor(() => expect(gate.started.length).toBeGreaterThan(0));
+    await gate.settle();
+    expect([...new Set(gate.started)].sort()).toEqual([
+      "from:profiles",
+      "rpc:fn_program_access_grants_summary",
+    ]);
+    gate.release();
+
+    expect((await request).status).toBe(200);
+  });
+
+  test("없는 회원이면 이용권 요약 읽기 오류가 있어도 404 이다", async () => {
+    setup();
+    profiles = () => ({ data: null, error: null });
+    summaryError = { message: "읽지 않아야 하는 결과" };
+
+    const r = await get();
+
+    expect(r.status).toBe(404);
   });
 });

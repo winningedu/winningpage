@@ -32,6 +32,7 @@ import {
   type dailyRecordGetResponse,
   type dailyRecordPostResponse,
 } from "../../../shared/goal/daily-record.js";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import {
   addDaysYMD,
   calculateDailyBonusV2,
@@ -330,6 +331,8 @@ async function handleGet(c: Context<UserEnv>, session: GoalSession) {
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
 
+  // 시간대 읽기는 학생 확인과 함께 시작한다. 확인이 막으면(409) 시간대 결과는 쓰지 않는다.
+  const timeZoneRead = startEarly(getStudentTimeZone(supabaseAdmin, profileId));
   const gate = await requireActiveStudent(supabaseAdmin, profileId);
   if (gate.error) {
     return goalFail(c, gate.error.status, gate.error.body);
@@ -337,13 +340,13 @@ async function handleGet(c: Context<UserEnv>, session: GoalSession) {
   const student = gate.row;
 
   const now = new Date();
-  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+  const timeZone = await timeZoneRead;
   const recordDate = ymdIn(now, timeZone);
 
   const [record, stateRow, timerSummary, latestRecord] = await Promise.all([
     fetchTodayRecord(supabaseAdmin, profileId, recordDate),
     fetchStudentStateRow(supabaseAdmin, profileId),
-    fetchTimerDaySummary(supabaseAdmin, profileId, now),
+    fetchTimerDaySummary(supabaseAdmin, profileId, now, timeZone),
     fetchLatestDailyRecord(supabaseAdmin, profileId),
   ]);
 
@@ -435,6 +438,8 @@ async function handlePost(
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
 
+  // 시간대 읽기는 학생 확인과 함께 시작한다. 확인이 막으면(409) 시간대 결과는 쓰지 않는다.
+  const timeZoneRead = startEarly(getStudentTimeZone(supabaseAdmin, profileId));
   const gate = await requireActiveStudent(supabaseAdmin, profileId);
   if (gate.error) {
     return goalFail(c, gate.error.status, gate.error.body);
@@ -442,7 +447,7 @@ async function handlePost(
   const student = gate.row;
 
   const now = new Date();
-  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+  const timeZone = await timeZoneRead;
   const recordDate = ymdIn(now, timeZone);
 
   // 실제 달력 모델의 정본 계산 — "제출 N번째"가 아니라 시작일부터 실제 경과 일수.
@@ -453,7 +458,7 @@ async function handlePost(
 
   const [existing, timerSummary, latestRecord] = await Promise.all([
     fetchTodayRecord(supabaseAdmin, profileId, recordDate),
-    fetchTimerDaySummary(supabaseAdmin, profileId, now),
+    fetchTimerDaySummary(supabaseAdmin, profileId, now, timeZone),
     fetchLatestDailyRecord(supabaseAdmin, profileId),
   ]);
 

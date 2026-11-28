@@ -9,6 +9,7 @@ import {
   problemCode,
   type Respond,
 } from "../../_lib/adminRoute.testkit.js";
+import { gateReads } from "../../_lib/gatedReads.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
@@ -243,5 +244,29 @@ describe("POST /api/admin/selfeval-recover", () => {
     expect(r.status).toBe(405);
     expect(problemCode(r.body)).toBe("METHOD_NOT_ALLOWED");
     expect(r.headers.allow).toBe("POST");
+  });
+
+  test("미완 세션 확인과 선택 활동 읽기를 함께 시작한다", async () => {
+    setup();
+    const { admin, gate } = gateReads(
+      kit.admin as ReturnType<typeof createAdminFake>,
+      // 첫 읽기(원본 세션)는 막지 않고, 그다음 두 읽기가 함께 시작하는지 본다.
+      (target) =>
+        target.kind === "from" &&
+        ((target.name === "selfeval_sessions" && target.nth === 1) ||
+          (target.name === "selfeval_session_activities" && target.nth === 0)),
+    );
+    kit.admin = admin;
+
+    const request = post();
+    await vi.waitFor(() => expect(gate.started.length).toBeGreaterThan(0));
+    await gate.settle();
+    expect([...gate.started].sort()).toEqual([
+      "from:selfeval_session_activities",
+      "from:selfeval_sessions",
+    ]);
+    gate.release();
+
+    expect((await request).status).toBe(200);
   });
 });

@@ -648,3 +648,57 @@ describe("pick-records guards", () => {
     });
   });
 });
+
+describe("pick-records reads", () => {
+  /** 풀기 전에는 끝나지 않는 값. 읽기들이 서로 기다리지 않고 시작하는지 본다. */
+  const held = <T>(value: T) => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { promise: gate.then(() => value), release };
+  };
+
+  test("list: 활동, 사용한 활동, 선택, 연계 읽기를 함께 시작한다", async () => {
+    const records = held([record("core"), record("a")]);
+    const used = held(new Set<string>());
+    const chosen = held([]);
+    const links = held([]);
+    m.loadActivityRecords.mockReturnValue(records.promise);
+    m.loadUsedActivityIds.mockReturnValue(used.promise);
+    m.loadSessionActivities.mockReturnValue(chosen.promise);
+    m.loadRecordLinks.mockReturnValue(links.promise);
+
+    const request = call({ action: "list" });
+    await vi.waitFor(() => {
+      expect(m.loadActivityRecords).toHaveBeenCalledTimes(1);
+      expect(m.loadUsedActivityIds).toHaveBeenCalledTimes(1);
+      expect(m.loadSessionActivities).toHaveBeenCalledTimes(1);
+      expect(m.loadRecordLinks).toHaveBeenCalledTimes(1);
+    });
+    for (const gate of [records, used, chosen, links]) gate.release();
+
+    expect((await request).status).toBe(200);
+  });
+
+  test("select: 후보와 연계 읽기를 함께 시작한다", async () => {
+    const records = held([record("core"), record("a")]);
+    const links = held([]);
+    m.loadActivityRecords.mockReturnValue(records.promise);
+    m.loadRecordLinks.mockReturnValue(links.promise);
+
+    const request = call({
+      action: "select",
+      coreId: "core",
+      supportIds: ["a"],
+    });
+    await vi.waitFor(() => {
+      expect(m.loadActivityRecords).toHaveBeenCalledTimes(1);
+      expect(m.loadRecordLinks).toHaveBeenCalledTimes(1);
+    });
+    records.release();
+    links.release();
+
+    expect((await request).status).toBe(200);
+  });
+});

@@ -267,20 +267,15 @@ export async function runVerify(
   }
   if (out.kind !== "ok") return out;
 
-  const charged = needsCharge(session)
-    ? await chargeAfterSuccess(
-        db,
-        userId,
-        session.id,
-        "selfeval:verify-success",
-      )
-    : true;
+  // 저장된 리포트 읽기는 차감과 서로 기다릴 필요가 없다(리포트는 모델 단계에서 이미 저장됐다).
+  const [charged, savedReports] = await Promise.all([
+    needsCharge(session)
+      ? chargeAfterSuccess(db, userId, session.id, "selfeval:verify-success")
+      : true,
+    loadReports(db, userId, session.id),
+  ]);
 
-  const saved = detailBody(
-    session,
-    [],
-    await loadReports(db, userId, session.id),
-  ).reports.verification;
+  const saved = detailBody(session, [], savedReports).reports.verification;
   if (saved === null) throw new Error("검증한 리포트를 읽지 못했습니다.");
   return {
     kind: "ok",

@@ -238,15 +238,15 @@ export async function runWrite(
   );
   if (out.kind !== "ok") return out;
 
-  const charged = needsCharge(session)
-    ? await chargeAfterSuccess(db, userId, session.id, "selfeval:write-success")
-    : true;
+  // 저장된 리포트 읽기는 차감과 서로 기다릴 필요가 없다(리포트는 모델 단계에서 이미 저장됐다).
+  const [charged, savedReports] = await Promise.all([
+    needsCharge(session)
+      ? chargeAfterSuccess(db, userId, session.id, "selfeval:write-success")
+      : true,
+    loadReports(db, userId, session.id),
+  ]);
 
-  const saved = detailBody(
-    session,
-    [],
-    await loadReports(db, userId, session.id),
-  ).reports.generation;
+  const saved = detailBody(session, [], savedReports).reports.generation;
   if (saved === null || saved.charCount === null) {
     throw new Error("생성한 리포트를 읽지 못했습니다.");
   }

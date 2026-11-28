@@ -60,23 +60,24 @@ export const staffDetail = adminFactory
       const supabase = c.var.supabaseAdmin;
       const { profileId } = c.req.valid("param");
 
-      const { data: member, error } = await supabase
-        .from("admin_member_directory")
-        .select("*")
-        .eq("profile_id", profileId)
-        .maybeSingle();
+      const [{ data: member, error }, overrides, effective] = await Promise.all(
+        [
+          supabase
+            .from("admin_member_directory")
+            .select("*")
+            .eq("profile_id", profileId)
+            .maybeSingle(),
+          supabase
+            .from("admin_member_permissions")
+            .select("resource_key, level")
+            .eq("profile_id", profileId),
+          supabase.rpc("fn_admin_effective_permissions", {
+            p_profile_id: profileId,
+          }),
+        ],
+      );
       if (error) throw new Error("staff read failed");
       if (!member) throw staffNotFound();
-
-      const [overrides, effective] = await Promise.all([
-        supabase
-          .from("admin_member_permissions")
-          .select("resource_key, level")
-          .eq("profile_id", profileId),
-        supabase.rpc("fn_admin_effective_permissions", {
-          p_profile_id: profileId,
-        }),
-      ]);
       if (overrides.error || effective.error) {
         throw new Error("staff permissions read failed");
       }
@@ -149,6 +150,11 @@ export const staffDetail = adminFactory
       const { items } = c.req.valid("json");
 
       // 없는 관리자에게 권한 행을 만들지 않도록 쓰기 전에 확인한다.
+      // 메뉴 키 확인은 관리자 확인과 함께 시작하되, 응답은 관리자 확인(404)이 먼저다.
+      const keysChecked = checkResourceKeys(supabase, items).then(
+        () => undefined,
+        (keysError: unknown) => keysError,
+      );
       const { data: member, error } = await supabase
         .from("admin_members")
         .select("profile_id")
@@ -156,7 +162,8 @@ export const staffDetail = adminFactory
         .maybeSingle();
       if (error) throw new Error("staff read failed");
       if (!member) throw staffNotFound();
-      await checkResourceKeys(supabase, items);
+      const keysError = await keysChecked;
+      if (keysError) throw keysError;
 
       await replacePermissions(
         supabase,

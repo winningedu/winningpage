@@ -3,6 +3,7 @@
 // 같은 소스 조회와 집계를 쓴다(로직을 두 곳에 복제하지 않는다).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { allInOrder } from "../../../src/lib/concurrency/allInOrder.js";
 import {
   computeGoalCutBackfill,
   GOAL_BACKFILL_SCREENING_CATEGORIES,
@@ -13,7 +14,7 @@ import {
   type GoalJungsiBackfillSourceRow,
   goalCutConflictKey,
 } from "../../../src/lib/goal/goalCutBackfill.js";
-import { GOAL_CUTS_READ_CHUNK, GOAL_CUTS_TABLE } from "./cuts.js";
+import { GOAL_CUTS_READ_CHUNK, GOAL_CUTS_TABLE, readChunks } from "./cuts.js";
 
 const SOURCE_TABLE = "admission_results";
 // upsert, update 배치 크기. 백필 최대 산출이 13,000행대라 27회 요청이 된다.
@@ -61,19 +62,19 @@ export async function fetchBackfillSourceRows(
   );
   if (countError) throw new Error("backfill source count failed");
   const total = count ?? 0;
-  const all: GoalBackfillSourceRow[] = [];
-  for (let from = 0; from < total; from += GOAL_CUTS_READ_CHUNK) {
-    const { data, error } = await buildSourceQuery(client, yearMode)
-      // 정렬 없이 .range() 만 반복하면 페이지 경계에서 행이 중복, 누락된다.
-      .order("id", { ascending: true })
-      .range(from, from + GOAL_CUTS_READ_CHUNK - 1);
-    if (error) throw new Error("backfill source read failed");
-    if (!data || data.length === 0) break;
-    // head 조회와 본조회를 한 함수로 만들어 반환 타입이 유니온이다. 이 호출은 항상 본조회 shape 다.
-    all.push(...(data as GoalBackfillSourceRow[]));
-    onProgress?.({ done: all.length, total });
-  }
-  return all;
+  return readChunks(
+    total,
+    async (from) => {
+      const { data, error } = await buildSourceQuery(client, yearMode)
+        // 정렬 없이 .range() 만 반복하면 페이지 경계에서 행이 중복, 누락된다.
+        .order("id", { ascending: true })
+        .range(from, from + GOAL_CUTS_READ_CHUNK - 1);
+      if (error) throw new Error("backfill source read failed");
+      // head 조회와 본조회를 한 함수로 만들어 반환 타입이 유니온이다. 이 호출은 항상 본조회 shape 다.
+      return (data ?? []) as GoalBackfillSourceRow[];
+    },
+    (done) => onProgress?.({ done, total }),
+  );
 }
 
 function buildJungsiSourceQuery(
@@ -107,17 +108,17 @@ export async function fetchJungsiBackfillSourceRows(
   });
   if (countError) throw new Error("jungsi source count failed");
   const total = count ?? 0;
-  const all: GoalJungsiBackfillSourceRow[] = [];
-  for (let from = 0; from < total; from += GOAL_CUTS_READ_CHUNK) {
-    const { data, error } = await buildJungsiSourceQuery(client)
-      .order("id", { ascending: true })
-      .range(from, from + GOAL_CUTS_READ_CHUNK - 1);
-    if (error) throw new Error("jungsi source read failed");
-    if (!data || data.length === 0) break;
-    all.push(...(data as GoalJungsiBackfillSourceRow[]));
-    onProgress?.({ done: all.length, total });
-  }
-  return all;
+  return readChunks(
+    total,
+    async (from) => {
+      const { data, error } = await buildJungsiSourceQuery(client)
+        .order("id", { ascending: true })
+        .range(from, from + GOAL_CUTS_READ_CHUNK - 1);
+      if (error) throw new Error("jungsi source read failed");
+      return (data ?? []) as GoalJungsiBackfillSourceRow[];
+    },
+    (done) => onProgress?.({ done, total }),
+  );
 }
 
 export interface GoalCutExistingRow {
@@ -140,9 +141,7 @@ async function fetchExistingCuts(
     .from(GOAL_CUTS_TABLE)
     .select("id", { count: "exact", head: true });
   if (countError) throw new Error("backfill existing count failed");
-  const total = count ?? 0;
-  const all: GoalCutExistingRow[] = [];
-  for (let from = 0; from < total; from += GOAL_CUTS_READ_CHUNK) {
+  return readChunks(count ?? 0, async (from) => {
     const { data, error } = await client
       .from(GOAL_CUTS_TABLE)
       .select(
@@ -151,10 +150,8 @@ async function fetchExistingCuts(
       .order("id", { ascending: true })
       .range(from, from + GOAL_CUTS_READ_CHUNK - 1);
     if (error) throw new Error("backfill existing read failed");
-    if (!data || data.length === 0) break;
-    all.push(...(data as GoalCutExistingRow[]));
-  }
-  return all;
+    return (data ?? []) as GoalCutExistingRow[];
+  });
 }
 
 // 산출 payload 를 기존 행과 대조한다. 순수 함수다.
@@ -280,12 +277,15 @@ export async function planBackfill(
   client: SupabaseClient,
   options: { yearMode: GoalBackfillYearMode; preserveMode: PreserveMode },
 ): Promise<BackfillPlan> {
-  const sourceRows = await fetchBackfillSourceRows(client, options.yearMode);
+  // 기존 컷 읽기는 원천 행과 서로 기다릴 필요가 없다. 둘 다 읽은 뒤에 계산한다.
+  const [sourceRows, existingRows] = await allInOrder(
+    fetchBackfillSourceRows(client, options.yearMode),
+    fetchExistingCuts(client),
+  );
   const { payloads, stats } = computeGoalCutBackfill(
     sourceRows,
     options.yearMode,
   );
-  const existingRows = await fetchExistingCuts(client);
   const analysis = analyzeGoalCutBackfillAgainstExisting(
     payloads,
     existingRows,

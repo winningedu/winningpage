@@ -30,14 +30,51 @@ export class SectionPermissionDeniedError extends Error {
   }
 }
 
+export interface EffectivePermission {
+  resource_key?: string;
+  level?: string;
+}
+
+/** 한 요청 안에서 fn_admin_effective_permissions 를 한 번만 부르게 하는 읽기. 실패도 그대로 한 번 기억한다. */
+export type EffectivePermissionsRead = () => Promise<EffectivePermission[]>;
+
+export function readEffectivePermissions(
+  admin: SupabaseClient,
+  profileId: string,
+): EffectivePermissionsRead {
+  let read: Promise<EffectivePermission[]> | undefined;
+  return () => {
+    read ??= (async () => {
+      const { data, error } = await admin.rpc(
+        "fn_admin_effective_permissions",
+        {
+          p_profile_id: profileId,
+        },
+      );
+      if (error) throw new Error("admin permission lookup failed");
+      return (data ?? []) as EffectivePermission[];
+    })();
+    return read;
+  };
+}
+
 /** 권한이 없으면 SectionPermissionDeniedError, 조회 자체가 실패하면 일반 예외를 던진다(권한 없음으로 오인하지 않게). */
 export async function assertSectionPermission(
   admin: SupabaseClient,
   profileId: string,
   sectionKey: string,
   level: AdminLevel,
+  effective?: EffectivePermissionsRead,
 ): Promise<void> {
-  if (!(await hasSectionPermission(admin, profileId, sectionKey, level))) {
+  if (
+    !(await hasSectionPermission(
+      admin,
+      profileId,
+      sectionKey,
+      level,
+      effective,
+    ))
+  ) {
     throw new SectionPermissionDeniedError();
   }
 }
@@ -55,12 +92,16 @@ export function resolvePermissionKey(sectionKey: string): string | null {
   );
 }
 
-/** 메뉴 권한 여부만 돌려준다. assertSectionPermission 과 같은 규칙이고, 조회 실패는 던진다. */
+/** 메뉴 권한 여부만 돌려준다. assertSectionPermission 과 같은 규칙이고, 조회 실패는 던진다. effective 를 주면 그 읽기를 나눠 쓴다. */
 export async function hasSectionPermission(
   admin: SupabaseClient,
   profileId: string,
   sectionKey: string,
   level: AdminLevel,
+  effective: EffectivePermissionsRead = readEffectivePermissions(
+    admin,
+    profileId,
+  ),
 ): Promise<boolean> {
   if (isSuperOnlySection(sectionKey)) {
     const { data, error } = await admin.rpc("fn_is_super_admin", {
@@ -73,11 +114,7 @@ export async function hasSectionPermission(
   const key = resolvePermissionKey(sectionKey);
   if (!key) return false;
 
-  const { data, error } = await admin.rpc("fn_admin_effective_permissions", {
-    p_profile_id: profileId,
-  });
-  if (error) throw new Error("admin permission lookup failed");
-  return ((data ?? []) as { resource_key?: string; level?: string }[]).some(
+  return (await effective()).some(
     (row) =>
       row.resource_key === key &&
       (row.level === "edit" || (level === "view" && row.level === "view")),

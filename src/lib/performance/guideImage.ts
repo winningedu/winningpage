@@ -272,11 +272,13 @@ export async function prepareGuideImage(file: File): Promise<File> {
   }
   if (mimeType === PDF_MIME_TYPE) return file;
 
-  const meta =
+  // 방향 메타 읽기와 디코딩은 같은 파일을 따로 읽어 서로 기다릴 필요가 없다.
+  const [meta, decoded] = await Promise.all([
     mimeType === "image/jpeg"
-      ? await readJpegMeta(file)
-      : { orientation: 1, width: null, height: null };
-  const decoded = await decodeOriented(file);
+      ? readJpegMeta(file)
+      : Promise.resolve({ orientation: 1, width: null, height: null }),
+    decodeOriented(file),
+  ]);
 
   try {
     const { width, height } = decoded;

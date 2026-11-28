@@ -610,6 +610,38 @@ describe("runVerify", () => {
     expect(mocks.claimStep).not.toHaveBeenCalled();
   });
 
+  it("성공 뒤 차감과 저장된 리포트 읽기를 함께 시작한다", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mocks.consumeCredit.mockReturnValue(
+      gate.then(() => ({ status: "charged", charged: true })),
+    );
+    mocks.loadReports.mockReturnValue(
+      gate.then(() => [
+        ...withGen,
+        reportRow({
+          id: "v1",
+          report_type: "verification",
+          revision: 1,
+          score: 80,
+          mandatory_fixes: [],
+          created_at: "2026-10-06T00:01:00Z",
+        }),
+      ]),
+    );
+
+    const run = runVerify(db, "u1", session(), withGen, deps());
+    await vi.waitFor(() => {
+      expect(mocks.consumeCredit).toHaveBeenCalledTimes(1);
+      expect(mocks.loadReports).toHaveBeenCalledTimes(1);
+    });
+    release();
+
+    expect(await run).toMatchObject({ kind: "ok" });
+  });
+
   it("성공하면 최신 검증 리포트와 차감 여부를 돌려준다", async () => {
     mocks.loadReports.mockResolvedValue([
       ...withGen,

@@ -31,6 +31,7 @@
 
 import { GOAL_ERROR } from "../../../shared/goal/contract.js";
 import { reportQuery } from "../../../shared/goal/report.js";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import { GRADE_PERCENTILE } from "../../../src/lib/goal/calc/jeongsi.js";
 import {
   bucketTimeSlots,
@@ -50,7 +51,6 @@ import {
   type MonthlyWeekBar,
   resolveMonthlyPeriod,
   resolveWeeklyPeriod,
-  round1,
   sumHoursByProfile,
   summarizePlanTaskCompletion,
   toNum,
@@ -87,7 +87,7 @@ import {
   openGoalSession,
   saveGoalDirectionReport,
 } from "../../_lib/goal/repo.js";
-import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
 import { validate } from "../../_lib/hono/validate.js";
@@ -138,23 +138,41 @@ async function buildGrowthReport({
     nowYmd,
   });
 
-  const [records, sessions, planTasks, cohortProfileIds, mentorComment] =
-    await Promise.all([
-      fetchRecordsInRange(supabaseAdmin, profileId, period.start, period.end),
-      fetchTimerSessionsInRange(
-        supabaseAdmin,
-        profileId,
-        period.start,
-        period.end,
-      ),
-      fetchPlanTasksInRange(supabaseAdmin, profileId, period.start, period.end),
-      fetchActiveCohortProfileIds(
-        supabaseAdmin,
-        student.ideal_university,
-        student.ideal_department,
-      ),
-      fetchMentorComment(supabaseAdmin, profileId, type, period.periodKey),
-    ]);
+  // 합격 가능성 변화는 기간 시작 이전 최신 스냅샷과 기간 끝까지 최신 스냅샷의 차다.
+  // 스냅샷 조회는 lte 라서 끝 경계는 다음 현지 시작 1ms 전으로 둔다(반열린 구간).
+  // 경계는 기간과 시간대로 정해져 다른 읽기를 기다릴 필요가 없다.
+  const bounds = snapshotBounds(period, timeZone);
+  const startBoundaryIso = bounds.startIso;
+  const endBoundaryIso = new Date(
+    new Date(bounds.endExclusiveIso).getTime() - 1,
+  ).toISOString();
+
+  const [
+    records,
+    sessions,
+    planTasks,
+    cohortProfileIds,
+    mentorComment,
+    startLogAtOrBefore,
+    endLogAtOrBefore,
+  ] = await Promise.all([
+    fetchRecordsInRange(supabaseAdmin, profileId, period.start, period.end),
+    fetchTimerSessionsInRange(
+      supabaseAdmin,
+      profileId,
+      period.start,
+      period.end,
+    ),
+    fetchPlanTasksInRange(supabaseAdmin, profileId, period.start, period.end),
+    fetchActiveCohortProfileIds(
+      supabaseAdmin,
+      student.ideal_university,
+      student.ideal_department,
+    ),
+    fetchMentorComment(supabaseAdmin, profileId, type, period.periodKey),
+    fetchProbabilityLogAtOrBefore(supabaseAdmin, profileId, startBoundaryIso),
+    fetchProbabilityLogAtOrBefore(supabaseAdmin, profileId, endBoundaryIso),
+  ]);
 
   const totalStudyHours = computeStudyHours(records);
   const { idealRate, minRate, minTargetHours } = computeAchievementRate({
@@ -186,12 +204,16 @@ async function buildGrowthReport({
   // D4 — 목표군 내 위치. 본인 값은 이미 computeStudyHours로 구했으니 코호트 조회 결과에서
   // 덮어써 이중 집계 오차를 없앤다. 코호트 조회에 잡히지 않은(그 기간 기록이 0건인) 학생은
   // sumHoursByProfile 결과에 아예 나타나지 않으므로 0시간으로 채워 넣는다.
-  const cohortRecords = await fetchDailyRecordsForProfilesInRange(
-    supabaseAdmin,
-    cohortProfileIds,
-    period.start,
-    period.end,
-  );
+  // 처음 스냅샷 읽기는 기간 이전 스냅샷이 없을 때만 필요하고 코호트 기록 읽기와 서로 기다릴 필요가 없다.
+  const [cohortRecords, startLog] = await Promise.all([
+    fetchDailyRecordsForProfilesInRange(
+      supabaseAdmin,
+      cohortProfileIds,
+      period.start,
+      period.end,
+    ),
+    startLogAtOrBefore ?? fetchEarliestProbabilityLog(supabaseAdmin, profileId),
+  ]);
   const cohortHoursMap = new Map(
     sumHoursByProfile(cohortRecords).map((x) => [x.profileId, x.hours]),
   );
@@ -207,26 +229,7 @@ async function buildGrowthReport({
   const distraction = computeDistraction(records);
   const coreItems = computeCoreItems(records);
 
-  // 합격 가능성 변화 — 기간 시작 이전 최신 스냅샷과 기간 끝까지 최신 스냅샷의 차.
-  // 스냅샷 조회는 lte 라서 끝 경계는 다음 현지 시작 1ms 전으로 둔다(반열린 구간).
-  const bounds = snapshotBounds(period, timeZone);
-  const startBoundaryIso = bounds.startIso;
-  const endBoundaryIso = new Date(
-    new Date(bounds.endExclusiveIso).getTime() - 1,
-  ).toISOString();
-  let startLog = await fetchProbabilityLogAtOrBefore(
-    supabaseAdmin,
-    profileId,
-    startBoundaryIso,
-  );
-  if (!startLog)
-    startLog = await fetchEarliestProbabilityLog(supabaseAdmin, profileId);
-  let endLog = await fetchProbabilityLogAtOrBefore(
-    supabaseAdmin,
-    profileId,
-    endBoundaryIso,
-  );
-  if (!endLog) endLog = startLog;
+  const endLog = endLogAtOrBefore ?? startLog;
 
   const admissionArgs = {
     targets: {
@@ -617,6 +620,10 @@ export const report = userFactory
         });
       }
 
+      // 시간대 읽기는 학생 확인과 함께 시작한다. 확인이 막으면(409) 시간대 결과는 쓰지 않는다.
+      const timeZoneRead = startEarly(
+        getStudentTimeZone(supabaseAdmin, profileId),
+      );
       const student = await fetchStudentRow(supabaseAdmin, profileId);
 
       // daily-record.js requireActiveStudent와 동일한 판정 순서 — 온보딩 미완료/컷 대기 학생은
@@ -628,7 +635,7 @@ export const report = userFactory
         return goalFail(c, 409, { reason: "awaiting_cuts" });
       }
 
-      const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+      const timeZone = await timeZoneRead;
       const nowYmd = ymdIn(new Date(), timeZone);
 
       if (type === "direction") {

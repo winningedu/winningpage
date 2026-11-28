@@ -24,6 +24,7 @@ import {
   type sessionDiscardResponseSchema,
   type sessionResponseSchema,
 } from "../../../shared/selfeval/session.js";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, validationFailed } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
@@ -85,8 +86,12 @@ async function create(
 ) {
   const { action: _action, ...basics } = body;
   const input = normalizeBasics(basics);
+  // 세 읽기는 모두 사용자로 정해져 함께 시작하고, 결과는 확인 순서대로 본다(앞선 확인이 응답을 정하면 뒤 읽기는 쓰지 않는다).
+  const quotaRead = startEarly(readSelfevalQuota(db, userId));
+  const openRead = startEarly(loadOpenSession(db, userId));
+  const snapshotRead = startEarly(loadGrowthSnapshot(db, userId));
   // 회차가 0 이면 생성 전에 막는다(명세 No.101). null 은 무제한이라 통과한다.
-  const quota = await readSelfevalQuota(db, userId);
+  const quota = await quotaRead;
   if (quota.quotaRemaining === 0) {
     throw selfevalProblem(
       409,
@@ -95,10 +100,10 @@ async function create(
       tenantReasonExtra(quota.capReason),
     );
   }
-  if ((await loadOpenSession(db, userId)) !== null) {
+  if ((await openRead) !== null) {
     throw await sessionOpenConflict(db, userId);
   }
-  const snapshot = await loadGrowthSnapshot(db, userId);
+  const snapshot = await snapshotRead;
   const plan = validatePlanItem(input, snapshot);
   if (!plan.ok) throw selfevalProblem(400, plan.code, plan.message);
   const inserted = await insertSession(

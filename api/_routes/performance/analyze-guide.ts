@@ -482,11 +482,18 @@ export const analyzeGuide = userFactory
       }
 
       // ── 다운로드. 경로는 오직 DB 행의 값이다(요청 본문에서 온 문자열이 아니다).
+      // 내려받기는 함께 시작하고, 실패 판정과 이미지 순서는 행 순서대로 한다.
+      const downloads = await Promise.all(
+        verified.measured.map((item) =>
+          supabaseAdmin.storage.from(BUCKET).download(item.path),
+        ),
+      );
       const images: { data: Buffer; mimeType: string }[] = [];
-      for (const item of verified.measured) {
-        const { data: blob, error: downloadError } = await supabaseAdmin.storage
-          .from(BUCKET)
-          .download(item.path);
+      for (const [index, item] of verified.measured.entries()) {
+        const { data: blob, error: downloadError } = downloads[index] ?? {
+          data: null,
+          error: null,
+        };
 
         if (downloadError || !blob) {
           console.error(
@@ -663,10 +670,18 @@ async function verifyStoredObjects(
   const measured: MeasuredItem[] = [];
   const missing: string[] = [];
 
-  for (const row of rows) {
-    const { data: info, error: infoError } = await supabaseAdmin.storage
-      .from(BUCKET)
-      .info(row.storage_path as string);
+  // 객체마다 따로 확인하므로(최대 5장) 함께 시작하고, 판정과 로그는 행 순서대로 한다.
+  const infos = await Promise.all(
+    rows.map((row) =>
+      supabaseAdmin.storage.from(BUCKET).info(row.storage_path as string),
+    ),
+  );
+
+  for (const [index, row] of rows.entries()) {
+    const { data: info, error: infoError } = infos[index] ?? {
+      data: null,
+      error: null,
+    };
 
     if (infoError || !info) {
       console.error(

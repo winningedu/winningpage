@@ -389,6 +389,76 @@ describe("입결정보 엑셀", () => {
     expect(mocks.exportResults.mock.calls[0]?.[0]).toHaveLength(2500);
   });
 
+  test("다운로드는 페이지 읽기를 함께 시작하고 행은 offset 순서로 모은다", async () => {
+    mocks.exportResults.mockReturnValue({ workbook: {}, truncatedCells: [] });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mocks.get.mockImplementation(
+      (path: string, opts?: { searchParams?: { offset: number } }) => {
+        if (path === COUNT_PATH) return reply({ total: 2500 });
+        const offset = opts?.searchParams?.offset ?? 0;
+        const n = Math.max(0, Math.min(1000, 2500 - offset));
+        const body = {
+          items: Array.from({ length: n }, (_, i) => ({ id: offset + i + 1 })),
+        };
+        return {
+          json: (schema: { parse: (v: unknown) => unknown }) =>
+            gate.then(() => schema.parse(body)),
+        };
+      },
+    );
+    wrap(<AdmissionResultsListSummary onReload={vi.fn()} />);
+    mocks.get.mockClear();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "엑셀 다운로드 (전체 2,500행)",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        mocks.get.mock.calls.filter(([path]) => path === ROWS_PATH),
+      ).toHaveLength(3),
+    );
+    release();
+    await waitFor(() => expect(mocks.exportResults).toHaveBeenCalledTimes(1));
+    const exported = mocks.exportResults.mock.calls[0]?.[0] as { id: number }[];
+    expect(exported.map((row) => row.id)).toEqual(
+      Array.from({ length: 2500 }, (_, i) => i + 1),
+    );
+  });
+
+  test("업로드는 파일 읽기와 id 전량 읽기를 함께 시작한다", async () => {
+    stubResults(3);
+    mocks.parseResults.mockReturnValue({
+      rows: [],
+      errors: [],
+      warnings: [],
+      summary: { ...summary, willInsert: 0, willUpdate: 0 },
+    });
+    wrap(<AdmissionResultsListSummary onReload={vi.fn()} />);
+    await screen.findByRole("button", { name: "엑셀 다운로드 (전체 3행)" });
+    mocks.get.mockClear();
+    const input = screen.getByLabelText(
+      "입결정보 xlsx 파일 선택",
+    ) as HTMLInputElement;
+    const file = new File(["x"], "a.xlsx");
+    Object.assign(file, {
+      // 파일 읽기가 끝나지 않아도 id 전량 읽기는 이미 시작해야 한다.
+      arrayBuffer: () => new Promise<ArrayBuffer>(() => {}),
+    });
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() =>
+      expect(
+        mocks.get.mock.calls.filter(([path]) => path === COUNT_PATH),
+      ).toHaveLength(1),
+    );
+  });
+
   describe("적용", () => {
     const inserts = Array.from({ length: 1100 }, (_, i) => ({ k: i }));
     const updates = Array.from({ length: 600 }, (_, i) => ({

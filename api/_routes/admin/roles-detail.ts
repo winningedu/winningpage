@@ -18,6 +18,7 @@ import {
   permissionItemsBody,
   type SavedItems,
 } from "../../../shared/staff/detail.js";
+import { allInOrder } from "../../../src/lib/concurrency/allInOrder.js";
 import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
@@ -54,18 +55,20 @@ export const rolesDetail = adminFactory
     const { id } = idOnly.data;
     const supabase = c.var.supabaseAdmin;
 
-    const { data: role, error } = await supabase
-      .from("admin_roles")
-      .select(ROLE_COLUMNS)
-      .eq("id", id)
-      .maybeSingle();
+    const [{ data: role, error }, { data: permissions, error: permError }] =
+      await allInOrder(
+        supabase
+          .from("admin_roles")
+          .select(ROLE_COLUMNS)
+          .eq("id", id)
+          .maybeSingle(),
+        supabase
+          .from("admin_role_permissions")
+          .select("resource_key, level")
+          .eq("role_id", id),
+      );
     if (error) throw new Error("role read failed");
     if (!role) throw roleNotFound();
-
-    const { data: permissions, error: permError } = await supabase
-      .from("admin_role_permissions")
-      .select("resource_key, level")
-      .eq("role_id", id);
     if (permError) throw new Error("role permissions read failed");
     return c.json({
       ...role,
@@ -142,6 +145,11 @@ export const rolesDetail = adminFactory
       const { items } = c.req.valid("json");
 
       // 없는 묶음에 항목 행을 만들지 않도록 쓰기 전에 확인한다.
+      // 메뉴 키 확인은 묶음 확인과 함께 시작하되, 응답은 묶음 확인(404)이 먼저다.
+      const keysChecked = checkResourceKeys(supabase, items).then(
+        () => undefined,
+        (keysError: unknown) => keysError,
+      );
       const { data: role, error } = await supabase
         .from("admin_roles")
         .select("id")
@@ -149,7 +157,8 @@ export const rolesDetail = adminFactory
         .maybeSingle();
       if (error) throw new Error("role read failed");
       if (!role) throw roleNotFound();
-      await checkResourceKeys(supabase, items);
+      const keysError = await keysChecked;
+      if (keysError) throw keysError;
 
       await replacePermissions(
         supabase,

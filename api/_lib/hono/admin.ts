@@ -22,7 +22,9 @@ import {
 import {
   type AdminLevel,
   assertSectionPermission,
+  type EffectivePermissionsRead,
   type MenuCheck,
+  readEffectivePermissions,
   SectionPermissionDeniedError,
   startMenuCheck,
 } from "../adminPermission.js";
@@ -176,6 +178,7 @@ export const admin = (options: AdminRouteOptions) =>
       const steps: AdminAuthTimings & { permission?: number } = {};
       // 메뉴 권한 판정은 관리자 판정과 함께 시작하고, 결과는 관리자 판정을 통과한 뒤에만 본다.
       let menu: MenuCheck | undefined;
+      let effective: EffectivePermissionsRead | undefined;
       const permission = options.permission;
       try {
         const resolved = await resolveAdmin(
@@ -185,6 +188,7 @@ export const admin = (options: AdminRouteOptions) =>
           permission === "none"
             ? undefined
             : (userId) => {
+                effective = readEffectivePermissions(supabaseAdmin, userId);
                 menu = startMenuCheck(
                   () =>
                     typeof permission.key === "function"
@@ -197,6 +201,7 @@ export const admin = (options: AdminRouteOptions) =>
                       requestedKey,
                       permission.level ??
                         (isReadMethod(c.req.method) ? "view" : "edit"),
+                      effective,
                     ),
                   steps,
                 );
@@ -211,6 +216,8 @@ export const admin = (options: AdminRouteOptions) =>
           );
         }
         c.set("userId", resolved.userId);
+        c.set("userEmail", resolved.email);
+        if (effective) c.set("effectivePermissions", effective);
 
         if (menu) {
           // 키 함수가 던지면(400) 대상 메뉴가 없으니 감사 행도 없다.

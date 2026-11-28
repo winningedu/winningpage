@@ -23,7 +23,7 @@
 // 카멜 케이스로 옮기기만 한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Context } from "hono";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import { getSchoolCutType } from "../../../src/lib/goal/calc/index.js";
 import { addDaysYMD } from "../../../src/lib/goal/calc/virtualDate.js";
 import { computeAvgStudyHours } from "../../../src/lib/goal/report/aggregate.js";
@@ -49,7 +49,7 @@ import {
   openGoalSession,
   updateStudentJungsiProb,
 } from "../../_lib/goal/repo.js";
-import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
@@ -151,12 +151,23 @@ export const student = userFactory
 
       const now = new Date();
 
+      // 시간대, 확률 이력, 이름은 재계산 결과와 상관없어 재계산과 함께 시작한다.
+      const timeZoneRead = startEarly(
+        getStudentTimeZone(supabaseAdmin, profileId),
+      );
+      const historyRead = startEarly(
+        fetchProbabilityHistory(supabaseAdmin, profileId),
+      );
+      const profileNameRead = startEarly(
+        fetchProfileName(supabaseAdmin, profileId),
+      );
+
       // 행296·332 지연 재계산(§9-5 결정3) — 온보딩 뒤에 정시 컷이 새로 생긴
       // 학생을 이 조회에서 채운다. stateRow(뷰) 를 읽기 전에 먼저 끝내야
       // 뷰가 갱신된 base_ideal_jungsi/rate_ideal_jungsi 를 곧바로 반영한다.
       row = await maybeRecalcJungsi(supabaseAdmin, profileId, row, now);
 
-      const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+      const timeZone = await timeZoneRead;
       const todayYmd = ymdIn(now, timeZone);
       const recentFromYmd = addDaysYMD(
         todayYmd,
@@ -167,8 +178,8 @@ export const student = userFactory
       const [stateRow, historyRows, profileName, recentRecords] =
         await Promise.all([
           fetchStudentStateRow(supabaseAdmin, profileId),
-          fetchProbabilityHistory(supabaseAdmin, profileId),
-          fetchProfileName(supabaseAdmin, profileId),
+          historyRead,
+          profileNameRead,
           fetchRecordsInRange(
             supabaseAdmin,
             profileId,
