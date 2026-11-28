@@ -14,6 +14,7 @@ import type { UploadField } from "../../_lib/admin-sections/registry.js";
 import {
   PUBLIC_BUCKET,
   parseTempName,
+  STORAGE_PARALLEL,
   TMP_BUCKET,
   uploadExpired,
   validateUpload,
@@ -27,6 +28,7 @@ import {
   ProblemError,
 } from "../../_lib/hono/problem.js";
 import { validate } from "../../_lib/hono/validate.js";
+import { mapBounded } from "../../_lib/mapBounded.js";
 import {
   premiumBookPathFromUrl,
   promotePageBody,
@@ -200,10 +202,19 @@ export const premiumBook = adminFactory
       ),
     ];
 
+    // 기존 행 읽기는 스토리지 단계와 상관없어 먼저 시작한다. 결과는 2번 뒤에 보므로 스토리지 오류(500)가 먼저 응답이 된다.
+    const existingRead = Promise.resolve(
+      db.from("premium_book_pages").select("id, sort_order"),
+    );
+
     // 1. 모두 확인한다(아직 쓰지 않는다). 업로드 URL 은 서명만 있으면 아무 본문이나 올릴 수 있어서 저장된 크기와 형식을 다시 본다.
+    // 확인은 함께 시작하고 판정은 계획 순서대로 한다.
+    const infos = await mapBounded(plans, STORAGE_PARALLEL, (plan) =>
+      tmpBucket.info(plan.tmpName),
+    );
     const types = new Map<string, string>();
-    for (const plan of plans) {
-      const { data: info } = await tmpBucket.info(plan.tmpName);
+    for (const [index, plan] of plans.entries()) {
+      const info = infos[index]?.data;
       if (!info) throw uploadExpired();
       const rejection = validateUpload(plan.rule, {
         fileName: plan.fileName,
@@ -235,9 +246,7 @@ export const premiumBook = adminFactory
     }
 
     // 3. DB. sort_order 에 UNIQUE 가 없어 기존 행을 읽어 번호별 id 를 잡는다.
-    const { data: existing, error: existingError } = await db
-      .from("premium_book_pages")
-      .select("id, sort_order");
+    const { data: existing, error: existingError } = await existingRead;
     if (existingError) throw new Error("premium book pages read failed");
 
     const idBySort = new Map<number, number>();

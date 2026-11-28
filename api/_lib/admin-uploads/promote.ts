@@ -4,10 +4,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SectionEntry } from "../admin-sections/registry.js";
 import { RouteParamError } from "../handler.js";
+import { mapBounded } from "../mapBounded.js";
 import {
   destinationPath,
   PUBLIC_BUCKET,
   parseTempName,
+  STORAGE_PARALLEL,
   TMP_BUCKET,
   uploadExpired,
   validateUpload,
@@ -83,8 +85,12 @@ export async function promoteTempUploads<T>(
   // 업로드 URL 은 서명만 있으면 아무 본문이나 올릴 수 있어서, 옮기기 전에 저장된 크기와 형식을
   // 필드 규칙(POST /api/admin/uploads 와 같은 validateUpload)에 다시 대 본다.
   // 객체가 없으면(이미 옮겼거나 만료) 아래 move 단계가 기존대로 판정한다.
-  for (const { name, field, parsed } of plan) {
-    const { data: info } = await admin.storage.from(TMP_BUCKET).info(name);
+  // 확인은 함께 시작하고 판정은 계획 순서대로 한다.
+  const infos = await mapBounded(plan, STORAGE_PARALLEL, ({ name }) =>
+    admin.storage.from(TMP_BUCKET).info(name),
+  );
+  for (const [index, { field, parsed }] of plan.entries()) {
+    const info = infos[index]?.data;
     if (!info) continue;
     const rejection = validateUpload(field, {
       fileName: `${parsed.safeName}.${parsed.ext}`,

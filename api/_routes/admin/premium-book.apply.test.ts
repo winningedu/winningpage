@@ -10,6 +10,7 @@ import {
   type Query,
   type Respond,
 } from "../../_lib/adminRoute.testkit.js";
+import { gateReads } from "../../_lib/gatedReads.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
@@ -250,7 +251,8 @@ describe("적용", () => {
     const r = await post(BODY);
     expect(r.status).toBe(500);
     expect(problemCode(r.body)).toBe("INTERNAL_ERROR");
-    expect(bookQueries(admin)).toHaveLength(0);
+    // 기존 행 읽기는 먼저 시작하지만 DB 에 쓰지는 않는다.
+    expect(writes(admin)).toHaveLength(0);
   });
 
   test("DB 쓰기가 실패하면 500 이고 서버 오류 원문을 싣지 않는다", async () => {
@@ -262,5 +264,66 @@ describe("적용", () => {
     const r = await post(BODY);
     expect(r.status).toBe(500);
     expect(JSON.stringify(r.body)).not.toContain("secret db detail");
+  });
+});
+
+describe("읽기를 함께 시작한다", () => {
+  test("임시 파일 확인은 파일마다 기다리지 않고, 기존 행 읽기는 맨 처음에 시작한다", async () => {
+    const admin = setup();
+    const original = fake.storage;
+    let release!: () => void;
+    const hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const infoStarted: string[] = [];
+    kit.admin = {
+      ...admin,
+      storage: {
+        from: (bucket: string) => {
+          const bucketApi = original.from(bucket);
+          return {
+            ...bucketApi,
+            info: async (path: string) => {
+              infoStarted.push(path);
+              await hold;
+              return bucketApi.info(path);
+            },
+          };
+        },
+      },
+    };
+    const gated = gateReads(
+      kit.admin as Fake,
+      (target) =>
+        target.kind === "from" && target.name === "premium_book_pages",
+    );
+    kit.admin = gated.admin;
+
+    const request = post(BODY);
+    await vi.waitFor(() => expect(infoStarted.length).toBeGreaterThan(0));
+    await gated.gate.settle();
+    expect([...infoStarted].sort()).toEqual([PDF, ...PAGES].sort());
+    expect(gated.gate.started).toEqual(["from:premium_book_pages"]);
+    release();
+    gated.gate.release();
+
+    expect((await request).status).toBe(200);
+  });
+
+  test("파일이 없으면 기존 행 읽기가 먼저 시작했어도 409 UPLOAD_EXPIRED 이고 쓰지 않는다", async () => {
+    fake = createFakeStorage({
+      "admin-uploads-tmp": [
+        tmp(PDF, "application/pdf"),
+        tmp(PAGES[0] as string, "image/webp"),
+      ],
+    });
+    const admin = setup();
+
+    const r = await post(BODY);
+
+    expect(r.status).toBe(409);
+    expect(problemCode(r.body)).toBe("UPLOAD_EXPIRED");
+    expect(uploads()).toHaveLength(0);
+    expect(writes(admin)).toHaveLength(0);
   });
 });
