@@ -37,6 +37,8 @@ import {
   type PickBody,
   pickBody,
   type pickListResponseSchema,
+  type pickManualResponseSchema,
+  type pickSelectResponseSchema,
 } from "../../../shared/selfeval/pick.js";
 import { callStructured } from "../../_lib/ai/gemini.js";
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
@@ -82,9 +84,9 @@ import {
 import {
   canChangeSelection,
   manualSelectionRow,
-  nextStepAfterManualPick,
-  nextStepAfterPick,
   pickContextFrom,
+  STEP_AFTER_MANUAL_PICK,
+  STEP_AFTER_PICK,
   selectionRows,
 } from "../../_lib/selfeval/pickBody.js";
 import {
@@ -239,9 +241,8 @@ async function handleSelect(
       applied.supportIds,
     ),
   );
-  const step = nextStepAfterPick(session.current_step);
   await updateSession(db, userId, session.id, {
-    current_step: step,
+    current_step: STEP_AFTER_PICK,
     last_activity_at: new Date().toISOString(),
   });
   // 연계 없는 기록은 허용하되 경고하고, 학생이 한 줄을 쓰지 않으면 생성에서 뺀다(명세 No.180).
@@ -258,8 +259,8 @@ async function handleSelect(
     ],
     excludedIds: unlinked,
     maxSelect,
-    currentStep: step,
-  });
+    currentStep: STEP_AFTER_PICK,
+  } satisfies z.output<typeof pickSelectResponseSchema>);
 }
 
 async function handleManual(
@@ -281,16 +282,15 @@ async function handleManual(
       manualToAnalysis(input),
     ),
   ]);
-  const step = nextStepAfterManualPick(session.current_step);
   await updateSession(db, userId, session.id, {
-    current_step: step,
+    current_step: STEP_AFTER_MANUAL_PICK,
     last_activity_at: new Date().toISOString(),
   });
   return c.json({
     activityRecordId,
     selection: { coreId: activityRecordId, supportIds: [] },
-    currentStep: step,
-  });
+    currentStep: STEP_AFTER_MANUAL_PICK,
+  } satisfies z.output<typeof pickManualResponseSchema>);
 }
 
 async function handleLinkEdit(
