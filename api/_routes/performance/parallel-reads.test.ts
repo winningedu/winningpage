@@ -179,3 +179,26 @@ describe("performance evaluate 게이트", () => {
     ]);
   });
 });
+
+describe("performance recommend-topics 게이트", () => {
+  test("기존 라운드 읽기와 차감 여부 읽기를 함께 시작한다", async () => {
+    const started = await run(
+      {
+        performance_sessions: [{ ...session, guide_json: { text: "안내문" } }],
+        performance_topics: [],
+        performance_credit_ledger: [{ session_id: SESSION_ID }],
+      },
+      ["performance_topics", "performance_credit_ledger"],
+      () =>
+        callRoute(
+          { app, path: "/api/performance/recommend-topics" },
+          { method: "POST", body: { sessionId: SESSION_ID } },
+        ),
+    );
+
+    expect(started).toEqual([
+      "from:performance_credit_ledger",
+      "from:performance_topics",
+    ]);
+  });
+});

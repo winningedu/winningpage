@@ -61,6 +61,7 @@ import {
   recommendTopicsBody,
   type recommendTopicsResponse,
 } from "../../../shared/performance/recommend-topics.js";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { generateWithRetry, PERFORMANCE_MODEL } from "../../_lib/ai/gemini.js";
 import {
@@ -434,6 +435,10 @@ export const recommendTopics = userFactory
     //      · 이미 있는 라운드 → 그 라운드의 저장된 결과를 그대로 돌려준다(재요청 멱등).
     //        더블클릭·새로고침이 모델을 다시 부르지 않게 하는 것이 목적이다.
     //      · 그 밖의 값 → 400. 서버가 정한 다음 라운드와 어긋나는 요청은 거부한다.
+    // 차감 여부 읽기는 기존 라운드 읽기와 서로 기다릴 필요가 없다. 재요청 응답이 먼저 나가면 이 결과는 쓰지 않는다.
+    const chargedRead = startEarly(
+      chargedPerformanceSessionIds(supabaseAdmin, userId, [sessionRow.id]),
+    );
     const { data: existingTopics, error: existingError } = await supabaseAdmin
       .from("performance_topics")
       .select("id,round,idx,title,subtitle,tags,detail,selected")
@@ -523,9 +528,7 @@ export const recommendTopics = userFactory
 
     // 이 세션이 이미 차감된 세션인가. `performance_credit_ledger.session_id`가 UNIQUE라
     // 행 존재 = 차감 완료다(sql/54 1-7). 아래 두 게이트가 모두 이 값을 본다.
-    const alreadyCharged = (
-      await chargedPerformanceSessionIds(supabaseAdmin, userId, [sessionRow.id])
-    ).has(sessionRow.id);
+    const alreadyCharged = (await chargedRead).has(sessionRow.id);
 
     // ── 게이트 ① 회차 소진 **선차단**(비권위적)
     //    진입 게이트(위 `hasPaidServiceAccess`)는 보유 여부만 보고 잔여를 일부러 보지
