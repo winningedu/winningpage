@@ -10,13 +10,14 @@ import {
   COUPON_SCAN_LIMIT,
   COUPON_USER_SEARCH_LIMIT,
   type CouponList,
-  type CouponMutationResult,
   type CouponRow,
   couponIdParams,
   couponSaveBody,
   type GrantList,
+  type GrantResult,
   grantBody,
   type RedemptionList,
+  type RedemptionResult,
   reasonBody,
   rowIdParams,
   type UserSearch,
@@ -259,7 +260,7 @@ export const coupons = adminFactory
         p_user_id: c.req.valid("json").userId,
       });
       if (error) throwRpcError(error, GRANT_ERRORS);
-      return c.json(data satisfies CouponMutationResult);
+      return c.json(data satisfies GrantResult);
     },
   )
   .all("/:id/grants", methodNotAllowed("GET", "POST"))
@@ -313,7 +314,7 @@ export const coupons = adminFactory
         { p_grant_id: grantId, ...(trimmed ? { p_reason: trimmed } : {}) },
       );
       if (error) throwRpcError(error, REVOKE_ERRORS);
-      return c.json(data satisfies CouponMutationResult);
+      return c.json(data satisfies GrantResult);
     },
   )
   .all("/grants/:id/revoke", methodNotAllowed("POST"))
@@ -344,7 +345,7 @@ export const coupons = adminFactory
         },
       );
       if (error) throwRpcError(error, VOID_ERRORS);
-      return c.json(data satisfies CouponMutationResult);
+      return c.json(data satisfies RedemptionResult);
     },
   )
   .all("/redemptions/:id/void", methodNotAllowed("POST"));

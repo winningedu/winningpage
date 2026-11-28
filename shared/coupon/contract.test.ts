@@ -7,7 +7,9 @@ import {
   couponListSchema,
   couponSaveBody,
   grantBody,
+  grantResultSchema,
   reasonBody,
+  redemptionResultSchema,
   userSearchQuery,
 } from "./contract.js";
 
@@ -106,5 +108,62 @@ describe("COUPON_ERROR", () => {
     for (const [key, value] of Object.entries(COUPON_ERROR)) {
       expect(value).toBe(key);
     }
+  });
+});
+
+// 발급, 회수, 무효화 rpc 가 돌려주는 행(사용자 요약 user 는 목록 조회에서만 붙는다).
+describe("rpc 결과 행", () => {
+  const grant = {
+    id: 5,
+    coupon_id: "c1",
+    user_id: "u1",
+    granted_at: "2026-11-24T00:00:00Z",
+    granted_by: "admin-1",
+    valid_until: null,
+    revoked_at: null,
+    revoke_reason: null,
+  };
+  const redemption = {
+    id: 7,
+    coupon_id: "c1",
+    order_id: "o1",
+    user_id: "u1",
+    discount_amount: 1000,
+    created_at: "2026-11-24T00:00:00Z",
+    voided_at: "2026-11-25T00:00:00Z",
+    void_reason: "중복",
+  };
+
+  test("발급 행은 그대로 읽는다", () => {
+    expect(grantResultSchema.parse(grant)).toEqual(grant);
+    expect(
+      grantResultSchema.parse({
+        ...grant,
+        revoked_at: "2026-11-25T00:00:00Z",
+        revoke_reason: "회수",
+      }).revoked_at,
+    ).toBe("2026-11-25T00:00:00Z");
+  });
+
+  test("사용 이력 행은 그대로 읽는다", () => {
+    expect(redemptionResultSchema.parse(redemption)).toEqual(redemption);
+    expect(
+      redemptionResultSchema.parse({ ...redemption, user_id: null }).user_id,
+    ).toBeNull();
+  });
+
+  test.each([
+    ["빈 객체", {}],
+    ["id 없음", { ...grant, id: undefined }],
+    ["id 가 문자열", { ...grant, id: "5" }],
+  ])("발급 행이 %s 이면 거른다", (_label, body) => {
+    expect(grantResultSchema.safeParse(body).success).toBe(false);
+  });
+
+  test.each([
+    ["빈 객체", {}],
+    ["discount_amount 없음", { ...redemption, discount_amount: undefined }],
+  ])("사용 이력 행이 %s 이면 거른다", (_label, body) => {
+    expect(redemptionResultSchema.safeParse(body).success).toBe(false);
   });
 });

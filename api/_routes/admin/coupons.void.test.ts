@@ -29,11 +29,21 @@ vi.mock("../../_lib/supabaseUser.js", () => ({
   },
 }));
 
+import { redemptionResultSchema } from "../../../shared/coupon/contract.js";
 import { app } from "../app.js";
 
 const handler = { app, path: "/api/admin/coupons/redemptions/:id/void" };
 
-const ROW = { id: 5, voided_at: "2026-11-24T00:00:00Z" };
+const ROW = {
+  id: 5,
+  coupon_id: "c1",
+  order_id: "o1",
+  user_id: "u1",
+  discount_amount: 1000,
+  created_at: "2026-11-23T00:00:00Z",
+  voided_at: "2026-11-24T00:00:00Z",
+  void_reason: "중복",
+};
 
 let tables: Record<string, Respond> = {};
 let rpcs: Record<string, (args: Record<string, unknown>) => Result> = {};
@@ -79,6 +89,8 @@ describe("POST /api/admin/coupons/redemptions/:id/void", () => {
     const r = await post();
     expect(r.status).toBe(200);
     expect(r.body).toEqual(ROW);
+    // 브라우저가 검증하는 응답 계약을 지킨다.
+    expect(redemptionResultSchema.parse(r.body)).toEqual(r.body);
     expect(kit.tokens).toEqual(["admin-token"]);
     expect(userRecorder.rpcCalls).toEqual([
       { name: "fn_void_coupon_redemption", args: { p_redemption_id: 5 } },

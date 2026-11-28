@@ -14,7 +14,8 @@ import { couponKeys } from "./api";
 import { callsTo, FakeApiError, on, resetApi } from "./fakeApi";
 import { couponRow, listBody, renderCoupons } from "./testKit";
 
-const grant = {
+// 발급, 회수 rpc 가 돌려주는 행. 목록 조회는 여기에 사용자 요약을 붙인다.
+const grantRow = {
   id: 5,
   coupon_id: "c1",
   user_id: "u1",
@@ -23,6 +24,9 @@ const grant = {
   valid_until: null,
   revoked_at: null,
   revoke_reason: null,
+};
+const grant = {
+  ...grantRow,
   user: { name: "홍길동", email: "hong@example.com" },
 };
 const found = [
@@ -141,7 +145,7 @@ test("발급은 쿠폰과 사용자 id 를 보내고 발급 목록을 새로 받
       },
       grant,
     ];
-    return { id: 6 };
+    return { ...grantRow, id: 6, user_id: "u2" };
   });
   renderCoupons("/admin/coupons/c1/grants");
   await search("kim");
@@ -189,7 +193,7 @@ test("회수는 사유와 함께 서버를 부르고 발급 목록을 새로 받
         revoke_reason: "잘못 줌",
       },
     ];
-    return { id: 5 };
+    return grantRow;
   });
   renderCoupons("/admin/coupons/c1/grants");
   fireEvent.click(await screen.findByRole("button", { name: "회수" }));
@@ -290,7 +294,7 @@ test("창 포커스 같은 백그라운드 재조회는 발급 행을 그대로 
 });
 
 test("발급하면 발급 목록이 스켈레톤을 거쳐 새로 받은 행으로 바뀐다", async () => {
-  on("POST", "admin/coupons/c1/grants", { id: 6 });
+  on("POST", "admin/coupons/c1/grants", { ...grantRow, id: 6, user_id: "u2" });
   const release = holdAfterFirst("admin/coupons/c1/grants", () => ({
     items: grants,
   }));
@@ -317,7 +321,7 @@ test("발급하면 발급 목록이 스켈레톤을 거쳐 새로 받은 행으�
 });
 
 test("발급 목록을 다시 받는 동안은 등록 버튼을 누를 수 없고 새 응답이 오면 발급 상태가 반영된다", async () => {
-  on("POST", "admin/coupons/c1/grants", { id: 6 });
+  on("POST", "admin/coupons/c1/grants", { ...grantRow, id: 6, user_id: "u2" });
   const release = holdAfterFirst("admin/coupons/c1/grants", () => ({
     items: grants,
   }));
@@ -372,7 +376,7 @@ test("발급 목록을 처음 받는 동안에도 등록 버튼을 누를 수 �
 });
 
 test("회수하면 발급 목록이 스켈레톤을 거쳐 새로 받은 행으로 바뀐다", async () => {
-  on("POST", "admin/coupons/grants/5/revoke", { id: 5 });
+  on("POST", "admin/coupons/grants/5/revoke", grantRow);
   const release = holdAfterFirst("admin/coupons/c1/grants", () => ({
     items: grants,
   }));

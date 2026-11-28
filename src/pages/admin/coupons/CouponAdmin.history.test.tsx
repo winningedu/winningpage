@@ -14,7 +14,8 @@ import { couponKeys } from "./api";
 import { callsTo, FakeApiError, on, resetApi } from "./fakeApi";
 import { couponRow, listBody, renderCoupons } from "./testKit";
 
-const redemption = {
+// 무효화 rpc 가 돌려주는 행. 목록 조회는 여기에 사용자 요약을 붙인다.
+const redemptionRow = {
   id: 7,
   coupon_id: "c1",
   order_id: "order-1",
@@ -23,6 +24,9 @@ const redemption = {
   created_at: "2026-08-02T01:00:00Z",
   voided_at: null,
   void_reason: null,
+};
+const redemption = {
+  ...redemptionRow,
   user: { name: "홍길동", email: "hong@example.com" },
 };
 
@@ -109,7 +113,7 @@ test("무효화는 사유와 함께 서버를 부르고 이력과 목록을 새�
         void_reason: "오발급",
       },
     ];
-    return { id: 7 };
+    return redemptionRow;
   });
   renderCoupons("/admin/coupons");
   fireEvent.click(await screen.findByRole("button", { name: "사용 이력" }));
@@ -129,7 +133,7 @@ test("무효화는 사유와 함께 서버를 부르고 이력과 목록을 새�
 });
 
 test("사유를 비우면 reason 키 없이 보낸다", async () => {
-  on("POST", "admin/coupons/redemptions/7/void", { id: 7 });
+  on("POST", "admin/coupons/redemptions/7/void", redemptionRow);
   renderCoupons("/admin/coupons/c1/history");
   await startVoid();
   await waitFor(() => expect(toastTexts().title).toBe("저장 완료"));
@@ -180,7 +184,7 @@ test("요청 중에는 확인 버튼이 잠긴다", async () => {
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "확인" })).toBeDisabled(),
   );
-  await act(async () => release({ id: 7 }));
+  await act(async () => release(redemptionRow));
 });
 
 test("이력 조회에 실패하면 조회 실패 토스트가 보인다", async () => {
@@ -231,7 +235,7 @@ test("창 포커스 같은 백그라운드 재조회는 행을 그대로 두고 
 });
 
 test("무효화하면 이력이 스켈레톤을 거쳐 새로 받은 행으로 바뀐다", async () => {
-  on("POST", "admin/coupons/redemptions/7/void", { id: 7 });
+  on("POST", "admin/coupons/redemptions/7/void", redemptionRow);
   const release = holdAfterFirstHistory();
   renderCoupons("/admin/coupons/c1/history");
   await screen.findByText("홍길동");
