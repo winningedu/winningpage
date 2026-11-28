@@ -94,6 +94,35 @@ describe("동작", () => {
     });
   });
 
+  test("GET 은 온보딩 확인과 목록 읽기를 함께 시작한다", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    repo.fetchStudentRow.mockReturnValue(
+      gate.then(() => ({ onboarded_at: "2026-01-01" })),
+    );
+    repo.fetchSchedules.mockReturnValue(gate.then(() => [row]));
+
+    const request = call("GET");
+    await vi.waitFor(() =>
+      expect(repo.fetchSchedules).toHaveBeenCalledTimes(1),
+    );
+    release();
+
+    expect((await request).status).toBe(200);
+  });
+
+  test("GET 온보딩 전이면 목록 읽기가 실패해도 409 not_onboarded 다", async () => {
+    repo.fetchStudentRow.mockResolvedValue({ onboarded_at: null });
+    repo.fetchSchedules.mockRejectedValue(new Error("읽지 않아야 하는 결과"));
+
+    const r = await call("GET");
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ reason: "not_onboarded" });
+  });
+
   test("GET 이용권이 없으면 200 allowed false 다", async () => {
     repo.openGoalSession.mockResolvedValue({ allowed: false });
     const r = await call("GET");

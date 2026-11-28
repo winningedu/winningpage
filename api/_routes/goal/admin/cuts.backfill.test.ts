@@ -10,6 +10,7 @@ import {
   createKitState,
   type KitState,
 } from "../../../_lib/console/consoleTestKit.js";
+import { gateReads } from "../../../_lib/gatedReads.testkit.js";
 import {
   type CutsCall,
   type CutsDb,
@@ -21,17 +22,25 @@ import { callHandler } from "../../../_lib/tenantRoute.testkit.js";
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   db: null as unknown as CutsDb,
+  wrap: null as null | ((admin: never) => unknown),
 }));
 
 vi.mock("../../../_lib/supabaseAdmin.js", () => ({
   getEnv: (key: string) => process.env[key] ?? "",
   isSupabaseConfigError: () => false,
-  createSupabaseAdmin: () => createCutsAdmin(kit.state, kit.db),
+  createSupabaseAdmin: () => {
+    const admin = createCutsAdmin(kit.state, kit.db);
+    return kit.wrap ? kit.wrap(admin as never) : admin;
+  },
 }));
 
 import { app } from "../../app.js";
 
 const handler = { app, path: "/api/goal/admin/cuts/backfill" };
+
+beforeEach(() => {
+  kit.wrap = null;
+});
 
 const MENU = "goalUniversityCuts";
 const preview = (query: Record<string, string> = {}) =>
@@ -394,5 +403,32 @@ describe("POST /api/goal/admin/cuts/backfill", () => {
       applied: 6,
       step: "deactivate",
     });
+  });
+});
+
+describe("읽기 시작", () => {
+  test("원천 행 읽기와 기존 컷 읽기를 함께 시작한다", async () => {
+    seedAdmin(kit.state, "view", MENU);
+    const gated = gateReads(
+      createCutsAdmin(kit.state, kit.db),
+      (target) =>
+        target.kind === "from" &&
+        (target.name === "admission_results" ||
+          target.name === "goal_university_cuts"),
+    );
+    kit.wrap = () => gated.admin;
+
+    const request = preview();
+    await vi.waitFor(() =>
+      expect(gated.gate.started.length).toBeGreaterThan(0),
+    );
+    await gated.gate.settle();
+    expect([...new Set(gated.gate.started)].sort()).toEqual([
+      "from:admission_results",
+      "from:goal_university_cuts",
+    ]);
+    gated.gate.release();
+
+    expect((await request).status).toBe(200);
   });
 });

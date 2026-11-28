@@ -26,6 +26,7 @@ import {
   type jungsiMissingResponse,
 } from "../../../../shared/goal/admin-cuts.js";
 import { PROBLEM_CODE } from "../../../../shared/http/codes.js";
+import { allInOrder } from "../../../../src/lib/concurrency/allInOrder.js";
 import {
   mapDbError,
   writeFailure,
@@ -80,17 +81,19 @@ export const cuts = adminFactory
   .createApp()
   .get("/summary", summaryGuard, async (c) => {
     const db = c.var.supabaseAdmin;
-    const [total, active, normal, special, jungsi, missing] = await Promise.all(
-      [
-        countCuts(db),
-        countCuts(db, (q) => q.eq("is_active", true)),
-        countCuts(db, (q) => q.eq("cut_type", "normal")),
-        countCuts(db, (q) => q.eq("cut_type", "special")),
-        countCuts(db, (q) => q.eq("cut_type", "jungsi")),
-        countCuts(db, (q) => q.is("avg_cut", null)),
-      ],
-    );
-    const options = await fetchOptionRows(db);
+    // 건수와 옵션 읽기는 서로 기다릴 필요가 없다.
+    const [[total, active, normal, special, jungsi, missing], options] =
+      await allInOrder(
+        Promise.all([
+          countCuts(db),
+          countCuts(db, (q) => q.eq("is_active", true)),
+          countCuts(db, (q) => q.eq("cut_type", "normal")),
+          countCuts(db, (q) => q.eq("cut_type", "special")),
+          countCuts(db, (q) => q.eq("cut_type", "jungsi")),
+          countCuts(db, (q) => q.is("avg_cut", null)),
+        ]),
+        fetchOptionRows(db),
+      );
     return c.json({
       total,
       active,

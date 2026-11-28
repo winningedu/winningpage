@@ -28,6 +28,7 @@ import {
   type schedulesListResponse,
   scheduleUpdateBody,
 } from "../../../shared/goal/schedules.js";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import { goalFail } from "../../_lib/goal/problem.js";
 import {
   buildSchedulePayload,
@@ -80,10 +81,14 @@ export const schedules = userFactory
       }
 
       const { supabaseAdmin, profileId } = narrowGoalSession(session);
+      // 목록 읽기는 온보딩 확인과 함께 시작한다. 확인이 막으면(409) 목록 결과는 쓰지 않는다.
+      const schedulesRead = startEarly(
+        fetchSchedules(supabaseAdmin, profileId),
+      );
       const gate = await requireOnboardedStudent(supabaseAdmin, profileId);
       if (gate) return goalFail(c, 409, gate);
 
-      const rows = await fetchSchedules(supabaseAdmin, profileId);
+      const rows = await schedulesRead;
       return c.json({
         schedules: rows.map(buildSchedulePayload),
       } as z.input<typeof schedulesListResponse>);
