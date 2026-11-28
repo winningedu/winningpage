@@ -22,7 +22,9 @@ import {
 import {
   type AdminLevel,
   assertSectionPermission,
+  type MenuCheck,
   SectionPermissionDeniedError,
+  startMenuCheck,
 } from "../adminPermission.js";
 import { RouteParamError } from "../handler.js";
 import { resolveUser } from "../httpAuth.js";
@@ -172,11 +174,33 @@ export const admin = (options: AdminRouteOptions) =>
 
       const startedAt = performance.now();
       const steps: AdminAuthTimings & { permission?: number } = {};
+      // 메뉴 권한 판정은 관리자 판정과 함께 시작하고, 결과는 관리자 판정을 통과한 뒤에만 본다.
+      let menu: MenuCheck | undefined;
+      const permission = options.permission;
       try {
         const resolved = await resolveAdmin(
           supabaseAdmin,
           { headers: nodeHeaders(c), method: c.req.method },
           steps,
+          permission === "none"
+            ? undefined
+            : (userId) => {
+                menu = startMenuCheck(
+                  () =>
+                    typeof permission.key === "function"
+                      ? permission.key(c)
+                      : permission.key,
+                  (requestedKey) =>
+                    assertSectionPermission(
+                      supabaseAdmin,
+                      userId,
+                      requestedKey,
+                      permission.level ??
+                        (isReadMethod(c.req.method) ? "view" : "edit"),
+                    ),
+                  steps,
+                );
+              },
         );
         if (!resolved.ok) {
           if (resolved.code) throw qaBlocked(resolved.code);
@@ -188,10 +212,9 @@ export const admin = (options: AdminRouteOptions) =>
         }
         c.set("userId", resolved.userId);
 
-        if (options.permission !== "none") {
-          const { key, level } = options.permission;
+        if (menu) {
           // 키 함수가 던지면(400) 대상 메뉴가 없으니 감사 행도 없다.
-          const requestedKey = typeof key === "function" ? await key(c) : key;
+          const requestedKey = await menu.key;
           if (options.audit !== false) {
             c.set("audit", {
               actor: { userId: resolved.userId, email: resolved.email },
@@ -201,17 +224,7 @@ export const admin = (options: AdminRouteOptions) =>
             });
           }
           // 거부는 SectionPermissionDeniedError(403), 조회 오류는 일반 예외(500)로 error.ts 가 응답한다.
-          const permissionStart = performance.now();
-          try {
-            await assertSectionPermission(
-              supabaseAdmin,
-              resolved.userId,
-              requestedKey,
-              level ?? (isReadMethod(c.req.method) ? "view" : "edit"),
-            );
-          } finally {
-            steps.permission = performance.now() - permissionStart;
-          }
+          await menu.check;
         }
       } catch (error) {
         logAuthTiming(c, failureStatus(error), startedAt, steps);
