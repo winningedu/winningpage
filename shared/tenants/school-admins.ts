@@ -12,20 +12,18 @@ const nullableText = z.string().nullable();
 // 요청
 // ---------------------------------------------------------------------------
 
-/** 발급 본문. 이름, 전화번호, 직책 같은 나머지 칸은 서버가 정규화하며 본다(틀리면 400 VALIDATION_FAILED). */
+/** 발급 본문. 칸의 모양만 여기서 보고, 값 규칙(이름 공백, 전화번호 자릿수, 이메일 형식, 직책 길이)은 서버가 정규화하며 본다(틀리면 400 VALIDATION_FAILED). */
 export const issueSchoolAdminBody = z.looseObject({
   tenantId: z.string().min(1),
+  name: z.string(),
+  phone: z.string(),
+  landline: z.string().nullish(),
+  email: z.string().nullish(),
+  position: z.string().nullish(),
 });
 
 /** 발급 화면이 보내는 모양. */
-export interface IssueSchoolAdminInput {
-  tenantId: string;
-  name: string;
-  phone: string;
-  landline?: string;
-  email?: string;
-  position?: string;
-}
+export type IssueSchoolAdminInput = z.input<typeof issueSchoolAdminBody>;
 
 export const schoolAdminsQuery = z.object({ tenantId: z.guid() });
 
