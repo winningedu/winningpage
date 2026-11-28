@@ -34,8 +34,7 @@ import { adminEmbedBody } from "../../../shared/performance/admin-embed.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { performanceTraceContext } from "../../_lib/ai/telemetry/performanceContext.js";
 import { type AiTrace, createAiTrace } from "../../_lib/ai/telemetry/trace.js";
-import { admin } from "../../_lib/hono/admin.js";
-import { adminFactory } from "../../_lib/hono/factory.js";
+import { admin, createAdminApp } from "../../_lib/hono/admin.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { validate } from "../../_lib/hono/validate.js";
 import { knowledgePermissionKey } from "../../_lib/knowledge/permission.js";
@@ -352,8 +351,8 @@ const guard = admin({
   logLabel: "admin-embed",
 });
 
-export const adminEmbed = adminFactory
-  .createApp()
+// 이 앱은 performance 앱 아래라 관리자 앱(admin/app.ts)의 감사 미들웨어를 거치지 않는다. createAdminApp 이 직접 건다.
+export const adminEmbed = createAdminApp()
   .post("/", guard, validate("json", adminEmbedBody), async (c) => {
     const supabaseAdmin = c.var.supabaseAdmin;
     const { action, id, limit, force = false } = c.req.valid("json");

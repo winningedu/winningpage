@@ -10,6 +10,7 @@ import {
 import { callHandler } from "../../_lib/tenantRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
+const audit = vi.hoisted(() => vi.fn());
 
 vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../_lib/supabaseAdmin.js")>()),
@@ -17,6 +18,12 @@ vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
 }));
 vi.mock("../../_lib/afterResponse.js", () => ({
   scheduleAfterResponse: () => {},
+}));
+vi.mock("../../_lib/accessLog/adminWrite.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../_lib/accessLog/adminWrite.js")
+  >()),
+  scheduleAdminAudit: audit,
 }));
 
 import { app } from "../app.js";
@@ -106,5 +113,58 @@ describe("admin-embed 메뉴 권한", () => {
         (read) => read.table === "winning_assessment_knowledge_items",
       ),
     ).toEqual([]);
+  });
+
+  test("knowledgeType 메뉴의 edit 권한이 있으면 200 이다", async () => {
+    grant("winningSuhaengResourceDb");
+
+    const r = await call({
+      action: "embed-one",
+      id: "k1",
+      knowledgeType: "verified_resource",
+    });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ action: "embed-one", status: "not_found" });
+  });
+
+  test("view 권한만 있으면 403 이다", async () => {
+    grant("winningSuhaengTopicDb", "view");
+
+    const r = await call({
+      action: "embed-one",
+      id: "k1",
+      knowledgeType: TOPIC,
+    });
+
+    expect(r.status).toBe(403);
+  });
+
+  test("모르는 knowledgeType 은 권한이 없어도 403 이 아니라 400 VALIDATION_FAILED 이다", async () => {
+    kit.state.rpc.fn_admin_effective_permissions = () => ({
+      data: [],
+      error: null,
+    });
+
+    const r = await call({
+      action: "embed-one",
+      id: "k1",
+      knowledgeType: "student_record_pattern",
+    });
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+  });
+
+  test("호출하면 쓰기 감사 행을 예약한다", async () => {
+    audit.mockClear();
+
+    await call({ action: "embed-one", id: "k1", knowledgeType: TOPIC });
+
+    expect(audit).toHaveBeenCalledTimes(1);
+    expect(audit.mock.calls[0]?.[1]).toMatchObject({
+      statusCode: 200,
+      requestedKey: "winningSuhaengTopicDb",
+    });
   });
 });
