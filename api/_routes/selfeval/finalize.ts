@@ -24,6 +24,7 @@ import {
   finalizeBody,
   promotedRecord,
 } from "../../../shared/selfeval/finalize.js";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import { completePlanItemFromProgram } from "../../_lib/growth/plan/complete.js";
 import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
@@ -57,6 +58,8 @@ export const finalize = userFactory
         "활동 기록으로 남길 7항목을 확인해 주세요.",
       );
     }
+    // 리포트 읽기는 세션 읽기와 함께 시작한다. 404 와 닫힌 세션 판정이 먼저 응답을 정한다.
+    const reportsRead = startEarly(loadReports(db, me.id, body.sessionId));
     const session = await loadSession(db, me.id, body.sessionId);
     if (session === null) {
       throw selfevalProblem(
@@ -70,7 +73,7 @@ export const finalize = userFactory
       db,
       me.id,
       session,
-      await loadReports(db, me.id, session.id),
+      await reportsRead,
       {
         sessionId: body.sessionId,
         promoted: promoted.data,

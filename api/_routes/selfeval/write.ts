@@ -34,6 +34,7 @@ import type {
   writeGenerateResponse,
 } from "../../../shared/selfeval/write.js";
 import { writeBody } from "../../../shared/selfeval/write.js";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import { callStructured } from "../../_lib/ai/gemini.js";
 import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
@@ -65,6 +66,8 @@ export const write = userFactory
     const startedAt = Date.now();
     const body = c.req.valid("json");
     const { supabaseAdmin: db, user: me } = c.var;
+    // 리포트 읽기는 세션 읽기와 함께 시작한다. 404 와 닫힌 세션 판정이 먼저 응답을 정한다.
+    const reportsRead = startEarly(loadReports(db, me.id, body.sessionId));
     const session = await loadSession(db, me.id, body.sessionId);
     if (session === null) {
       throw selfevalProblem(
@@ -74,7 +77,7 @@ export const write = userFactory
       );
     }
     assertSessionOpen(session, false);
-    const reports = await loadReports(db, me.id, session.id);
+    const reports = await reportsRead;
 
     if (body.action === "generate") {
       const out = await runWrite(db, me.id, session, reports, {

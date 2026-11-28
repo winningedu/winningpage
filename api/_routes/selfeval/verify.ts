@@ -24,6 +24,7 @@ import type { z } from "zod";
 import { SELFEVAL_ERROR } from "../../../shared/selfeval/contract.js";
 import type { verifyResponse } from "../../../shared/selfeval/verify.js";
 import { verifyBody } from "../../../shared/selfeval/verify.js";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import { callStructured } from "../../_lib/ai/gemini.js";
 import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
@@ -49,6 +50,8 @@ export const verify = userFactory
     const startedAt = Date.now();
     const { sessionId } = c.req.valid("json");
     const { supabaseAdmin: db, user: me } = c.var;
+    // 리포트 읽기는 세션 읽기와 함께 시작한다. 404 와 닫힌 세션 판정이 먼저 응답을 정한다.
+    const reportsRead = startEarly(loadReports(db, me.id, sessionId));
     const session = await loadSession(db, me.id, sessionId);
     if (session === null) {
       throw selfevalProblem(
@@ -58,17 +61,11 @@ export const verify = userFactory
       );
     }
     assertSessionOpen(session, false);
-    const out = await runVerify(
-      db,
-      me.id,
-      session,
-      await loadReports(db, me.id, session.id),
-      {
-        callStructured,
-        now: () => new Date().toISOString(),
-        startedAt,
-      },
-    );
+    const out = await runVerify(db, me.id, session, await reportsRead, {
+      callStructured,
+      now: () => new Date().toISOString(),
+      startedAt,
+    });
     return c.json(
       outcomeBody(
         out,
