@@ -6,7 +6,7 @@
 //   level 을 생략하면 GET, HEAD 는 view, 나머지 메서드는 edit 를 요구한다. 읽기 POST 처럼 다르게
 //   요구할 때만 level 을 적는다.
 //   거부는 403 FORBIDDEN, 조회 오류는 미처리 예외 500(problem 이면 INTERNAL_ERROR)이고 라우트의 errorShape 를 따른다.
-//   QA 계정 쓰기 차단(resolveAdmin)이 이 판정보다 먼저 돈다.
+//   조회는 관리자 판정(역할, QA 계정 쓰기 차단)과 함께 시작하지만 응답은 관리자 판정 결과가 앞선다.
 //
 // 판정은 화면과 같다: 최고 관리자 전용 메뉴는 fn_is_super_admin, 별칭 메뉴는 사이트 플래그,
 // 나머지는 fn_admin_effective_permissions(shared/admin-permission/sections.ts 규칙 공유).
@@ -82,4 +82,33 @@ export async function hasSectionPermission(
       row.resource_key === key &&
       (row.level === "edit" || (level === "view" && row.level === "view")),
   );
+}
+
+/** 함께 시작한 메뉴 권한 판정. key 는 키 함수 결과(던지면 400), check 는 그 키의 권한 판정이다. */
+export interface MenuCheck {
+  key: Promise<string>;
+  check: Promise<void>;
+}
+
+/**
+ * 키를 정하고 그 키로 권한을 판정하는 일을 지금 시작한다. 관리자 판정이 실패하면 호출부는 둘 다 보지 않으므로
+ * 처리되지 않은 거부로 남지 않게 붙여 둔다. permission 시간은 키가 정해진 뒤 판정에 든 시간만 잰다.
+ */
+export function startMenuCheck(
+  resolveKey: () => string | Promise<string>,
+  assert: (requestedKey: string) => Promise<void>,
+  steps: { permission?: number },
+): MenuCheck {
+  const key = (async () => resolveKey())();
+  const check = key.then(async (requestedKey) => {
+    const permissionStart = performance.now();
+    try {
+      await assert(requestedKey);
+    } finally {
+      steps.permission = performance.now() - permissionStart;
+    }
+  });
+  key.catch(() => {});
+  check.catch(() => {});
+  return { key, check };
 }

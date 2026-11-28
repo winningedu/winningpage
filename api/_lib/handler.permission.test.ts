@@ -221,14 +221,13 @@ describe("최고 관리자 전용 메뉴", () => {
 });
 
 describe("QA 계정", () => {
-  test("쓰기는 권한 조회 전에 막힌다", async () => {
+  // 권한 조회는 관리자 판정과 함께 시작하지만 응답은 QA 차단이 앞선다(handler.parallel.test.ts).
+  test("쓰기는 권한이 있어도 QA 차단 403 이다", async () => {
     kit.state.rows.qa_accounts = () => ({ profile_id: "profile-1" });
     grant([{ resource_key: "members", level: "edit" }]);
     const r = await callHandler(route({ key: "members" }), {}, "POST");
     expect(r.status).toBe(403);
-    expect(kit.state.events).not.toContain(
-      "rpc:fn_admin_effective_permissions",
-    );
+    expect(code(r.body)).toBe("QA_ACCOUNT_READ_ONLY");
   });
 });
 
