@@ -25,6 +25,7 @@ import {
   goldenPatchQuery,
   type RunResponse,
   type RunsResponse,
+  runsQuery,
   type SweepResponse,
 } from "../../../shared/knowledge-eval/contract.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
@@ -42,7 +43,6 @@ import { knowledgeBodySchema } from "../../_lib/knowledge/bodySchema.js";
 import {
   EVAL_RUNS_LIMIT,
   parseEvalRequest,
-  parseRunsQuery,
   productionEvalParams,
 } from "../../_lib/knowledge/eval/metrics.js";
 import {
@@ -59,11 +59,6 @@ const RUN_COLUMNS =
 /** 기준 문제집에서 옛 화면이 읽던 열. 목록, 만든 행, 고친 행이 같은 모양이다. */
 const GOLDEN_COLUMNS =
   "id, knowledge_type, grade, subject, career, selected_topic, assessment_info, note, expected_resource_ids, is_active, created_at";
-
-const runsQuerySchema = knowledgeBodySchema((raw) => {
-  const parsed = parseRunsQuery(raw as Record<string, unknown>);
-  return parsed.ok ? { ok: true, body: parsed.knowledgeType } : parsed;
-});
 
 const evalBodySchema = knowledgeBodySchema((raw) => {
   const parsed = parseEvalRequest(raw);
@@ -91,8 +86,8 @@ const queryByIdGuard = admin({
 
 export const knowledgeEval = adminFactory
   .createApp()
-  .get("/", evalGuard, validate("query", runsQuerySchema), async (c) => {
-    const knowledgeType = c.req.valid("query");
+  .get("/", evalGuard, validate("query", runsQuery), async (c) => {
+    const { knowledgeType } = c.req.valid("query");
     let query = c.var.supabaseAdmin
       .from("knowledge_eval_runs")
       .select(RUN_COLUMNS);

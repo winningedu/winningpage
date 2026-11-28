@@ -20,7 +20,6 @@ import {
   HYBRID_SEMANTIC_WEIGHT,
   mrr,
   parseEvalRequest,
-  parseRunsQuery,
   rankOf,
   recallAtK,
   scoreCombos,
@@ -514,22 +513,5 @@ describe("scoreCombos", () => {
     });
     expect(results.map((r) => r.status)).toEqual(["done", "skipped"]);
     expect(results[1]).toEqual({ status: "skipped", params: other });
-  });
-});
-
-describe("parseRunsQuery", () => {
-  test("view=runs 와 선택적 지식 유형을 읽는다", () => {
-    expect(parseRunsQuery({ view: "runs" })).toEqual({
-      ok: true,
-      knowledgeType: null,
-    });
-    expect(
-      parseRunsQuery({ view: "runs", knowledgeType: "verified_resource" }),
-    ).toEqual({ ok: true, knowledgeType: "verified_resource" });
-  });
-
-  test("view 가 runs 가 아니거나 지식 유형이 틀리면 거절한다", () => {
-    expect(parseRunsQuery({ view: "calls" }).ok).toBe(false);
-    expect(parseRunsQuery({ view: "runs", knowledgeType: "x" }).ok).toBe(false);
   });
 });

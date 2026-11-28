@@ -1,6 +1,6 @@
 // 지식 검색 품질 평가 API 계약. 서버(api/_routes/admin/knowledge-eval.ts)는 요청 스키마로 검증하고,
 // 브라우저(src/pages/admin/knowledge/evals/api.ts)는 응답 스키마로 검증한다.
-// 평가 실행 본문(run, sweep)과 이력 쿼리는 값 규칙과 한국어 사유를 api/_lib/knowledge/eval/metrics.ts 가 맡아 여기에는 응답만 둔다.
+// 평가 실행 본문(run, sweep)은 값 규칙과 한국어 사유를 api/_lib/knowledge/eval/metrics.ts 가 맡는다.
 
 import { z } from "zod";
 import { uuidId } from "../http/params.js";
@@ -25,6 +25,16 @@ const goldenFields = {
   // 테이블 CHECK 도 1개 이상이라 같은 규칙을 앞에서 막는다.
   expected_resource_ids: z.array(z.uuid()).min(1),
 };
+
+/** GET ?view=runs&knowledgeType=. 지식 유형을 비우면 두 유형을 모두 돌려준다. */
+export const runsQuery = z.object({
+  view: z.literal("runs", { error: "view 는 runs 입니다." }),
+  knowledgeType: z
+    .union([z.literal("").transform(() => undefined), knowledgeTypeSchema], {
+      error: "knowledgeType 이 올바르지 않습니다.",
+    })
+    .optional(),
+});
 
 /** GET /queries?knowledgeType= */
 export const goldenListQuery = z.object({ knowledgeType: knowledgeTypeSchema });
