@@ -37,6 +37,7 @@ import {
   fiveScaleToNine,
   middleAvgToNine,
 } from "../../../src/data/diagnosisGradeScale.js";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import {
   ACADEMY_COMMUTE_HOURS,
   buildInitialStudentState,
@@ -1298,6 +1299,10 @@ export const intake = userFactory
       //    목표 대학을 바꿔 다시 시도할 수 있게 열어 둔다.
       //    (학생 부분 수정은 delta 유지(2026-09-23 결정) — 이 전면 재온보딩 차단과
       //    달리 api/_routes/goal/intake-update.ts는 Σdelta를 보존한 채 base_*만 재계산한다.)
+      // 시간대 읽기는 학생 행 읽기와 함께 시작한다. 409 와 검증 400 이 먼저 응답이 되면 시간대 결과는 쓰지 않는다.
+      const timeZoneRead = startEarly(
+        getStudentTimeZone(supabaseAdmin, profileId),
+      );
       const existing = await fetchStudentRow(supabaseAdmin, profileId);
       if (existing?.onboarded_at) {
         return goalFail(c, 409, {
@@ -1333,7 +1338,7 @@ export const intake = userFactory
       //    computeEngineDerivedFields(내 정보 수정과 공유하는 계산 경로)로 옮겼다 —
       //    그 함수 JSDoc 참고, 이 파일에서 재구현하지 않는다.
       const now = new Date();
-      const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+      const timeZone = await timeZoneRead;
       const {
         cuts,
         missing,

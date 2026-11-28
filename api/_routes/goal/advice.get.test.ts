@@ -20,6 +20,9 @@ const upsertAdviceCacheMock = vi.fn().mockResolvedValue(undefined);
 const callTextMock = vi.fn();
 const getStudentTimeZoneMock = vi.fn();
 const fetchStudentRowMock = vi.fn();
+const fetchStudentStateRowMock = vi.fn();
+const fetchSubjectTargetsMock = vi.fn();
+const fetchRecordsInRangeMock = vi.fn();
 
 vi.mock("../../_lib/goal/repo.js", async (importOriginal) => {
   const actual =
@@ -38,9 +41,12 @@ vi.mock("../../_lib/goal/repo.js", async (importOriginal) => {
       fetchLatestAdviceCacheMock(...args),
     fetchAdviceCache: async () => null,
     upsertAdviceCache: (...args: unknown[]) => upsertAdviceCacheMock(...args),
-    fetchStudentStateRow: async () => null,
-    fetchSubjectTargets: async () => [],
-    fetchRecordsInRange: async () => [],
+    fetchStudentStateRow: (...args: unknown[]) =>
+      fetchStudentStateRowMock(...args),
+    fetchSubjectTargets: (...args: unknown[]) =>
+      fetchSubjectTargetsMock(...args),
+    fetchRecordsInRange: (...args: unknown[]) =>
+      fetchRecordsInRangeMock(...args),
     fetchTodayRecord: async () => null,
   };
 });
@@ -67,6 +73,9 @@ describe("GET /api/goal/advice", () => {
     upsertAdviceCacheMock.mockClear();
     callTextMock.mockReset().mockRejectedValue(new Error("gemini down"));
     getStudentTimeZoneMock.mockReset().mockResolvedValue("Asia/Seoul");
+    fetchStudentStateRowMock.mockReset().mockResolvedValue(null);
+    fetchSubjectTargetsMock.mockReset().mockResolvedValue([]);
+    fetchRecordsInRangeMock.mockReset().mockResolvedValue([]);
     fetchStudentRowMock.mockReset().mockResolvedValue({
       onboarded_at: "2026-08-01T00:00:00Z",
       status: "active",
@@ -137,6 +146,27 @@ describe("GET /api/goal/advice", () => {
 
     expect(status).toBe(409);
     expect(body).toMatchObject({ reason: "not_onboarded" });
+  });
+
+  it("조언 입력의 학생 상태, 과목 목표, 최근 기록 읽기를 함께 시작한다", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    fetchLatestAdviceCacheMock.mockResolvedValue(null);
+    fetchStudentStateRowMock.mockReturnValue(gate.then(() => null));
+    fetchSubjectTargetsMock.mockReturnValue(gate.then(() => []));
+    fetchRecordsInRangeMock.mockReturnValue(gate.then(() => []));
+
+    const request = callGet();
+    await vi.waitFor(() => {
+      expect(fetchStudentStateRowMock).toHaveBeenCalledTimes(1);
+      expect(fetchSubjectTargetsMock).toHaveBeenCalledTimes(1);
+      expect(fetchRecordsInRangeMock).toHaveBeenCalledTimes(1);
+    });
+    release();
+
+    await request;
   });
 
   it("intake 행만 있어도 생성과 저장 없이 그 행의 payload를 그대로 돌려준다", async () => {

@@ -236,7 +236,6 @@ async function buildPromptInput(
   source: "intake" | "daily",
   // biome-ignore lint/suspicious/noExplicitAny: api/_lib/goal/repo.ts Row(생성 타입 없음)와 동일 근거.
   studentRow: any,
-  submitCount: number,
   now: Date,
   timeZone: string,
 ): Promise<AdvicePromptInput> {
@@ -245,7 +244,18 @@ async function buildPromptInput(
     toNum(studentRow.ideal_jungsi_cut, null) !== null &&
     toNum(studentRow.min_jungsi_cut, null) !== null;
 
-  const stateRow = await fetchStudentStateRow(supabaseAdmin, profileId);
+  // 네 읽기는 프로필과 날짜로 정해져 서로 기다릴 필요가 없다.
+  const rangeFrom = addDaysYMD(todayYmd, -RECENT_DAYS_WINDOW, now);
+  const [stateRow, subjectTargets, recentRecords, todayRecord] =
+    await Promise.all([
+      fetchStudentStateRow(supabaseAdmin, profileId),
+      fetchSubjectTargets(supabaseAdmin, profileId),
+      fetchRecordsInRange(supabaseAdmin, profileId, rangeFrom, todayYmd),
+      source === "daily"
+        ? fetchTodayRecord(supabaseAdmin, profileId, todayYmd)
+        : null,
+    ]);
+  const submitCount = num(stateRow?.record_count) ?? 0;
   const student = {
     schoolType: studentRow.school_type || "",
     grade: studentRow.grade || "",
@@ -275,7 +285,6 @@ async function buildPromptInput(
     ideal: 0,
     min: 0,
   };
-  const subjectTargets = await fetchSubjectTargets(supabaseAdmin, profileId);
   const tomorrow = {
     dayNameKr: resolveDayNameKr(tomorrowDayIndex),
     idealHours: num(tomorrowSchedule.ideal) ?? 0,
@@ -287,22 +296,10 @@ async function buildPromptInput(
   };
 
   // 최근 N일(오늘 제외) 요약.
-  const rangeFrom = addDaysYMD(todayYmd, -RECENT_DAYS_WINDOW, now);
-  const recentRecords = await fetchRecordsInRange(
-    supabaseAdmin,
-    profileId,
-    rangeFrom,
-    todayYmd,
-  );
   const recentUsedText = buildRecentUsedText(recentRecords, todayYmd);
 
   let today: AdvicePromptInput["today"] = null;
   if (source === "daily") {
-    const todayRecord = await fetchTodayRecord(
-      supabaseAdmin,
-      profileId,
-      todayYmd,
-    );
     const todayDayIndex = getDayIndexFromYMDServer(todayYmd, now);
     // biome-ignore lint/style/noNonNullAssertion: 위와 동일 근거.
     const todayDayName = VIRTUAL_DAY_NAMES[todayDayIndex]!;
@@ -412,15 +409,12 @@ async function generateAndCacheAdvice(
   timeZone: string,
 ) {
   const todayYmd = ymdIn(now, timeZone);
-  const stateRow = await fetchStudentStateRow(supabaseAdmin, profileId);
-  const submitCount = num(stateRow?.record_count) ?? 0;
 
   const input = await buildPromptInput(
     supabaseAdmin,
     profileId,
     source,
     studentRow,
-    submitCount,
     now,
     timeZone,
   );

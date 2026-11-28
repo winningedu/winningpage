@@ -184,3 +184,33 @@ describe("동작", () => {
     expect(repo.appendProbabilityLog).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("읽기 시작", () => {
+  test("기존 학생 행 읽기와 시간대 읽기를 함께 시작한다", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    repo.fetchStudentRow.mockReturnValue(gate.then(() => null));
+
+    const request = call(validBody());
+    await vi.waitFor(() =>
+      expect(repo.getStudentTimeZone).toHaveBeenCalledTimes(1),
+    );
+    release();
+
+    await request;
+  });
+
+  test("이미 온보딩했으면 시간대 읽기가 실패해도 409 already_onboarded 다", async () => {
+    repo.fetchStudentRow.mockResolvedValue({ onboarded_at: "2026-01-01" });
+    repo.getStudentTimeZone.mockRejectedValue(
+      new Error("읽지 않아야 하는 결과"),
+    );
+
+    const { status, body } = await call(validBody());
+
+    expect(status).toBe(409);
+    expect(body).toMatchObject({ reason: "already_onboarded" });
+  });
+});
