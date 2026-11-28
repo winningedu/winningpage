@@ -141,10 +141,10 @@ export function completeRefund(refundRequestId: string | number) {
 }
 
 // 저장 뒤 임베딩 요청. 토스트와 저장은 이 응답을 기다리지 않는다.
-export function requestEmbedding(id: string) {
+export function requestEmbedding(id: string, knowledgeType: string) {
   return api
     .post("performance/admin-embed", {
-      json: { action: "embed-one", id },
+      json: { action: "embed-one", id, knowledgeType },
       timeout: 60_000,
     })
     .json(z.record(z.string(), z.unknown()));

@@ -15,25 +15,29 @@
 //   근거: docs/수행평가-상세-명세.md §8.7 「제안(임베딩 경로 정리)」, §12.3 / §12.4
 //
 // 요청 규격
-//   { action: 'embed-one', id, force? }        1건 임베딩
-//   { action: 'backfill', limit?, force? }      배치 임베딩 (limit 기본 30, 상한 50)
+//   { action: 'embed-one', knowledgeType, id, force? }     1건 임베딩
+//   { action: 'backfill', knowledgeType, limit?, force? }  배치 임베딩 (limit 기본 30, 상한 50)
+//   knowledgeType 은 필수다. 그 값이 가리키는 메뉴(winningSuhaengTopicDb, winningSuhaengResourceDb)의 edit 권한이
+//   필요하고, 감사 행(쓰기)이 남는다. backfill 은 그 knowledgeType 의 행만 대상으로 한다.
 //
 // 응답 규격
 //   200 { action, ... }   정상. 대상 아님/캐시 적중은 에러가 아니라 status:'skipped'다.
 //   오류는 problem 형식(RFC 9457, 항상 code)이다.
 //   400 ID_REQUIRED                    embed-one 에 id 가 없다.
-//   400 VALIDATION_FAILED              action, id, limit, force 의 형식 오류(알 수 없는 action 포함).
-//   401, 403, 405                      토큰 없음/무효, 관리자 아님, POST 아님.
+//   400 VALIDATION_FAILED              action, knowledgeType, id, limit, force 의 형식 오류(알 수 없는 action,
+//                                      알 수 없는 knowledgeType 포함, 권한 판정보다 먼저). embed-one 은 행의
+//                                      knowledge_type 이 요청의 knowledgeType 과 다를 때도 이 코드다.
+//   401, 403, 405                      토큰 없음/무효, 관리자 아님 또는 그 메뉴의 edit 권한 없음, POST 아님.
 //   500 EMBED_FAILED                   임베딩 실패(detail 은 원인 문구).
 
 import { adminEmbedBody } from "../../../shared/performance/admin-embed.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { performanceTraceContext } from "../../_lib/ai/telemetry/performanceContext.js";
 import { type AiTrace, createAiTrace } from "../../_lib/ai/telemetry/trace.js";
-import { admin } from "../../_lib/hono/admin.js";
-import { adminFactory } from "../../_lib/hono/factory.js";
+import { admin, createAdminApp } from "../../_lib/hono/admin.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { validate } from "../../_lib/hono/validate.js";
+import { knowledgePermissionKey } from "../../_lib/knowledge/permission.js";
 import {
   buildKnowledgeSearchText,
   embedText,
@@ -145,16 +149,21 @@ async function markEmbeddingError(
 /**
  * 지식 항목 1건 임베딩.
  *
- * @returns status: 'embedded' | 'skipped' | 'not_found'
+ * @returns status: 'embedded' | 'skipped' | 'not_found' | 'type_mismatch'
  * @throws 조회·임베딩·저장 실패 (호출부가 500으로 변환)
  */
 async function embedOne(
   supabaseAdmin: ReturnType<typeof createSupabaseAdmin>,
   id: string,
   {
+    knowledgeType,
     force = false,
     telemetry,
-  }: { force?: boolean; telemetry?: AiTrace | undefined } = {},
+  }: {
+    knowledgeType: string;
+    force?: boolean;
+    telemetry?: AiTrace | undefined;
+  },
 ) {
   const { data: itemData, error: fetchError } = await supabaseAdmin
     .from(KNOWLEDGE_TABLE)
@@ -173,6 +182,11 @@ async function embedOne(
 
   if (!item) {
     return { id, status: "not_found", reason: "지식 항목을 찾을 수 없습니다." };
+  }
+
+  // 요청한 메뉴(knowledgeType)의 권한으로 다른 타입의 행을 임베딩하지 못하게 한다.
+  if (item.knowledge_type !== knowledgeType) {
+    return { id, status: "type_mismatch" as const };
   }
 
   if (!RAG_KNOWLEDGE_TYPES.has(String(item.knowledge_type || ""))) {
@@ -256,7 +270,7 @@ async function embedOne(
 }
 
 /**
- * 배치 임베딩.
+ * 배치 임베딩. 대상은 요청한 knowledgeType 의 행뿐이다(두 RAG 타입을 한꺼번에 태우지 않는다).
  *
  * force 계약
  *   false(기본) — `embedding is null` 또는 `embedding_status in ('pending','error')`
@@ -279,15 +293,21 @@ async function embedOne(
 async function backfill(
   supabaseAdmin: ReturnType<typeof createSupabaseAdmin>,
   {
+    knowledgeType,
     limit,
     force,
     telemetry,
-  }: { limit: number; force: boolean; telemetry?: AiTrace | undefined },
+  }: {
+    knowledgeType: string;
+    limit: number;
+    force: boolean;
+    telemetry?: AiTrace | undefined;
+  },
 ) {
   let query = supabaseAdmin
     .from(KNOWLEDGE_TABLE)
     .select("id")
-    .in("knowledge_type", [...RAG_KNOWLEDGE_TYPES]);
+    .eq("knowledge_type", knowledgeType);
 
   if (!force) {
     query = query.or(
@@ -311,6 +331,7 @@ async function backfill(
   for (const row of rows || []) {
     try {
       const result = await embedOne(supabaseAdmin, row.id, {
+        knowledgeType,
         force,
         telemetry,
       });
@@ -340,18 +361,24 @@ async function backfill(
   };
 }
 
-// 관리자 판정만 보고 메뉴 권한은 보지 않는다(예전 라우트도 메뉴 권한 없이 관리자 인증만 했다). 그래서 감사 행도 남지 않는다.
+// 요청의 knowledgeType 이 가리키는 지식 메뉴의 edit 권한을 요구하고, 기본 감사(쓰기)로 감사 행을 남긴다.
 const guard = admin({
-  permission: "none",
+  permission: { key: knowledgePermissionKey, level: "edit" },
   unhandledMessage: "임베딩 처리 중 오류가 발생했습니다.",
   logLabel: "admin-embed",
 });
 
-export const adminEmbed = adminFactory
-  .createApp()
+// 이 앱은 performance 앱 아래라 관리자 앱(admin/app.ts)의 감사 미들웨어를 거치지 않는다. createAdminApp 이 직접 건다.
+export const adminEmbed = createAdminApp()
   .post("/", guard, validate("json", adminEmbedBody), async (c) => {
     const supabaseAdmin = c.var.supabaseAdmin;
-    const { action, id, limit, force = false } = c.req.valid("json");
+    const {
+      action,
+      id,
+      limit,
+      force = false,
+      knowledgeType,
+    } = c.req.valid("json");
     const forceFlag = force === true || force === "true";
 
     // 계기판 기록. 요청 하나에 trace 하나이고, 응답 뒤 finally 에서 한 번 내보낸다.
@@ -374,14 +401,24 @@ export const adminEmbed = adminFactory
         }
 
         const result = await embedOne(supabaseAdmin, id, {
+          knowledgeType,
           force: forceFlag,
           telemetry: trace,
         });
+        if (result.status === "type_mismatch") {
+          return problemResponse(
+            c,
+            400,
+            "지식 항목의 knowledge_type 이 요청의 knowledgeType 과 다릅니다.",
+            "VALIDATION_FAILED",
+          );
+        }
         return c.json({ action, ...result });
       }
 
       if (action === "backfill") {
         const result = await backfill(supabaseAdmin, {
+          knowledgeType,
           limit: clampLimit(limit ?? DEFAULT_BACKFILL_LIMIT),
           force: forceFlag,
           telemetry: trace,

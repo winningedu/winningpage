@@ -131,27 +131,32 @@ describe("postEmbedBackfill", () => {
   it("performance/admin-embed 에 backfill 을 60초보다 긴 timeout 으로 부른다", async () => {
     respondWith({ embedded: 0, failed: 0 });
 
-    await postEmbedBackfill();
+    await postEmbedBackfill("verified_resource");
 
     const [path, options] = http.post.mock.calls[0] as [
       string,
       { json: unknown; timeout: number },
     ];
     expect(path).toBe("performance/admin-embed");
-    expect(options.json).toEqual({ action: "backfill" });
+    expect(options.json).toEqual({
+      action: "backfill",
+      knowledgeType: "verified_resource",
+    });
     expect(options.timeout).toBeGreaterThan(60_000);
   });
 
   it("실패하면 detail 을 던진다", async () => {
     rejectWith(new http.FakeApiError("임베딩 키가 없습니다."));
 
-    await expect(postEmbedBackfill()).rejects.toThrow("임베딩 키가 없습니다.");
+    await expect(postEmbedBackfill("topic_pattern")).rejects.toThrow(
+      "임베딩 키가 없습니다.",
+    );
   });
 
   it("성공하면 회차 결과를 돌려준다", async () => {
     respondWith({ embedded: 5, failed: 1 });
 
-    await expect(postEmbedBackfill()).resolves.toEqual({
+    await expect(postEmbedBackfill("topic_pattern")).resolves.toEqual({
       embedded: 5,
       failed: 1,
     });
