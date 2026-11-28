@@ -119,3 +119,79 @@ describe("analyze-guide 도메인 규칙과 응답", () => {
     });
   });
 });
+
+describe("analyze-guide 스토리지 읽기", () => {
+  const A1 = "7c3e4d5f-6a7b-4c8d-9e0f-1a2b3c4d5e6f";
+  const A2 = "8d4f5e6a-7b8c-4d9e-8f10-2b3c4d5e6f7a";
+
+  test("첨부 원본 확인과 내려받기를 첨부마다 기다리지 않고 함께 시작한다", async () => {
+    const attachmentRow = (id: string) => ({
+      id,
+      session_id: SESSION_ID,
+      storage_path: `${SESSION_ID}/${id}.jpg`,
+      deleted_at: null,
+      ocr_status: "pending",
+      byte_size: 100,
+    });
+    const base = rowsDb({
+      performance_sessions: [
+        {
+          id: SESSION_ID,
+          status: "draft",
+          current_step: 1,
+          completed_steps: [],
+          guide_json: null,
+          guide_analysis_count: 0,
+        },
+      ],
+      performance_attachments: [attachmentRow(A1), attachmentRow(A2)],
+    });
+    const hold = () => {
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return { gate, release };
+    };
+    const infoHold = hold();
+    const downloadHold = hold();
+    const infoStarted: string[] = [];
+    const downloadStarted: string[] = [];
+    state.db = {
+      ...base,
+      storage: {
+        from: () => ({
+          info: async (path: string) => {
+            infoStarted.push(path);
+            await infoHold.gate;
+            return {
+              data: { size: 100, contentType: "image/jpeg" },
+              error: null,
+            };
+          },
+          download: async (path: string) => {
+            downloadStarted.push(path);
+            await downloadHold.gate;
+            return {
+              data: { arrayBuffer: async () => new ArrayBuffer(4) },
+              error: null,
+            };
+          },
+          remove: async () => ({ data: null, error: null }),
+        }),
+      },
+    };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const request = callRoute(route, {
+      method: "POST",
+      body: { sessionId: SESSION_ID, attachmentIds: [A1, A2] },
+    });
+    await vi.waitFor(() => expect(infoStarted).toHaveLength(2));
+    infoHold.release();
+    await vi.waitFor(() => expect(downloadStarted).toHaveLength(2));
+    downloadHold.release();
+
+    await request;
+  });
+});
