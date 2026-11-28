@@ -279,6 +279,33 @@ describe("SchoolAdminPanel", () => {
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
+  test("발급 값이 틀리면 서버가 errors 에 담은 한 줄 문구를 그대로 보인다", async () => {
+    const message =
+      "기관, 이름, 전화번호, 직책, 이메일, 일반전화를 확인해 주세요.";
+    vi.mocked(api.issueSchoolAdmin).mockRejectedValue(
+      new ApiError({
+        status: 400,
+        code: "VALIDATION_FAILED",
+        detail: "요청 값이 올바르지 않아요.",
+        problem: {
+          type: "about:blank",
+          title: "Bad Request",
+          status: 400,
+          detail: "요청 값이 올바르지 않아요.",
+          code: "VALIDATION_FAILED",
+          errors: [{ path: "email", message }],
+        },
+      }),
+    );
+    renderPanel();
+    await screen.findByText("박관리");
+    fill("이름", "김새로");
+    fill("전화번호", "010-1111-2222");
+    fireEvent.click(screen.getByRole("button", { name: "발급" }));
+
+    expect(await screen.findByText(message)).toBeTruthy();
+  });
+
   test("목록 조회가 실패하면 서버 문구를 알림으로 보인다", async () => {
     vi.mocked(api.fetchSchoolAdmins).mockRejectedValue(
       new ApiError({

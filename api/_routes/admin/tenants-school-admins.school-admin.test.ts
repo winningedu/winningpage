@@ -272,4 +272,25 @@ describe("POST /api/admin/tenants/school-admin", () => {
     expect(r.body).toMatchObject({ status: 400, code: "VALIDATION_FAILED" });
     expect(kit.state.events).not.toContain("rpc:fn_teacher_register");
   });
+
+  test.each([
+    ["이름이 공백뿐", { name: "  " }],
+    ["전화번호 자릿수 오류", { phone: "12" }],
+    ["이메일 형식 오류", { email: "not-an-email" }],
+    ["일반전화 자릿수 오류", { landline: "123" }],
+    ["직책이 50자 초과", { position: "가".repeat(51) }],
+  ])("%s 는 errors[0].message 에 화면 문구가 실린다", async (_label, extra) => {
+    const r = await post({ ...VALID, ...extra });
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({
+      code: "VALIDATION_FAILED",
+      errors: [
+        {
+          message:
+            "기관, 이름, 전화번호, 직책, 이메일, 일반전화를 확인해 주세요.",
+        },
+      ],
+    });
+  });
 });
