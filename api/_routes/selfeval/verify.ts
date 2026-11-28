@@ -20,7 +20,9 @@
 //
 // 핸들러 본문은 DB 에 묶여 단위 테스트는 단계 함수를 가짜로 바꾼다. 규칙은 api/_lib/selfeval/steps/verify.ts 에서 검증한다.
 
+import type { z } from "zod";
 import { SELFEVAL_ERROR } from "../../../shared/selfeval/contract.js";
+import type { verifyResponse } from "../../../shared/selfeval/verify.js";
 import { verifyBody } from "../../../shared/selfeval/verify.js";
 import { callStructured } from "../../_lib/ai/gemini.js";
 import { userFactory } from "../../_lib/hono/factory.js";
@@ -68,11 +70,18 @@ export const verify = userFactory
       },
     );
     return c.json(
-      outcomeBody(out, (r) => ({
-        verification: r.verification,
-        charged: r.charged,
-        currentStep: r.currentStep,
-      })),
+      outcomeBody(
+        out,
+        (r) =>
+          ({
+            verification: r.verification,
+            charged: r.charged,
+            currentStep: r.currentStep,
+          }) satisfies Omit<
+            z.output<typeof verifyResponse>,
+            "attempts" | "softIssues"
+          >,
+      ),
     );
   })
   .all("/", methodNotAllowed("POST"));

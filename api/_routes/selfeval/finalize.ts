@@ -17,7 +17,9 @@
 //
 // 핸들러 본문은 DB 에 묶여 단위 테스트는 단계 함수를 가짜로 바꾼다. 규칙은 api/_lib/selfeval/steps/finalize.ts 에서 검증한다.
 
+import type { z } from "zod";
 import { SELFEVAL_ERROR } from "../../../shared/selfeval/contract.js";
+import type { finalizeResponse } from "../../../shared/selfeval/finalize.js";
 import {
   finalizeBody,
   promotedRecord,
@@ -81,12 +83,16 @@ export const finalize = userFactory
       },
     );
     return c.json(
-      outcomeBody(out, (r) => ({
-        activityRecordId: r.activityRecordId,
-        finalRevision: r.finalRevision,
-        reply: r.reply,
-        currentStep: r.currentStep,
-      })),
+      outcomeBody(
+        out,
+        (r) =>
+          ({
+            activityRecordId: r.activityRecordId,
+            finalRevision: r.finalRevision,
+            reply: r.reply,
+            currentStep: r.currentStep,
+          }) satisfies z.output<typeof finalizeResponse>,
+      ),
     );
   })
   .all("/", methodNotAllowed("POST"));

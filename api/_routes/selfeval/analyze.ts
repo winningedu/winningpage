@@ -17,6 +17,11 @@
 //
 // 핸들러 본문은 DB 에 묶여 단위 테스트는 단계 함수를 가짜로 바꾼다. 규칙은 api/_lib/selfeval/steps/analyze.ts 에서 검증한다.
 
+import type { z } from "zod";
+import type {
+  analyzeEditResponse,
+  analyzeRunResponse,
+} from "../../../shared/selfeval/analyze.js";
 import { analyzeBody } from "../../../shared/selfeval/analyze.js";
 import { SELFEVAL_ERROR } from "../../../shared/selfeval/contract.js";
 import { callStructured } from "../../_lib/ai/gemini.js";
@@ -65,12 +70,19 @@ export const analyze = userFactory
         startedAt,
       });
       return c.json(
-        outcomeBody(out, (r) => ({
-          analysis: r.analysis,
-          conflicts: r.analysis.conflicts,
-          analysisSource: r.analysisSource,
-          currentStep: r.currentStep,
-        })),
+        outcomeBody(
+          out,
+          (r) =>
+            ({
+              analysis: r.analysis,
+              conflicts: r.analysis.conflicts,
+              analysisSource: r.analysisSource,
+              currentStep: r.currentStep,
+            }) satisfies Omit<
+              z.output<typeof analyzeRunResponse>,
+              "attempts" | "softIssues"
+            >,
+        ),
       );
     }
     const out =
@@ -83,6 +95,14 @@ export const analyze = userFactory
             body.index,
             body.choice,
           );
-    return c.json(outcomeBody(out, (r) => ({ analysis: r.analysis })));
+    return c.json(
+      outcomeBody(
+        out,
+        (r) =>
+          ({ analysis: r.analysis }) satisfies z.output<
+            typeof analyzeEditResponse
+          >,
+      ),
+    );
   })
   .all("/", methodNotAllowed("POST"));
