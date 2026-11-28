@@ -23,6 +23,7 @@ import {
   adviceBody,
   type adviceGetResponse,
 } from "../../../shared/goal/advice.js";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import {
   addDaysYMD,
   getDayIndexFromYMDServer,
@@ -472,12 +473,14 @@ async function handleGet(c: Context<UserEnv>, session: GoalSession) {
   }
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
+  // 시간대 읽기는 학생 확인과 함께 시작한다. 확인이 막으면(409) 시간대 결과는 쓰지 않는다.
+  const timeZoneRead = startEarly(getStudentTimeZone(supabaseAdmin, profileId));
   const gate = await requireActiveStudent(supabaseAdmin, profileId);
   if (gate.error) {
     return goalFail(c, gate.error.status, gate.error.body);
   }
 
-  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+  const timeZone = await timeZoneRead;
   const todayYmd = ymdIn(new Date(), timeZone);
   const [intakeRow, dailyRow] = await Promise.all([
     fetchLatestAdviceCache(supabaseAdmin, profileId, "intake", todayYmd),
@@ -530,13 +533,15 @@ async function handlePost(
   }
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
+  // 시간대 읽기는 학생 확인과 함께 시작한다. 확인이 막으면(409) 시간대 결과는 쓰지 않는다.
+  const timeZoneRead = startEarly(getStudentTimeZone(supabaseAdmin, profileId));
   const gate = await requireActiveStudent(supabaseAdmin, profileId);
   if (gate.error) {
     return goalFail(c, gate.error.status, gate.error.body);
   }
 
   const now = new Date();
-  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+  const timeZone = await timeZoneRead;
   const todayYmd = ymdIn(now, timeZone);
 
   // 캐시 히트 — 오늘 이미 생성됐으면 Gemini를 다시 부르지 않는다.

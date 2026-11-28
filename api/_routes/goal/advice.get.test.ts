@@ -19,6 +19,7 @@ const fetchLatestAdviceCacheMock = vi.fn();
 const upsertAdviceCacheMock = vi.fn().mockResolvedValue(undefined);
 const callTextMock = vi.fn();
 const getStudentTimeZoneMock = vi.fn();
+const fetchStudentRowMock = vi.fn();
 
 vi.mock("../../_lib/goal/repo.js", async (importOriginal) => {
   const actual =
@@ -32,10 +33,7 @@ vi.mock("../../_lib/goal/repo.js", async (importOriginal) => {
     }),
     narrowGoalSession: (session: unknown) => session,
     getStudentTimeZone: (...args: unknown[]) => getStudentTimeZoneMock(...args),
-    fetchStudentRow: async () => ({
-      onboarded_at: "2026-08-01T00:00:00Z",
-      status: "active",
-    }),
+    fetchStudentRow: (...args: unknown[]) => fetchStudentRowMock(...args),
     fetchLatestAdviceCache: (...args: unknown[]) =>
       fetchLatestAdviceCacheMock(...args),
     fetchAdviceCache: async () => null,
@@ -69,6 +67,10 @@ describe("GET /api/goal/advice", () => {
     upsertAdviceCacheMock.mockClear();
     callTextMock.mockReset().mockRejectedValue(new Error("gemini down"));
     getStudentTimeZoneMock.mockReset().mockResolvedValue("Asia/Seoul");
+    fetchStudentRowMock.mockReset().mockResolvedValue({
+      onboarded_at: "2026-08-01T00:00:00Z",
+      status: "active",
+    });
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
@@ -102,6 +104,40 @@ describe("GET /api/goal/advice", () => {
       expect(body.dailyFor).toBeNull();
     },
   );
+
+  it("학생 확인과 시간대 읽기를 함께 시작한다", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    fetchStudentRowMock.mockReturnValue(
+      gate.then(() => ({
+        onboarded_at: "2026-08-01T00:00:00Z",
+        status: "active",
+      })),
+    );
+    fetchLatestAdviceCacheMock.mockResolvedValue(null);
+
+    const request = callGet();
+    await vi.waitFor(() =>
+      expect(getStudentTimeZoneMock).toHaveBeenCalledTimes(1),
+    );
+    release();
+
+    await request;
+  });
+
+  it("온보딩 전이면 시간대 읽기가 실패해도 409 not_onboarded 다", async () => {
+    fetchStudentRowMock.mockResolvedValue({ onboarded_at: null });
+    getStudentTimeZoneMock.mockRejectedValue(
+      new Error("읽지 않아야 하는 결과"),
+    );
+
+    const { status, body } = await callGoal("advice");
+
+    expect(status).toBe(409);
+    expect(body).toMatchObject({ reason: "not_onboarded" });
+  });
 
   it("intake 행만 있어도 생성과 저장 없이 그 행의 payload를 그대로 돌려준다", async () => {
     const payload = { todayAdvice: "저장된 조언" };

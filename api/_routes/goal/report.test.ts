@@ -19,6 +19,13 @@ const repo = vi.hoisted(() => ({
   student: {} as Record<string, unknown>,
   timeZone: "Asia/Seoul",
   linked: true,
+  // 읽기가 함께 시작하는지 보려고 어떤 읽기를 풀기 전까지 붙잡아 둔다.
+  studentHold: null as Promise<void> | null,
+  recordsHold: null as Promise<void> | null,
+  cohortRecordsHold: null as Promise<void> | null,
+  timeZoneCalls: 0,
+  logCalls: 0,
+  earliestCalls: 0,
 }));
 
 vi.mock("../../_lib/goal/repo.js", () => ({
@@ -28,18 +35,36 @@ vi.mock("../../_lib/goal/repo.js", () => ({
     allowed: true,
   }),
   narrowGoalSession: (s: { supabaseAdmin: unknown; profileId: string }) => s,
-  fetchStudentRow: async () => repo.student,
+  fetchStudentRow: async () => {
+    await repo.studentHold;
+    return repo.student;
+  },
   checkLinkedPair: async () => repo.linked,
   hasGoalAccessFor: async () => true,
-  getStudentTimeZone: async () => repo.timeZone,
-  fetchRecordsInRange: async () => [],
+  getStudentTimeZone: async () => {
+    repo.timeZoneCalls += 1;
+    return repo.timeZone;
+  },
+  fetchRecordsInRange: async () => {
+    await repo.recordsHold;
+    return [];
+  },
   fetchTimerSessionsInRange: async () => [],
   fetchPlanTasksInRange: async () => [],
   fetchActiveCohortProfileIds: async () => [],
   fetchMentorComment: async () => null,
-  fetchDailyRecordsForProfilesInRange: async () => [],
-  fetchProbabilityLogAtOrBefore: async () => null,
-  fetchEarliestProbabilityLog: async () => null,
+  fetchDailyRecordsForProfilesInRange: async () => {
+    await repo.cohortRecordsHold;
+    return [];
+  },
+  fetchProbabilityLogAtOrBefore: async () => {
+    repo.logCalls += 1;
+    return null;
+  },
+  fetchEarliestProbabilityLog: async () => {
+    repo.earliestCalls += 1;
+    return null;
+  },
 }));
 
 import { reportResponse } from "../../../shared/goal/report.js";
@@ -198,5 +223,73 @@ describe("snapshotBounds, 리포트 확률 스냅샷 경계", () => {
       startIso: "2026-11-16T08:00:00.000Z",
       endExclusiveIso: "2026-11-23T08:00:00.000Z",
     });
+  });
+});
+
+describe("리포트 읽기", () => {
+  const hold = () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { gate, release };
+  };
+
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    repo.linked = true;
+    repo.timeZone = "Asia/Seoul";
+    repo.studentHold = null;
+    repo.recordsHold = null;
+    repo.cohortRecordsHold = null;
+    repo.timeZoneCalls = 0;
+    repo.logCalls = 0;
+    repo.earliestCalls = 0;
+    repo.student = {
+      onboarded_at: "2026-10-01T00:00:00Z",
+      status: "active",
+      actual_start_date: "2026-11-04",
+    };
+  });
+
+  test("학생 확인과 시간대 읽기를 함께 시작한다", async () => {
+    const { gate, release } = hold();
+    repo.studentHold = gate;
+
+    const request = getReport({ type: "weekly" });
+    await vi.waitFor(() => expect(repo.timeZoneCalls).toBe(1));
+    release();
+
+    expect((await request).status).toBe(200);
+  });
+
+  test("온보딩 전이면 409 not_onboarded 다", async () => {
+    repo.student = { onboarded_at: null };
+
+    const { status } = await getReport({ type: "weekly" });
+
+    expect(status).toBe(409);
+  });
+
+  test("합격 가능성 스냅샷 읽기를 기록 읽기와 함께 시작한다", async () => {
+    const { gate, release } = hold();
+    repo.recordsHold = gate;
+
+    const request = getReport({ type: "weekly" });
+    await vi.waitFor(() => expect(repo.logCalls).toBe(2));
+    release();
+
+    expect((await request).status).toBe(200);
+  });
+
+  test("기간 이전 스냅샷이 없으면 처음 스냅샷 읽기를 코호트 기록 읽기와 함께 시작한다", async () => {
+    const { gate, release } = hold();
+    repo.cohortRecordsHold = gate;
+
+    const request = getReport({ type: "weekly" });
+    await vi.waitFor(() => expect(repo.earliestCalls).toBe(1));
+    release();
+
+    expect((await request).status).toBe(200);
   });
 });

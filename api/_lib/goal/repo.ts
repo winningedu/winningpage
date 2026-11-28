@@ -1751,8 +1751,11 @@ export async function fetchTimerDaySummary(
   supabaseAdmin: SupabaseClient,
   profileId: string,
   now: Date = new Date(),
+  /** 호출부가 이미 읽은 학생 시간대. 주면 다시 읽지 않는다. */
+  knownTimeZone?: string,
 ): Promise<TimerDaySummary> {
-  const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+  const timeZone =
+    knownTimeZone ?? (await getStudentTimeZone(supabaseAdmin, profileId));
   const open = await reconcileTimerState(
     supabaseAdmin,
     profileId,

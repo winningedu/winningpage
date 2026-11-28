@@ -100,3 +100,58 @@ describe("daily-record POST 학생 시간대", () => {
     });
   });
 });
+
+describe("daily-record 읽기", () => {
+  const held = () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { gate, release };
+  };
+  const activeRow = {
+    onboarded_at: "2026-01-01",
+    status: "active",
+    actual_start_date: "2026-01-01",
+    study_schedule: schedule,
+  };
+
+  test.each([
+    ["GET", undefined],
+    ["POST", { bodyCondition: "normal", tasks: ["concept"], studyHours: 3 }],
+  ])("%s 는 학생 확인과 시간대 읽기를 함께 시작한다", async (method, body) => {
+    const { gate, release } = held();
+    repo.fetchStudentRow.mockReturnValue(gate.then(() => activeRow));
+    repo.getStudentTimeZone.mockResolvedValue("Asia/Seoul");
+
+    const request = callGoal("daily-record", { method, body });
+    await vi.waitFor(() =>
+      expect(repo.getStudentTimeZone).toHaveBeenCalledTimes(1),
+    );
+    release();
+
+    await request;
+  });
+
+  test("온보딩 전이면 시간대 읽기가 실패해도 409 not_onboarded 다", async () => {
+    repo.fetchStudentRow.mockResolvedValue({ onboarded_at: null });
+    repo.getStudentTimeZone.mockRejectedValue(
+      new Error("읽지 않아야 하는 결과"),
+    );
+
+    const { status, body } = await callGoal("daily-record");
+
+    expect(status).toBe(409);
+    expect(body).toMatchObject({ reason: "not_onboarded" });
+  });
+
+  test("읽은 시간대를 타이머 요약에 넘겨 다시 읽지 않게 한다", async () => {
+    repo.fetchStudentRow.mockResolvedValue(activeRow);
+    repo.getStudentTimeZone.mockResolvedValue("Asia/Seoul");
+
+    await callGoal("daily-record");
+
+    expect(repo.fetchTimerDaySummary).toHaveBeenCalledTimes(1);
+    expect(repo.fetchTimerDaySummary.mock.calls[0]?.[3]).toBe("Asia/Seoul");
+  });
+});
