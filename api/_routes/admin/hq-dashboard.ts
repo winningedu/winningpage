@@ -43,9 +43,9 @@ import {
   statsQuery,
 } from "../../../shared/hq-dashboard/contract.js";
 import { PROBLEM_CODE } from "../../../shared/http/codes.js";
+import { allInOrder } from "../../../src/lib/concurrency/allInOrder.js";
 import { addDaysYmd } from "../../../src/lib/time/day.js";
 import { hasSectionPermission } from "../../_lib/adminPermission.js";
-import { allInOrder } from "../../_lib/allInOrder.js";
 import { fetchAllRows } from "../../_lib/console/paging.js";
 import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";

@@ -23,7 +23,7 @@ import {
   type UserSearch,
   userSearchQuery,
 } from "../../../shared/coupon/contract.js";
-import { allInOrder } from "../../_lib/allInOrder.js";
+import { allInOrder } from "../../../src/lib/concurrency/allInOrder.js";
 import {
   GRANT_ERRORS,
   REVOKE_ERRORS,

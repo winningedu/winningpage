@@ -18,7 +18,7 @@ import {
   type TenantRow,
 } from "../../../shared/tenants/contract.js";
 import { SITES } from "../../../src/config/sites.js";
-import { allInOrder } from "../../_lib/allInOrder.js";
+import { allInOrder } from "../../../src/lib/concurrency/allInOrder.js";
 import { admin, userClient } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";

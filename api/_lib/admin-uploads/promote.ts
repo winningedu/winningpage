@@ -2,9 +2,9 @@
 // 공개 URL 로 바꾼다. 브라우저는 업로드 직후 받은 임시 읽기 URL 을 폼 값으로 들고 있다가 그대로 보낸다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { mapBounded } from "../../../src/lib/concurrency/mapBounded.js";
 import type { SectionEntry } from "../admin-sections/registry.js";
 import { RouteParamError } from "../handler.js";
-import { mapBounded } from "../mapBounded.js";
 import {
   destinationPath,
   PUBLIC_BUCKET,

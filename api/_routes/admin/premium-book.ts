@@ -10,6 +10,7 @@ import {
   pageBody,
   pageIdParams,
 } from "../../../shared/premium-book/contract.js";
+import { mapBounded } from "../../../src/lib/concurrency/mapBounded.js";
 import type { UploadField } from "../../_lib/admin-sections/registry.js";
 import {
   PUBLIC_BUCKET,
@@ -28,7 +29,6 @@ import {
   ProblemError,
 } from "../../_lib/hono/problem.js";
 import { validate } from "../../_lib/hono/validate.js";
-import { mapBounded } from "../../_lib/mapBounded.js";
 import {
   premiumBookPathFromUrl,
   promotePageBody,
