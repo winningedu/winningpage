@@ -37,6 +37,7 @@ import {
   ANALYSIS_FIELDS,
   type Analysis,
   type GenerationSections,
+  type VerificationSections,
 } from "../types.js";
 import type { SessionActivityWithRecord } from "../view.js";
 import { buildVerifyInput, buildVerifySpec, runVerify } from "./verify.js";
@@ -129,12 +130,28 @@ const sections: GenerationSections = {
   ],
 };
 
+const verificationSections: VerificationSections = {
+  items: [],
+  total: 80,
+  format: [],
+  mandatoryFixes: [],
+  submittable: true,
+  improvements: [],
+  excluded: [],
+  growthFit: null,
+  charCount: { withSpace: 10, withoutSpace: 8 },
+  sentenceCount: 1,
+  clicheDensity: 0,
+  clicheHits: [],
+  numberCount: 0,
+};
+
 const reportRow = (p: Partial<ReportRow>): ReportRow => ({
   id: "g1",
   session_id: "s1",
   report_type: "generation",
   revision: 1,
-  sections,
+  sections: p.report_type === "verification" ? verificationSections : sections,
   char_count: { withSpace: 10, withoutSpace: 8 },
   score: null,
   mandatory_fixes: null,

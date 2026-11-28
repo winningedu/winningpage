@@ -14,6 +14,12 @@ import {
   sessionStepSchema,
   targetCharsModeSchema,
 } from "./contract.js";
+import {
+  charCountSchema,
+  generationSectionsSchema,
+  mandatoryFixSchema,
+  verificationSectionsSchema,
+} from "./sections.js";
 
 // ---------------------------------------------------------------------------
 // 요청
@@ -258,16 +264,25 @@ export const sessionActivityViewSchema = z.looseObject({
   record: activityRecordSchema,
 });
 
-export const reportViewSchema = z.looseObject({
+const storedReportShape = {
   id: z.string(),
   revision: z.number(),
-  sections: z.unknown(),
-  charCount: z
-    .looseObject({ withSpace: z.number(), withoutSpace: z.number() })
-    .nullable(),
+  charCount: charCountSchema.nullable(),
   score: z.number().nullable(),
-  mandatoryFixes: z.unknown(),
+  mandatoryFixes: z.array(mandatoryFixSchema).nullable(),
   createdAt: z.string(),
+};
+
+/** 생성본, 편집본, 최종본. sections 는 본문이다. */
+export const generationReportViewSchema = z.looseObject({
+  ...storedReportShape,
+  sections: generationSectionsSchema,
+});
+
+/** 검증 리포트. sections 는 점수, 형식 검사, 필수 수정이다. */
+export const verificationReportViewSchema = z.looseObject({
+  ...storedReportShape,
+  sections: verificationSectionsSchema,
 });
 
 /** 학생이 확인했고 포함으로 둔 수기 메모. 문장 근거로 고를 수 있다. */
@@ -290,13 +305,13 @@ export const sessionDetailResponseSchema = z.looseObject({
   activities: z.array(sessionActivityViewSchema),
   memos: z.array(evidenceMemoViewSchema),
   reports: z.looseObject({
-    generation: reportViewSchema.nullable(),
-    edited: reportViewSchema.nullable(),
-    verification: reportViewSchema.nullable(),
-    final: reportViewSchema.nullable(),
+    generation: generationReportViewSchema.nullable(),
+    edited: generationReportViewSchema.nullable(),
+    verification: verificationReportViewSchema.nullable(),
+    final: generationReportViewSchema.nullable(),
   }),
   regenerationsLeft: z.number(),
-  current: reportViewSchema.nullable(),
+  current: generationReportViewSchema.nullable(),
 });
 
 export type StepIssueView = z.output<typeof stepIssueSchema>;

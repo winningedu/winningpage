@@ -11,7 +11,7 @@ vi.mock("../db.js", () => ({
 }));
 
 import type { ReportRow, SessionRow } from "../rows.js";
-import type { GenerationSections } from "../types.js";
+import type { GenerationSections, VerificationSections } from "../types.js";
 import { canFinalize, runFinalize } from "./finalize.js";
 
 const db = {} as never;
@@ -53,13 +53,32 @@ const report = (p: Partial<ReportRow>): ReportRow => ({
   ...p,
 });
 
+const verificationSections = (
+  over: Partial<VerificationSections> = {},
+): VerificationSections => ({
+  items: [],
+  total: 82,
+  format: [],
+  mandatoryFixes: [],
+  submittable: true,
+  improvements: [],
+  excluded: [],
+  growthFit: null,
+  charCount: { withSpace: 10, withoutSpace: 8 },
+  sentenceCount: 1,
+  clicheDensity: 0,
+  clicheHits: [],
+  numberCount: 0,
+  ...over,
+});
+
 const gen = report({});
 const ver = (submittable = true, at = "2026-10-06T00:10:00Z") =>
   report({
     id: "v",
     report_type: "verification",
     score: 82,
-    sections: { submittable },
+    sections: verificationSections({ submittable }),
     created_at: at,
   });
 

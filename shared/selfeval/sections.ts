@@ -4,6 +4,11 @@
 import { z } from "zod";
 import { ANALYSIS_FIELDS } from "./contract.js";
 
+export const charCountSchema = z.object({
+  withSpace: z.number(),
+  withoutSpace: z.number(),
+});
+
 /** 근거 출처 유형(명세 No.145): P 수행평가, D 심화탐구, A 창체 활동, H 수기 메모, S 학생 입력. */
 export const EVIDENCE_SOURCE_TYPES = ["P", "D", "A", "H", "S"] as const;
 export const EVIDENCE_WEIGHTS = ["main", "sub"] as const;
@@ -144,7 +149,7 @@ export const verificationSectionsSchema = z.object({
   improvements: z.array(improvementSchema),
   excluded: z.array(z.object({ label: z.string(), note: z.string() })),
   growthFit: growthFitSchema.nullable(),
-  charCount: z.object({ withSpace: z.number(), withoutSpace: z.number() }),
+  charCount: charCountSchema,
   sentenceCount: z.number(),
   clicheDensity: z.number(),
   clicheHits: z.array(z.string()),
