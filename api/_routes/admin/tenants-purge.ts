@@ -21,6 +21,7 @@ import {
   PURGE_ERROR,
   PURGE_LOG_LIMIT,
   type PurgeLogEntry,
+  type PurgeLogs,
   type PurgePreview,
   type PurgeResult,
   purgeLogsQuery,
@@ -212,7 +213,7 @@ export const tenantsPurge = adminFactory
               memberIds: row.meta.member_ids ?? [],
             }) satisfies PurgeLogEntry,
         ),
-      });
+      } satisfies PurgeLogs);
     },
   )
   .all("/purge-logs", methodNotAllowed("GET"));

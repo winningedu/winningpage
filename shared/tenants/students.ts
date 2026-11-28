@@ -127,3 +127,4 @@ export const studentUsageSchema = z.object({
 export type StudentUsage = z.output<typeof studentUsageSchema>;
 
 export const studentUsageSavedSchema = z.object({ saved: z.number() });
+export type StudentUsageSaved = z.output<typeof studentUsageSavedSchema>;

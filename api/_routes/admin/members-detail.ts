@@ -17,6 +17,7 @@
 // 권한: 메뉴 members. GET 은 view, 쓰기는 edit.
 
 import { PROBLEM_CODE } from "../../../shared/http/codes.js";
+import type { MemberRow } from "../../../shared/members/contract.js";
 import {
   MEMBER_ERROR,
   MEMBER_MESSAGES_LIMIT,
@@ -90,7 +91,9 @@ export const membersDetail = adminFactory
       .maybeSingle();
     if (error) throw new Error("profile read failed");
     if (!data) throw memberNotFound();
-    return c.json(await withTenantName(db, data, canViewTenants));
+    return c.json(
+      (await withTenantName(db, data, canViewTenants)) satisfies MemberRow,
+    );
   })
   .patch(
     "/:id",
@@ -121,7 +124,9 @@ export const membersDetail = adminFactory
         .maybeSingle();
       if (error) throw new Error("profile update failed");
       if (!data) throw memberNotFound();
-      return c.json(await withTenantName(db, data, canViewTenants));
+      return c.json(
+        (await withTenantName(db, data, canViewTenants)) satisfies MemberRow,
+      );
     },
   )
   .all("/:id", methodNotAllowed("GET", "PATCH"))
@@ -198,7 +203,9 @@ export const membersDetail = adminFactory
         .eq("id", id)
         .maybeSingle();
       if (readError || !data) throw new Error("profile re-read failed");
-      return c.json(await withTenantName(db, data, canViewTenants));
+      return c.json(
+        (await withTenantName(db, data, canViewTenants)) satisfies MemberRow,
+      );
     },
   )
   .all("/:id/tenant", methodNotAllowed("PUT"))

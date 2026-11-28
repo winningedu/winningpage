@@ -17,10 +17,12 @@ import {
   patchTenantBody,
   putServiceSettingBody,
   type ServiceSettings,
+  type SettingRowDto,
   TENANT_DETAIL_ERROR,
   type TenantDetailRow,
   type TenantSaved,
   tenantIdParams,
+  usageDefaultsSchema,
 } from "../../../shared/tenants/detail.js";
 import { admin, userClient } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
@@ -173,11 +175,12 @@ export const tenantsDetail = adminFactory
       const value = (defaultRow.data as { value: unknown } | null)?.value;
       return c.json({
         items: settings.data ?? [],
-        defaults:
+        defaults: usageDefaultsSchema.parse(
           value !== null && typeof value === "object" && !Array.isArray(value)
             ? value
             : {},
-      } as ServiceSettings);
+        ),
+      } satisfies ServiceSettings);
     },
   )
   .put(
@@ -212,7 +215,7 @@ export const tenantsDetail = adminFactory
       // 없는 기관이면 FK 위반이다.
       if (error?.code === "23503") throw notFound("기관");
       if (error) throw new Error("service setting upsert failed");
-      return c.json(data);
+      return c.json(data satisfies SettingRowDto);
     },
   )
   .all("/:id/service-settings", methodNotAllowed("GET", "PUT"));
