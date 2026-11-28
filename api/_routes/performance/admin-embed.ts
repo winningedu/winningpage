@@ -270,7 +270,7 @@ async function embedOne(
 }
 
 /**
- * 배치 임베딩.
+ * 배치 임베딩. 대상은 요청한 knowledgeType 의 행뿐이다(두 RAG 타입을 한꺼번에 태우지 않는다).
  *
  * force 계약
  *   false(기본) — `embedding is null` 또는 `embedding_status in ('pending','error')`
@@ -307,7 +307,7 @@ async function backfill(
   let query = supabaseAdmin
     .from(KNOWLEDGE_TABLE)
     .select("id")
-    .in("knowledge_type", [...RAG_KNOWLEDGE_TYPES]);
+    .eq("knowledge_type", knowledgeType);
 
   if (!force) {
     query = query.or(

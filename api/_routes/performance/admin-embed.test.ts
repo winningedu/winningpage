@@ -16,6 +16,12 @@ vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../_lib/supabaseAdmin.js")>()),
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
+vi.mock("../../_lib/performance/embeddings.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../_lib/performance/embeddings.js")
+  >()),
+  getEmbeddingDimension: () => 768,
+}));
 vi.mock("../../_lib/afterResponse.js", () => ({
   scheduleAfterResponse: () => {},
 }));
@@ -185,5 +191,27 @@ describe("admin-embed 메뉴 권한", () => {
     expect(r.status).toBe(400);
     expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
     expect(kit.state.updates).toEqual([]);
+  });
+
+  test.each([
+    ["topic_pattern", "winningSuhaengTopicDb"],
+    ["verified_resource", "winningSuhaengResourceDb"],
+  ])("backfill 은 요청한 %s 행만 대상으로 조회한다", async (type, key) => {
+    grant(key);
+
+    const seen: Record<string, unknown>[] = [];
+    kit.state.rows.winning_assessment_knowledge_items = (filters) => {
+      seen.push(filters);
+      return [];
+    };
+
+    const r = await call({
+      action: "backfill",
+      knowledgeType: type,
+      force: true,
+    });
+
+    expect(r.status).toBe(200);
+    expect(seen).toEqual([{ knowledge_type: type }]);
   });
 });
