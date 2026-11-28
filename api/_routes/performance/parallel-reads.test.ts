@@ -41,6 +41,7 @@ async function run(
   tables: Record<string, Record<string, unknown>[]>,
   gated: string[],
   request: () => ReturnType<typeof callRoute>,
+  skipSession = true,
 ) {
   const { admin, gate } = gateReads(
     rowsDb(tables),
@@ -48,7 +49,7 @@ async function run(
       target.kind === "from" &&
       gated.includes(target.name) &&
       // 첫 읽기(세션)는 막지 않는다.
-      !(target.name === "performance_sessions"),
+      !(skipSession && target.name === "performance_sessions"),
   );
   state.db = admin;
   const response = request();
@@ -200,5 +201,21 @@ describe("performance recommend-topics 게이트", () => {
       "from:performance_credit_ledger",
       "from:performance_topics",
     ]);
+  });
+});
+
+describe("performance bootstrap", () => {
+  test("프로필 읽기와 최근 세션 읽기를 함께 시작한다", async () => {
+    const started = await run(
+      {
+        performance_sessions: [],
+        profiles: [{ id: "me", name: "학생" }],
+      },
+      ["profiles", "performance_sessions"],
+      () => callRoute({ app, path: "/api/performance/bootstrap" }, {}),
+      false,
+    );
+
+    expect(started).toEqual(["from:performance_sessions", "from:profiles"]);
   });
 });
