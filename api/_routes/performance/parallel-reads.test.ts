@@ -114,3 +114,68 @@ describe("performance finalize", () => {
     ]);
   });
 });
+
+describe("performance design-report 게이트", () => {
+  test("주제 확인, 기존 설계 리포트, 차감 여부 읽기를 함께 시작한다", async () => {
+    const started = await run(
+      {
+        performance_sessions: [session],
+        performance_topics: [{ id: TOPIC_ID }],
+        performance_reports: [],
+        performance_credit_ledger: [{ session_id: SESSION_ID }],
+      },
+      [
+        "performance_topics",
+        "performance_reports",
+        "performance_credit_ledger",
+      ],
+      () =>
+        callRoute(
+          { app, path: "/api/performance/design-report" },
+          {
+            method: "POST",
+            body: { sessionId: SESSION_ID, topicId: TOPIC_ID },
+          },
+        ),
+    );
+
+    expect(started).toEqual([
+      "from:performance_credit_ledger",
+      "from:performance_reports",
+      "from:performance_topics",
+    ]);
+  });
+});
+
+describe("performance evaluate 게이트", () => {
+  test("제출본, 평가 리포트, 설계 리포트, 차감 여부 읽기를 함께 시작한다", async () => {
+    const started = await run(
+      {
+        performance_sessions: [session],
+        performance_submissions: [{ id: SUBMISSION_ID, fields: {} }],
+        performance_reports: [],
+        performance_credit_ledger: [{ session_id: SESSION_ID }],
+      },
+      [
+        "performance_submissions",
+        "performance_reports",
+        "performance_credit_ledger",
+      ],
+      () =>
+        callRoute(
+          { app, path: "/api/performance/evaluate" },
+          {
+            method: "POST",
+            body: { sessionId: SESSION_ID, submissionId: SUBMISSION_ID },
+          },
+        ),
+    );
+
+    expect(started).toEqual([
+      "from:performance_credit_ledger",
+      "from:performance_reports",
+      "from:performance_reports",
+      "from:performance_submissions",
+    ]);
+  });
+});

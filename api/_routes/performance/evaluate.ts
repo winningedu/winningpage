@@ -90,6 +90,7 @@ import {
   evaluateBody,
   type evaluateResponse,
 } from "../../../shared/performance/evaluate.js";
+import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { generateWithRetry, PERFORMANCE_MODEL } from "../../_lib/ai/gemini.js";
 import {
@@ -518,15 +519,37 @@ export const evaluate = userFactory
 
       // ── 게이트 ② 제출본 소유권. **세션 id로 묶어서** 조회하므로 남의 세션 제출본 id를
       //    넣으면 애초에 행이 나오지 않는다(§8.6 소유권 규약 + sql/54 RLS 이중 방어).
-      const { data: submissionRow, error: submissionError } =
-        await supabaseAdmin
+      // 제출본, 기존 평가 리포트, 설계 리포트, 차감 여부는 세션과 요청 값으로 정해져 서로 기다릴 필요가 없다.
+      // 함께 시작하고, 판정은 아래 원래 순서대로 한다(앞선 판정이 응답을 정하면 뒤 결과는 쓰지 않는다).
+      const chargedRead = startEarly(
+        chargedPerformanceSessionIds(supabaseAdmin, userId, [sessionRow.id]),
+      );
+      const [
+        { data: submissionRow, error: submissionError },
+        { data: existingReport, error: existingError },
+        { data: designReport, error: designError },
+      ] = await Promise.all([
+        supabaseAdmin
           .from("performance_submissions")
           .select(
             "id,revision,fields,char_counts,is_draft,is_final,submitted_at",
           )
           .eq("id", submissionId)
           .eq("session_id", sessionRow.id)
-          .maybeSingle();
+          .maybeSingle(),
+        supabaseAdmin
+          .from("performance_reports")
+          .select(REPORT_COLUMNS)
+          .eq("session_id", sessionRow.id)
+          .eq("report_type", "evaluation")
+          .maybeSingle(),
+        supabaseAdmin
+          .from("performance_reports")
+          .select("id,sections,topic_id")
+          .eq("session_id", sessionRow.id)
+          .eq("report_type", "design")
+          .maybeSingle(),
+      ]);
 
       if (submissionError)
         throw new Error(`제출본 조회 실패: ${submissionError.message}`);
@@ -543,13 +566,6 @@ export const evaluate = userFactory
       }
 
       // ── 기존 평가 리포트(세션당 최대 1행, sql/58 (2)).
-      const { data: existingReport, error: existingError } = await supabaseAdmin
-        .from("performance_reports")
-        .select(REPORT_COLUMNS)
-        .eq("session_id", sessionRow.id)
-        .eq("report_type", "evaluation")
-        .maybeSingle();
-
       if (existingError)
         throw new Error(`평가 리포트 조회 실패: ${existingError.message}`);
 
@@ -576,11 +592,7 @@ export const evaluate = userFactory
       // ── 게이트 ③ 차감된 세션인가. `performance_credit_ledger.session_id`가 UNIQUE라
       //    행 존재 = 차감 완료다(sql/54 1-7). 이 파일은 차감하지 않으므로 **읽기만** 한다.
       //    정상 흐름에서 제출본이 있는 세션은 반드시 차감을 거쳤다 — 방어선이다.
-      const charged = await chargedPerformanceSessionIds(
-        supabaseAdmin,
-        userId,
-        [sessionRow.id],
-      );
+      const charged = await chargedRead;
       if (!charged.has(sessionRow.id)) {
         return fail(
           c,
@@ -599,13 +611,6 @@ export const evaluate = userFactory
       //    저장해 **STEP5가 재판정하지 않게** 한다」고 규정한 안내문 구조 판정,
       //    ⓑ 확정된 주제(프롬프트 `[선택 주제]`). 설계 리포트 없이 평가에 들어오면 둘 다
       //    없으므로 §8.6 표에 없는 코드지만 형제 라우트 관례대로 `SESSION_INCOMPLETE`로 막는다.
-      const { data: designReport, error: designError } = await supabaseAdmin
-        .from("performance_reports")
-        .select("id,sections,topic_id")
-        .eq("session_id", sessionRow.id)
-        .eq("report_type", "design")
-        .maybeSingle();
-
       if (designError)
         throw new Error(`설계 리포트 조회 실패: ${designError.message}`);
       if (!designReport) {
