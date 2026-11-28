@@ -4,7 +4,8 @@
 // 단계 예산보다 오래된 선점은 중단된 요청으로 보고 다시 잡을 수 있다. 끝내면 claimed_at 을 비운다.
 
 import type { ReportPayload } from "../../../../src/lib/selfeval/reportTypes.js";
-import { type Db, must } from "../../growth/intake/collectDb.js";
+import { must } from "../../db/must.js";
+import type { Db } from "../../growth/intake/collectDb.js";
 import { STEP_BUDGET_MS } from "../types.js";
 import type { ReportStore, StoredReport } from "./run.js";
 

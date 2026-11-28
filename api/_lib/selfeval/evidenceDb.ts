@@ -2,7 +2,8 @@
 // activity_records 의 새 컬럼, 기록 연결, 수기 메모를 읽는다. service_role 로 읽으므로 모든 쿼리에
 // 세션 또는 profile_id 조건을 건다. 단위 테스트는 두지 않는다(db.ts 와 같은 약속).
 
-import { type Db, must, mustRead } from "../growth/intake/collectDb.js";
+import { must, mustRead } from "../db/must.js";
+import type { Db } from "../growth/intake/collectDb.js";
 import type { LinkInfo, MemoRow, RecordExtras } from "./evidenceSources.js";
 import type { RecordStatus } from "./types.js";
 

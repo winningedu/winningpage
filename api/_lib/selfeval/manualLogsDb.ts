@@ -1,7 +1,8 @@
 // selfeval_manual_logs 읽기와 쓰기. service_role 이라 호출 쪽이 세션 소유를 먼저 확인한다.
 // 모든 쿼리에 session_id 조건을 건다. 단위 테스트는 두지 않는다(manualLogsRun 의 가짜 저장소로 검증).
 
-import { type Db, must } from "../growth/intake/collectDb.js";
+import { must } from "../db/must.js";
+import type { Db } from "../growth/intake/collectDb.js";
 import type { ManualStore, MemoRow } from "./manualLogsRun.js";
 
 const COLUMNS =
