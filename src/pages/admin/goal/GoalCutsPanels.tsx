@@ -634,15 +634,15 @@ function GoalCutsBulkXlsxPanel({
 
   const verify = useMutation({
     mutationFn: async (file: File) => {
-      const buffer = await file.arrayBuffer();
       setIdMapProgress({ done: 0, total: totalRowCount ?? 0 });
       try {
         // idNotFound 와 cutTypeChanged 를 같은 조회 결과로 판정한다.
         // 캐시하지 않는다: 그 사이 다른 관리자가 지운 id 를 놓치지 않기 위해서다.
-        const existing = await fetchAllCutRows(
-          totalRowCount ?? 0,
-          setIdMapProgress,
-        );
+        // 파일 읽기와 전량 조회는 서로 기다릴 필요가 없어 함께 시작한다.
+        const [buffer, existing] = await Promise.all([
+          file.arrayBuffer(),
+          fetchAllCutRows(totalRowCount ?? 0, setIdMapProgress),
+        ]);
         const idMap = new Map<number, string>(
           existing.map((r) => [r.id as number, r.cut_type as string]),
         );

@@ -115,13 +115,16 @@ export function PdfPanel() {
     setProgress({ done: 0, total: 0 });
 
     try {
-      const pdfjs = await import("pdfjs-dist");
+      // 모듈을 불러오는 동안 파일도 함께 읽는다.
+      const [pdfjs, arrayBuffer] = await Promise.all([
+        import("pdfjs-dist"),
+        pdfFile.arrayBuffer(),
+      ]);
       pdfjs.GlobalWorkerOptions.workerSrc = new URL(
         "pdfjs-dist/build/pdf.worker.min.mjs",
         import.meta.url,
       ).toString();
 
-      const arrayBuffer = await pdfFile.arrayBuffer();
       const pdfDoc = await pdfjs.getDocument({ data: arrayBuffer }).promise;
       const pageCount = pdfDoc.numPages;
 

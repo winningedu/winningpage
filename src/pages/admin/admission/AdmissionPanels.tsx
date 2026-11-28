@@ -17,6 +17,7 @@ import {
   exportAdmissionResultRowsToXlsx,
   parseAdmissionResultRowsFromXlsx,
 } from "@/lib/admissionResultsBulkXlsx";
+import { mapBounded } from "@/lib/concurrency/mapBounded";
 import { ApiError, api } from "@/lib/http/client";
 import { withDedupedKeys } from "@/lib/reactKeys";
 import {
@@ -634,6 +635,8 @@ export function AdmissionResultsListSummary({ onReload }) {
 // PostgREST 기본 응답 상한과 맞춘 읽기 청크, 다운로드(전체 조회)와
 // existingIdSet 준비(id만 조회) 둘 다 이 크기로 .range() 반복한다.
 const RESULTS_READ_CHUNK = RESULTS_PAGE_SIZE;
+// 입결 전량 읽기에서 한꺼번에 보내는 쪽 수. 한 쪽이 1000행이라 서버를 몰아붙이지 않게 묶는다.
+const RESULTS_READ_PARALLEL = 4;
 // insert/upsert 배치 크기. 43k행 전량이 한 번에 바뀌는 시나리오(연도
 // 전체 재적재 등)에서도 요청 하나가 과도하게 커지지 않게 나눈다.
 const RESULTS_APPLY_CHUNK = RESULTS_BULK_MAX_ITEMS;
@@ -678,18 +681,27 @@ async function readAllResults(
   const { total } = await api
     .get("admin/admission/results/count")
     .json(resultsCountSchema);
-  const all: Record<string, unknown>[] = [];
-  for (let offset = 0; offset < total; offset += RESULTS_READ_CHUNK) {
-    const { items } = await api
-      .get("admin/admission/results/rows", {
-        searchParams: { offset, fields } satisfies ResultsRowsQueryInput,
-      })
-      .json(resultsRowsSchema);
-    if (items.length === 0) break;
-    all.push(...items);
-    onProgress?.({ done: all.length, total });
-  }
-  return all;
+  const offsets = Array.from(
+    { length: Math.ceil(total / RESULTS_READ_CHUNK) },
+    (_, page) => page * RESULTS_READ_CHUNK,
+  );
+  // 페이지 경계는 total 로 정해져 서로 기다릴 필요가 없다. 몇 쪽씩 함께 읽고 행은 offset 순서로 모은다.
+  let done = 0;
+  const pages = await mapBounded(
+    offsets,
+    RESULTS_READ_PARALLEL,
+    async (offset) => {
+      const { items } = await api
+        .get("admin/admission/results/rows", {
+          searchParams: { offset, fields } satisfies ResultsRowsQueryInput,
+        })
+        .json(resultsRowsSchema);
+      done += items.length;
+      onProgress?.({ done, total });
+      return items;
+    },
+  );
+  return pages.flat();
 }
 
 function AdmissionResultsBulkXlsxPanel({ onReload }) {
@@ -778,16 +790,16 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
     setExpandedGroups({});
 
     try {
-      const buffer = await file.arrayBuffer();
       setIdSetProgress({ done: 0, total: totalRowCount ?? 0 });
-      const existingIdSet = new Set(
-        (
-          await readRows.mutateAsync({
-            fields: "id",
-            onProgress: setIdSetProgress,
-          })
-        ).map((r) => Number(r.id)),
-      );
+      // 파일 읽기와 id 전량 읽기는 서로 기다릴 필요가 없어 함께 시작한다.
+      const [buffer, existingRows] = await Promise.all([
+        file.arrayBuffer(),
+        readRows.mutateAsync({
+          fields: "id",
+          onProgress: setIdSetProgress,
+        }),
+      ]);
+      const existingIdSet = new Set(existingRows.map((r) => Number(r.id)));
       setIdSetProgress(null);
 
       const workbook = XLSX.read(buffer, { type: "array" });
