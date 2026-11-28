@@ -9,6 +9,23 @@ describe("startEarly", () => {
     );
   });
 
+  test("then 을 부를 때 시작하는 값도 바로 시작한다", async () => {
+    let started = false;
+    const lazy = {
+      // biome-ignore lint/suspicious/noThenProperty: 쿼리 빌더처럼 then 을 부를 때 시작하는 값이다.
+      then: (resolve: (value: number) => unknown) => {
+        started = true;
+        return resolve(1);
+      },
+    } as unknown as PromiseLike<number>;
+
+    const read = startEarly(lazy);
+    await Promise.resolve();
+
+    expect(started).toBe(true);
+    await expect(read).resolves.toBe(1);
+  });
+
   test("끝내 await 하지 않은 거부가 처리되지 않은 거부로 남지 않는다", async () => {
     const unhandled: unknown[] = [];
     const listener = (reason: unknown) => unhandled.push(reason);

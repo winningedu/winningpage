@@ -61,6 +61,36 @@ describe("차감 상태", () => {
 });
 
 describe("checkChargeGate", () => {
+  it("이용권 확인과 한도 읽기를 함께 시작한다", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mocks.hasSelfevalAccess.mockReturnValue(gate.then(() => true));
+    mocks.readSelfevalQuota.mockReturnValue(
+      gate.then(() => ({ quotaRemaining: null })),
+    );
+
+    const run = checkChargeGate(db, "u", row({}));
+    await Promise.resolve();
+    expect(mocks.hasSelfevalAccess).toHaveBeenCalledTimes(1);
+    expect(mocks.readSelfevalQuota).toHaveBeenCalledTimes(1);
+    release();
+
+    expect(await run).toBeNull();
+  });
+
+  it("이용권이 없으면 한도 읽기가 실패해도 no_entitlement 다", async () => {
+    mocks.hasSelfevalAccess.mockResolvedValue(false);
+    mocks.readSelfevalQuota.mockRejectedValue(
+      new Error("읽지 않아야 하는 결과"),
+    );
+
+    expect(await checkChargeGate(db, "u", row({}))).toEqual({
+      kind: "no_entitlement",
+    });
+  });
+
   it("이미 차감된 세션은 이용권을 읽지 않고 통과한다", async () => {
     expect(await checkChargeGate(db, "u", row({ ledger_id: "l" }))).toBeNull();
     expect(mocks.hasSelfevalAccess).not.toHaveBeenCalled();
