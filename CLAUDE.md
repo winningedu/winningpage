@@ -9,6 +9,7 @@ Repo-specific facts and exceptions. General placement and naming rules live in t
 - Shared top-level files: `handler.ts`, `http*.ts`, `supabaseAdmin.ts`, `serviceAccess.ts`, `programAccess.ts`, `phoneCode.ts`, `niceIdentity.ts`, `outbound.ts`, `adminAuth.ts`, `cronAuth.ts`, `site.ts`.
 - `shared/` holds the contract layer used by both the browser and `api/`: per-domain request and response zod schemas, their types, codes, and limits (`shared/<domain>/`). No React, no DOM, no Node-only modules (`node:*`), no DB client, no `@/` alias; relative imports with `.js`. `shared/` imports nothing from `src/` or `api/`. `src/` never imports `api/`; the files that still do are a frozen allowlist in `shared/boundaries.test.ts` that only shrinks.
 - `src/lib/diagnosis-v3/` is the pure-TS diagnosis engine shared by the browser and `api/` (no React, no `@/` alias, relative imports with `.js`).
+- `src/lib/concurrency/` holds the read helpers shared by the browser and `api/` (`allInOrder`, `mapBounded`, `startEarly`): start independent reads together, then check results in the original order so error priority stays the same. Same rules as above.
 - Cross-domain import example: growth reads `../_lib/goal/repo.js`. Never hoist it to hide the dependency.
 - Six camelCase folders are legacy (`mentorApply`, `routeGuards`, `admissionResults`, `premiumBook`, `growthLanding`, `selfevalLanding`). Never add more.
 - Admin menu keys (`aiTelemetry`, `knowledgeEvals`) are DB keys and may be camelCase. Keep them separate from folder names.
