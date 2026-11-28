@@ -1,7 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": ["index.html", "scripts/*.mjs", "api/**/*.ts"],
-  "project": ["src/**/*.{js,jsx,ts,tsx}", "scripts/**/*.mjs", "api/**/*.ts"],
+  "project": [
+    "src/**/*.{js,jsx,ts,tsx,css}",
+    "scripts/**/*.mjs",
+    "api/**/*.ts"
+  ],
+  // src/index.css가 @import "tw-animate-css", "shadcn/tailwind.css"를 쓰므로 CSS import를 읽게 한다.
+  "compilers": { "css": true },
   "vite": {
     "config": "vite.config.js"
   },
