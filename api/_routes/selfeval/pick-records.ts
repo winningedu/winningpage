@@ -40,6 +40,7 @@ import {
   type pickManualResponseSchema,
   type pickSelectResponseSchema,
 } from "../../../shared/selfeval/pick.js";
+import { allInOrder } from "../../../src/lib/concurrency/allInOrder.js";
 import { callStructured } from "../../_lib/ai/gemini.js";
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
@@ -119,13 +120,15 @@ const guard = user({
 
 /** 후보 계산에 필요한 읽기. list 와 select 와 연계 편집이 같은 후보를 보도록 한곳에서 만든다. */
 async function loadCandidates(db: Db, userId: string, session: SessionRow) {
-  const records = await loadActivityRecords(db, userId);
   const usedKey =
     session.area === "subject" ? session.subject : session.activity_name;
-  const used =
+  // 사용한 활동 id 는 세션 필드에서 정해져 활동 읽기와 서로 기다릴 필요가 없다.
+  const [records, used] = await allInOrder(
+    loadActivityRecords(db, userId),
     session.area === null || usedKey === null
-      ? new Set<string>()
-      : await loadUsedActivityIds(db, userId, session.area, usedKey);
+      ? Promise.resolve(new Set<string>())
+      : loadUsedActivityIds(db, userId, session.area, usedKey),
+  );
   const ctx = pickContextFrom(session, used);
   return { records, ctx, candidates: buildCandidates(records, ctx) };
 }
@@ -150,14 +153,15 @@ async function listPayload(
   session: SessionRow,
   statusOverride?: LinkStatus,
 ) {
-  const { records, ctx, candidates } = await loadCandidates(
-    db,
-    userId,
-    session,
-  );
-  const selection = await loadSelection(db, userId, session);
   const status = statusOverride ?? linkStatusOf(session.step_state);
-  const links = visibleLinks(status, await loadRecordLinks(db, session.id));
+  // 후보, 선택, 연계 읽기는 모두 세션으로 정해져 서로 기다릴 필요가 없다.
+  const [{ records, ctx, candidates }, selection, savedLinks] =
+    await allInOrder(
+      loadCandidates(db, userId, session),
+      loadSelection(db, userId, session),
+      loadRecordLinks(db, session.id),
+    );
+  const links = visibleLinks(status, savedLinks);
   const composed = composePickList({
     rows: candidates,
     links,
@@ -217,9 +221,12 @@ async function handleSelect(
   session: SessionRow,
   body: Extract<PickBody, { action: "select" }>,
 ) {
-  const { candidates, ctx } = await loadCandidates(db, userId, session);
+  const [{ candidates, ctx }, savedLinks] = await allInOrder(
+    loadCandidates(db, userId, session),
+    loadRecordLinks(db, session.id),
+  );
   const status = linkStatusOf(session.step_state);
-  const links = visibleLinks(status, await loadRecordLinks(db, session.id));
+  const links = visibleLinks(status, savedLinks);
   const { maxSelect } = composePickList({
     rows: candidates,
     links,
