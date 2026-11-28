@@ -16,12 +16,24 @@ export async function toSessionItems(
   rows: SessionListRow[],
 ): Promise<SessionListItem[]> {
   const ids = [...new Set(rows.map((r) => r.profile_id))];
+  const topicIds = [
+    ...new Set(
+      rows.map((r) => r.selected_topic_id).filter((v): v is string => !!v),
+    ),
+  ];
+  // 두 읽기는 입력 행의 id 만 쓰므로 함께 시작한다. 오류는 프로필, 주제 순서로 본다.
+  const [profileRead, topicRead] = await Promise.all([
+    ids.length > 0
+      ? db.from("profiles").select("id, name, email").in("id", ids)
+      : null,
+    topicIds.length > 0
+      ? db.from("inquiry_topics").select("id, detail").in("id", topicIds)
+      : null,
+  ]);
+
   const profiles = new Map<string, ProfileSummary>();
-  if (ids.length > 0) {
-    const { data, error } = await db
-      .from("profiles")
-      .select("id, name, email")
-      .in("id", ids);
+  if (profileRead) {
+    const { data, error } = profileRead;
     if (error) throw new Error(`profiles 조회 실패: ${error.message}`);
     for (const p of (data ?? []) as {
       id: string;
@@ -31,17 +43,9 @@ export async function toSessionItems(
       profiles.set(p.id, { name: p.name, email: p.email });
   }
 
-  const topicIds = [
-    ...new Set(
-      rows.map((r) => r.selected_topic_id).filter((v): v is string => !!v),
-    ),
-  ];
   const titles = new Map<string, string>();
-  if (topicIds.length > 0) {
-    const { data, error } = await db
-      .from("inquiry_topics")
-      .select("id, detail")
-      .in("id", topicIds);
+  if (topicRead) {
+    const { data, error } = topicRead;
     if (error) throw new Error(`inquiry_topics 조회 실패: ${error.message}`);
     for (const t of (data ?? []) as { id: string; detail: unknown }[]) {
       const title = (t.detail as { title?: unknown } | null)?.title;

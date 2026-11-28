@@ -93,23 +93,27 @@ export const selfevalRecover = adminFactory
     }
 
     const openMessage = "이 학생에게 진행 중인 세션이 있어 복구할 수 없습니다.";
-    const { data: open, error: openError } = await db
-      .from("selfeval_sessions")
-      .select("id")
-      .eq("profile_id", row.profile_id)
-      .in("status", ["draft", "in_progress"])
-      .limit(1);
+    // 미완 세션 확인과 선택 활동 읽기는 서로 기다릴 필요가 없다. 오류는 확인 순서대로 본다.
+    const [{ data: open, error: openError }, activityRead] = await Promise.all([
+      db
+        .from("selfeval_sessions")
+        .select("id")
+        .eq("profile_id", row.profile_id)
+        .in("status", ["draft", "in_progress"])
+        .limit(1),
+      db
+        .from("selfeval_session_activities")
+        .select(
+          "activity_record_id, role, fit_score, fit_reasons, analysis, analysis_source",
+        )
+        .eq("session_id", row.id),
+    ]);
     if (openError) throw new Error(`미완 세션 조회 실패: ${openError.message}`);
     if ((open ?? []).length > 0) {
       throw new ProblemError(409, openMessage, SELFEVAL_OPS_ERROR.SESSION_OPEN);
     }
 
-    const { data: activities, error: activityError } = await db
-      .from("selfeval_session_activities")
-      .select(
-        "activity_record_id, role, fit_score, fit_reasons, analysis, analysis_source",
-      )
-      .eq("session_id", row.id);
+    const { data: activities, error: activityError } = activityRead;
     if (activityError)
       throw new Error(`선택 활동 조회 실패: ${activityError.message}`);
 

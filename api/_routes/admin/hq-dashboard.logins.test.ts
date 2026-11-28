@@ -13,13 +13,20 @@ import {
   createKitState,
   type KitState,
 } from "../../_lib/console/consoleTestKit.js";
+import { gateReads } from "../../_lib/gatedReads.testkit.js";
 
-const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
+const kit = vi.hoisted(() => ({
+  state: null as unknown as KitState,
+  wrap: null as null | ((admin: never) => unknown),
+}));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
   getEnv: () => "winning",
   isSupabaseConfigError: () => false,
-  createSupabaseAdmin: () => createFakeAdmin(kit.state),
+  createSupabaseAdmin: () => {
+    const admin = createFakeAdmin(kit.state);
+    return kit.wrap ? kit.wrap(admin as never) : admin;
+  },
 }));
 
 import { app } from "../app.js";
@@ -60,6 +67,7 @@ function setPermissions(rows: { resource_key: string; level: string }[]) {
 }
 
 beforeEach(() => {
+  kit.wrap = null;
   vi.useFakeTimers({ toFake: ["Date"] });
   // KST 2026-11-23 12:00
   vi.setSystemTime(new Date("2026-11-23T03:00:00Z"));
@@ -588,5 +596,45 @@ describe("계약", () => {
     const r = await get({ view: "log" });
     expect(r.status).toBe(200);
     expect(loginLogSchema.parse(r.body)).toEqual(r.body);
+  });
+
+  test("통계는 묶음 집계와 일별 집계와 MAU 와 첫 측정 시각 읽기를 함께 시작한다", async () => {
+    const gated = gateReads(
+      createFakeAdmin(kit.state),
+      (target) =>
+        (target.kind === "rpc" && target.name === "fn_hq_login_buckets") ||
+        (target.kind === "from" && target.name === "profile_login_slots"),
+    );
+    kit.wrap = () => gated.admin;
+
+    const request = get({
+      from: "2026-11-02",
+      to: "2026-11-15",
+      grain: "week",
+    });
+    await vi.waitFor(() =>
+      expect(gated.gate.started.length).toBeGreaterThan(0),
+    );
+    await gated.gate.settle();
+    expect([...gated.gate.started].sort()).toEqual([
+      "from:profile_login_slots",
+      "rpc:fn_hq_login_buckets",
+      "rpc:fn_hq_login_buckets",
+      "rpc:fn_hq_login_buckets",
+    ]);
+    gated.gate.release();
+
+    expect((await request).status).toBe(200);
+  });
+
+  test("기록 보기는 권한 조회를 관리자 판정과 같은 요청 안에서 한 번만 한다", async () => {
+    const r = await get({ view: "log" });
+
+    expect(r.status).toBe(200);
+    expect(
+      kit.state.events.filter(
+        (e) => e === "rpc:fn_admin_effective_permissions",
+      ),
+    ).toHaveLength(1);
   });
 });

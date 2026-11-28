@@ -23,6 +23,7 @@ import {
   type UserSearch,
   userSearchQuery,
 } from "../../../shared/coupon/contract.js";
+import { allInOrder } from "../../_lib/allInOrder.js";
 import {
   GRANT_ERRORS,
   REVOKE_ERRORS,
@@ -231,14 +232,15 @@ export const coupons = adminFactory
     async (c) => {
       const couponId = c.req.valid("param").id;
       const db = c.var.supabaseAdmin;
-      await assertCouponExists(db, couponId);
-
-      const { data, error } = await db
-        .from("coupon_grants")
-        .select("*")
-        .eq("coupon_id", couponId)
-        .order("granted_at", { ascending: false })
-        .limit(COUPON_HISTORY_LIMIT);
+      const [, { data, error }] = await allInOrder(
+        assertCouponExists(db, couponId),
+        db
+          .from("coupon_grants")
+          .select("*")
+          .eq("coupon_id", couponId)
+          .order("granted_at", { ascending: false })
+          .limit(COUPON_HISTORY_LIMIT),
+      );
       if (error) throw new Error("coupon grants read failed");
 
       return c.json({
@@ -272,14 +274,15 @@ export const coupons = adminFactory
     async (c) => {
       const couponId = c.req.valid("param").id;
       const db = c.var.supabaseAdmin;
-      await assertCouponExists(db, couponId);
-
-      const { data, error } = await db
-        .from("coupon_redemptions")
-        .select("*")
-        .eq("coupon_id", couponId)
-        .order("created_at", { ascending: false })
-        .limit(COUPON_HISTORY_LIMIT);
+      const [, { data, error }] = await allInOrder(
+        assertCouponExists(db, couponId),
+        db
+          .from("coupon_redemptions")
+          .select("*")
+          .eq("coupon_id", couponId)
+          .order("created_at", { ascending: false })
+          .limit(COUPON_HISTORY_LIMIT),
+      );
       if (error) throw new Error("coupon redemptions read failed");
 
       return c.json({

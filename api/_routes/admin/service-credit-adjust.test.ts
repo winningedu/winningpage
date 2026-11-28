@@ -9,6 +9,7 @@ import {
   problemCode,
   type Respond,
 } from "../../_lib/adminRoute.testkit.js";
+import { gateReads } from "../../_lib/gatedReads.testkit.js";
 
 const kit = vi.hoisted(() => ({ admin: null as unknown }));
 
@@ -317,5 +318,49 @@ describe("POST /api/admin/service-credit-adjust", () => {
     setup();
     insertError = { message: "boom" };
     expect((await post()).status).toBe(500);
+  });
+
+  test("차감은 회원 확인과 이용권 요약 읽기를 함께 시작한다", async () => {
+    setup();
+    const { admin, gate } = gateReads(
+      kit.admin as ReturnType<typeof createAdminFake>,
+      (target) =>
+        (target.kind === "from" &&
+          target.name === "profiles" &&
+          target.nth === 1) ||
+        (target.kind === "rpc" &&
+          target.name === "fn_program_access_grants_summary" &&
+          target.nth === 0),
+    );
+    kit.admin = admin;
+
+    const request = deduct();
+    await vi.waitFor(() => expect(gate.started.length).toBeGreaterThan(0));
+    await gate.settle();
+    expect([...gate.started].sort()).toEqual([
+      "from:profiles",
+      "rpc:fn_program_access_grants_summary",
+    ]);
+    gate.release();
+
+    expect((await request).status).toBe(200);
+  });
+
+  test("없는 회원이면 이용권 요약 읽기 오류가 있어도 404 이다", async () => {
+    setup();
+    profiles = () => ({ data: null, error: null });
+    const failing = kit.admin as ReturnType<typeof createAdminFake>;
+    const rpc = failing.rpc;
+    failing.rpc = (name, args) =>
+      name === "fn_program_access_grants_summary"
+        ? Promise.resolve({
+            data: null,
+            error: { message: "읽지 않아야 하는 결과" },
+          })
+        : rpc(name, args);
+
+    const r = await deduct();
+
+    expect(r.status).toBe(404);
   });
 });
