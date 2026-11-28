@@ -247,7 +247,9 @@ export async function runWrite(
     [],
     await loadReports(db, userId, session.id),
   ).reports.generation;
-  if (saved === null) throw new Error("생성한 리포트를 읽지 못했습니다.");
+  if (saved === null || saved.charCount === null) {
+    throw new Error("생성한 리포트를 읽지 못했습니다.");
+  }
   return {
     kind: "ok",
     result: {

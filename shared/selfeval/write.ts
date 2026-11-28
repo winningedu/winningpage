@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import { sessionStepSchema } from "./contract.js";
+import { generationSectionsSchema } from "./sections.js";
 import { stepIssueSchema } from "./session.js";
 
 // ---------------------------------------------------------------------------
@@ -47,11 +48,11 @@ export type WriteBodyInput = z.input<typeof writeBody>;
 // 응답
 // ---------------------------------------------------------------------------
 
-/** 저장한 본문. sections 의 문단, 문장, 근거 세부 모양은 화면의 타입이 맡는다. */
-const writtenReportSchema = z.looseObject({
+/** 저장한 본문. */
+export const writtenReportSchema = z.looseObject({
   id: z.string(),
   revision: z.number(),
-  sections: z.looseObject({ paragraphs: z.array(z.unknown()) }),
+  sections: generationSectionsSchema,
   charCount: z.looseObject({
     withSpace: z.number(),
     withoutSpace: z.number(),
