@@ -30,6 +30,7 @@ import {
   memberTenantBody,
 } from "../../../shared/members/detail.js";
 import { SITES } from "../../../src/config/sites.js";
+import { allInOrder } from "../../_lib/allInOrder.js";
 import { admin, userClient } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
@@ -222,16 +223,17 @@ export const membersDetail = adminFactory
     async (c) => {
       const db = c.var.supabaseAdmin;
       const { id } = c.req.valid("param");
-      await findMemberStub(db, id);
-
-      const { data, error } = await db
-        .from("alimtalk_send_logs")
-        .select(
-          "id, template_key, channel, subject, message, status, provider_message, sent_at",
-        )
-        .eq("profile_id", id)
-        .order("sent_at", { ascending: false })
-        .limit(MEMBER_MESSAGES_LIMIT);
+      const [, { data, error }] = await allInOrder(
+        findMemberStub(db, id),
+        db
+          .from("alimtalk_send_logs")
+          .select(
+            "id, template_key, channel, subject, message, status, provider_message, sent_at",
+          )
+          .eq("profile_id", id)
+          .order("sent_at", { ascending: false })
+          .limit(MEMBER_MESSAGES_LIMIT),
+      );
       if (error) throw new Error("alimtalk_send_logs read failed");
       return c.json({ items: data ?? [] } satisfies MemberMessages);
     },
@@ -244,15 +246,16 @@ export const membersDetail = adminFactory
     async (c) => {
       const db = c.var.supabaseAdmin;
       const { id } = c.req.valid("param");
-      await findMemberStub(db, id);
-
-      const { data, error } = await db
-        .from("orders")
-        .select(
-          "id, status, order_name, amount, list_amount, discount_amount, method, paid_at, created_at, student_profile_id, parent_profile_id",
-        )
-        .or(`student_profile_id.eq.${id},parent_profile_id.eq.${id}`)
-        .order("created_at", { ascending: false });
+      const [, { data, error }] = await allInOrder(
+        findMemberStub(db, id),
+        db
+          .from("orders")
+          .select(
+            "id, status, order_name, amount, list_amount, discount_amount, method, paid_at, created_at, student_profile_id, parent_profile_id",
+          )
+          .or(`student_profile_id.eq.${id},parent_profile_id.eq.${id}`)
+          .order("created_at", { ascending: false }),
+      );
       if (error) throw new Error("orders read failed");
       return c.json({ items: data ?? [] } satisfies MemberOrders);
     },
@@ -265,14 +268,15 @@ export const membersDetail = adminFactory
     async (c) => {
       const db = c.var.supabaseAdmin;
       const { id } = c.req.valid("param");
-      await findMemberStub(db, id);
-
-      const { data, error } = await db
-        .from("program_access")
-        .select(
-          "id, program_key, payment_status, access_status, paid_amount, starts_at, expires_at, access_started_at, access_expires_at",
-        )
-        .eq("id", id);
+      const [, { data, error }] = await allInOrder(
+        findMemberStub(db, id),
+        db
+          .from("program_access")
+          .select(
+            "id, program_key, payment_status, access_status, paid_amount, starts_at, expires_at, access_started_at, access_expires_at",
+          )
+          .eq("id", id),
+      );
       if (error) throw new Error("program_access read failed");
       return c.json({ items: data ?? [] } satisfies MemberServices);
     },

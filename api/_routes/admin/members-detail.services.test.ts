@@ -69,12 +69,12 @@ describe("GET /api/admin/members/:id/services", () => {
     expect(kit.db.calls.some((c) => c.table === "program_access")).toBe(false);
   });
 
-  test("없는 회원은 404 NOT_FOUND 이고 program_access 를 읽지 않는다", async () => {
+  test("없는 회원은 목록 읽기를 함께 시작해도 404 NOT_FOUND 이고 목록을 싣지 않는다", async () => {
     const r = await get(OTHER_ID);
 
     expect(r.status).toBe(404);
     expect(r.body).toMatchObject({ code: "NOT_FOUND" });
-    expect(kit.db.calls.some((c) => c.table === "program_access")).toBe(false);
+    expect(r.body).not.toHaveProperty("items");
   });
 
   test("uuid 가 아닌 id 는 400 이고 읽지 않는다", async () => {

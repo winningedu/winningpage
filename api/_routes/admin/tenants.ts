@@ -18,6 +18,7 @@ import {
   type TenantRow,
 } from "../../../shared/tenants/contract.js";
 import { SITES } from "../../../src/config/sites.js";
+import { allInOrder } from "../../_lib/allInOrder.js";
 import { admin, userClient } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
@@ -40,19 +41,25 @@ export const tenants = adminFactory
   .createApp()
   .get("/", guard, async (c) => {
     const hq = SITES[getSiteKey()].features.hqTenantAdmin;
-    const { data, error } = await c.var.supabaseAdmin
-      .from("tenants")
-      .select(hq ? HQ_COLUMNS : BASE_COLUMNS)
-      .order("created_at", { ascending: false });
+    const db = c.var.supabaseAdmin;
+    const [{ data, error }, settingRead] = await allInOrder(
+      db
+        .from("tenants")
+        .select(hq ? HQ_COLUMNS : BASE_COLUMNS)
+        .order("created_at", { ascending: false }),
+      hq
+        ? db
+            .from("app_settings")
+            .select("value")
+            .eq("key", "contract_grace_days")
+            .maybeSingle()
+        : Promise.resolve(null),
+    );
     if (error) throw new Error("tenants read failed");
 
     let graceDays: number | null = null;
-    if (hq) {
-      const { data: setting, error: settingError } = await c.var.supabaseAdmin
-        .from("app_settings")
-        .select("value")
-        .eq("key", "contract_grace_days")
-        .maybeSingle();
+    if (settingRead) {
+      const { data: setting, error: settingError } = settingRead;
       if (settingError) throw new Error("grace days read failed");
       const value = (setting as { value: unknown } | null)?.value;
       graceDays = typeof value === "number" ? value : null;

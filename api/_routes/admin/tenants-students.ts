@@ -240,49 +240,52 @@ export const tenantsStudents = adminFactory
       const db = c.var.supabaseAdmin;
       const { profileId } = c.req.valid("query");
 
-      const { data: profile, error: profileError } = await db
-        .from("profiles")
-        .select("id, tenant_id")
-        .eq("id", profileId)
-        .maybeSingle();
+      // 학생 확인과 함께 학생만 알면 되는 읽기(개별 조정, 사용 상태)를 시작한다. 응답은 읽기를 차례로 하던 때와 같은 순서로 정한다.
+      const [{ data: profile, error: profileError }, overrides, states] =
+        await Promise.all([
+          db
+            .from("profiles")
+            .select("id, tenant_id")
+            .eq("id", profileId)
+            .maybeSingle(),
+          db
+            .from("student_usage_overrides")
+            .select("program_key, monthly_limit, term_limit")
+            .eq("profile_id", profileId),
+          Promise.all(
+            SERVICE_CREDIT_PROGRAMS.map((program) =>
+              db.rpc("fn_tenant_usage_state", {
+                p_profile: profileId,
+                p_program_key: program.programKey,
+              }),
+            ),
+          ),
+        ]);
       if (profileError) throw new Error("profile read failed");
       if (!profile) throw notFound("학생");
       const tenantId = (profile as { tenant_id: string | null }).tenant_id;
 
-      const tenantRead = tenantId
-        ? await db
-            .from("tenants")
-            .select("id, name, is_catch_all")
-            .eq("id", tenantId)
-            .maybeSingle()
-        : { data: null, error: null };
-      if (tenantRead.error) throw new Error("tenant read failed");
-      const tenant = tenantRead.data as {
-        id: string;
-        name: string;
-        is_catch_all: boolean;
-      } | null;
-
-      const [settings, overrides, states] = await Promise.all([
+      const [tenantRead, settings] = await Promise.all([
+        tenantId
+          ? db
+              .from("tenants")
+              .select("id, name, is_catch_all")
+              .eq("id", tenantId)
+              .maybeSingle()
+          : { data: null, error: null },
         tenantId
           ? db
               .from("tenant_service_settings")
               .select("program_key, enabled, monthly_limit, term_limit")
               .eq("tenant_id", tenantId)
           : { data: [], error: null },
-        db
-          .from("student_usage_overrides")
-          .select("program_key, monthly_limit, term_limit")
-          .eq("profile_id", profileId),
-        Promise.all(
-          SERVICE_CREDIT_PROGRAMS.map((program) =>
-            db.rpc("fn_tenant_usage_state", {
-              p_profile: profileId,
-              p_program_key: program.programKey,
-            }),
-          ),
-        ),
       ]);
+      if (tenantRead.error) throw new Error("tenant read failed");
+      const tenant = tenantRead.data as {
+        id: string;
+        name: string;
+        is_catch_all: boolean;
+      } | null;
       if (settings.error || overrides.error)
         throw new Error("limits read failed");
       if (states.some((state) => state.error))
