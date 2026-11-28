@@ -1,4 +1,5 @@
 // 입결정보 일괄 반영(POST /api/admin/admission/results/bulk)의 행 규칙. id 없는 행은 insert, id 있는 행은 upsert 대상이다.
+// 서버(api/_routes/admin/admission.ts)와 요청 스키마(shared/admission/contract.ts)가 쓴다.
 // 행 검증은 src/lib/admissionResultsBulkXlsx.ts 의 파서 규칙과 문구를 따른다. 서버는 그 파일을
 // import 할 수 없어(import 사슬에 .js 없는 상대 경로가 있어 운영에서 깨진다) 옵션 목록을 복사해 두고,
 // 테스트가 파서 상수와 같음을 확인한다.
@@ -117,28 +118,37 @@ for (const col of GRADE_COLUMNS) {
     })
     .nullable();
 }
-const rowSchema = z.strictObject(shape);
-
 const isBlank = (value: unknown) =>
   value === undefined ||
   value === null ||
   (typeof value === "string" && value.trim() === "");
 
-/** 첫 위반의 이유 문구. 문제가 없으면 null. */
-export function resultRowProblem(row: unknown): string | null {
-  if (typeof row !== "object" || row === null || Array.isArray(row)) {
-    return "행 형식이 올바르지 않습니다.";
-  }
-  const record = row as Record<string, unknown>;
-  const missing = ["result_year", ...REQUIRED_TEXT_COLUMNS].filter((col) =>
-    isBlank(record[col]),
+const FORMAT_MESSAGE = "행 형식이 올바르지 않습니다.";
+
+/**
+ * 행 하나. 객체가 아니면, 필수 칸이 비면, 칸 규칙을 어기면 그 사유 문구가 첫 이슈의 message 다.
+ * 필수 칸 비어 있음이 칸 규칙(타입, 허용 값)보다 먼저다.
+ */
+export const resultRowSchema = z
+  .record(z.string(), z.unknown(), { error: FORMAT_MESSAGE })
+  .superRefine((record, ctx) => {
+    const missing = ["result_year", ...REQUIRED_TEXT_COLUMNS].filter((col) =>
+      isBlank(record[col]),
+    );
+    if (missing.length > 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: `${missing.join(", ")}가 비어 있습니다.`,
+      });
+    }
+  })
+  .pipe(
+    z.strictObject(shape, {
+      error: (issue) => {
+        if (issue.code === "unrecognized_keys") {
+          return `허용하지 않는 컬럼이 있습니다: ${issue.keys.join(", ")}.`;
+        }
+        return issue.code === "invalid_type" ? FORMAT_MESSAGE : undefined;
+      },
+    }),
   );
-  if (missing.length > 0) return `${missing.join(", ")}가 비어 있습니다.`;
-  const parsed = rowSchema.safeParse(record);
-  if (parsed.success) return null;
-  const issue = parsed.error.issues[0];
-  if (issue?.code === "unrecognized_keys") {
-    return `허용하지 않는 컬럼이 있습니다: ${issue.keys.join(", ")}.`;
-  }
-  return issue?.message ?? "행 형식이 올바르지 않습니다.";
-}

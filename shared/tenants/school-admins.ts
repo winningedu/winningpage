@@ -12,19 +12,57 @@ const nullableText = z.string().nullable();
 // 요청
 // ---------------------------------------------------------------------------
 
-/** 발급 본문. 칸의 모양만 여기서 보고, 값 규칙(이름 공백, 전화번호 자릿수, 이메일 형식, 직책 길이)은 서버가 정규화하며 본다(틀리면 400 VALIDATION_FAILED). */
-export const issueSchoolAdminBody = z.looseObject({
+const MAX_POSITION_LENGTH = 50;
+const MAX_EMAIL_LENGTH = 254;
+
+/** 발급 칸이 틀리면 화면에 보이는 한 줄. 어느 칸이 틀려도 같은 문구다. */
+export const ISSUE_SCHOOL_ADMIN_INVALID_MESSAGE =
+  "기관, 이름, 전화번호, 직책, 이메일, 일반전화를 확인해 주세요.";
+const invalid = { error: ISSUE_SCHOOL_ADMIN_INVALID_MESSAGE };
+
+const digitsOf = (value: string) => value.replace(/\D/g, "");
+// 비어 있으면 값 없음(undefined)으로 읽는다. 선택 칸에 쓴다.
+const blankToUndefined = (value: string) => value || undefined;
+
+/** 발급 본문. 이름 공백, 전화번호 자릿수, 이메일 형식, 길이 규칙까지 여기서 보고 정규화한다(틀리면 400 VALIDATION_FAILED, errors[0].message 가 화면 문구). */
+export const issueSchoolAdminBody = z.object({
   tenantId: z.string().min(1),
-  name: z.string(),
-  phone: z.string(),
-  landline: z.string().nullish(),
-  email: z.string().nullish(),
-  position: z.string().nullish(),
+  name: z.string(invalid).trim().min(1, invalid),
+  phone: z
+    .string(invalid)
+    .transform(digitsOf)
+    .pipe(z.string().regex(/^01[0-9]{8,9}$/, invalid)),
+  landline: z
+    .string(invalid)
+    .transform(digitsOf)
+    .pipe(z.string().regex(/^(0[0-9]{8,10})?$/, invalid))
+    .transform(blankToUndefined)
+    .nullish()
+    .transform((value) => value ?? undefined),
+  email: z
+    .string(invalid)
+    .trim()
+    .toLowerCase()
+    .pipe(
+      z
+        .string()
+        .max(MAX_EMAIL_LENGTH, invalid)
+        .regex(/^([^\s@]+@[^\s@]+\.[^\s@]+)?$/, invalid),
+    )
+    .transform(blankToUndefined)
+    .nullish()
+    .transform((value) => value ?? undefined),
+  position: z
+    .string(invalid)
+    .trim()
+    .max(MAX_POSITION_LENGTH, invalid)
+    .transform(blankToUndefined)
+    .nullish()
+    .transform((value) => value ?? undefined),
 });
 
 /** 발급 화면이 보내는 모양. */
 export type IssueSchoolAdminInput = z.input<typeof issueSchoolAdminBody>;
-
 export const schoolAdminsQuery = z.object({ tenantId: z.guid() });
 
 // ---------------------------------------------------------------------------

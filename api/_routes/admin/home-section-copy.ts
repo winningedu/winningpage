@@ -13,6 +13,7 @@ import { RouteParamError } from "../../_lib/handler.js";
 import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, notFound } from "../../_lib/hono/problem.js";
+import { validate } from "../../_lib/hono/validate.js";
 
 // 섹션 키에서 메뉴 키. 라벨(eyebrow)은 랜딩에서 services, mentor 만 그린다.
 const SECTIONS = {
@@ -52,20 +53,15 @@ export const homeSectionCopy = adminFactory
     if (!data) throw notFound("섹션 제목");
     return c.json(data satisfies SectionCopy);
   })
-  // PUT: 섹션 키 기준 upsert. 본문 오류는 예전처럼 한 줄짜리 400 VALIDATION_FAILED(path body)다.
-  .put("/:sectionKey", guard, async (c) => {
+  // PUT: 섹션 키 기준 upsert. 본문 오류는 400 VALIDATION_FAILED 이고 errors[0].message 가 "입력값을 확인해 주세요." 다.
+  .put("/:sectionKey", guard, validate("json", sectionCopyBody), async (c) => {
     const sectionKey = sectionOf(c);
-    const parsed = sectionCopyBody.safeParse(
-      await c.req.json().catch(() => undefined),
-    );
-    if (!parsed.success) {
-      throw new RouteParamError("body", "입력값을 확인해 주세요.");
-    }
+    const body = c.req.valid("json");
     const row = {
       section_key: sectionKey,
-      eyebrow: SECTIONS[sectionKey].hasEyebrow ? parsed.data.eyebrow : null,
-      title_main: parsed.data.title_main,
-      title_sub: parsed.data.title_sub,
+      eyebrow: SECTIONS[sectionKey].hasEyebrow ? body.eyebrow : null,
+      title_main: body.title_main,
+      title_sub: body.title_sub,
     } satisfies SectionCopy;
     const { error } = await c.var.supabaseAdmin
       .from("home_section_copy")

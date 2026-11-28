@@ -276,18 +276,47 @@ describe("POST /api/admin/knowledge-eval", () => {
   });
 
   test.each([
-    ["action 이 모르는 값", { ...RUN, action: "x" }],
-    ["knowledgeType 이 모르는 값", { ...RUN, knowledgeType: "other" }],
-    ["범위를 벗어난 params", { ...RUN, params: { matchThreshold: 2 } }],
-    ["mode 가 모르는 값", { ...RUN, mode: "x" }],
-    ["본문이 null", null],
+    [
+      "action 이 모르는 값",
+      { ...RUN, action: "x" },
+      "action 은 run 또는 sweep 입니다.",
+    ],
+    [
+      "knowledgeType 이 모르는 값",
+      { ...RUN, knowledgeType: "other" },
+      "knowledgeType 이 올바르지 않습니다.",
+    ],
+    [
+      "범위를 벗어난 params",
+      { ...RUN, params: { matchThreshold: 2 } },
+      "matchThreshold 는 0부터 1 사이 숫자여야 합니다.",
+    ],
+    [
+      "mode 가 모르는 값",
+      { ...RUN, mode: "x" },
+      "mode 는 vector 또는 hybrid 입니다.",
+    ],
+    ["본문이 null", null, "요청 바디가 올바르지 않습니다."],
+    [
+      "조합이 24개를 넘는 sweep",
+      {
+        ...SWEEP,
+        grid: {
+          rrfK: [10, 20, 30, 40, 50],
+          weights: [],
+          matchThreshold: [0.4, 0.5, 0.6, 0.7, 0.8],
+        },
+      },
+      "조합은 24개까지입니다. 지금 25개입니다.",
+    ],
   ])(
-    "%s 이면 400 VALIDATION_FAILED 이고 임베딩하지 않는다",
-    async (_label, body) => {
+    "%s 이면 400 VALIDATION_FAILED 이고 사유가 errors[0].message 에 실리며 임베딩하지 않는다",
+    async (_label, body, reason) => {
       setup("edit");
       const r = await post(body);
       expect(r.status).toBe(400);
       expect(problemCode(r.body)).toBe("VALIDATION_FAILED");
+      expect(r.body).toMatchObject({ errors: [{ message: reason }] });
       expect(kit.embedded).toEqual([]);
     },
   );

@@ -24,8 +24,8 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
 }));
 
 import { resultsBulkSchema } from "../../../shared/admission/contract.js";
+import { RESULT_OPTIONS } from "../../../shared/admission/resultRow.js";
 import { callRoute } from "../../_lib/adminRoute.testkit.js";
-import { RESULT_OPTIONS } from "../../_lib/admission/resultRows.js";
 import { app } from "../app.js";
 
 const handler = { app, path: "/api/admin/admission/results/bulk" };
@@ -231,7 +231,10 @@ describe("POST /api/admin/admission/results/bulk", () => {
       const r = await call({ items: [row(), row({ id: 1 }), row(over)] });
 
       expect(r.status).toBe(400);
-      expect(r.body).toMatchObject({ code: "VALIDATION_FAILED", detail });
+      expect(r.body).toMatchObject({
+        code: "VALIDATION_FAILED",
+        errors: [{ message: detail }],
+      });
       expect(kit.state.inserts).toHaveLength(0);
       expect(kit.state.upserts).toHaveLength(0);
       expect(
@@ -247,7 +250,7 @@ describe("POST /api/admin/admission/results/bulk", () => {
 
     expect(r.status).toBe(400);
     expect(r.body).toMatchObject({
-      detail: "2번째 행: 행 형식이 올바르지 않습니다.",
+      errors: [{ message: "2번째 행: 행 형식이 올바르지 않습니다." }],
     });
   });
 
@@ -295,7 +298,10 @@ describe("POST /api/admin/admission/results/bulk", () => {
     const r = await call({ items: Array.from({ length: 501 }, () => row()) });
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(r.body).toMatchObject({
+      code: "VALIDATION_FAILED",
+      errors: [{ message: "items 는 500행 이하 배열이어야 합니다." }],
+    });
     expect(kit.state.inserts).toHaveLength(0);
   });
 
@@ -305,7 +311,10 @@ describe("POST /api/admin/admission/results/bulk", () => {
       const r = await call(body);
 
       expect(r.status).toBe(400);
-      expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+      expect(r.body).toMatchObject({
+        code: "VALIDATION_FAILED",
+        errors: [{ message: "items 는 500행 이하 배열이어야 합니다." }],
+      });
     },
   );
 

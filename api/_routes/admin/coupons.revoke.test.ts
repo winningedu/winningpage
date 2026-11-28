@@ -29,11 +29,21 @@ vi.mock("../../_lib/supabaseUser.js", () => ({
   },
 }));
 
+import { grantResultSchema } from "../../../shared/coupon/contract.js";
 import { app } from "../app.js";
 
 const handler = { app, path: "/api/admin/coupons/grants/:id/revoke" };
 
-const ROW = { id: 5, revoked_at: "2026-11-24T00:00:00Z" };
+const ROW = {
+  id: 5,
+  coupon_id: "c1",
+  user_id: "u1",
+  granted_at: "2026-11-23T00:00:00Z",
+  granted_by: "admin-1",
+  valid_until: null,
+  revoked_at: "2026-11-24T00:00:00Z",
+  revoke_reason: "잘못 줌",
+};
 
 let tables: Record<string, Respond> = {};
 let rpcs: Record<string, (args: Record<string, unknown>) => Result> = {};
@@ -79,6 +89,8 @@ describe("POST /api/admin/coupons/grants/:id/revoke", () => {
     const r = await post();
     expect(r.status).toBe(200);
     expect(r.body).toEqual(ROW);
+    // 브라우저가 검증하는 응답 계약을 지킨다.
+    expect(grantResultSchema.parse(r.body)).toEqual(r.body);
     expect(kit.tokens).toEqual(["admin-token"]);
     expect(userRecorder.rpcCalls).toEqual([
       { name: "fn_revoke_coupon_grant", args: { p_grant_id: 5 } },

@@ -18,11 +18,11 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
 }));
 
 import { guidelinesBulkSchema } from "../../../shared/admission/contract.js";
-import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import {
   SECTION_HTML_KEYS,
   SECTION_JSON_KEYS,
-} from "../../_lib/admission/guidelineRows.js";
+} from "../../../shared/admission/guidelineRow.js";
+import { callRoute } from "../../_lib/adminRoute.testkit.js";
 import { app } from "../app.js";
 
 const handler = { app, path: "/api/admin/admission/guidelines/bulk" };
@@ -158,7 +158,10 @@ describe("PUT /api/admin/admission/guidelines/bulk", () => {
     });
 
     expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED", detail });
+    expect(r.body).toMatchObject({
+      code: "VALIDATION_FAILED",
+      errors: [{ message: detail }],
+    });
     expect(kit.state.upserts).toHaveLength(0);
   });
 
@@ -167,7 +170,7 @@ describe("PUT /api/admin/admission/guidelines/bulk", () => {
 
     expect(r.status).toBe(400);
     expect(r.body).toMatchObject({
-      detail: "2번째 행: 행 형식이 올바르지 않습니다.",
+      errors: [{ message: "2번째 행: 행 형식이 올바르지 않습니다." }],
     });
   });
 
@@ -215,7 +218,10 @@ describe("PUT /api/admin/admission/guidelines/bulk", () => {
       const r = await call(body);
 
       expect(r.status).toBe(400);
-      expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+      expect(r.body).toMatchObject({
+        code: "VALIDATION_FAILED",
+        errors: [{ message: "items 는 행 배열이어야 합니다." }],
+      });
       expect(kit.state.upserts).toHaveLength(0);
     },
   );

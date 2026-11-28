@@ -7,11 +7,12 @@ import { toastError } from "@/pages/admin/shared/adminToast";
 import {
   type CouponSaveInput,
   couponListSchema,
-  couponMutationResultSchema,
   couponSchema,
   grantListSchema,
+  grantResultSchema,
   type ReasonInput,
   redemptionListSchema,
+  redemptionResultSchema,
   userSearchSchema,
 } from "../../../../shared/coupon/contract.js";
 import { ADMIN_LOAD_ERROR_TEXT, ADMIN_UNKNOWN_ERROR_TEXT, TITLE } from "./copy";
@@ -85,7 +86,7 @@ export function useVoidRedemption(couponId: string) {
             ? { reason: reason.trim() }
             : {}) satisfies ReasonInput,
         })
-        .json(couponMutationResultSchema),
+        .json(redemptionResultSchema),
     // 내가 무효화했으니 이력과 목록의 사용 건수를 비우고 스켈레톤 뒤에 새로 받는다.
     onSuccess: () =>
       Promise.all([
@@ -134,7 +135,7 @@ export function useGrantCoupon(couponId: string) {
         .post(`admin/coupons/${encodeURIComponent(couponId)}/grants`, {
           json: { userId },
         })
-        .json(couponMutationResultSchema),
+        .json(grantResultSchema),
     onSuccess: () =>
       queryClient.resetQueries({ queryKey: couponKeys.grants(couponId) }),
   });
@@ -151,7 +152,7 @@ export function useRevokeGrant(couponId: string) {
             ? { reason: reason.trim() }
             : {}) satisfies ReasonInput,
         })
-        .json(couponMutationResultSchema),
+        .json(grantResultSchema),
     onSuccess: () =>
       queryClient.resetQueries({ queryKey: couponKeys.grants(couponId) }),
   });

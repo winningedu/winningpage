@@ -1,4 +1,4 @@
-// 방문 분석 서버가 읽는 이벤트 이름과 속성(WEB_ANALYTICS_EVENTS)이 수집 쪽 src/lib/analytics.ts 와 같은지 잠근다.
+// 방문 분석이 읽는 이벤트 이름과 속성(shared/web-analytics/events.ts 의 WEB_ANALYTICS_EVENTS)이 수집 쪽 src/lib/analytics.ts 의 AnalyticsEventMap 과 같은지 잠근다.
 // 이름은 trackEvent 의 런타임 허용 목록으로, 속성 키는 AnalyticsEventMap 타입으로 비교한다
 // (속성 키는 타입에만 있다. expectTypeOf 는 CI 의 tsc --noEmit -p api/tsconfig.json 이 검사한다).
 
@@ -7,11 +7,11 @@ import { beforeEach, describe, expect, expectTypeOf, test, vi } from "vitest";
 const track = vi.hoisted(() => vi.fn());
 vi.mock("@vercel/analytics", () => ({ track }));
 
+import { WEB_ANALYTICS_EVENTS } from "../../../shared/web-analytics/events.js";
 import {
   type AnalyticsEventMap,
   trackEvent,
 } from "../../../src/lib/analytics.js";
-import { WEB_ANALYTICS_EVENTS } from "./report.js";
 
 type CollectedProperties = {
   [K in keyof AnalyticsEventMap]: AnalyticsEventMap[K] extends undefined

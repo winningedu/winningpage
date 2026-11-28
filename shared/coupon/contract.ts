@@ -195,6 +195,10 @@ export const userSearchSchema = z.object({
 export type UserSearch = z.infer<typeof userSearchSchema>;
 export type FoundUser = UserSearch["items"][number];
 
-/** 발급, 회수, 무효화 rpc 결과. 화면은 성공 여부만 쓰므로 모양을 묶지 않는다. */
-export const couponMutationResultSchema = z.looseObject({});
-export type CouponMutationResult = z.infer<typeof couponMutationResultSchema>;
+/** 발급(fn_grant_coupon)과 회수(fn_revoke_coupon_grant) rpc 가 돌려주는 coupon_grants 행. 사용자 요약은 목록 조회에서만 붙는다. */
+export const grantResultSchema = grantSchema.omit({ user: true });
+export type GrantResult = z.infer<typeof grantResultSchema>;
+
+/** 무효화(fn_void_coupon_redemption) rpc 가 돌려주는 coupon_redemptions 행. */
+export const redemptionResultSchema = redemptionSchema.omit({ user: true });
+export type RedemptionResult = z.infer<typeof redemptionResultSchema>;

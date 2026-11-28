@@ -22,6 +22,7 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { problemDetail } from "@/pages/admin/shared/problemDetail";
 import { useCanEditSection } from "@/pages/admin/shared/sectionEditAccess";
 import { AdminTableSkeleton } from "@/pages/admin/shared/skeletons/AdminTableSkeleton";
 import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
@@ -94,7 +95,8 @@ export default function SchoolAdminPanel({
         queryKey: tenantKeys.schoolAdmins(tenantId),
       });
     },
-    onError: (error) => setFormError(errorDetail(error)),
+    onError: (error) =>
+      setFormError(problemDetail(error, "요청을 처리하지 못했어요.")),
   });
   const issuing = issueMutation.isPending;
 

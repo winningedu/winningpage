@@ -7,7 +7,6 @@
 //   주소(기관 주소), 발급일, 등록취소일은 읽기 전용 값이다. 취소와 재발급은 본사 대행으로 하므로 쓰기 길은 없다.
 //   teachers 는 authenticated 에 막혀 있어 service_role 로 읽는다. 권한: 메뉴 tenants view 이상.
 
-import { PROBLEM_CODE } from "../../../shared/http/codes.js";
 import {
   type IssuedSchoolAdmin,
   issueSchoolAdminBody,
@@ -16,60 +15,16 @@ import {
   schoolAdminsQuery,
 } from "../../../shared/tenants/school-admins.js";
 import {
-  parseRegisterBody,
   registerResponseBody,
   registerTeacherWithAccount,
   teacherDbProblem,
 } from "../../_lib/console/teacherAccounts.js";
 import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
-import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
 import { nodeHeaders } from "../../_lib/hono/request.js";
 import { validate } from "../../_lib/hono/validate.js";
 import { getBearerToken } from "../../_lib/serviceAccess.js";
-
-const MAX_POSITION_LENGTH = 50;
-const MAX_EMAIL_LENGTH = 254;
-
-interface AdminProfileFields {
-  position?: string;
-  email?: string;
-  landline?: string;
-}
-
-/** 직책, 담당 이메일, 일반전화(사 #159-q3). 모두 선택이고 잘못된 값이면 null. 전화는 숫자만으로 정규화한다. */
-function parseProfileFields(body: unknown): AdminProfileFields | null {
-  const { position, email, landline } = (body ?? {}) as Record<string, unknown>;
-  const fields: AdminProfileFields = {};
-  if (position !== undefined && position !== null) {
-    if (typeof position !== "string") return null;
-    const trimmed = position.trim();
-    if (trimmed.length > MAX_POSITION_LENGTH) return null;
-    if (trimmed) fields.position = trimmed;
-  }
-  if (email !== undefined && email !== null) {
-    if (typeof email !== "string") return null;
-    const normalized = email.trim().toLowerCase();
-    if (normalized) {
-      if (
-        normalized.length > MAX_EMAIL_LENGTH ||
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
-      ) {
-        return null;
-      }
-      fields.email = normalized;
-    }
-  }
-  if (landline !== undefined && landline !== null) {
-    if (typeof landline !== "string") return null;
-    const digits = landline.replace(/\D/g, "");
-    if (digits) {
-      if (!/^0[0-9]{8,10}$/.test(digits)) return null;
-      fields.landline = digits;
-    }
-  }
-  return fields;
-}
 
 interface TeacherRow {
   id: string;
@@ -106,17 +61,8 @@ export const tenantsSchoolAdmins = adminFactory
     validate("json", issueSchoolAdminBody),
     async (c) => {
       const userId = c.var.userId as string;
-      const raw = c.req.valid("json");
-      const { tenantId } = raw;
-      const body = parseRegisterBody(raw);
-      const profileFields = parseProfileFields(raw);
-      if (!body || !profileFields) {
-        throw new ProblemError(
-          400,
-          "기관, 이름, 전화번호, 직책, 이메일, 일반전화를 확인해 주세요.",
-          PROBLEM_CODE.VALIDATION_FAILED,
-        );
-      }
+      const { tenantId, name, phone, position, email, landline } =
+        c.req.valid("json");
 
       // 감사 로그의 실행자 이메일용. 관리자 판정은 user 를 싣지 않아 토큰으로 다시 읽는다.
       const { data: authData } = await c.var.supabaseAdmin.auth.getUser(
@@ -144,10 +90,12 @@ export const tenantsSchoolAdmins = adminFactory
           {
             tenantId,
             role: "school_admin",
-            name: body.name,
-            phone: body.phone,
+            name,
+            phone,
             classes: [],
-            ...profileFields,
+            ...(position ? { position } : {}),
+            ...(email ? { email } : {}),
+            ...(landline ? { landline } : {}),
           },
         );
         const { ok: _ok, ...created } = registerResponseBody(result);
