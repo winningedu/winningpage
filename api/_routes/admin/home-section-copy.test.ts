@@ -173,6 +173,17 @@ describe("PUT /api/admin/home-section-copy/:sectionKey", () => {
     expect(upserts()).toHaveLength(0);
   });
 
+  test("본문이 틀리면 errors[0].message 에 예전 문구가 실리고 detail 은 그대로다", async () => {
+    const r = await call("PUT", "services", { ...body, title_main: "   " });
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({
+      code: "VALIDATION_FAILED",
+      detail: "요청 값이 올바르지 않아요.",
+      errors: [{ path: "title_main", message: "입력값을 확인해 주세요." }],
+    });
+  });
+
   test("깨진 JSON 본문도 400 VALIDATION_FAILED 이고 쓰지 않는다", async () => {
     const r = await app.request("/api/admin/home-section-copy/services", {
       method: "PUT",

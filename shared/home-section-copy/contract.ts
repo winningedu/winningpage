@@ -7,12 +7,17 @@ import { z } from "zod";
 export const SECTION_KEYS = ["services", "mentor", "acceptance"] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
 
+const invalid = { error: "입력값을 확인해 주세요." };
+
 /** PUT 본문. 라벨(eyebrow)은 services, mentor 만 저장하고 acceptance 는 null 로 저장한다. */
-export const sectionCopyBody = z.object({
-  eyebrow: z.string().nullable(),
-  title_main: z.string().trim().min(1),
-  title_sub: z.string().nullable(),
-});
+export const sectionCopyBody = z.object(
+  {
+    eyebrow: z.string(invalid).nullable(),
+    title_main: z.string(invalid).trim().min(1, invalid),
+    title_sub: z.string(invalid).nullable(),
+  },
+  invalid,
+);
 export type SectionCopyInput = z.input<typeof sectionCopyBody>;
 
 /** home_section_copy 한 행. GET 과 PUT 의 200 이 같은 모양이다. 행이 아직 없으면 GET 은 404 다. */
