@@ -44,7 +44,6 @@ import { GENERIC_ERROR_MESSAGE } from "@/lib/growth/apiResult";
 import { finalizeSession, verifySession } from "@/lib/selfeval/api";
 import { selfevalQueryKeys } from "@/lib/selfeval/queries";
 import type {
-  GenerationSections,
   SessionDetailResponse,
   VerificationSections,
 } from "@/lib/selfeval/types";
@@ -130,12 +129,10 @@ function VerifyBody({
         )
       : undefined;
   const currentText = detail.current
-    ? paragraphTexts(detail.current.sections as GenerationSections).join("\n\n")
+    ? paragraphTexts(detail.current.sections).join("\n\n")
     : null;
   const pendingSentences = detail.current
-    ? pendingFeelings(detail.current.sections as GenerationSections).map(
-        (x) => x.text,
-      )
+    ? pendingFeelings(detail.current.sections).map((x) => x.text)
     : [];
 
   function reverify() {

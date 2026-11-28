@@ -1,20 +1,67 @@
-// 자기평가서 공유 타입과 상수. 서버 정본은 api/_lib/selfeval/types.ts 이고 여기는 UI 가 쓰는 모양만
-// 옮긴 사본이다. src 는 api 를 import 하지 않는다(성장설계 lib/growth/types.ts 와 같은 이유).
-// 서버 타입이 바뀌면 이 파일도 같이 고친다.
+// 자기평가서 화면이 쓰는 타입과 상수. 계약 모양(응답, 본문, 검증, 요청)의 정본은 shared/selfeval 의 스키마이고
+// 여기 타입은 그 z.output, z.input 에서 가져온다. 계약이 아닌 화면 전용은 아래 둘이다.
+//   라벨 표(AREA_LABELS, GROWTH_STAGE_LABELS, LINK_TYPE_LABELS, ANALYSIS_FIELD_LABELS)와 화면 상수(MAX_SUPPORT_ACTIVITIES 등)
+//   BODY_EVIDENCE_FIELDS (서버 types.ts 와 같은 값)
 //
 // 단계(current_step): 0 생성됨 / 1 기본 입력 저장 / 2 활동 선택 확정 / 3 분석 완료 /
 // 4 생성 성공 / 5 검증 완료 / 6 최종 저장.
 
-import type { Axis, HighGrade } from "@/lib/growth/types";
+import type { z } from "zod";
+import type { HighGrade } from "@/lib/growth/types";
+import type {
+  analyzeBody,
+  analyzeEditResponse,
+  analyzeRunResponse,
+} from "../../../shared/selfeval/analyze.js";
+import {
+  ANALYSIS_FIELDS,
+  type areaSchema,
+  type GROWTH_STAGES,
+  type sessionStepSchema,
+  type targetCharsModeSchema,
+} from "../../../shared/selfeval/contract.js";
+import type {
+  finalizeResponse,
+  promotedRecord,
+} from "../../../shared/selfeval/finalize.js";
+import type {
+  manualInputSchema,
+  pickLinkResponseSchema,
+  pickListResponseSchema,
+  pickManualResponseSchema,
+  pickSelectResponseSchema,
+} from "../../../shared/selfeval/pick.js";
+import type { entryResponseSchema } from "../../../shared/selfeval/reports.js";
+import type {
+  generationSectionsSchema,
+  mandatoryFixSchema,
+  sentenceSchema,
+  verificationSectionsSchema,
+} from "../../../shared/selfeval/sections.js";
+import type {
+  analysisSchema,
+  SessionBasicsInput,
+  sessionDetailResponseSchema,
+  sessionResponseSchema,
+} from "../../../shared/selfeval/session.js";
+import type { verifyResponse } from "../../../shared/selfeval/verify.js";
+import type {
+  writeEditResponse,
+  writeGenerateResponse,
+} from "../../../shared/selfeval/write.js";
 
+export { LINK_TYPES } from "../../../shared/selfeval/pick.js";
 export type { HighGrade };
+export { ANALYSIS_FIELDS };
 
-type SessionStatus = "draft" | "in_progress" | "completed" | "archived";
+// ---------------------------------------------------------------------------
+// 열거값
+// ---------------------------------------------------------------------------
 
-export type SessionStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+export type SessionStep = z.output<typeof sessionStepSchema>;
 
 /** 작성 영역(명세 No.20). subject 는 교과, 나머지는 창의적 체험활동 영역. */
-export type Area = "subject" | "autonomy" | "club" | "career";
+export type Area = z.output<typeof areaSchema>;
 
 export const AREA_LABELS: Record<Area, string> = {
   subject: "교과",
@@ -23,222 +70,15 @@ export const AREA_LABELS: Record<Area, string> = {
   career: "진로",
 };
 
-export type TargetCharsMode = "with_space" | "without_space";
+export type TargetCharsMode = z.output<typeof targetCharsModeSchema>;
 
-type ModelStepKey = "link" | "analyze" | "write" | "verify";
-
-type StepTerminal = {
-  reason: string;
-  at: string;
-  step: ModelStepKey | null;
-};
-
-/** 진로 정보(명세 No.25). student_profiles 의 career, department, universities 와 같은 뜻. */
-type CareerInfo = {
-  career: string | null;
-  department: string | null;
-  universities: string[];
-};
-
-/** 성장설계 회신 실패 기록(명세 No.75). 다음 진입 때 서버가 다시 보낸다. */
-type ReplyPending = {
-  itemId: string;
-  refId: string;
-  failedAt: string;
-  lastError: string;
-};
-
-// ---------------------------------------------------------------------------
-// 성장설계 수신 8종(명세 No.68). 세션 생성 때 growth_snapshot 에 고정한다.
-// ---------------------------------------------------------------------------
-
-export type GrowthStage = "seed" | "flower" | "bloom";
+export type GrowthStage = (typeof GROWTH_STAGES)[number];
 
 export const GROWTH_STAGE_LABELS: Record<GrowthStage, string> = {
   seed: "씨앗",
   flower: "개화",
   bloom: "만개",
 };
-
-type GrowthWeakAxis = {
-  axis: Axis;
-  name: string;
-  count: number;
-  required: number;
-  guideline: string;
-};
-
-type GrowthPlanItemRef = {
-  id: string;
-  title: string;
-  description: string | null;
-  axis: Axis | null;
-  category: string | null;
-};
-
-export type GrowthSnapshot = {
-  reportId: string;
-  issuedAt: string;
-  narrativeTheme: string | null;
-  gradeSubthemes: { grade: HighGrade; stage: GrowthStage; text: string }[];
-  stage: GrowthStage | null;
-  weakAxes: GrowthWeakAxis[];
-  alignedSignals: string[];
-  conflictingSignals: string[];
-  planItems: GrowthPlanItemRef[];
-};
-
-// ---------------------------------------------------------------------------
-// 활동 기록과 선택(명세 No.26~36, No.84)
-// ---------------------------------------------------------------------------
-
-export type ActivityRole = "core" | "support";
-
-/** activity_records 행에서 엔진이 읽는 모양. DB 컬럼명을 camelCase 로 옮긴 것. */
-export type ActivityRecordLike = {
-  id: string;
-  sourceProgram: "performance" | "deep" | "self" | "manual" | "upload";
-  status: "planned" | "draft" | "confirmed" | "final";
-  gradeLabel: HighGrade | null;
-  semester: 1 | 2 | null;
-  subjectGroup: string | null;
-  subject: string | null;
-  topic: string | null;
-  concept: string | null;
-  method: string | null;
-  result: string | null;
-  limitation: string | null;
-  numbers: unknown;
-  sources: unknown;
-  createdAt: string;
-  /** 제출일. 서버가 createdAt 으로 대신한 값은 CandidateRow.submittedAt 에 있다. */
-  submittedAt?: string | null | undefined;
-  recordStatus?: RecordStatus | null | undefined;
-  summary?: string | null | undefined;
-  reflection?: string | null | undefined;
-  parentRecordId?: string | null | undefined;
-  courseName?: string | null | undefined;
-  entryKind?: "performance" | "deep" | "activity" | null | undefined;
-};
-
-type RecordStatus = "completed" | "in_progress" | "plan";
-
-type FitSignalKey =
-  | "same_subject"
-  | "has_judgment"
-  | "has_limitation"
-  | "numbers_two_plus"
-  | "self_made"
-  | "too_short"
-  | "repeated_topic"
-  | "year_gap"
-  | "aligned_signal"
-  | "conflicting_signal"
-  | "fills_weak_axis";
-
-type FitSignal = {
-  key: FitSignalKey;
-  hit: boolean;
-  delta: number;
-};
-
-type FitResult = {
-  activityId: string;
-  /** 0~100. 연동 신호가 있으면 정규화하지 않고 클램프만 한다. */
-  score: number;
-  signals: FitSignal[];
-  /** 학생이 읽는 선정 이유 문장(명세 No.32). */
-  reasons: string[];
-};
-
-/** 후보 목록 한 줄(pick-records list 응답). */
-export type CandidateRow = {
-  activity: ActivityRecordLike;
-  fit: FitResult | null;
-  unavailableReason: string | null;
-  alreadyUsed: boolean;
-  role: ActivityRole | null;
-  /** 기록 상태. 없으면 completed 로 본다. */
-  recordStatus?: RecordStatus | undefined;
-  /** 제출일(createdAt 으로 대신한 값 포함). */
-  submittedAt?: string | undefined;
-  /** 핵심과의 연계 상태. 연계 확인 전이거나 실패했으면 null. */
-  linkState?: CandidateLinkState | null | undefined;
-  /** 연계 가점. 선택 순서에만 쓰고 적합도 점수에는 넣지 않는다. */
-  bonus?: number | undefined;
-  /** 이미 고른 기록에 없는 11항목 칸 수. 0 이면 중복이다. */
-  contribution?: number | undefined;
-  /** 학생이 읽는 선정 이유. 쓸 수 있는 기록은 한 줄 이상이다. */
-  selectionReasons?: string[] | undefined;
-};
-
-// 활동 기록 연계(명세 No.174~196)
-export const LINK_TYPES = [
-  "inherit",
-  "deepen",
-  "borrow_method",
-  "complement",
-  "background",
-  "area_extend",
-  "grade_continue",
-] as const;
-
-export type LinkType = (typeof LINK_TYPES)[number];
-
-export const LINK_TYPE_LABELS: Record<LinkType, string> = {
-  inherit: "이어받음",
-  deepen: "같은 질문 심화",
-  borrow_method: "방법 빌림",
-  complement: "관점 보완",
-  background: "배경 개념",
-  area_extend: "영역 확장",
-  grade_continue: "학년 이어짐",
-};
-
-export type LinkStrength = "explicit" | "implicit";
-type LinkSource = "model" | "student";
-
-export type RecordLink = {
-  fromId: string;
-  toId: string;
-  type: LinkType;
-  strength: LinkStrength;
-  source: LinkSource;
-  confirmed: boolean;
-  deleted: boolean;
-  note: string | null;
-  quoteFrom: string | null;
-  quoteTo: string | null;
-};
-
-export type CandidateLinkState = {
-  linked: boolean;
-  hop: number | null;
-  type: LinkType | null;
-  strength: LinkStrength | null;
-  confirmed: boolean;
-};
-
-/** pending 판정 전, ok 판정 끝, unchecked 호출 실패나 시도 소진. */
-export type LinkStatus = "pending" | "ok" | "unchecked";
-
-// ---------------------------------------------------------------------------
-// 11항목 분석(명세 No.37~43)
-// ---------------------------------------------------------------------------
-
-export const ANALYSIS_FIELDS = [
-  "motive",
-  "concept",
-  "action",
-  "method",
-  "result",
-  "role",
-  "collaboration",
-  "learning",
-  "career",
-  "limitation",
-  "next",
-] as const;
 
 export type AnalysisField = (typeof ANALYSIS_FIELDS)[number];
 
@@ -260,198 +100,20 @@ export const ANALYSIS_FIELD_LABELS: Record<AnalysisField, string> = {
   next: "다음 단계",
 };
 
-/** 항목 값의 출처. record 는 기록에서, student 는 학생 입력, empty 는 비움. */
-export type FieldSource = "record" | "student" | "empty";
+export type LinkType = PickListResponse["links"][number]["type"];
 
-export type ConflictRow = {
-  kind: "numbers" | "period";
-  a: { activityId: string; text: string };
-  b: { activityId: string; text: string };
-  /** 학생이 고른 쪽의 text. 없으면 미해결. */
-  resolved: string | null;
-};
-
-export type Analysis = {
-  values: Record<AnalysisField, string>;
-  sources: Record<AnalysisField, FieldSource>;
-  conflicts: ConflictRow[];
-};
-
-type AnalysisSource = "model" | "student";
-
-// ---------------------------------------------------------------------------
-// 생성 본문(명세 No.44~52, No.85)
-// ---------------------------------------------------------------------------
-
-/** 근거 출처 유형(명세 No.145): P 수행평가, D 심화탐구, A 창체 활동, H 수기 메모, S 학생 입력. */
-export type EvidenceSourceType = "P" | "D" | "A" | "H" | "S";
-
-type EvidenceItem = AnalysisField | "student_input";
-
-type EvidenceWeight = "main" | "sub";
-
-/** 문장 하나가 기댄 근거 하나. api/_lib/selfeval/types.ts 와 같은 모양이다. */
-export type SentenceEvidence = {
-  sourceType: EvidenceSourceType;
-  /** P, D, A 는 활동 기록 id, H 는 수기 메모 id, S 는 null. */
-  refId: string | null;
-  item: EvidenceItem;
-  weight: EvidenceWeight;
-};
-
-export type Sentence = {
-  id: string;
-  text: string;
-  evidence: SentenceEvidence[];
-  /** 확인이 필요한 문장(노란 표시). 근거가 없거나 근거로 설명되지 않는 수치가 있으면 서버가 올린다. */
-  feeling: boolean;
-  /** 학생이 느낌 문장을 확인했는지(명세 No.49, No.57). */
-  confirmed: boolean;
-};
-
-type ParagraphRole = "link" | "process" | "judgment" | "wrap";
-
-type Paragraph = {
-  /** 문단 수를 고정하지 않으므로 새 본문에는 없다. 옛 리포트를 읽을 때만 있다. */
-  role?: ParagraphRole;
-  sentences: Sentence[];
-};
-
-export type GenerationSections = {
-  paragraphs: Paragraph[];
-};
-
-export type CharCount = {
-  withSpace: number;
-  withoutSpace: number;
+export const LINK_TYPE_LABELS: Record<LinkType, string> = {
+  inherit: "이어받음",
+  deepen: "같은 질문 심화",
+  borrow_method: "방법 빌림",
+  complement: "관점 보완",
+  background: "배경 개념",
+  area_extend: "영역 확장",
+  grade_continue: "학년 이어짐",
 };
 
 // ---------------------------------------------------------------------------
-// 검증(명세 No.53~62, No.76)
-// ---------------------------------------------------------------------------
-
-type ScoreItemKey =
-  | "judgment"
-  | "limitation"
-  | "link"
-  | "source"
-  | "numbers"
-  | "start"
-  | "next"
-  | "prompt";
-
-type ScoreCheck = {
-  text: string;
-  pass: boolean;
-};
-
-type ScoreItem = {
-  key: ScoreItemKey;
-  label: string;
-  max: number;
-  /** 판별력(상위 25% 와 하위 25% 보유율 차이, p). 문항 대응은 null. */
-  discrimination: number | null;
-  checks: ScoreCheck[];
-  score: number;
-  /** false 면 채점에서 뺀 항목이다(문항 미입력). 없으면 적용으로 본다. */
-  applied?: boolean;
-};
-
-type FormatCheckKey =
-  | "target_range"
-  | "cliche_density"
-  | "min_length"
-  | "min_sentences"
-  | "no_university"
-  | "no_pending_feelings"
-  | "no_plan_expression";
-
-type FormatCheck = {
-  key: FormatCheckKey;
-  label: string;
-  pass: boolean;
-  detail: string;
-  /** 목표 글자 수가 비어 target_range 를 끈 경우 true. */
-  skipped: boolean;
-};
-
-type MandatoryFixKey =
-  | "pending_feelings"
-  | "cliche"
-  | "judgment_low"
-  | "plan_expression";
-
-export type MandatoryFix = {
-  key: MandatoryFixKey;
-  message: string;
-  detail: string | null;
-};
-
-type Improvement = {
-  key: ScoreItemKey;
-  label: string;
-  message: string;
-  failedChecks: string[];
-};
-
-type GrowthFit = {
-  stageChecks: ScoreCheck[];
-  axisChecks: {
-    axis: Axis;
-    name: string;
-    satisfied: boolean;
-    current: number;
-    required: number;
-    guideline: string;
-  }[];
-};
-
-/** 연계 경고 한 건(명세 No.182, 190). 점수와 제출 가능 판정에는 들어가지 않는다. */
-type LinkCheck = {
-  recordId: string;
-  label: string;
-  /** unused 는 선택했지만 본문이 인용하지 않은 기록이다. */
-  status: "checked" | "unused";
-  linkShown: boolean | null;
-  concreteWordPresent: boolean | null;
-  listingSuspect: boolean | null;
-};
-
-export type VerificationSections = {
-  items: ScoreItem[];
-  total: number;
-  /** 학교 문항이 없어 문항 대응을 뺀 채점이면 true. 이전 리포트에는 없다. */
-  promptMissing?: boolean;
-  format: FormatCheck[];
-  mandatoryFixes: MandatoryFix[];
-  submittable: boolean;
-  improvements: Improvement[];
-  excluded: { label: string; note: string }[];
-  growthFit: GrowthFit | null;
-  charCount: CharCount;
-  sentenceCount: number;
-  clicheDensity: number;
-  clicheHits: string[];
-  numberCount: number;
-  /** 연계 경고. 이전 리포트에는 없다. */
-  linkChecks?: LinkCheck[];
-};
-
-// ---------------------------------------------------------------------------
-// 7항목 승격(명세 No.43, No.63)
-// ---------------------------------------------------------------------------
-
-export type PromotedRecord = {
-  topic: string;
-  concept: string;
-  method: string;
-  result: string;
-  limitation: string;
-  numbers: string[];
-  sources: string[];
-};
-// ---------------------------------------------------------------------------
-// 상수
+// 화면 상수
 // ---------------------------------------------------------------------------
 
 export const MAX_SUPPORT_ACTIVITIES = 2;
@@ -461,320 +123,82 @@ export const DEFAULT_TARGET_CHARS = 500;
 export const TARGET_TOLERANCE = 0.05;
 
 // ---------------------------------------------------------------------------
-// API 계약(api/_lib/selfeval/view.ts, sessionBody.ts, pickBody.ts, manual.ts)
+// 진입, 세션 조회(shared/selfeval/reports.ts, session.ts)
 // ---------------------------------------------------------------------------
 
-type QuotaSnapshot = {
-  quotaTotal: number | null;
-  quotaUsed: number | null;
-  quotaRemaining: number | null;
-  planEndsAt: string | null;
-  planLabel: string | null;
-};
+export type EntryResponse = z.output<typeof entryResponseSchema>;
+export type EntryProfile = NonNullable<EntryResponse["entry"]["profile"]>;
+export type GrowthBanner = NonNullable<
+  EntryResponse["entry"]["growth"]
+>["banner"];
+export type SessionListItem = EntryResponse["sessions"][number];
 
-type SessionRoute =
-  | "new"
-  | "activities"
-  | "analysis"
-  | "result"
-  | "verify"
-  | "done";
+export type SessionDetailResponse = z.output<
+  typeof sessionDetailResponseSchema
+>;
+export type SessionView = SessionDetailResponse["session"];
+export type GrowthSnapshot = NonNullable<SessionView["growthSnapshot"]>;
+export type SessionActivityView = SessionDetailResponse["activities"][number];
+export type ActivityRole = SessionActivityView["role"];
+export type ActivityRecordLike = SessionActivityView["record"];
+export type EvidenceMemoView = SessionDetailResponse["memos"][number];
 
-type OpenSessionSummary = {
-  id: string;
-  status: SessionStatus;
-  currentStep: SessionStep;
-  route: SessionRoute;
-  area: Area | null;
-  subject: string | null;
-  activityName: string | null;
-  lastActivityAt: string;
-};
+/** 세션 생성과 수정 바디(shared/selfeval/session.ts 의 요청 스키마 입력). */
+export type SessionInput = SessionBasicsInput;
 
-export type GrowthBanner = {
-  theme: string | null;
-  stageLabel: string | null;
-  currentSubtheme: string | null;
-  weakAxisNames: string[];
-  issuedAt: string;
-};
-
-type EntryGrowth = {
-  reportId: string;
-  issuedAt: string;
-  stale: boolean;
-  banner: GrowthBanner;
-  planItems: GrowthPlanItemRef[];
-};
-
-export type EntryProfile = {
-  gradeLabel: HighGrade | null;
-  semester: 1 | 2 | null;
-  career: string | null;
-  department: string | null;
-  universities: string[];
-};
-
-export type SessionListItem = {
-  id: string;
-  status: SessionStatus;
-  currentStep: SessionStep;
-  academicYear: number | null;
-  semester: 1 | 2 | null;
-  area: Area | null;
-  subject: string | null;
-  activityName: string | null;
-  score: number | null;
-  completedAt: string | null;
-  lastActivityAt: string;
-  expired: boolean;
-  discarded: boolean;
-  terminal: { reason: string; at: string } | null;
-};
-
-export type EntryResponse = {
-  entry: {
-    quota: QuotaSnapshot | null;
-    allowed: boolean;
-    /** 스쿨멘토에서만 있다. 기관 거부 사유(한도 소진 포함). */
-    tenantReason?: string | undefined;
-    activityCount: number;
-    openSession: OpenSessionSummary | null;
-    growth: EntryGrowth | null;
-    profile: EntryProfile | null;
-    replyResent: number;
-    academicYearDefault: number;
-    /** 회원 시간대(profiles.time_zone). 화면의 날짜 표기와 학년도 계산이 쓴다. */
-    timeZone: string;
-  };
-  sessions: SessionListItem[];
-};
-
-export type SessionView = {
-  id: string;
-  status: SessionStatus;
-  currentStep: SessionStep;
-  progress: unknown;
-  academicYear: number | null;
-  gradeLabel: HighGrade | null;
-  semester: 1 | 2 | null;
-  area: Area | null;
-  subject: string | null;
-  activityName: string | null;
-  schoolPrompt: string | null;
-  teacherNote: string | null;
-  targetChars: number | null;
-  targetCharsMode: TargetCharsMode;
-  career: CareerInfo;
-  growthApplied: boolean;
-  growthSnapshot: GrowthSnapshot | null;
-  planItemId: string | null;
-  replyPending: ReplyPending | null;
-  regenerateCount: number;
-  terminal: StepTerminal | null;
-  lastActivityAt: string;
-  completedAt: string | null;
-};
-
-export type SessionActivityView = {
-  activityRecordId: string;
-  role: ActivityRole;
-  fitScore: number | null;
-  fitReasons: unknown;
-  analysis: Analysis | null;
-  analysisSource: AnalysisSource | null;
-  record: ActivityRecordLike;
-};
-
-type ReportView = {
-  id: string;
-  revision: number;
-  sections: unknown;
-  charCount: CharCount | null;
-  score: number | null;
-  mandatoryFixes: unknown;
-  createdAt: string;
-};
-
-/** 학생이 확인했고 포함으로 둔 수기 메모. 문장 근거로 고를 수 있다(명세 No.161). */
-export type EvidenceMemoView = {
-  id: string;
-  writtenAt: string | null;
-  text: string;
-};
-
-export type SessionDetailResponse = {
-  session: SessionView;
-  activities: SessionActivityView[];
-  memos: EvidenceMemoView[];
-  reports: {
-    generation: ReportView | null;
-    edited: ReportView | null;
-    verification: ReportView | null;
-    final: ReportView | null;
-  };
-  regenerationsLeft: number;
-  current: ReportView | null;
-};
-
-/** 세션 생성과 수정 바디(api/_lib/selfeval/sessionBody.ts SessionInput). */
-export type SessionInput = {
-  academicYear: number;
-  gradeLabel: HighGrade;
-  semester: 1 | 2;
-  area: Area;
-  subject: string | null;
-  activityName: string | null;
-  schoolPrompt: string | null;
-  teacherNote: string | null;
-  targetChars: number | null;
-  targetCharsMode: TargetCharsMode;
-  career: CareerInfo;
-  growthApplied: boolean;
-  planItemId: string | null;
-};
-
-export type SessionResponse = { session: SessionView };
-
-export type ManualInput = {
-  activityName: string;
-  subjectOrArea: string;
-  gradeLabel: HighGrade | null;
-  semester: 1 | 2 | null;
-  motive: string;
-  concept: string;
-  action: string;
-  method: string;
-  result: string;
-  role: string;
-  limitation: string;
-  next: string;
-};
-
-type PickSelection = { coreId: string; supportIds: string[] };
-
-type PickAuto = {
-  coreId: string | null;
-  supportIds: string[];
-  coreMismatch: boolean;
-  noneAboveThreshold: boolean;
-};
-
-export type SourceCounts = {
-  performance: number;
-  deep: number;
-  manual: number;
-  total: number;
-};
-
-export type PickListResponse = {
-  candidates: CandidateRow[];
-  selection: PickSelection | null;
-  auto: PickAuto | null;
-  sourceCounts: SourceCounts;
-  direction: { mismatch: boolean } | null;
-  planCandidates: GrowthPlanItemRef[];
-  planItem: GrowthPlanItemRef | null;
-  growthApplied: boolean;
-  currentStep: SessionStep;
-  /** 저장된 연계. deleted 가 true 인 선은 그리지 않는다. */
-  links: RecordLink[];
-  linkStatus: LinkStatus;
-  /** true 면 "연계 확인 안 됨" 을 보이고 적합도 상위 3건만 추천한다(명세 No.196). */
-  linkUnchecked: boolean;
-  /** 핵심을 포함한 선택 상한 N. */
-  maxSelect: number;
-  /** 선택했지만 핵심과 이어지지 않아 한 줄 설명이 없으면 생성에서 빠지는 기록. */
-  excludedIds: string[];
-};
-
-/** link, delete-link, confirm-link, add-link 의 응답. list 와 같은 본문이다. */
-export type PickLinkResponse = PickListResponse & {
-  /** link 만. 이미 판정을 마쳐 모델을 부르지 않았으면 true. */
-  cached?: boolean | undefined;
-  attempts?: number | undefined;
-  /** 연계 판정이 실패하거나 시도를 소진했을 때의 코드. */
-  linkError?: string | undefined;
-};
-
-export type PickSelectResponse = {
-  selection: PickSelection;
-  coreMismatch: boolean;
-  warnings: string[];
-  excludedIds: string[];
-  maxSelect: number;
-  currentStep: 2;
-};
-
-export type PickManualResponse = {
-  activityRecordId: string;
-  selection: PickSelection;
-  currentStep: 3;
-};
+export type SessionResponse = z.output<typeof sessionResponseSchema>;
 
 // ---------------------------------------------------------------------------
-// 분석, 생성, 검증, 최종 저장 API 계약(api/selfeval/analyze, write, verify, finalize)
+// 활동 선택(shared/selfeval/pick.ts)
 // ---------------------------------------------------------------------------
 
-type StepIssueView = {
-  code?: string;
-  message: string;
-  path?: string | undefined;
-};
+export type ManualInput = z.input<typeof manualInputSchema>;
 
-/** 모델 단계 성공 응답이 공통으로 싣는 값. */
-type StepMeta = {
-  attempts: number;
-  softIssues: StepIssueView[];
-};
+export type PickListResponse = z.output<typeof pickListResponseSchema>;
+export type PickLinkResponse = z.output<typeof pickLinkResponseSchema>;
+export type PickSelectResponse = z.output<typeof pickSelectResponseSchema>;
+export type PickManualResponse = z.output<typeof pickManualResponseSchema>;
 
-export type AnalyzeRunResponse = StepMeta & {
-  analysis: Analysis;
-  conflicts: ConflictRow[];
-  analysisSource: AnalysisSource;
-  currentStep: SessionStep;
-};
+export type CandidateRow = PickListResponse["candidates"][number];
+export type CandidateLinkState = NonNullable<CandidateRow["linkState"]>;
+export type RecordLink = PickListResponse["links"][number];
+export type LinkStrength = RecordLink["strength"];
+/** pending 판정 전, ok 판정 끝, unchecked 호출 실패나 시도 소진. */
+export type LinkStatus = PickListResponse["linkStatus"];
+export type SourceCounts = PickListResponse["sourceCounts"];
 
-export type AnalyzeEditResponse = { analysis: Analysis };
+// ---------------------------------------------------------------------------
+// 분석, 생성, 검증, 최종 저장(shared/selfeval/analyze.ts, write.ts, verify.ts, finalize.ts)
+// ---------------------------------------------------------------------------
 
-export type ConflictChoice = "a" | "b";
+export type Analysis = z.output<typeof analysisSchema>;
+export type ConflictRow = Analysis["conflicts"][number];
+/** 항목 값의 출처. record 는 기록에서, student 는 학생 입력, empty 는 비움. */
+export type FieldSource = Analysis["sources"][AnalysisField];
 
-type WrittenReport = {
-  id: string;
-  revision: number;
-  sections: GenerationSections;
-  charCount: CharCount;
-};
+export type AnalyzeRunResponse = z.output<typeof analyzeRunResponse>;
+export type AnalyzeEditResponse = z.output<typeof analyzeEditResponse>;
+export type ConflictChoice = Extract<
+  z.input<typeof analyzeBody>,
+  { action: "resolve-conflict" }
+>["choice"];
 
-export type WriteGenerateResponse = StepMeta & {
-  report: WrittenReport;
-  charged: boolean;
-  regenerationsLeft: number;
-  currentStep: SessionStep;
-};
+export type Sentence = z.output<typeof sentenceSchema>;
+export type SentenceEvidence = Sentence["evidence"][number];
+/** 근거 출처 유형(명세 No.145): P 수행평가, D 심화탐구, A 창체 활동, H 수기 메모, S 학생 입력. */
+export type EvidenceSourceType = SentenceEvidence["sourceType"];
+export type GenerationSections = z.output<typeof generationSectionsSchema>;
+export type CharCount = WriteGenerateResponse["report"]["charCount"];
 
-export type WriteEditResponse = { report: WrittenReport };
+export type WriteGenerateResponse = z.output<typeof writeGenerateResponse>;
+export type WriteEditResponse = z.output<typeof writeEditResponse>;
 
-export type VerifyResponse = StepMeta & {
-  verification: {
-    id: string;
-    revision: number;
-    sections: VerificationSections;
-    score: number;
-    mandatoryFixes: MandatoryFix[];
-  };
-  charged: boolean;
-  currentStep: SessionStep;
-};
+export type VerificationSections = z.output<typeof verificationSectionsSchema>;
+export type MandatoryFix = z.output<typeof mandatoryFixSchema>;
+export type VerifyResponse = z.output<typeof verifyResponse>;
 
-export type FinalizeReply = {
-  status: "sent" | "skipped" | "failed";
-  code?: string | undefined;
-};
+/** 활동 기록으로 남길 7항목(명세 No.43, No.63). */
+export type PromotedRecord = z.input<typeof promotedRecord>;
 
-export type FinalizeResponse = {
-  activityRecordId: string;
-  finalRevision: number;
-  reply: FinalizeReply;
-  currentStep: 6;
-};
+export type FinalizeResponse = z.output<typeof finalizeResponse>;
+export type FinalizeReply = FinalizeResponse["reply"];

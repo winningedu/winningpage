@@ -27,6 +27,7 @@ vi.mock("../apiFetch", async () => {
 });
 
 import { TimeoutError } from "ky";
+import { SAMPLE_PAYLOAD } from "@/components/selfeval/report/testFixtures";
 import {
   analyzeResolveConflict,
   analyzeRun,
@@ -679,7 +680,21 @@ describe("분석, 생성, 검증, 최종 저장", () => {
         verification: {
           id: "v1",
           revision: 2,
-          sections: { total: 80, items: [], submittable: true },
+          sections: {
+            items: [],
+            total: 80,
+            format: [],
+            mandatoryFixes: [],
+            submittable: true,
+            improvements: [],
+            excluded: [],
+            growthFit: null,
+            charCount: { withSpace: 10, withoutSpace: 8 },
+            sentenceCount: 1,
+            clicheDensity: 0,
+            clicheHits: [],
+            numberCount: 0,
+          },
           score: 80,
           mandatoryFixes: [],
         },
@@ -901,8 +916,22 @@ describe("리포트", () => {
     status: "ready",
     attempts: 1,
     builtAt: "2026-11-23T00:00:00.000Z",
-    payload: { version: 1, composeMissing: false },
+    payload: SAMPLE_PAYLOAD,
   };
+
+  test("payload 가 계약 모양이 아니면 INVALID_RESPONSE 다", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        report: { ...REPORT, payload: { version: 1, composeMissing: false } },
+      }),
+    );
+    const result = await fetchReport("s1");
+    expect(result).toMatchObject({
+      kind: "error",
+      status: 200,
+      code: "INVALID_RESPONSE",
+    });
+  });
 
   test("조회는 sessionId 를 쿼리로 GET 하고 ok 없는 본문을 돌려준다", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ report: REPORT }));

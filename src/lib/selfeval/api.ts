@@ -9,7 +9,7 @@
 // 타입은 types.ts 에 있고 이 파일이 다시 내보낸다. 화면은 이 파일 하나만 import 한다.
 
 import { SchemaValidationError } from "ky";
-import { z } from "zod";
+import type { z } from "zod";
 import {
   type AnalyzeBodyInput,
   analyzeEditResponse,
@@ -35,10 +35,7 @@ import {
   pickManualResponseSchema,
   pickSelectResponseSchema,
 } from "../../../shared/selfeval/pick.js";
-import {
-  reportResponseSchema,
-  reportViewSchema,
-} from "../../../shared/selfeval/report.js";
+import { reportResponseSchema } from "../../../shared/selfeval/report.js";
 import { entryResponseSchema } from "../../../shared/selfeval/reports.js";
 import {
   sessionDetailResponseSchema,
@@ -58,7 +55,7 @@ import { getAuthHeader } from "../apiFetch";
 import { type ApiResult, GENERIC_ERROR_MESSAGE } from "../growth/apiResult";
 import { ApiError, api } from "../http/client";
 import { AI_CALL_TIMEOUT_MS } from "../performance/apiClient";
-import type { ReportPayload, ReportResponse } from "./reportTypes";
+import type { ReportResponse } from "./reportTypes";
 import type {
   AnalysisField,
   AnalyzeEditResponse,
@@ -202,18 +199,9 @@ export function fetchSessionDetail(sessionId: string, signal?: AbortSignal) {
 }
 
 // ── 리포트(표지 + 01~05장, 명세 No.133) ───────────────────────────────
-// 계약의 payload 는 version 만 보는 느슨한 객체다. 화면은 장별 모양(ReportPayload)으로 읽으므로 객체인지만 확인해 좁힌다.
-const reportSchema = reportResponseSchema.extend({
-  report: reportViewSchema.extend({
-    payload: z
-      .custom<ReportPayload>((v) => typeof v === "object" && v !== null)
-      .nullable(),
-  }),
-});
-
 /** 저장된 리포트. 없으면 404 REPORT_NOT_FOUND. */
 export function fetchReport(sessionId: string, signal?: AbortSignal) {
-  return requestJson<ReportResponse>("selfeval/report", reportSchema, {
+  return requestJson<ReportResponse>("selfeval/report", reportResponseSchema, {
     method: "GET",
     search: { sessionId },
     signal,
@@ -222,7 +210,7 @@ export function fetchReport(sessionId: string, signal?: AbortSignal) {
 
 /** 만들기, 다시 만들기. 같은 리비전의 완성본은 서버가 다시 만들지 않는다. 모델 호출이라 긴 타임아웃. */
 export function buildReport(sessionId: string) {
-  return requestJson<ReportResponse>("selfeval/report", reportSchema, {
+  return requestJson<ReportResponse>("selfeval/report", reportResponseSchema, {
     method: "POST",
     body: { sessionId },
     ai: true,
@@ -411,9 +399,6 @@ export function manualLogsDelete(sessionId: string, memoId: string) {
   });
 }
 
-// 검증 리포트의 sections 는 계약이 total 만 본다. 점수 항목, 형식 검사 같은 세부 모양은 hand type 이 맡는다.
-const verifySchema = verifyResponse.transform((data) => data as VerifyResponse);
-
 // ── 분석 ──────────────────────────────────────────────────────────────
 /** 모델로 11항목을 분석한다. 직접 입력 활동은 모델 없이 바로 돌아온다. */
 export function analyzeRun(sessionId: string) {
@@ -456,26 +441,18 @@ export function analyzeResolveConflict(
 }
 
 // ── 생성 ──────────────────────────────────────────────────────────────
-// 본문의 sections 는 계약이 paragraphs 만 본다. 문단, 문장, 근거의 세부 모양은 hand type 이 맡는다.
-const writeGenerateSchema = writeGenerateResponse.transform(
-  (data) => data as WriteGenerateResponse,
-);
-const writeEditSchema = writeEditResponse.transform(
-  (data) => data as WriteEditResponse,
-);
-
 export function writeGenerate(sessionId: string) {
   const body: WriteBodyInput = { sessionId, action: "generate" };
   return requestJson<WriteGenerateResponse>(
     "selfeval/write",
-    writeGenerateSchema,
+    writeGenerateResponse,
     { method: "POST", body, ai: true },
   );
 }
 
 export function writeEdit(sessionId: string, paragraphs: string[]) {
   const body: WriteBodyInput = { sessionId, action: "edit", paragraphs };
-  return requestJson<WriteEditResponse>("selfeval/write", writeEditSchema, {
+  return requestJson<WriteEditResponse>("selfeval/write", writeEditResponse, {
     method: "POST",
     body,
   });
@@ -487,7 +464,7 @@ export function writeConfirmFeeling(sessionId: string, sentenceId: string) {
     action: "confirm-feeling",
     sentenceId,
   };
-  return requestJson<WriteEditResponse>("selfeval/write", writeEditSchema, {
+  return requestJson<WriteEditResponse>("selfeval/write", writeEditResponse, {
     method: "POST",
     body,
   });
@@ -505,7 +482,7 @@ export function writeRepickEvidence(
     sentenceId,
     picks,
   };
-  return requestJson<WriteEditResponse>("selfeval/write", writeEditSchema, {
+  return requestJson<WriteEditResponse>("selfeval/write", writeEditResponse, {
     method: "POST",
     body,
   });
@@ -514,7 +491,7 @@ export function writeRepickEvidence(
 // ── 검증과 최종 저장 ──────────────────────────────────────────────────
 export function verifySession(sessionId: string) {
   const body: VerifyBodyInput = { sessionId };
-  return requestJson<VerifyResponse>("selfeval/verify", verifySchema, {
+  return requestJson<VerifyResponse>("selfeval/verify", verifyResponse, {
     method: "POST",
     body,
     ai: true,
