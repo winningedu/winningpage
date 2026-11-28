@@ -200,10 +200,10 @@ describe("requestEmbedding", () => {
   it("embed-one 을 60초 제한으로 POST 한다", async () => {
     http.post.mockReturnValue(reply({ action: "embed-one" }));
 
-    await requestEmbedding("k1");
+    await requestEmbedding("k1", "topic_pattern");
 
     expect(http.post).toHaveBeenCalledWith("performance/admin-embed", {
-      json: { action: "embed-one", id: "k1" },
+      json: { action: "embed-one", id: "k1", knowledgeType: "topic_pattern" },
       timeout: 60_000,
     });
   });

@@ -467,7 +467,7 @@ export async function requestWinningEmbedding(row) {
   if (!row?.id) return null;
 
   try {
-    const result = await requestEmbedding(row.id);
+    const result = await requestEmbedding(row.id, row.knowledge_type);
 
     console.log("위닝 수행 DB 자동 임베딩 요청 완료:", result);
     return result;
