@@ -39,7 +39,21 @@ const ID = "123e4567-e89b-12d3-a456-426614174000";
 const verification = {
   id: "r1",
   revision: 2,
-  sections: { total: 80, items: [], submittable: true },
+  sections: {
+    items: [],
+    total: 80,
+    format: [],
+    mandatoryFixes: [],
+    submittable: true,
+    improvements: [],
+    excluded: [],
+    growthFit: null,
+    charCount: { withSpace: 10, withoutSpace: 8 },
+    sentenceCount: 1,
+    clicheDensity: 0,
+    clicheHits: [],
+    numberCount: 0,
+  },
   score: 80,
   mandatoryFixes: [],
 };
