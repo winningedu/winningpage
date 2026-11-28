@@ -5,7 +5,7 @@ import { ymdIn } from "@/lib/time/day";
 
 // 보관함 목록 행 조립과 필터(순수). 키워드 검색은 없다(No.118).
 
-export type ReportStatusKey = "confirmed" | "open" | "archived";
+type ReportStatusKey = "confirmed" | "open" | "archived";
 
 export type ReportRow = {
   sessionId: string;

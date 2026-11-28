@@ -1,6 +1,5 @@
 // GET /api/goal/student 가 학생 시간대를 싣고, 최근 7일 창을 학생 현지 날짜로 자르는지 고정한다.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const repo = vi.hoisted(() => ({
@@ -18,22 +17,21 @@ vi.mock("../../_lib/goal/repo.js", async (importOriginal) => ({
   ...repo,
 }));
 
-import handler from "./student.js";
+vi.mock("../../_lib/httpAuth.js", () => ({
+  resolveUser: async () => ({ userId: "u1", user: { id: "u1" }, token: "t" }),
+}));
+vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({}),
+}));
+
+import { studentResponse } from "../../../shared/goal/student.js";
+import { callGoal } from "../../_lib/goal/route.testkit.js";
 
 async function get() {
-  const out: { body?: Record<string, unknown> } = {};
-  const res = {
-    status: () => res,
-    json: (b: Record<string, unknown>) => {
-      out.body = b;
-      return res;
-    },
-  };
-  await handler(
-    { method: "GET", headers: {} } as unknown as VercelRequest,
-    res as unknown as VercelResponse,
-  );
-  return out.body;
+  const { body } = await callGoal("student");
+  return body as Record<string, unknown> | undefined;
 }
 
 beforeEach(() => {
@@ -77,5 +75,44 @@ describe("GET /api/goal/student 시간대", () => {
       "2026-11-17",
       "2026-11-23",
     );
+  });
+});
+
+describe("GET /api/goal/student 응답 계약", () => {
+  test("온보딩 완료 본문을 계약 스키마로 읽는다", async () => {
+    repo.getStudentTimeZone.mockResolvedValue("Asia/Seoul");
+    repo.fetchStudentRow.mockResolvedValue({
+      status: "active",
+      onboarded_at: "2026-01-01",
+      school_type: "high",
+      grade: "고1",
+      ideal_jungsi_cut: 1,
+      min_jungsi_cut: 1,
+    });
+    const r = await callGoal("student");
+    expect(r.status).toBe(200);
+    expect(studentResponse.parse(r.body)).toMatchObject({
+      onboarded: true,
+      timeZone: "Asia/Seoul",
+    });
+  });
+
+  test("온보딩 전이면 onboarded false 다", async () => {
+    repo.getStudentTimeZone.mockResolvedValue("Asia/Seoul");
+    repo.fetchStudentRow.mockResolvedValue(null);
+    const r = await callGoal("student");
+    expect(studentResponse.parse(r.body)).toEqual({ onboarded: false });
+  });
+
+  test("이용권이 없으면 200 allowed false 와 tenantReason 이다", async () => {
+    repo.openGoalSession.mockResolvedValue({
+      allowed: false,
+      tenantReason: "month_cap",
+    });
+    const r = await callGoal("student");
+    expect(studentResponse.parse(r.body)).toEqual({
+      allowed: false,
+      tenantReason: "month_cap",
+    });
   });
 });

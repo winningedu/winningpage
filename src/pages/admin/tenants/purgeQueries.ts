@@ -8,7 +8,6 @@ import {
 } from "../../../../shared/tenants/contract.js";
 import {
   type PurgeLogEntry,
-  type PurgePreview,
   type PurgeResult,
   purgeLogsSchema,
   purgePreviewSchema,
@@ -20,7 +19,7 @@ export type ContractTenant = TenantRow & {
   contract_end_date: string;
   time_zone: string;
 };
-export type { PurgeLogEntry, PurgePreview, PurgeResult };
+export type { PurgeLogEntry, PurgeResult };
 
 export function usePurgeLogs() {
   return useQuery({

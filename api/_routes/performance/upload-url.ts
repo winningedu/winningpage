@@ -72,9 +72,16 @@
 //    되돌린다(`src/lib/performance/guideUpload.js`).
 
 import crypto from "node:crypto";
-import type { VercelResponse } from "@vercel/node";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import type { Context } from "hono";
+import type { z } from "zod";
+import {
+  uploadUrlBody,
+  type uploadUrlResponse,
+} from "../../../shared/performance/upload-url.js";
+import { userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   hasPaidServiceAccess,
   SERVICE_CONFIGS,
@@ -122,28 +129,26 @@ export const MAX_TOTAL_BYTES = 25 * 1024 * 1024; // 25MB (세션 누적)
 const UPLOAD_TOKEN_TTL_SECONDS = 2 * 60 * 60;
 
 function fail(
-  res: VercelResponse,
+  c: Context,
   status: number,
   code: string,
   message: string,
   extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code, extra);
+  return problemResponse(c, status, message, code, extra);
 }
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+const guard = user({
   unhandledMessage: "업로드 준비에 실패했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "performance/upload-url",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const userId = requireUserId(ctx);
+});
+
+export const uploadUrl = userFactory
+  .createApp()
+  .post("/", guard, validate("json", uploadUrlBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
 
     // 이용권 재판정 — §8.6 공통 규약. 클라이언트 가드 통과 여부를 신뢰하지 않는다.
     const { allowed: hasAccess, reason: accessReason } =
@@ -155,7 +160,7 @@ export default defineHandler({
       );
     if (!hasAccess) {
       return fail(
-        res,
+        c,
         403,
         "NO_ENTITLEMENT",
         "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
@@ -163,49 +168,21 @@ export default defineHandler({
       );
     }
 
-    const body = req.body && typeof req.body === "object" ? req.body : {};
-    const sessionId =
-      typeof body.sessionId === "string" ? body.sessionId.trim() : "";
-    const mimeType =
-      typeof body.mimeType === "string"
-        ? body.mimeType.trim().toLowerCase()
-        : "";
-    const byteSize = Number(body.byteSize);
-
-    if (!sessionId) {
-      return fail(res, 400, "MISSING_FIELD", "sessionId는 필수입니다.", {
-        field: "sessionId",
-      });
-    }
+    const body = c.req.valid("json");
+    const { sessionId, mimeType, byteSize } = body;
 
     // ① MIME 화이트리스트. HEIC를 고른 사용자는 여기까지 오기 전에 클라이언트가
     //    §8.8 지정 문구로 막지만, 파일 선택기 필터를 우회한 경우 이 검사가 정본이다.
     const ext = ALLOWED_MIME_EXT[mimeType];
     if (!ext) {
-      return fail(res, 415, "UNSUPPORTED_MIME", UNSUPPORTED_MIME_MESSAGE, {
+      return fail(c, 415, "UNSUPPORTED_MIME", UNSUPPORTED_MIME_MESSAGE, {
         allowed: Object.keys(ALLOWED_MIME_EXT),
       });
     }
 
-    if (
-      !Number.isFinite(byteSize) ||
-      !Number.isInteger(byteSize) ||
-      byteSize <= 0
-    ) {
-      return fail(
-        res,
-        400,
-        "INVALID_BYTE_SIZE",
-        "파일 크기 정보를 확인할 수 없습니다.",
-        {
-          field: "byteSize",
-        },
-      );
-    }
-
     if (byteSize > MAX_FILE_BYTES) {
       return fail(
-        res,
+        c,
         413,
         "FILE_TOO_LARGE",
         "사진 한 장은 10MB까지 올릴 수 있어요.",
@@ -231,7 +208,7 @@ export default defineHandler({
 
     if (!sessionRow) {
       return fail(
-        res,
+        c,
         403,
         "NOT_SESSION_OWNER",
         "이 수행평가 세션에 접근할 수 없습니다.",
@@ -256,7 +233,7 @@ export default defineHandler({
 
     if (existing.length >= MAX_ATTACHMENTS) {
       return fail(
-        res,
+        c,
         409,
         "TOO_MANY_ATTACHMENTS",
         "안내문 사진은 최대 5장까지 올릴 수 있어요.",
@@ -273,7 +250,7 @@ export default defineHandler({
 
     if (usedBytes + byteSize > MAX_TOTAL_BYTES) {
       return fail(
-        res,
+        c,
         413,
         "FILE_TOO_LARGE",
         "사진 전체 용량은 25MB까지 올릴 수 있어요.",
@@ -293,7 +270,7 @@ export default defineHandler({
 
     if (signError || !signed) {
       console.error("performance/upload-url signed URL 발급 실패:", signError);
-      return fail(res, 500, "INTERNAL", "업로드 준비 중 오류가 발생했습니다.");
+      return fail(c, 500, "INTERNAL", "업로드 준비 중 오류가 발생했습니다.");
     }
 
     // 토큰 발급 → 행 생성 순서다. 반대로 하면 서명 실패 시 아무 파일도 가리키지 않는
@@ -314,7 +291,7 @@ export default defineHandler({
     if (insertError)
       throw new Error(`첨부 행 생성 실패: ${insertError.message}`);
 
-    res.status(200).json({
+    return c.json({
       attachmentId: attachment.id,
       bucket: BUCKET,
       path: signed.path || objectPath,
@@ -323,9 +300,6 @@ export default defineHandler({
       expiresAt: new Date(
         Date.now() + UPLOAD_TOKEN_TTL_SECONDS * 1000,
       ).toISOString(),
-    });
-  },
-});
-
-// 실행 시간: 모델을 부르지 않으므로 형제 라우트의 `maxDuration: 60`이 필요 없다.
-export const config = { runtime: "nodejs" };
+    } satisfies z.input<typeof uploadUrlResponse>);
+  })
+  .all("/", methodNotAllowed("POST"));

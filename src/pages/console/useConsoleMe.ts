@@ -5,7 +5,7 @@ import { createContext, useContext } from "react";
 import { type ConsoleMe, consoleRequest, errorCode } from "./api";
 import { type GradeLabeler, gradeLabel, isAcademyOrg } from "./classLabel";
 
-export type ConsoleMeResult =
+type ConsoleMeResult =
   | { state: "ok"; me: ConsoleMe }
   | { state: "unauth" }
   | { state: "noaccess" };

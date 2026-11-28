@@ -96,7 +96,12 @@
 //    3회가 사라졌다. 응답의 `charged:false`는 그 사실을 계약으로 못박은 것이다.
 //    모델 호출이 재시도로 3번 나가도 마찬가지다(재시도는 gemini.js 계층 안, 차감은 밖).
 
-import type { VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
+import type { z } from "zod";
+import {
+  analyzeGuideBody,
+  type analyzeGuideResponse,
+} from "../../../shared/performance/analyze-guide.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { callVision, PERFORMANCE_MODEL } from "../../_lib/ai/gemini.js";
 import {
@@ -104,8 +109,10 @@ import {
   validationOf,
 } from "../../_lib/ai/telemetry/performanceContext.js";
 import { createAiTrace } from "../../_lib/ai/telemetry/trace.js";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   GUIDE_FREETEXT_MAX_LENGTH,
   isGuideFreetextTooLong,
@@ -124,7 +131,6 @@ import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 import {
   ALLOWED_MIME_EXT,
   BUCKET,
-  MAX_ATTACHMENTS,
   MAX_FILE_BYTES,
   MAX_TOTAL_BYTES,
   UNSUPPORTED_MIME_MESSAGE,
@@ -144,9 +150,6 @@ const MAX_ANALYSIS_PER_SESSION = 10;
  * 전에 `markAttachmentsFailed` + 502 응답을 반드시 돌려줄 여유(다운로드/마감 처리)를 남긴다.
  */
 const VISION_TIMEOUT_MS = 45 * 1000;
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type SupabaseAdmin = ReturnType<typeof createSupabaseAdmin>;
 
@@ -178,19 +181,14 @@ type MeasuredItem = {
   mimeType: string;
 };
 
-type ReadAttachmentIdsResult =
-  | { present: false }
-  | { present: true; ok: false; message: string }
-  | { present: true; ok: true; ids: string[] };
-
 function fail(
-  res: VercelResponse,
+  c: Context,
   status: number,
   code: string,
   message: string,
   extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code, extra);
+  return problemResponse(c, status, message, code, extra);
 }
 
 /** STEP2 완료 반영 패치. 이미 더 앞서 있는 세션을 되돌리지 않는다(session.js와 같은 규칙). */
@@ -208,63 +206,24 @@ function stepPatch(sessionRow: SessionRow) {
   };
 }
 
-/** 요청 본문에서 `attachmentIds`를 꺼내 형식 검증한다. 경로 문자열은 쳐다보지도 않는다. */
-function readAttachmentIds(
-  body: Record<string, unknown>,
-): ReadAttachmentIdsResult {
-  const raw = body.attachmentIds;
-  if (raw === undefined || raw === null) return { present: false };
-  if (!Array.isArray(raw) || raw.length === 0) {
-    return {
-      present: true,
-      ok: false,
-      message: "attachmentIds는 1개 이상의 배열이어야 합니다.",
-    };
-  }
-  if (raw.length > MAX_ATTACHMENTS) {
-    return {
-      present: true,
-      ok: false,
-      message: `안내문 사진은 최대 ${MAX_ATTACHMENTS}장까지 분석할 수 있어요.`,
-    };
-  }
-
-  const ids: string[] = [];
-  for (const value of raw) {
-    const id = typeof value === "string" ? value.trim() : "";
-    if (!UUID_RE.test(id)) {
-      return {
-        present: true,
-        ok: false,
-        message: "attachmentIds 형식이 올바르지 않습니다.",
-      };
-    }
-    if (!ids.includes(id)) ids.push(id);
-  }
-
-  return { present: true, ok: true, ids };
-}
-
-export default defineHandler({
-  methods: ["POST"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+const guard = user({
   unhandledMessage: "안내문 분석에 실패했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "performance/analyze-guide",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const userId = requireUserId(ctx);
+});
+
+export const analyzeGuide = userFactory
+  .createApp()
+  .post("/", guard, validate("json", analyzeGuideBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
 
     // 모델 호출이 터졌을 때 첨부를 failed로 되돌리기 위해 catch 바깥에서 들고 있는다.
     let analyzedIds: string[] | null = null;
 
     // 아래 본문 처리 중 던져지는 예외는 원래(마이그레이션 전)와 동일하게
     // analyzedIds가 잡혀 있으면 markAttachmentsFailed로 되돌린 뒤 500을 내야
-    // 한다 — 공통 defineHandler 최상위 catch는 이 정리 로직을 모른다. 그래서
+    // 한다 — 공통 루트 앱 onError(api/_lib/hono/error.ts)는 이 정리 로직을 모른다. 그래서
     // 로컬 try/catch로 감싸 기존 catch 블록의 동작을 그대로 재현한다
     // (배치-2 이슈로 별도 기록).
     try {
@@ -278,7 +237,7 @@ export default defineHandler({
         );
       if (!hasAccess) {
         return fail(
-          res,
+          c,
           403,
           "NO_ENTITLEMENT",
           "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
@@ -286,31 +245,20 @@ export default defineHandler({
         );
       }
 
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const sessionId =
-        typeof body.sessionId === "string" ? body.sessionId.trim() : "";
-      const freetext =
-        typeof body.freetext === "string" ? body.freetext.trim() : "";
-      const force = body.force === true;
-      const attachments = readAttachmentIds(body);
-
-      if (!sessionId) {
-        return fail(res, 400, "MISSING_FIELD", "sessionId는 필수입니다.", {
-          field: "sessionId",
-        });
-      }
-
-      if (attachments.present && attachments.ok === false) {
-        return fail(res, 400, "INVALID_ATTACHMENT_IDS", attachments.message, {
-          field: "attachmentIds",
-        });
-      }
+      const {
+        sessionId,
+        attachmentIds: requestedIds,
+        freetext = "",
+        force = false,
+      } = c.req.valid("json");
+      // 같은 첨부를 두 번 보내도 한 번만 센다.
+      const attachmentIds = requestedIds ? [...new Set(requestedIds)] : null;
 
       // 프론트 `maxLength`는 신뢰값이 아니다(요청 본문은 클라이언트가 직접 조립할 수
       // 있다) — 실제 저장 전 서버가 같은 상한(QA 행 194)을 재확인한다.
       if (isGuideFreetextTooLong(freetext)) {
         return fail(
-          res,
+          c,
           400,
           "FREETEXT_TOO_LONG",
           `freetext는 ${GUIDE_FREETEXT_MAX_LENGTH}자를 넘을 수 없습니다.`,
@@ -320,21 +268,12 @@ export default defineHandler({
 
       // 두 분기는 배타다 — 한 요청이 둘 다 들고 오면 어느 쪽이 세션의 정본인지 계약이
       // 정하지 않으므로 서버가 임의로 고르지 않고 거절한다.
-      if (attachments.present && freetext) {
+      if (attachmentIds && freetext) {
         return fail(
-          res,
+          c,
           400,
           "AMBIGUOUS_INPUT",
           "attachmentIds와 freetext는 함께 보낼 수 없습니다.",
-        );
-      }
-
-      if (!attachments.present && !freetext) {
-        return fail(
-          res,
-          400,
-          "MISSING_FIELD",
-          "attachmentIds 또는 freetext가 필요합니다.",
         );
       }
 
@@ -355,7 +294,7 @@ export default defineHandler({
 
       if (!sessionData) {
         return fail(
-          res,
+          c,
           403,
           "NOT_SESSION_OWNER",
           "이 수행평가 세션에 접근할 수 없습니다.",
@@ -370,7 +309,7 @@ export default defineHandler({
       // `guide_json`은 **null로 둔다.** §8.3이 그 컬럼에 준 정의는 "안내문 분석 구조화
       // 결과"이고 이 분기에는 분석이 없다. 자유서술 원문의 자리는 `guide_freetext`다.
       // 하류(P8 주제 추천)는 `guide_input_mode`를 보고 어느 컬럼을 읽을지 정한다.
-      if (!attachments.present) {
+      if (!attachmentIds) {
         const { error: manualError } = await supabaseAdmin
           .from("performance_sessions")
           .update({
@@ -384,26 +323,18 @@ export default defineHandler({
         if (manualError)
           throw new Error(`세션 갱신 실패: ${manualError.message}`);
 
-        res.status(200).json({
+        return c.json({
           guide: { mode: "manual", text: freetext },
           attachments: [],
           promptVersion: null, // 모델을 부르지 않았으므로 프롬프트 버전도 없다
           model: null,
           charged: false,
-        });
-        return;
+        } satisfies z.input<typeof analyzeGuideResponse>);
       }
 
       // ─────────────────────────────────────────────────────────────
       // ⓐ 업로드 분기 — 단일 vision 호출
       // ─────────────────────────────────────────────────────────────
-
-      // 위 검증에서 present:true·ok:true 외 분기는 전부 return했다. TS는 이 다단계
-      // 판별 유니온을 여기까지 좁히지 못해(strict:false) `attachments.ids` 접근이
-      // 타입 오류가 되므로, 이미 검증된 사실을 캐스트로 명시한다(런타임 동작 없음).
-      const attachmentIds = (
-        attachments as { present: true; ok: true; ids: string[] }
-      ).ids;
 
       // 첨부 조회는 **세션에 묶어서** 한다. 이 `.eq('session_id', ...)`가 IDOR 차단의 핵심이다.
       // 정렬은 업로드 순서(`created_at`)로 고정한다 — 요청 배열 순서를 따르면 클라이언트가
@@ -426,7 +357,7 @@ export default defineHandler({
       if (rows.length !== attachmentIds.length) {
         // "없는 id"와 "남의 세션 id"를 구분해 알려주지 않는다(존재 오라클 방지).
         return fail(
-          res,
+          c,
           403,
           "NOT_ATTACHMENT_OWNER",
           "이 안내문 사진에 접근할 수 없습니다.",
@@ -437,7 +368,7 @@ export default defineHandler({
       // 분석할 대상이 없다(§8.3 `storage_path` nullable 사유).
       if (rows.some((row) => row.deleted_at || !row.storage_path)) {
         return fail(
-          res,
+          c,
           404,
           "ATTACHMENT_GONE",
           "안내문 사진 원본이 이미 삭제되었어요.",
@@ -451,8 +382,8 @@ export default defineHandler({
       const alreadyAnalyzed = rows.every((row) => row.ocr_status === "done");
 
       if (!force && alreadyAnalyzed && storedGuide?.mode === "upload") {
-        res.status(200).json({
-          guide: storedGuide,
+        return c.json({
+          guide: { ...storedGuide, mode: storedGuide.mode },
           attachments: rows.map((row) => ({
             attachmentId: row.id,
             deleted: false,
@@ -462,15 +393,14 @@ export default defineHandler({
           charged: false,
           // 저장분을 그대로 돌려줬다는 표시. 호출부가 "다시 분석됐다"고 오해하지 않게 한다.
           reused: true,
-        });
-        return;
+        } satisfies z.input<typeof analyzeGuideResponse>);
       }
 
       // ── 호출 상한 (무차감 엔드포인트의 비용 증폭 차단, sql/55 (3))
       const analysisCount = Number(sessionRow.guide_analysis_count) || 0;
       if (analysisCount >= MAX_ANALYSIS_PER_SESSION) {
         return fail(
-          res,
+          c,
           429,
           "ANALYSIS_LIMIT_REACHED",
           "이 수행평가에서 안내문 분석을 너무 여러 번 요청했어요. 직접 입력으로 진행하거나 새 수행평가를 시작해 주세요.",
@@ -488,7 +418,7 @@ export default defineHandler({
         // 버킷 쪽에서 사라진 경우다. 되살릴 수 없으니 failed로 닫고 404로 알린다.
         await markAttachmentsFailed(supabaseAdmin, analyzedIds);
         return fail(
-          res,
+          c,
           404,
           "ATTACHMENT_GONE",
           "안내문 사진 원본을 찾을 수 없어요.",
@@ -513,12 +443,12 @@ export default defineHandler({
         await markAttachmentsFailed(supabaseAdmin, analyzedIds);
 
         return badMime.length
-          ? fail(res, 415, "UNSUPPORTED_MIME", UNSUPPORTED_MIME_MESSAGE, {
+          ? fail(c, 415, "UNSUPPORTED_MIME", UNSUPPORTED_MIME_MESSAGE, {
               allowed: Object.keys(ALLOWED_MIME_EXT),
               charged: false,
             })
           : fail(
-              res,
+              c,
               413,
               "FILE_TOO_LARGE",
               "사진 한 장은 10MB까지 올릴 수 있어요.",
@@ -539,7 +469,7 @@ export default defineHandler({
         await removeObjects(supabaseAdmin, verified.measured);
         await markAttachmentsFailed(supabaseAdmin, analyzedIds);
         return fail(
-          res,
+          c,
           413,
           "FILE_TOO_LARGE",
           "사진 전체 용량은 25MB까지 올릴 수 있어요.",
@@ -565,7 +495,7 @@ export default defineHandler({
           );
           await markAttachmentsFailed(supabaseAdmin, analyzedIds);
           return fail(
-            res,
+            c,
             404,
             "ATTACHMENT_GONE",
             "안내문 사진 원본을 찾을 수 없어요.",
@@ -631,7 +561,7 @@ export default defineHandler({
         await markAttachmentsFailed(supabaseAdmin, analyzedIds);
         // 무차감이다(§9.2) — 애초에 이 엔드포인트는 차감하지 않는다.
         return fail(
-          res,
+          c,
           502,
           "VISION_UPSTREAM_FAILED",
           "안내문을 분석하지 못했어요. 잠시 후 다시 시도해 주세요.",
@@ -650,7 +580,7 @@ export default defineHandler({
         // 호출은 성공했는데 내용이 비었다 — 재시도로 풀릴 문제가 아니므로 422다.
         await markAttachmentsFailed(supabaseAdmin, analyzedIds);
         return fail(
-          res,
+          c,
           422,
           "GUIDE_PARSE_FAILED",
           "안내문에서 정보를 읽지 못했어요. 사진을 다시 확인해 주세요.",
@@ -698,7 +628,7 @@ export default defineHandler({
       if (markError)
         throw new Error(`첨부 상태 갱신 실패: ${markError.message}`);
 
-      res.status(200).json({
+      return c.json({
         guide,
         // `deleted`는 행의 `deleted_at`을 비춘 값이다. 위에서 원본 생존을 이미 확인했으므로
         // 여기서는 전부 false다 — **이 API는 원본을 지우지 않는다**(§8.8, 파일 상단 주석).
@@ -710,15 +640,15 @@ export default defineHandler({
         model: PERFORMANCE_MODEL,
         charged: false,
         reused: false,
-      });
+      } satisfies z.input<typeof analyzeGuideResponse>);
     } catch (error) {
       // 원 예외 메시지를 응답에 싣지 않는다(§8.6 공통 규약 「실패 응답」).
       console.error("performance/analyze-guide error:", error);
       if (analyzedIds) await markAttachmentsFailed(supabaseAdmin, analyzedIds);
-      return fail(res, 500, "INTERNAL", "안내문 분석에 실패했습니다.");
+      return fail(c, 500, "INTERNAL", "안내문 분석에 실패했습니다.");
     }
-  },
-});
+  })
+  .all("/", methodNotAllowed("POST"));
 
 /**
  * 각 첨부의 **실제** Storage 메타데이터를 읽는다(`api/_routes/mentor-apply.js:536-575` 절차).
@@ -891,11 +821,3 @@ async function markAttachmentsFailed(
     console.error("performance/analyze-guide 첨부 failed 마킹 실패:", error);
   }
 }
-
-// 최대 5장(합계 25MB)을 base64로 실어 단일 vision 호출을 하고, gemini.js가 700ms·1400ms
-// 백오프로 최대 3회까지 시도한다. 기본 실행시간(Hobby 10초 / Pro 15초)으로는 3~5장이
-// 통상 경로에서 끊기고, 끊기면 본문 없는 504라 클라이언트가 원인을 못 받는 데다
-// `markAttachmentsFailed`가 실행되지 않아 첨부가 pending으로 남아 5장 상한과 25MB
-// 예산을 24시간 동안 계속 점유한다. 형제 라우트(`admin-embed.js` / `cleanup-attachments.js`)와
-// 같은 60초를 쓴다 — 그 안에서 vision 호출 자체는 VISION_TIMEOUT_MS(45초)로 먼저 끊긴다.
-export const config = { runtime: "nodejs", maxDuration: 60 };

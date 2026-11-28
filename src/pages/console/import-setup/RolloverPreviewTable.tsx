@@ -13,7 +13,7 @@ import type { GradeLabeler } from "../classLabel";
 import { REASON_LABEL, VERDICT_LABEL } from "../teachers/excelImport";
 import { useGradeLabel, useIsAcademy } from "../useConsoleMe";
 
-export interface PreviewSlot {
+interface PreviewSlot {
   grade: string | null;
   groupName: string | null;
   className: string | null;
@@ -72,7 +72,7 @@ const RESULTS: Record<PreviewResult, { label: string; tone: ChipTone }> = {
 };
 
 // 졸업 칩은 학교는 "3학년", 학원은 "고3" 으로 말한다.
-export const resultLabel = (result: PreviewResult, academy: boolean) =>
+const resultLabel = (result: PreviewResult, academy: boolean) =>
   academy && result === "graduating"
     ? "고3은 졸업 처리 대상"
     : RESULTS[result].label;

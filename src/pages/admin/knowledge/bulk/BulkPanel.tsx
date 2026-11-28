@@ -57,7 +57,9 @@ export default function BulkPanel({
   // 서버 호출은 useMutation 으로 돌리고, 호출 중이면 단계 전이와 별개로 버튼을 막는다.
   const dedupeCall = useMutation({ mutationFn: postKnowledgeDedupe });
   const bulkCall = useMutation({ mutationFn: postKnowledgeBulk });
-  const backfillCall = useMutation({ mutationFn: postEmbedBackfill });
+  const backfillCall = useMutation({
+    mutationFn: () => postEmbedBackfill(knowledgeType),
+  });
   const busy =
     isBulkBusy(state) ||
     dedupeCall.isPending ||

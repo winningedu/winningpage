@@ -15,7 +15,7 @@ import { formatKoreanDate } from "../reports/reportsLogic";
 
 // ── 라벨 ──────────────────────────────────────────────────────────────
 // 서버 api/_lib/growth/axes.ts 의 AXIS_NAMES 와 같은 값. api/ 는 프런트에서 import 하지 않는다.
-export const AXIS_NAMES: Record<string, string> = {
+const AXIS_NAMES: Record<string, string> = {
   A: "학업역량",
   B: "진로 및 전공적합성",
   C: "탐구 및 자기주도성",
@@ -42,7 +42,7 @@ export function axisLabel(axis: string | null): string | null {
 
 // ── 항목 갱신(낙관적 갱신과 롤백) ─────────────────────────────────────
 /** 진행률. 전체 항목은 groups 기준이다(carried 는 groups 에도 들어 있어 중복 집계하면 안 된다). */
-export function computeProgress(groups: PlanGroup[]): PlanProgress {
+function computeProgress(groups: PlanGroup[]): PlanProgress {
   const items = groups.flatMap((g) => g.items);
   const total = items.length;
   const done = items.filter((i) => i.done).length;
@@ -248,7 +248,7 @@ export function handoffDestination(program: PlanProgram): string {
  * 자기평가서(저장 시)와 심화탐구(확정 시) 두 송신측이 completePlanItemFromProgram 으로
  * 과제를 확정해 주므로 자동 완료를 약속한다.
  */
-export const HANDOFF_AUTO_COMPLETE = true;
+const HANDOFF_AUTO_COMPLETE = true;
 
 /** 이동 모달 부제. 자동 완료는 송신측이 있을 때만 약속한다. */
 export function handoffSubtitle(name: string): string {
@@ -352,7 +352,7 @@ function parseSnapshot(value: unknown): Snapshot | null {
 }
 
 /** 서버 metrics(타입이 unknown)를 읽는다. 모양이 다르거나 null 이면 null. */
-export function parseMetrics(value: unknown): ParsedMetrics | null {
+function parseMetrics(value: unknown): ParsedMetrics | null {
   if (!isRecord(value)) return null;
   const now = parseSnapshot(value.now);
   const afterAll = parseSnapshot(value.afterAll);

@@ -892,7 +892,7 @@ export function getOptionCode(questionId, label) {
  * 채점(codeOf("Q4_SYSTEM", answers.q4))이 여전히 라벨 문자열을 기대하므로 코드를 answers 에
  * 직접 넣지 않는다(§3.5 계약 유지).
  */
-export function getOptionLabel(questionId, code) {
+function getOptionLabel(questionId, code) {
   const question = renewalSurveyQuestions.find(
     (item) => item.id === questionId,
   );
@@ -906,7 +906,7 @@ export function getOptionLabel(questionId, code) {
  * 매핑: 중학생(M3) → 중학생 평균, 고1·고2(H1·H2) → 5등급제, 고3·N수생(H3·RETAKE) → 9등급제.
  * UNKNOWN 은 매핑에 없다 — 새 응답에서는 다시 나오지 않고 과거 저장 응답 호환 경로로만 남는다.
  */
-export const GRADE_SYSTEM_BY_GRADE_LEVEL = {
+const GRADE_SYSTEM_BY_GRADE_LEVEL = {
   M3: "MIDDLE_AVG",
   H1: "FIVE",
   H2: "FIVE",

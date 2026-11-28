@@ -10,14 +10,14 @@ import MentorApplicationsAdmin from "./MentorApplicationsAdmin";
 export const BASE = "admin/mentor-applications";
 export const PATH = "/admin/mentorApplications";
 
-export const CONFIG = {
+const CONFIG = {
   title: "신청 관리",
   searchPlaceholder: "이름 검색",
   columns: [],
 };
 
 export const ID1 = "7f3c2a10-5b1e-4c55-9a52-0f6d1f8f9b11";
-export const ID2 = "8a4d3b21-6c2f-4d66-8b63-1a7e2a9a0c22";
+const ID2 = "8a4d3b21-6c2f-4d66-8b63-1a7e2a9a0c22";
 
 export const app1 = {
   id: ID1,

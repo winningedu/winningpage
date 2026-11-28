@@ -32,7 +32,7 @@
 // 오버라이드 규칙을 이 파일에 베껴 쓰면 두 벌이 갈린다(buildWeeklySchedule 주석 참고).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { intakeBody } from "../../../shared/goal/intake.js";
 import {
   fiveScaleToNine,
   middleAvgToNine,
@@ -51,7 +51,7 @@ import type { CutsInput } from "../../../src/lib/goal/calc/pipeline.js";
 import type { DayPattern } from "../../../src/lib/goal/calc/schedule.js";
 import { ymdIn } from "../../../src/lib/time/day.js";
 import { buildGoalDirectionReport } from "../../_lib/goal/directionReport.js";
-
+import { goalFail } from "../../_lib/goal/problem.js";
 import {
   appendProbabilityLog,
   buildStudentPayload,
@@ -66,7 +66,10 @@ import {
   saveGoalDirectionReport,
   upsertStudentRow,
 } from "../../_lib/goal/repo.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
 /** 온보딩 원점(학생 현지 날짜). 수시 컷이 없는 awaiting_cuts 행은 원점을 두지 않는다. */
@@ -77,8 +80,6 @@ export function resolveActualStartDate(
 ): string | null {
   return hasSusiCuts ? ymdIn(now, timeZone) : null;
 }
-
-export const config = { runtime: "nodejs" };
 
 // ---------------------------------------------------------------------------
 // 온보딩 코드값 → 계산 모듈 리터럴 (§7-4)
@@ -1267,257 +1268,243 @@ export async function computeEngineDerivedFields(
 // 핸들러
 // ---------------------------------------------------------------------------
 
-function readBody(req: VercelRequest) {
-  const body = req.body;
-  if (typeof body !== "string") return body;
-  try {
-    return JSON.parse(body);
-  } catch {
-    return null;
-  }
-}
+const guard = user({
+  unhandledMessage: "처리 중 오류가 발생했습니다.",
+  logLabel: "goal/intake",
+});
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    return sendError(res, "detail", 405, "Method not allowed");
-  }
+export const intake = userFactory
+  .createApp()
+  .post("/", guard, validate("json", intakeBody), async (c) => {
+    try {
+      // 1) 게이트 — 405 → 401 → 403 (§9-1)
+      const session = await openGoalSession(c);
 
-  try {
-    // 1) 게이트 — 405 → 401 → 403 (§9-1)
-    const session = await openGoalSession(req);
-    if (session.error) {
-      return sendError(
-        res,
-        "detail",
-        session.error.status,
-        session.error.body.detail as string,
+      const { allowed } = session;
+
+      // 쓰기형이므로 미결제는 403 이다(조회형만 200 {allowed:false}).
+      if (!allowed) {
+        return goalFail(c, 403, {
+          detail: PAID_MESSAGE,
+          ...tenantReasonExtra(session.tenantReason),
+        });
+      }
+
+      const { supabaseAdmin, profileId } = narrowGoalSession(session);
+
+      // 2) 재온보딩 차단 (미결 Q3 기본안)
+      //    base_* 를 다시 계산하면 그동안 쌓인 Σdelta 가 옛 base 위에 얹혀 확률이 튄다.
+      //    status='awaiting_cuts'(onboarded_at = null) 인 행은 아직 확률이 없으므로
+      //    목표 대학을 바꿔 다시 시도할 수 있게 열어 둔다.
+      //    (학생 부분 수정은 delta 유지(2026-09-23 결정) — 이 전면 재온보딩 차단과
+      //    달리 api/_routes/goal/intake-update.ts는 Σdelta를 보존한 채 base_*만 재계산한다.)
+      const existing = await fetchStudentRow(supabaseAdmin, profileId);
+      if (existing?.onboarded_at) {
+        return goalFail(c, 409, {
+          detail: "이미 온보딩을 완료했습니다.",
+          reason: "already_onboarded",
+        });
+      }
+
+      // 3) 입력 검증 + 4) 값 매핑
+      const validated = validateIntakeBody(c.req.valid("json"));
+      if (validated.error) {
+        return goalFail(c, validated.error.status, validated.error.body);
+      }
+
+      const input = validated.input;
+      const schoolType = SCHOOL_TYPE_MAP[input.schoolType];
+      const inputGrade = GRADE_MAP[input.grade]; // 온보딩에서 학생이 실제로 고른 학년
+
+      // 5) 성적 파생 — remain_naesin/remain_mogo도 이 두 함수가 직접 계산해 돌려준다
+      //    (deriveNaesin/deriveMogo 주석 참고, QA 행290・291 재설계로 아래 옛 remainingNaesin/
+      //    remainingMogo 오버라이드 표 계산은 필요 없어졌다).
+      const { currentScore, lastNaesinExam, remainNaesin } =
+        deriveNaesin(input);
+      const {
+        currentMogo,
+        lastMogoExam,
+        remainMogo,
+        resolvedRounds: resolvedMockRounds,
+      } = deriveMogo(input);
+
+      // 6~8) 목표 대학 컷 조회 → 파이프라인 → 확률 스냅샷.
+      //    '중3' 치환·cuts null 판정·convertedGrade 오버라이드 등 미묘한 매핑은 전부
+      //    computeEngineDerivedFields(내 정보 수정과 공유하는 계산 경로)로 옮겼다 —
+      //    그 함수 JSDoc 참고, 이 파일에서 재구현하지 않는다.
+      const now = new Date();
+      const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
+      const {
+        cuts,
+        missing,
+        hasSusiCuts,
+        hasJungsiCuts,
+        state,
+        baseProbsForStorage,
+      } = await computeEngineDerivedFields(supabaseAdmin, {
+        schoolType,
+        gradeLabel: inputGrade,
+        naesinAllNone: input.naesinAllNone,
+        currentScore,
+        currentMogo,
+        lastNaesinExam,
+        lastMogoExam,
+        remainNaesin,
+        remainMogo,
+        weeklySchedule: buildWeeklySchedule(input),
+        ideal: input.ideal,
+        min: input.min,
+        now,
+      });
+
+      // 9) 저장
+      const row = {
+        profile_id: profileId,
+
+        school_type: schoolType,
+        // '중3' 치환은 엔진 호출 전용이다(위 effectiveGrade 주석 참고) — DB·화면에는
+        // 학생이 실제로 고른 학년을 남긴다. goal_students.grade 의 유일한 소비처는
+        // api/_lib/goal/repo.ts:315 buildStudentPayload 의 profile.grade(표시용)뿐이라 계산에는
+        // 영향이 없다(직접 grep 확인). 특례 식별자는 naesin_scores.priorNaesinGrade 로
+        // 이미 행에 남아 있다.
+        grade: inputGrade,
+
+        ideal_university: input.ideal.university,
+        ideal_department: input.ideal.department,
+        min_university: input.min.university,
+        min_department: input.min.department,
+
+        ideal_naesin_cut: cuts.idealNaesin,
+        ideal_jungsi_cut: cuts.idealJungsi,
+        min_naesin_cut: cuts.minNaesin,
+        min_jungsi_cut: cuts.minJungsi,
+
+        current_score: state.currentScore,
+        converted_grade: state.convertedGrade,
+        current_mogo: state.currentMogo,
+
+        remain_naesin: state.remainNaesin,
+        remain_mogo: state.remainMogo,
+        last_naesin_exam: lastNaesinExam,
+        last_mogo_exam: lastMogoExam,
+
+        // QA 행290・291 재설계(qa3-held-high-design.md §2・§3) — jsonb 컬럼 코멘트가
+        // "회차·과목 구성이 흔들려 정규화하지 않는다"고 못 박은 free-form이라 shape을
+        // 바꾸는 데 마이그레이션이 필요 없다. 리포트(행301)가 바로 소비할 수 있는 형태로
+        // 저장한다: lastExam/scale/overall + exams(시험별 과목군) + groupAverages(마지막
+        // 시험의 과목군 평균만 평평하게, 없으면 리포트가 4과목 flat 모드로 폴백).
+        naesin_scores: {
+          lastExam: input.naesinLastExamKey,
+          scale: input.naesinScale,
+          overall: input.naesinAllNone ? null : Number(input.naesinOverall),
+          exams: input.naesinExams,
+          groupAverages: deriveNaesinGroupAverages(
+            input.naesinExams,
+            input.selectedNaesinExam,
+          ),
+          // 전 시험 '없음' 특례일 때만 입력 원본을 한 칸 덧붙인다 — current_score 만
+          // 봐서는 그 값이 고교 내신인지 이전 단계 평균인지 구분할 수 없다.
+          ...(input.naesinAllNone
+            ? { priorNaesinGrade: Number(input.priorNaesinGrade) }
+            : {}),
+        },
+        // rounds는 deriveMogo가 확정한 resolvedMockRounds를 쓴다 — pct가 전부 채워져
+        // 있어(로컬 E2E 버그 수정) 저장값과 currentMogo 계산이 같은 백분위를 본다.
+        mock_exam_scores: {
+          lastRound: input.mockLastRoundKey,
+          track: input.mockTrack,
+          rounds: resolvedMockRounds,
+        },
+
+        // 컷이 없으면 확률을 null 로 둔다 — "0%"와 "미산출"은 다른 상태다(§5 말미).
+        // 수시/정시는 서로 독립으로 판정한다(§7-1-A) — 정시 컷만 없어도 수시
+        // 확률은 그대로 저장한다.
+        base_ideal_susi: baseProbsForStorage.idealSusi,
+        base_ideal_jungsi: baseProbsForStorage.idealJungsi,
+        base_min_susi: baseProbsForStorage.minSusi,
+        base_min_jungsi: baseProbsForStorage.minJungsi,
+
+        rate_ideal_susi: hasSusiCuts ? state.rates.idealSusiBonus : null,
+        rate_ideal_jungsi: hasJungsiCuts ? state.rates.idealJungsiBonus : null,
+        rate_min_susi: hasSusiCuts ? state.rates.minSusiBonus : null,
+        rate_min_jungsi: hasJungsiCuts ? state.rates.minJungsiBonus : null,
+
+        study_schedule: state.weeklySchedule,
+        week_ideal: state.weekIdeal,
+        week_min: state.weekMin,
+        // 원본 입력 보존(QA 행293) — study_schedule은 이로부터 산출된 파생값이다.
+        // 재편집·표시용 원본은 이 컬럼이 유일한 소스다(naesin_scores/mock_exam_scores와
+        // 같은 free-form jsonb 성격, 마이그레이션 20260902080252 참고).
+        week_schedule_input: input.weekSchedule,
+
+        // 가상 날짜의 원점은 rate 와 같은 시점이어야 한다(§8 #14). 온보딩 자체가
+        // 성립하는 기준은 수시 컷이다 — 정시 컷 누락은 더 이상 온보딩을 막지
+        // 않는다(§9-Q1(b)). 수시 컷도 없는 awaiting_cuts 행만 원점을 두지 않는다.
+        actual_start_date: resolveActualStartDate(hasSusiCuts, now, timeZone),
+        onboarded_at: hasSusiCuts ? now.toISOString() : null,
+        status: hasSusiCuts ? "active" : "awaiting_cuts",
+      };
+
+      const savedRow = await upsertStudentRow(supabaseAdmin, row);
+
+      // 10) 컷 누락 — 입력은 버리지 않고 422 로 알린다(§9-3).
+      //     정시 컷 누락은 더 이상 422 사유가 아니다 — 수시 컷이 없을 때만 낸다.
+      //     fetchTargetCuts/CUT_KEYS(api/_lib/goal/repo.ts)는 listMissingCuts(관리자의
+      //     "컷 만들기" 버튼) 등 범용 소비처가 있어 고치지 않고, 여기 호출부에서
+      //     수시 2종만 걸러 응답한다(§7-1-A 1번).
+      if (!hasSusiCuts) {
+        const susiMissing = missing.filter(
+          (key) => key === "idealNaesin" || key === "minNaesin",
+        );
+        return goalFail(c, 422, {
+          detail: "목표 대학의 합격 기준 데이터가 아직 준비되지 않았습니다.",
+          reason: "cut_not_found",
+          missing: susiMissing,
+        });
+      }
+
+      // 11) 확률 스냅샷 — row 에 저장한 것과 같은 null 판정(baseProbsForStorage)을
+      //     그대로 넘긴다. state.baseProbs 원값을 직접 넘기면 정시 컷이 없을 때
+      //     0 이 들어가 goal_students(null)와 어긋난다.
+      await appendProbabilityLog(
+        supabaseAdmin,
+        profileId,
+        baseProbsForStorage,
+        "intake",
       );
-    }
 
-    const { allowed } = session;
+      // 11-b) QA 행301(a) — 온보딩 최초 학습방향 리포트. naesin_scores/mock_exam_scores는
+      //       savedRow 그대로 넘겨 새 shape(groupAverages/rounds, 병렬 유닛 소유)이 이미
+      //       반영돼 있으면 우선 쓰고, 아니면 이 지점에서 파이프라인이 막 계산한 대표값
+      //       (converted_grade/current_mogo)으로 폴백한다(report.ts ensureDirectionReports의
+      //       fallback과 동일 값 소스). 실제 조립·저장은 regenerateDirectionReports로
+      //       뗐다 — 내 정보 수정 부분 업데이트와 공유한다(그 함수 JSDoc 참고).
+      await regenerateDirectionReports(supabaseAdmin, profileId, savedRow);
 
-    // 쓰기형이므로 미결제는 403 이다(조회형만 200 {allowed:false}).
-    if (!allowed) {
-      return res.status(403).json({
-        detail: PAID_MESSAGE,
-        ...tenantReasonExtra(session.tenantReason),
-      });
-    }
+      // 12) 응답 — GET /api/goal/student 와 완전히 같은 본문을 담는다.
+      //     뷰를 다시 읽는 이유는 두 엔드포인트가 같은 조립 경로를 타게 하기 위해서다
+      //     (온보딩 직후에는 누적 증분이 0 이라 값은 base 와 같다).
+      const [stateRow, profileName] = await Promise.all([
+        fetchStudentStateRow(supabaseAdmin, profileId),
+        fetchProfileName(supabaseAdmin, profileId),
+      ]);
 
-    const { supabaseAdmin, profileId } = narrowGoalSession(session);
-
-    // 2) 재온보딩 차단 (미결 Q3 기본안)
-    //    base_* 를 다시 계산하면 그동안 쌓인 Σdelta 가 옛 base 위에 얹혀 확률이 튄다.
-    //    status='awaiting_cuts'(onboarded_at = null) 인 행은 아직 확률이 없으므로
-    //    목표 대학을 바꿔 다시 시도할 수 있게 열어 둔다.
-    //    (학생 부분 수정은 delta 유지(2026-09-23 결정) — 이 전면 재온보딩 차단과
-    //    달리 api/_routes/goal/intake-update.ts는 Σdelta를 보존한 채 base_*만 재계산한다.)
-    const existing = await fetchStudentRow(supabaseAdmin, profileId);
-    if (existing?.onboarded_at) {
-      return res.status(409).json({
-        detail: "이미 온보딩을 완료했습니다.",
-        reason: "already_onboarded",
-      });
-    }
-
-    // 3) 입력 검증 + 4) 값 매핑
-    const validated = validateIntakeBody(readBody(req));
-    if (validated.error) {
-      return res.status(validated.error.status).json(validated.error.body);
-    }
-
-    const input = validated.input;
-    const schoolType = SCHOOL_TYPE_MAP[input.schoolType];
-    const inputGrade = GRADE_MAP[input.grade]; // 온보딩에서 학생이 실제로 고른 학년
-
-    // 5) 성적 파생 — remain_naesin/remain_mogo도 이 두 함수가 직접 계산해 돌려준다
-    //    (deriveNaesin/deriveMogo 주석 참고, QA 행290・291 재설계로 아래 옛 remainingNaesin/
-    //    remainingMogo 오버라이드 표 계산은 필요 없어졌다).
-    const { currentScore, lastNaesinExam, remainNaesin } = deriveNaesin(input);
-    const {
-      currentMogo,
-      lastMogoExam,
-      remainMogo,
-      resolvedRounds: resolvedMockRounds,
-    } = deriveMogo(input);
-
-    // 6~8) 목표 대학 컷 조회 → 파이프라인 → 확률 스냅샷.
-    //    '중3' 치환·cuts null 판정·convertedGrade 오버라이드 등 미묘한 매핑은 전부
-    //    computeEngineDerivedFields(내 정보 수정과 공유하는 계산 경로)로 옮겼다 —
-    //    그 함수 JSDoc 참고, 이 파일에서 재구현하지 않는다.
-    const now = new Date();
-    const timeZone = await getStudentTimeZone(supabaseAdmin, profileId);
-    const {
-      cuts,
-      missing,
-      hasSusiCuts,
-      hasJungsiCuts,
-      state,
-      baseProbsForStorage,
-    } = await computeEngineDerivedFields(supabaseAdmin, {
-      schoolType,
-      gradeLabel: inputGrade,
-      naesinAllNone: input.naesinAllNone,
-      currentScore,
-      currentMogo,
-      lastNaesinExam,
-      lastMogoExam,
-      remainNaesin,
-      remainMogo,
-      weeklySchedule: buildWeeklySchedule(input),
-      ideal: input.ideal,
-      min: input.min,
-      now,
-    });
-
-    // 9) 저장
-    const row = {
-      profile_id: profileId,
-
-      school_type: schoolType,
-      // '중3' 치환은 엔진 호출 전용이다(위 effectiveGrade 주석 참고) — DB·화면에는
-      // 학생이 실제로 고른 학년을 남긴다. goal_students.grade 의 유일한 소비처는
-      // api/_lib/goal/repo.ts:315 buildStudentPayload 의 profile.grade(표시용)뿐이라 계산에는
-      // 영향이 없다(직접 grep 확인). 특례 식별자는 naesin_scores.priorNaesinGrade 로
-      // 이미 행에 남아 있다.
-      grade: inputGrade,
-
-      ideal_university: input.ideal.university,
-      ideal_department: input.ideal.department,
-      min_university: input.min.university,
-      min_department: input.min.department,
-
-      ideal_naesin_cut: cuts.idealNaesin,
-      ideal_jungsi_cut: cuts.idealJungsi,
-      min_naesin_cut: cuts.minNaesin,
-      min_jungsi_cut: cuts.minJungsi,
-
-      current_score: state.currentScore,
-      converted_grade: state.convertedGrade,
-      current_mogo: state.currentMogo,
-
-      remain_naesin: state.remainNaesin,
-      remain_mogo: state.remainMogo,
-      last_naesin_exam: lastNaesinExam,
-      last_mogo_exam: lastMogoExam,
-
-      // QA 행290・291 재설계(qa3-held-high-design.md §2・§3) — jsonb 컬럼 코멘트가
-      // "회차·과목 구성이 흔들려 정규화하지 않는다"고 못 박은 free-form이라 shape을
-      // 바꾸는 데 마이그레이션이 필요 없다. 리포트(행301)가 바로 소비할 수 있는 형태로
-      // 저장한다: lastExam/scale/overall + exams(시험별 과목군) + groupAverages(마지막
-      // 시험의 과목군 평균만 평평하게, 없으면 리포트가 4과목 flat 모드로 폴백).
-      naesin_scores: {
-        lastExam: input.naesinLastExamKey,
-        scale: input.naesinScale,
-        overall: input.naesinAllNone ? null : Number(input.naesinOverall),
-        exams: input.naesinExams,
-        groupAverages: deriveNaesinGroupAverages(
-          input.naesinExams,
-          input.selectedNaesinExam,
+      return c.json({
+        // historyRows/recentAvgStudyHours는 온보딩 직후라 비어 있거나 무의미하다(확률
+        // 스냅샷은 방금 1건 막 쌓였고, 최근 7일 순공시간은 아직 없다) — GET student와
+        // 달리 여기서는 계산하지 않고 기본값(빈 배열/null)에 맡긴다. profile.name만
+        // GET /api/goal/student와 동일 규약으로 채운다.
+        student: buildStudentPayload(
+          savedRow,
+          stateRow,
+          state.schoolCutType,
+          [],
+          profileName,
         ),
-        // 전 시험 '없음' 특례일 때만 입력 원본을 한 칸 덧붙인다 — current_score 만
-        // 봐서는 그 값이 고교 내신인지 이전 단계 평균인지 구분할 수 없다.
-        ...(input.naesinAllNone
-          ? { priorNaesinGrade: Number(input.priorNaesinGrade) }
-          : {}),
-      },
-      // rounds는 deriveMogo가 확정한 resolvedMockRounds를 쓴다 — pct가 전부 채워져
-      // 있어(로컬 E2E 버그 수정) 저장값과 currentMogo 계산이 같은 백분위를 본다.
-      mock_exam_scores: {
-        lastRound: input.mockLastRoundKey,
-        track: input.mockTrack,
-        rounds: resolvedMockRounds,
-      },
-
-      // 컷이 없으면 확률을 null 로 둔다 — "0%"와 "미산출"은 다른 상태다(§5 말미).
-      // 수시/정시는 서로 독립으로 판정한다(§7-1-A) — 정시 컷만 없어도 수시
-      // 확률은 그대로 저장한다.
-      base_ideal_susi: baseProbsForStorage.idealSusi,
-      base_ideal_jungsi: baseProbsForStorage.idealJungsi,
-      base_min_susi: baseProbsForStorage.minSusi,
-      base_min_jungsi: baseProbsForStorage.minJungsi,
-
-      rate_ideal_susi: hasSusiCuts ? state.rates.idealSusiBonus : null,
-      rate_ideal_jungsi: hasJungsiCuts ? state.rates.idealJungsiBonus : null,
-      rate_min_susi: hasSusiCuts ? state.rates.minSusiBonus : null,
-      rate_min_jungsi: hasJungsiCuts ? state.rates.minJungsiBonus : null,
-
-      study_schedule: state.weeklySchedule,
-      week_ideal: state.weekIdeal,
-      week_min: state.weekMin,
-      // 원본 입력 보존(QA 행293) — study_schedule은 이로부터 산출된 파생값이다.
-      // 재편집·표시용 원본은 이 컬럼이 유일한 소스다(naesin_scores/mock_exam_scores와
-      // 같은 free-form jsonb 성격, 마이그레이션 20260902080252 참고).
-      week_schedule_input: input.weekSchedule,
-
-      // 가상 날짜의 원점은 rate 와 같은 시점이어야 한다(§8 #14). 온보딩 자체가
-      // 성립하는 기준은 수시 컷이다 — 정시 컷 누락은 더 이상 온보딩을 막지
-      // 않는다(§9-Q1(b)). 수시 컷도 없는 awaiting_cuts 행만 원점을 두지 않는다.
-      actual_start_date: resolveActualStartDate(hasSusiCuts, now, timeZone),
-      onboarded_at: hasSusiCuts ? now.toISOString() : null,
-      status: hasSusiCuts ? "active" : "awaiting_cuts",
-    };
-
-    const savedRow = await upsertStudentRow(supabaseAdmin, row);
-
-    // 10) 컷 누락 — 입력은 버리지 않고 422 로 알린다(§9-3).
-    //     정시 컷 누락은 더 이상 422 사유가 아니다 — 수시 컷이 없을 때만 낸다.
-    //     fetchTargetCuts/CUT_KEYS(api/_lib/goal/repo.ts)는 listMissingCuts(관리자의
-    //     "컷 만들기" 버튼) 등 범용 소비처가 있어 고치지 않고, 여기 호출부에서
-    //     수시 2종만 걸러 응답한다(§7-1-A 1번).
-    if (!hasSusiCuts) {
-      const susiMissing = missing.filter(
-        (key) => key === "idealNaesin" || key === "minNaesin",
-      );
-      return res.status(422).json({
-        detail: "목표 대학의 합격 기준 데이터가 아직 준비되지 않았습니다.",
-        reason: "cut_not_found",
-        missing: susiMissing,
       });
+    } catch (error) {
+      console.error("goal/intake error:", error);
+      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
     }
-
-    // 11) 확률 스냅샷 — row 에 저장한 것과 같은 null 판정(baseProbsForStorage)을
-    //     그대로 넘긴다. state.baseProbs 원값을 직접 넘기면 정시 컷이 없을 때
-    //     0 이 들어가 goal_students(null)와 어긋난다.
-    await appendProbabilityLog(
-      supabaseAdmin,
-      profileId,
-      baseProbsForStorage,
-      "intake",
-    );
-
-    // 11-b) QA 행301(a) — 온보딩 최초 학습방향 리포트. naesin_scores/mock_exam_scores는
-    //       savedRow 그대로 넘겨 새 shape(groupAverages/rounds, 병렬 유닛 소유)이 이미
-    //       반영돼 있으면 우선 쓰고, 아니면 이 지점에서 파이프라인이 막 계산한 대표값
-    //       (converted_grade/current_mogo)으로 폴백한다(report.ts ensureDirectionReports의
-    //       fallback과 동일 값 소스). 실제 조립·저장은 regenerateDirectionReports로
-    //       뗐다 — 내 정보 수정 부분 업데이트와 공유한다(그 함수 JSDoc 참고).
-    await regenerateDirectionReports(supabaseAdmin, profileId, savedRow);
-
-    // 12) 응답 — GET /api/goal/student 와 완전히 같은 본문을 담는다.
-    //     뷰를 다시 읽는 이유는 두 엔드포인트가 같은 조립 경로를 타게 하기 위해서다
-    //     (온보딩 직후에는 누적 증분이 0 이라 값은 base 와 같다).
-    const [stateRow, profileName] = await Promise.all([
-      fetchStudentStateRow(supabaseAdmin, profileId),
-      fetchProfileName(supabaseAdmin, profileId),
-    ]);
-
-    return res.status(200).json({
-      ok: true,
-      // historyRows/recentAvgStudyHours는 온보딩 직후라 비어 있거나 무의미하다(확률
-      // 스냅샷은 방금 1건 막 쌓였고, 최근 7일 순공시간은 아직 없다) — GET student와
-      // 달리 여기서는 계산하지 않고 기본값(빈 배열/null)에 맡긴다. profile.name만
-      // GET /api/goal/student와 동일 규약으로 채운다.
-      student: buildStudentPayload(
-        savedRow,
-        stateRow,
-        state.schoolCutType,
-        [],
-        profileName,
-      ),
-    });
-  } catch (error) {
-    console.error("goal/intake error:", error);
-    return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");
-  }
-}
+  })
+  .all("/", methodNotAllowed("POST"));

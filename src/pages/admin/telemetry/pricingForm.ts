@@ -6,7 +6,7 @@ export type PricingRow = {
   output: string;
 };
 
-export type ModelPricingValue = {
+type ModelPricingValue = {
   input_usd_per_1m: number;
   output_usd_per_1m: number;
   cached_input_usd_per_1m: number;

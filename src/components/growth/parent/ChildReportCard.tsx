@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { formatKoreanDate } from "@/components/growth/reports/reportsLogic";
 import type { ReportListItem } from "@/lib/growth/api";
 
-export function childReportPath(childId: string, reportId: string): string {
+function childReportPath(childId: string, reportId: string): string {
   return `/mypage/children/${childId}/growth/${reportId}`;
 }
 

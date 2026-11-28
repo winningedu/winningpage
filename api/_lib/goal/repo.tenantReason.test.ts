@@ -5,9 +5,6 @@ const access = vi.hoisted(() => ({
   result: { allowed: false, reason: null as string | null },
 }));
 
-vi.mock("../httpAuth.js", () => ({
-  resolveUser: async () => ({ userId: "u1" }),
-}));
 vi.mock("../supabaseAdmin.js", () => ({
   getEnv: (key: string) => process.env[key] ?? "",
   createSupabaseAdmin: () => ({}),
@@ -19,7 +16,8 @@ vi.mock("../serviceAccess.js", async (importOriginal) => ({
 
 import { openGoalSession } from "./repo.js";
 
-const req = { headers: { authorization: "Bearer t" } } as never;
+// user() 미들웨어를 지난 요청의 컨텍스트. openGoalSession 은 c.var 의 DB 클라이언트와 본인 id 만 읽는다.
+const req = { var: { supabaseAdmin: {}, user: { id: "u1" } } } as never;
 
 beforeEach(() => vi.unstubAllEnvs());
 

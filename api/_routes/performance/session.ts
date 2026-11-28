@@ -42,9 +42,19 @@
 // ── 회차는 차감하지 않는다 (§9.3 "세션 생성 | 없음")
 //    quotaRemaining은 안내용 스냅샷으로만 응답에 싣는다.
 
-import type { VercelResponse } from "@vercel/node";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import type { Context } from "hono";
+import type { z } from "zod";
+import {
+  type basicInfoSchema,
+  sessionBody,
+  type sessionDetailResponse,
+  sessionQuery,
+  type sessionWriteResponse,
+} from "../../../shared/performance/session.js";
+import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   isPreviousTopicValid,
   joinPreviousTopics,
@@ -67,14 +77,6 @@ const SERVICE_KEY = "suhaeng";
 // "진행 중 미차감"의 대상이 아니다(bootstrap.js RESUMABLE_STATUSES와 같은 축).
 const UNCHARGED_CANDIDATE_STATUSES = ["draft", "in_progress"];
 
-const REQUIRED_BASIC_INFO_FIELDS = [
-  "gradeLabel",
-  "semester",
-  "subjectGroup",
-  "subject",
-  "careerGoal",
-] as const;
-
 const SESSION_COLUMNS = [
   "id",
   "status",
@@ -90,9 +92,6 @@ const SESSION_COLUMNS = [
   "created_at",
   "updated_at",
 ].join(",");
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // GET 전용 — POST(SESSION_COLUMNS)엔 없는 `guide_input_mode`/`selected_topic_id`를
 // 더 싣는다. 재개 분기 판정표(§5.4)가 이 두 컬럼으로 ⓐ/ⓑ/ⓒ를 가른다.
@@ -123,7 +122,7 @@ const MAX_ROUNDS = TOPIC_MAX_ROUNDS;
 type SessionRow = {
   id: string;
   status: string;
-  current_step: number | null;
+  current_step: number;
   completed_steps: unknown;
   grade_label: string | null;
   semester: string | null;
@@ -160,17 +159,16 @@ type BasicInfoColumns = {
 
 type NormalizeBasicInfoResult =
   | { ok: true; columns: BasicInfoColumns }
-  | { ok: false; code: "INVALID_BASIC_INFO" }
-  | { ok: false; code: "MISSING_FIELD"; field: string };
+  | { ok: false; code: "INVALID_BASIC_INFO" };
 
 function fail(
-  res: VercelResponse,
+  c: Context,
   status: number,
   code: string,
   message: string,
   extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code, extra);
+  return problemResponse(c, status, message, code, extra);
 }
 
 /** `recommend-topics.js`의 `toClientTopic`과 같은 모양(§8.3 `performance_topics` 계약). */
@@ -208,53 +206,31 @@ function toClientSession(row: SessionRow) {
 }
 
 /**
- * `basicInfo`를 검증하고 DB 컬럼명으로 정규화한다. **`school_type`은 여기서 절대
- * 읽지 않는다** — 이 함수가 꺼내는 키는 아래 6개가 전부이며, 그 외 클라이언트가
- * 무엇을 보내든 무시된다(신뢰 경계, Q61-ⓔ).
+ * 형식을 통과한 `basicInfo`의 이전 주제 한도를 판정하고 DB 컬럼명으로 정규화한다. **`school_type`은 여기서 절대
+ * 읽지 않는다** — 스키마가 통과시키는 키는 아래 6개가 전부이며, 그 외 클라이언트가
+ * 무엇을 보내든 버려진다(신뢰 경계, Q61-ⓔ).
  */
-export function normalizeBasicInfo(raw: unknown): NormalizeBasicInfoResult {
-  if (!raw || typeof raw !== "object") {
-    return { ok: false, code: "INVALID_BASIC_INFO" };
-  }
-
-  const source = raw as Record<string, unknown>;
-  const clean: Record<string, string> = {};
-  for (const key of [
-    "gradeLabel",
-    "semester",
-    "subjectGroup",
-    "subject",
-    "careerGoal",
-    "previousTopic",
-  ]) {
-    const value = source[key];
-    clean[key] = typeof value === "string" ? value.trim() : "";
-  }
-
-  for (const field of REQUIRED_BASIC_INFO_FIELDS) {
-    if (!clean[field]) {
-      return { ok: false, code: "MISSING_FIELD", field };
-    }
-  }
-
+export function normalizeBasicInfo(
+  basicInfo: z.output<typeof basicInfoSchema>,
+): NormalizeBasicInfoResult {
   // 이전 주제는 줄바꿈으로 이은 최대 5개 항목이다(개수와 항목 길이 상한은 공용 모듈).
-  if (!isPreviousTopicValid(clean.previousTopic ?? "")) {
+  const previousTopic = basicInfo.previousTopic ?? "";
+  if (!isPreviousTopicValid(previousTopic)) {
     return { ok: false, code: "INVALID_BASIC_INFO" };
   }
 
   return {
     ok: true,
     columns: {
-      // REQUIRED_BASIC_INFO_FIELDS 검증(위 루프)을 통과했으므로 5개 필드 모두 존재한다.
-      grade_label: clean.gradeLabel!,
-      semester: clean.semester!,
-      subject_group: clean.subjectGroup!,
-      subject: clean.subject!,
-      career_goal: clean.careerGoal!,
+      grade_label: basicInfo.gradeLabel,
+      semester: basicInfo.semester,
+      subject_group: basicInfo.subjectGroup,
+      subject: basicInfo.subject,
+      career_goal: basicInfo.careerGoal,
       // 프롬프트 기본값 '없음'은 애플리케이션(추천 프롬프트) 레이어의 몫이다(§8.3) —
       // 여기서는 미입력을 있는 그대로 null로 저장한다.
       previous_topic:
-        joinPreviousTopics(splitPreviousTopics(clean.previousTopic)) || null,
+        joinPreviousTopics(splitPreviousTopics(previousTopic)) || null,
     },
   };
 }
@@ -292,34 +268,39 @@ async function findUnchargedSession(
   return rows.find((row) => !chargedIds.has(row.id)) || null;
 }
 
-export default defineHandler({
-  methods: ["GET", "POST"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "GET 또는 POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+const guard = user({
   unhandledMessage: "세션 처리에 실패했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "performance/session",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const userId = requireUserId(ctx);
-    // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
-    const serviceConfig = SERVICE_CONFIGS[SERVICE_KEY]!;
+});
 
-    // ── 이용권 재판정. §8.6 공통 규약 — 클라이언트 가드 통과 여부를 신뢰하지 않는다.
-    const { allowed: hasAccess, reason: accessReason } =
-      await hasPaidServiceAccess(supabaseAdmin, userId, serviceConfig);
-    if (!hasAccess) {
-      return fail(
-        res,
-        403,
-        "NO_ENTITLEMENT",
-        "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
-        tenantReasonExtra(accessReason),
-      );
-    }
+/** 이용권을 다시 판정한다(§8.6 공통 규약). 거절이면 403 응답을, 통과면 null 을 돌려준다. */
+async function denyWithoutEntitlement(c: Context<UserEnv>) {
+  // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
+  const { allowed: hasAccess, reason: accessReason } =
+    await hasPaidServiceAccess(
+      c.var.supabaseAdmin,
+      c.var.user.id,
+      SERVICE_CONFIGS[SERVICE_KEY]!,
+    );
+  if (hasAccess) return null;
+  return fail(
+    c,
+    403,
+    "NO_ENTITLEMENT",
+    "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
+    tenantReasonExtra(accessReason),
+  );
+}
+
+export const session = userFactory
+  .createApp()
+  .get("/", guard, validate("query", sessionQuery), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
+
+    const denied = await denyWithoutEntitlement(c);
+    if (denied) return denied;
 
     // ─────────────────────────────────────────────────────────────────
     // GET — 재개 분기 판정표(§5.4 `3754:5028`, 2370행) 재료 조회. §8.6 표에는 없는
@@ -333,117 +314,91 @@ export default defineHandler({
     //   (이 파일은 판정하지 않고 재료만 준다 — §8.3 "판정은 서버 소유"는 스키마 판정류
     //   얘기이고, 여기 분기는 순수 존재 여부라 클라이언트에서 갈라도 위조 여지가 없다).
     // ─────────────────────────────────────────────────────────────────
-    if (req.method === "GET") {
-      const sessionId =
-        typeof req.query?.sessionId === "string"
-          ? req.query.sessionId.trim()
-          : "";
-      if (!UUID_RE.test(sessionId)) {
-        return fail(
-          res,
-          400,
-          "INVALID_SESSION_ID",
-          "sessionId가 올바르지 않습니다.",
-        );
-      }
+    const { sessionId } = c.req.valid("query");
 
-      const { data: sessionData, error: sessionError } = await supabaseAdmin
-        .from("performance_sessions")
-        .select(GET_SESSION_COLUMNS)
-        .eq("id", sessionId)
-        .eq("profile_id", userId)
-        .maybeSingle();
+    const { data: sessionData, error: sessionError } = await supabaseAdmin
+      .from("performance_sessions")
+      .select(GET_SESSION_COLUMNS)
+      .eq("id", sessionId)
+      .eq("profile_id", userId)
+      .maybeSingle();
 
-      if (sessionError)
-        throw new Error(`세션 조회 실패: ${sessionError.message}`);
-      if (!sessionData) {
-        return fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.");
-      }
-
-      const sessionRow = sessionData as unknown as SessionRow;
-
-      const { data: topicRows, error: topicsError } = await supabaseAdmin
-        .from("performance_topics")
-        .select("id,round,idx,title,subtitle,tags,detail,selected")
-        .eq("session_id", sessionRow.id)
-        .order("round", { ascending: true })
-        .order("idx", { ascending: true });
-
-      if (topicsError)
-        throw new Error(`주제 조회 실패: ${topicsError.message}`);
-
-      const allTopics: TopicRow[] = topicRows || [];
-      const lastRound = allTopics.reduce(
-        (max, row) => Math.max(max, Number(row.round) || 0),
-        0,
-      );
-      const latestRoundTopics = allTopics
-        .filter((row) => Number(row.round) === lastRound)
-        .map(toClientTopic);
-
-      // 확정 주제 제목 — 최신 라운드에 있으면 그대로 쓰고, 옛 라운드의 주제를 확정한
-      // 경우(재추천 뒤 이전 라운드 주제를 골랐을 리는 없지만 방어적으로)에만 추가 조회한다.
-      let selectedTopicTitle: string | null = null;
-      if (sessionRow.selected_topic_id) {
-        const inLatest = latestRoundTopics.find(
-          (topic) => topic.id === sessionRow.selected_topic_id,
-        );
-        if (inLatest) {
-          selectedTopicTitle = inLatest.title;
-        } else {
-          const { data: topicRow, error: topicRowError } = await supabaseAdmin
-            .from("performance_topics")
-            .select("title")
-            .eq("id", sessionRow.selected_topic_id)
-            .maybeSingle();
-          if (topicRowError)
-            throw new Error(`확정 주제 조회 실패: ${topicRowError.message}`);
-          selectedTopicTitle = topicRow?.title || null;
-        }
-      }
-
-      res.status(200).json({
-        session: {
-          ...toClientSession(sessionRow),
-          guideInputMode: sessionRow.guide_input_mode,
-          selectedTopicId: sessionRow.selected_topic_id || null,
-          selectedTopicTitle,
-        },
-        topics: latestRoundTopics,
-        round: lastRound,
-        maxRounds: MAX_ROUNDS,
-      });
-      return;
+    if (sessionError)
+      throw new Error(`세션 조회 실패: ${sessionError.message}`);
+    if (!sessionData) {
+      return fail(c, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.");
     }
 
-    const body = req.body && typeof req.body === "object" ? req.body : {};
-    const action = body.action;
-    if (action !== "create" && action !== "resume") {
-      return fail(
-        res,
-        400,
-        "INVALID_ACTION",
-        "action은 'create' 또는 'resume'이어야 합니다.",
+    const sessionRow = sessionData as unknown as SessionRow;
+
+    const { data: topicRows, error: topicsError } = await supabaseAdmin
+      .from("performance_topics")
+      .select("id,round,idx,title,subtitle,tags,detail,selected")
+      .eq("session_id", sessionRow.id)
+      .order("round", { ascending: true })
+      .order("idx", { ascending: true });
+
+    if (topicsError) throw new Error(`주제 조회 실패: ${topicsError.message}`);
+
+    const allTopics: TopicRow[] = topicRows || [];
+    const lastRound = allTopics.reduce(
+      (max, row) => Math.max(max, Number(row.round) || 0),
+      0,
+    );
+    const latestRoundTopics = allTopics
+      .filter((row) => Number(row.round) === lastRound)
+      .map(toClientTopic);
+
+    // 확정 주제 제목 — 최신 라운드에 있으면 그대로 쓰고, 옛 라운드의 주제를 확정한
+    // 경우(재추천 뒤 이전 라운드 주제를 골랐을 리는 없지만 방어적으로)에만 추가 조회한다.
+    let selectedTopicTitle: string | null = null;
+    if (sessionRow.selected_topic_id) {
+      const inLatest = latestRoundTopics.find(
+        (topic) => topic.id === sessionRow.selected_topic_id,
       );
+      if (inLatest) {
+        selectedTopicTitle = inLatest.title;
+      } else {
+        const { data: topicRow, error: topicRowError } = await supabaseAdmin
+          .from("performance_topics")
+          .select("title")
+          .eq("id", sessionRow.selected_topic_id)
+          .maybeSingle();
+        if (topicRowError)
+          throw new Error(`확정 주제 조회 실패: ${topicRowError.message}`);
+        selectedTopicTitle = topicRow?.title || null;
+      }
     }
+
+    return c.json({
+      session: {
+        ...toClientSession(sessionRow),
+        guideInputMode: sessionRow.guide_input_mode ?? null,
+        selectedTopicId: sessionRow.selected_topic_id || null,
+        selectedTopicTitle,
+      },
+      topics: latestRoundTopics,
+      round: lastRound,
+      maxRounds: MAX_ROUNDS,
+    } satisfies z.input<typeof sessionDetailResponse>);
+  })
+  .post("/", guard, validate("json", sessionBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
+    // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
+    const serviceConfig = SERVICE_CONFIGS[SERVICE_KEY]!;
+
+    const denied = await denyWithoutEntitlement(c);
+    if (denied) return denied;
+
+    const { action, basicInfo: rawBasicInfo } = c.req.valid("json");
 
     let basicInfo: BasicInfoColumns | null = null;
-    if (body.basicInfo !== undefined && body.basicInfo !== null) {
-      const result = normalizeBasicInfo(body.basicInfo);
+    if (rawBasicInfo) {
+      const result = normalizeBasicInfo(rawBasicInfo);
       if (result.ok === false) {
-        if (result.code === "MISSING_FIELD") {
-          return fail(
-            res,
-            400,
-            "MISSING_FIELD",
-            `${result.field}은(는) 필수입니다.`,
-            {
-              field: result.field,
-            },
-          );
-        }
         return fail(
-          res,
+          c,
           400,
           "INVALID_BASIC_INFO",
           "basicInfo 형식이 올바르지 않습니다.",
@@ -471,7 +426,7 @@ export default defineHandler({
       // 문서화했으므로 여기서 막는다(차감 로직 자체는 건드리지 않는다, 파일 상단 주석).
       if (unchargedSession) {
         return fail(
-          res,
+          c,
           409,
           "UNCHARGED_SESSION_EXISTS",
           "이미 진행 중인 미차감 세션이 있습니다. 이어서 진행하거나 폐기한 뒤 다시 시작해 주세요.",
@@ -507,18 +462,20 @@ export default defineHandler({
       if (insertError)
         throw new Error(`세션 생성 실패: ${insertError.message}`);
 
-      res.status(201).json({
-        session: toClientSession(created as unknown as SessionRow),
-        quotaRemaining: quota.quotaRemaining,
-      });
-      return;
+      return c.json(
+        {
+          session: toClientSession(created as unknown as SessionRow),
+          quotaRemaining: quota.quotaRemaining,
+        } satisfies z.input<typeof sessionWriteResponse>,
+        201,
+      );
     }
 
     // action === 'resume' — 프로필당 하나뿐인 미차감 세션을 이어받는다(sessionId를
     // 요청에서 받지 않는다, 파일 상단 주석).
     if (!unchargedSession) {
       return fail(
-        res,
+        c,
         404,
         "NO_UNCHARGED_SESSION",
         "이어받을 미차감 세션이 없습니다.",
@@ -558,12 +515,12 @@ export default defineHandler({
       resultRow = updated as unknown as SessionRow;
     }
 
-    res.status(201).json({
-      session: toClientSession(resultRow),
-      quotaRemaining: quota.quotaRemaining,
-    });
-  },
-});
-
-// 실행 시간: 모델을 부르지 않으므로 형제 라우트의 `maxDuration: 60`이 필요 없다.
-export const config = { runtime: "nodejs" };
+    return c.json(
+      {
+        session: toClientSession(resultRow),
+        quotaRemaining: quota.quotaRemaining,
+      },
+      201,
+    );
+  })
+  .all("/", methodNotAllowed("GET", "POST"));

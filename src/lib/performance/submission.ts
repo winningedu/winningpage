@@ -34,7 +34,15 @@
 // 거절"이 생긴다(§8.3 「시안 카운터와 동일 계산식 공유」). `submission-chars.js`는 의존이
 // 0인 잎 모듈이라 브라우저 번들에 들어가도 서버 코드를 끌고 오지 않는다 — 그 파일 상단
 // 주석이 "import를 추가하지 마라"로 그 성질을 계약으로 못박고 있다.
-import { apiFetch } from "../apiFetch";
+import type { z } from "zod";
+import {
+  clientSubmissionSchema,
+  type SubmissionBodyInput,
+  submissionFormResponse,
+  submissionSaveResponse,
+} from "../../../shared/performance/submission.js";
+import { api } from "../http/client";
+import { type PerformanceResult, performanceRequest } from "./apiClient";
 
 export {
   checkFieldsMinLength,
@@ -64,16 +72,8 @@ const FALLBACK_MESSAGE = {
 const GENERIC_MESSAGE =
   "제출물을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.";
 
-/** 저장 응답에서 초안 잔여 상태만 뽑아낸 모양(`pickSaved`가 만든다). */
-type SavedState = {
-  submissionId: string;
-  revision: unknown;
-  charCounts: Record<string, unknown>;
-  savedAt: unknown;
-  isDraft: boolean;
-  isFinal: boolean;
-  submittedAt: unknown;
-};
+/** 제출 게이트 실패에 실리는 초안 잔여 상태(`pickSaved`가 만든다). 성공 응답의 제출본과 같은 모양이다. */
+type SavedState = z.output<typeof clientSubmissionSchema>;
 
 /**
  * 화면이 분기에 쓸 수 있는 형태로 실패를 감싼다.
@@ -114,32 +114,17 @@ class SubmissionError extends Error {
   }
 }
 
-// data: response.json() 파싱 결과 — 성공/실패 응답이 같은 키를 부분적으로만 공유해 any로 둔다.
-/** 저장 응답에서 초안 잔여 상태만 뽑는다(게이트 실패 응답도 같은 키를 갖는다). */
-function pickSaved(data: any): SavedState | null {
-  if (!data?.submissionId) return null;
-  return {
-    submissionId: data.submissionId,
-    revision: data.revision ?? null,
-    charCounts:
-      data.charCounts && typeof data.charCounts === "object"
-        ? data.charCounts
-        : {},
-    savedAt: data.savedAt ?? null,
-    isDraft: data.isDraft === true,
-    isFinal: data.isFinal === true,
-    submittedAt: data.submittedAt ?? null,
-  };
+/** 실패 응답의 확장 멤버에서 초안 잔여 상태만 뽑는다(게이트 실패 응답은 제출본과 같은 키를 갖는다). */
+function pickSaved(extra: unknown): SavedState | null {
+  const parsed = clientSubmissionSchema.safeParse(extra);
+  return parsed.success ? parsed.data : null;
 }
 
-// data: response.json() 파싱 결과 — 에러 코드별로 부가 필드가 달라 any로 둔다.
-function toError(data: any, response: Response | undefined) {
-  const code =
-    data?.error?.code ||
-    (response?.status === 401 ? "UNAUTHENTICATED" : "UNKNOWN");
+function toError(failure: Extract<PerformanceResult<unknown>, { ok: false }>) {
+  const { code, extra: data } = failure;
   return new SubmissionError(
     code,
-    data?.error?.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
+    failure.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
     {
       saved: pickSaved(data),
       missingRequired: Array.isArray(data?.missingRequired)
@@ -155,7 +140,6 @@ function toError(data: any, response: Response | undefined) {
 /**
  * STEP5 제출폼 렌더 재료 1회 조회.
  * @param {{accessToken: string, sessionId: string}} params
- * @returns {Promise<{schema: object, submission: object|null, minChars: number, maxRevisions: number}>}
  * @throws {SubmissionError}
  */
 export async function fetchSubmissionForm({
@@ -165,12 +149,16 @@ export async function fetchSubmissionForm({
   accessToken: string;
   sessionId: string;
 }) {
-  let response: Response;
+  let result: PerformanceResult<z.output<typeof submissionFormResponse>>;
 
   try {
-    response = await apiFetch(
-      `/api/performance/submission?sessionId=${encodeURIComponent(sessionId)}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+    result = await performanceRequest(
+      api
+        .get("performance/submission", {
+          searchParams: { sessionId },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        .json(submissionFormResponse),
     );
   } catch (error) {
     const wrapped = new SubmissionError("NETWORK", NETWORK_ERROR);
@@ -178,10 +166,9 @@ export async function fetchSubmissionForm({
     throw wrapped;
   }
 
-  const data = await response.json().catch(() => null);
-  if (!response.ok) throw toError(data, response);
+  if (!result.ok) throw toError(result);
 
-  return data;
+  return result.data;
 }
 
 /**
@@ -191,7 +178,6 @@ export async function fetchSubmissionForm({
  *   mode: 'draft'|'submit'}} params `fields`는 **스키마에 선언된 키만** 담아야 한다
  *   (서버가 나머지를 `400 UNKNOWN_FIELD`로 거절한다 — 조용히 버리면 학생이 쓴 내용이
  *   소리 없이 사라지기 때문이다).
- * @returns {Promise<object>} 저장 응답 전체.
  * @throws {SubmissionError}
  */
 export async function saveSubmission({
@@ -205,25 +191,24 @@ export async function saveSubmission({
   fields: Record<string, string>;
   mode: "draft" | "submit";
 }) {
-  let response: Response;
+  let result: PerformanceResult<z.output<typeof submissionSaveResponse>>;
 
   try {
-    response = await apiFetch("/api/performance/submission", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ sessionId, fields, mode }),
-    });
+    result = await performanceRequest(
+      api
+        .put("performance/submission", {
+          json: { sessionId, fields, mode } satisfies SubmissionBodyInput,
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        .json(submissionSaveResponse),
+    );
   } catch (error) {
     const wrapped = new SubmissionError("NETWORK", NETWORK_ERROR);
     wrapped.cause = error;
     throw wrapped;
   }
 
-  const data = await response.json().catch(() => null);
-  if (!response.ok) throw toError(data, response);
+  if (!result.ok) throw toError(result);
 
-  return data;
+  return result.data;
 }

@@ -37,8 +37,8 @@ describe("§8.6 API 요청 형태 (src/lib/performance/evaluation.ts)", () => {
   const libCode = stripLineComments(libSource);
 
   test("evaluate/finalize 두 엔드포인트를 부른다", () => {
-    expect(libSource.includes('"/api/performance/evaluate"')).toBe(true);
-    expect(libSource.includes('"/api/performance/finalize"')).toBe(true);
+    expect(libSource.includes('"performance/evaluate"')).toBe(true);
+    expect(libSource.includes('"performance/finalize"')).toBe(true);
   });
 
   test("evaluate 요청 바디가 `{ sessionId, submissionId }`다(제출 원고를 다시 보내지 않는다)", () => {

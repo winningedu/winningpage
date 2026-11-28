@@ -17,7 +17,7 @@
 //   요청  `POST /api/performance/finalize` `{ sessionId, submissionId, action }`
 //   성공  `200 { submission{...}, finalReportId, reused, charged:false }`
 //         `action:'new_assessment'`면 `{ nextSessionId, nextSessionCreated }` 추가.
-//   실패  `400 NO_EVALUATION_YET|INVALID_ACTION` / `409 ALREADY_FINALIZED_OTHER{finalSubmissionId}`
+//   실패  `400 NO_EVALUATION_YET|VALIDATION_FAILED` / `409 ALREADY_FINALIZED_OTHER{finalSubmissionId}`
 //         / `403`·`404`는 evaluate와 동일 / `500 INTERNAL`.
 //
 // ── 회차 (§9.3) — 이 두 호출은 **차감 지점이 아니다**
@@ -39,8 +39,23 @@
 //   `guideUpload.js`/`topics.js`/`designReport.js`가 이미 쓰는 규약이라 읽는 쪽이 출처를
 //   따지지 않아도 된다.
 
+import type { z } from "zod";
+import {
+  type EvaluateBodyInput,
+  evaluateResponse,
+} from "../../../shared/performance/evaluate.js";
+import {
+  type FinalizeBodyInput,
+  finalizeResponse,
+} from "../../../shared/performance/finalize.js";
+import { api } from "../http/client";
 import { entitlementDeniedMessage } from "../tenantBlock";
-import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "./apiClient";
+import {
+  AI_CALL_TIMEOUT_MS,
+  DEFAULT_TIMEOUT_MS,
+  type PerformanceResult,
+  performanceRequest,
+} from "./apiClient";
 
 const NETWORK_ERROR =
   "네트워크 오류가 발생했어요. 연결을 확인하고 다시 시도해 주세요.";
@@ -118,28 +133,26 @@ class EvaluationRequestError extends Error {
 }
 
 /** 두 호출이 공유하는 fetch + 실패 변환. 성공 응답 본문을 그대로 돌려준다. */
-async function postJson(
-  path: string,
-  body: Record<string, unknown>,
+async function postJson<T>(
+  path: "performance/evaluate" | "performance/finalize",
+  body: EvaluateBodyInput | FinalizeBodyInput,
+  schema: z.ZodType<T>,
   accessToken: string,
   fallbackMap: Record<string, string>,
   genericMessage: string,
-  timeoutMs?: number,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ) {
-  let response: Response;
+  let result: PerformanceResult<T>;
 
   try {
-    response = await fetchWithTimeout(
-      path,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(body),
-      },
-      timeoutMs,
+    result = await performanceRequest(
+      api
+        .post(path, {
+          json: body,
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: timeoutMs,
+        })
+        .json(schema),
     );
   } catch (error) {
     const wrapped = new EvaluationRequestError("NETWORK", NETWORK_ERROR);
@@ -147,17 +160,15 @@ async function postJson(
     throw wrapped;
   }
 
-  // 플랫폼이 함수를 죽이면(504 등) 본문이 비어 파싱이 실패한다 — 그때도 화면에는 무언가
-  // 말해야 하므로 null로 받고 폴백으로 간다.
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const code = data?.error?.code || "UNKNOWN";
+  // 플랫폼이 함수를 죽이면(504 등) 본문이 비어 서버 문구가 없다. 그때도 화면에는 무언가
+  // 말해야 하므로 message 가 null 이면 폴백으로 간다.
+  if (!result.ok) {
+    const { code, extra: data } = result;
     throw new EvaluationRequestError(
       code,
       entitlementDeniedMessage(
         code,
-        data?.error?.message || fallbackMap[code] || genericMessage,
+        result.message || fallbackMap[code] || genericMessage,
         data?.tenantReason,
       ),
       {
@@ -170,14 +181,13 @@ async function postJson(
     );
   }
 
-  return data;
+  return result.data;
 }
 
 /**
  * 평가 리포트 1회. 같은 `submissionId`로 다시 부르면 모델을 부르지 않고 저장분을 돌려준다.
  *
  * @param {{accessToken: string, sessionId: string, submissionId: string}} params
- * @returns {Promise<object>} §8.6 성공 응답 전체.
  * @throws {EvaluationRequestError}
  */
 export async function requestEvaluation({
@@ -190,8 +200,9 @@ export async function requestEvaluation({
   submissionId: string;
 }) {
   return postJson(
-    "/api/performance/evaluate",
+    "performance/evaluate",
     { sessionId, submissionId },
+    evaluateResponse,
     accessToken,
     EVALUATE_FALLBACK,
     EVALUATE_GENERIC,
@@ -222,8 +233,9 @@ export async function finalizeSubmission({
   action: "confirm" | "new_assessment";
 }) {
   return postJson(
-    "/api/performance/finalize",
+    "performance/finalize",
     { sessionId, submissionId, action },
+    finalizeResponse,
     accessToken,
     FINALIZE_FALLBACK,
     FINALIZE_GENERIC,

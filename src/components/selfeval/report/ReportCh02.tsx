@@ -21,7 +21,7 @@ const KIND_STYLE: Record<ReportRecordKind, string> = {
 const KINDS: readonly ReportRecordKind[] = ["performance", "deep", "activity"];
 
 /** 예: 수행 2, 심화 2(진행 중 1), 반영 문장 8개 */
-export function subjectCountLine(subject: ReportCh02Subject): string {
+function subjectCountLine(subject: ReportCh02Subject): string {
   const parts = KINDS.filter((kind) => subject.counts[kind] > 0).map((kind) => {
     const inProgress = subject.inProgress[kind];
     const suffix = inProgress > 0 ? `(진행 중 ${inProgress})` : "";

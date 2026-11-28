@@ -16,15 +16,10 @@ export type SemesterKey =
   | "고3-1"
   | "고3-2";
 export type GradeSystem = "five" | "nine";
-export type Sufficiency = "enough" | "insufficient" | "none";
+type Sufficiency = "enough" | "insufficient" | "none";
 
 // ── 설문 ──────────────────────────────────────────────────────────────
-export type SurveyKind =
-  | "text"
-  | "choice"
-  | "multi"
-  | "department"
-  | "universities";
+type SurveyKind = "text" | "choice" | "multi" | "department" | "universities";
 
 export type SurveyQuestion = {
   key: string;
@@ -62,14 +57,9 @@ export type ProfileInitial = {
   source: "goal";
 };
 
-export type ResumePhase =
-  | "survey"
-  | "collect"
-  | "generating"
-  | "report"
-  | "plan";
+type ResumePhase = "survey" | "collect" | "generating" | "report" | "plan";
 
-export type OpenReportCard = {
+type OpenReportCard = {
   startedAt: string;
   lastSavedAt: string;
   stepLabel: string;
@@ -101,13 +91,13 @@ export type SourceCounts = {
   total: number;
 };
 
-export type GroupCounts = {
+type GroupCounts = {
   curricular: number;
   extracurricular: number;
   unclassified: number;
 };
 
-export type FirstYearSufficiency = {
+type FirstYearSufficiency = {
   count: number;
   level: Sufficiency;
   label: string;
@@ -121,9 +111,9 @@ export type ActivityOverview = {
   firstYear: FirstYearSufficiency;
 };
 
-export type SurveyPrefill = Partial<
-  Record<"q5" | "q10" | "q11" | "q24", unknown>
-> & { filledFrom: "diagnosis" };
+type SurveyPrefill = Partial<Record<"q5" | "q10" | "q11" | "q24", unknown>> & {
+  filledFrom: "diagnosis";
+};
 
 export type SurveyBootstrap = {
   ok: true;
@@ -189,7 +179,7 @@ export type SemesterRow = {
   notice: string | null;
 };
 
-export type UploadStatus = "pending" | "processing" | "ok" | "failed";
+type UploadStatus = "pending" | "processing" | "ok" | "failed";
 
 export type CollectUpload = {
   id: string;
@@ -260,8 +250,8 @@ export type UploadUrlResult = {
   signedUrl: string;
 };
 
-export type ExtractField = "topic" | "concept" | "result" | "limitation";
-export type Extracted = Record<ExtractField, string | null>;
+type ExtractField = "topic" | "concept" | "result" | "limitation";
+type Extracted = Record<ExtractField, string | null>;
 
 export type ExtractResult = {
   ok: true;
@@ -303,17 +293,8 @@ export type ReportStepResponse = {
   completion?: { issuedAt: string; planItemCount: number };
 };
 
-/** 실패 응답의 extra 에 실리는 필드(attempts, issues, progress, terminal). */
-export type ReportStepFailureExtra = {
-  attempts?: number;
-  issues?: unknown;
-  progress?: StepProgress[];
-  /** true 면 회차가 종결된 것이다. */
-  terminal?: true;
-};
-
 // ── 저장 리포트(reports) ──────────────────────────────────────────────
-export type ReportStatus = "draft" | "in_progress" | "completed" | "archived";
+type ReportStatus = "draft" | "in_progress" | "completed" | "archived";
 
 export type ReportListItem = {
   id: string;
@@ -396,10 +377,10 @@ export type ReportDetail = {
 };
 
 // ── 실행계획(plan) ────────────────────────────────────────────────────
-export type PlanPeriod = "course_selection" | "semester" | "vacation";
-export type PlanPriority = "required" | "recommended";
+type PlanPeriod = "course_selection" | "semester" | "vacation";
+type PlanPriority = "required" | "recommended";
 export type PlanProgram = "school" | "self" | "deep";
-export type PlanDoneSource = "manual" | "self" | "deep";
+type PlanDoneSource = "manual" | "self" | "deep";
 export type Axis = string;
 
 export type PlanItemView = {

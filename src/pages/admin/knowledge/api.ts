@@ -45,10 +45,12 @@ export async function postKnowledgeBulk(
 // admin-embed 는 batch B4 가 바꾸지만 embedded, failed 두 필드는 그대로 둔다.
 const backfillSchema = z.object({ embedded: z.number(), failed: z.number() });
 
-export async function postEmbedBackfill(): Promise<BackfillRound> {
+export async function postEmbedBackfill(
+  knowledgeType: string,
+): Promise<BackfillRound> {
   return api
     .post("performance/admin-embed", {
-      json: { action: "backfill" },
+      json: { action: "backfill", knowledgeType },
       timeout: EMBED_TIMEOUT_MS,
     })
     .json(backfillSchema);

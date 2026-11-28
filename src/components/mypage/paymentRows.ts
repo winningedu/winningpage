@@ -169,7 +169,7 @@ export type DiscountOrderInput = {
     | null;
 };
 
-export type DiscountBreakdownRow = { label: string; amountText: string };
+type DiscountBreakdownRow = { label: string; amountText: string };
 
 function couponTitle(
   rel:

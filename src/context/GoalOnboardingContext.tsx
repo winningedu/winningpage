@@ -62,7 +62,7 @@ export interface NaesinGroupState {
   subjects: { name: string; grade: string }[];
 }
 
-export type NaesinGroups = Record<string, NaesinGroupState>;
+type NaesinGroups = Record<string, NaesinGroupState>;
 
 export interface NaesinExamState {
   groups: NaesinGroups;

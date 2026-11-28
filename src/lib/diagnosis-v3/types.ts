@@ -502,7 +502,7 @@ export type Page1 = {
   readonly one: { readonly title: string; readonly actions: readonly string[] };
 };
 
-export type LadderRung = {
+type LadderRung = {
   readonly source: string;
   readonly text: string;
 };

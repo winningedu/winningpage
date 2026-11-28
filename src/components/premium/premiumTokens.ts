@@ -45,8 +45,6 @@ export const PREMIUM_CARD_SHADOW_STYLE = {
 
 // 섹션 배경 베이지 — --color-surface-beige.
 export const PREMIUM_BEIGE_BG_CLASS = "bg-surface-beige";
-// 다크 카드/밴드 배경.
-export const PREMIUM_DARK_BG_CLASS = "bg-ink-dark";
 // natural 텍스트 톤(#808080) — --color-ink-natural.
 export const PREMIUM_NATURAL_TEXT_CLASS = "text-ink-natural";
 

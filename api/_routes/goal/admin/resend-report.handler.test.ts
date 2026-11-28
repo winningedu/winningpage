@@ -3,9 +3,9 @@
 // 쓰기는 알림톡 발송(sendXReport)뿐이라 발송 모듈은 가짜로 바꾼다.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { resendReportResponse } from "../../../../shared/goal/admin-students.js";
 import { seedAdmin } from "../../../_lib/admin-sections/sectionTestKit.js";
 import {
-  callHandler,
   createKitState,
   type KitState,
 } from "../../../_lib/console/consoleTestKit.js";
@@ -14,6 +14,7 @@ import {
   createGoalDb,
   type GoalDb,
 } from "../../../_lib/goal/adminStudentsTestKit.js";
+import { callHandler } from "../../../_lib/tenantRoute.testkit.js";
 
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
@@ -22,6 +23,7 @@ const kit = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createGoalAdmin(kit.state, kit.db),
 }));
@@ -35,7 +37,9 @@ vi.mock("../../../_lib/goal/reportSend.js", () => ({
   sendMonthlyReport: vi.fn(),
 }));
 
-import handler from "./resend-report.js";
+import { app } from "../../app.js";
+
+const handler = { app, path: "/api/goal/admin/resend-report" };
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const post = (body: unknown) => callHandler(handler, body, "POST");
@@ -64,6 +68,7 @@ afterEach(() => {
 describe("POST /api/goal/admin/resend-report", () => {
   test("edit 권한이면 발송하고 ok 없는 요약을 돌려준다", async () => {
     const r = await post(VALID);
+    expect(() => resendReportResponse.parse(r.body)).not.toThrow();
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
       sent: 1,

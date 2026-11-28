@@ -61,7 +61,7 @@ const ALL_SEMESTERS: readonly SemesterKey[] = [
   "고3-2",
 ];
 
-export type SemesterBadge = { tone: "ok" | "warn" | "none"; text: string };
+type SemesterBadge = { tone: "ok" | "warn" | "none"; text: string };
 
 export type SemesterItem = {
   key: SemesterKey;
@@ -135,7 +135,7 @@ export function buildSemesterItems(
 // ── 성적 ──────────────────────────────────────────────────────────────
 
 /** 등급 체계는 앱이 입학 연도로 정한다(No.120). 체계를 모르면 안내만 하고 입력을 받지 않는다. */
-export const NO_SYSTEM_NOTICE = "입학 연도를 입력하면 등급 체계가 정해져요";
+const NO_SYSTEM_NOTICE = "입학 연도를 입력하면 등급 체계가 정해져요";
 
 const GRADE_MAX: Record<GradeSystem, 5 | 9> = { five: 5, nine: 9 };
 
@@ -222,7 +222,7 @@ export function gradeSystemInfo(
 }
 
 /** 서버가 준 평균을 입력 칸 초기 문자열로 바꾼다(소수 첫째 자리). */
-export function averageToText(average: number | null): string {
+function averageToText(average: number | null): string {
   return average === null ? "" : String(Math.round(average * 10) / 10);
 }
 

@@ -1,13 +1,12 @@
 // 섹션 엔진 서버 쪽 규칙. 화면(Admin.tsx buildListQuery, saveRow)이 브라우저에서 하던 일을 옮겼다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { VercelResponse } from "@vercel/node";
 import type { Context } from "hono";
 import { PROBLEM_CODE } from "../../../shared/http/codes.js";
 import { SECTION_ERROR } from "../../../shared/sections/contract.js";
 import { RouteParamError } from "../handler.js";
 import { ProblemError } from "../hono/problem.js";
-import { sendError, VALIDATION_FAILED_MESSAGE } from "../httpResponse.js";
+import { VALIDATION_FAILED_MESSAGE } from "../httpResponse.js";
 import {
   getSection,
   PROTECTED_COLUMNS,
@@ -322,19 +321,6 @@ export function writeFailure(error: DbErrorLike, label: string): Error {
   const mapped = mapDbError(error);
   if (!mapped) return new Error(`${label} failed (${error.code ?? "unknown"})`);
   return new ProblemError(mapped.status, mapped.detail, mapped.code, {
-    columns: mapped.columns,
-  });
-}
-
-/** 쓰기 쿼리 오류를 계약대로 응답한다(옛 defineHandler 라우트용, Hono 라우트는 writeFailure). 매핑에 없는 오류는 던져 500 이 된다(원문은 로그에만). */
-export function failWrite(
-  res: VercelResponse,
-  error: DbErrorLike,
-  label: string,
-): void {
-  const mapped = mapDbError(error);
-  if (!mapped) throw new Error(`${label} failed (${error.code ?? "unknown"})`);
-  sendError(res, "problem", mapped.status, mapped.detail, mapped.code, {
     columns: mapped.columns,
   });
 }

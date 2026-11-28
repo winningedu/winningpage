@@ -6,7 +6,7 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { SectionEditAccessProvider } from "@/pages/admin/shared/sectionEditAccess";
 import TelemetryAdmin from "./TelemetryAdmin";
 
-export const totals = {
+const totals = {
   calls: 1234,
   okCalls: 1200,
   errorCalls: 34,

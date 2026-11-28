@@ -21,7 +21,7 @@ import { SUBJECT_GROUP } from "../../../../api/_lib/activityGroup.js";
 
 // ── 기본 정보 폼 ──────────────────────────────────────────────────────
 
-export const FIELD_MAX_CHARS = 80;
+const FIELD_MAX_CHARS = 80;
 
 export type InfoForm = {
   gradeLabel: GradeLabel | null;
@@ -109,7 +109,7 @@ export function initialForm({
 // ── 선택 자산 목록(로컬 상태) ───────────────────────────────────────────
 // 첫 번째 항목이 출발 활동(primary)이다. "주제 3개 추천받기" 때 한 번에 postAssets 로 보낸다.
 
-export const ONELINE_MAX_CHARS = 200;
+const ONELINE_MAX_CHARS = 200;
 
 export type LocalAsset = {
   /** 목록 안에서 유일한 키. 기록은 record:{id}, 나머지는 {kind}:{번호}. */

@@ -32,7 +32,7 @@ export type Stage = "seed" | "flower" | "bloom";
 export type LinkKind = "followup" | "transfer" | "critique" | "extension";
 
 /** 연계 허용값(No.123). 간접(indirect)은 이번 범위에 없다. */
-export type LinkageType = "direct" | "interest_based_provisional";
+type LinkageType = "direct" | "interest_based_provisional";
 
 /** 학년 단계 적합도(No.110). 맞음, 보통, 어긋남. */
 export type Fit = "match" | "neutral" | "off";
@@ -41,20 +41,13 @@ export type Fit = "match" | "neutral" | "off";
 export type Reliability = "A" | "B" | "C";
 
 /** 자산 확보 경로(No.31). */
-export type AssetKind = "record" | "interview" | "oneline";
+type AssetKind = "record" | "interview" | "oneline";
 
 /** 생성 모드(No.122). */
-export type GenerationMode =
+type GenerationMode =
   | "topic_recommendation"
   | "design_report"
   | "evaluation_report";
-
-/** 생성 응답 status 허용값(No.122). */
-export type ResponseStatus =
-  | "ok"
-  | "provisional"
-  | "needs_selection"
-  | "needs_evidence";
 
 /** 보고서 8절 식별자(No.6). */
 export type SectionId = "I" | "II" | "III" | "IV" | "V" | "VI" | "VII" | "VIII";
@@ -90,7 +83,7 @@ export type SubmissionLabel =
   | "not_evaluable";
 
 /** 출처 상태 3종(No.96). 확인 완료는 조회 기록이 있을 때만 쓸 수 있다(1차 미도달). */
-export type SourceStatus =
+type SourceStatus =
   | "retrieved_verified"
   | "supplied_unverified"
   | "search_target";
@@ -160,7 +153,7 @@ export type RecordCandidate = {
 export type SubmissionSections = Record<SectionId, string>;
 
 /** 주제 12항목(No.49)과 서버 고정값. */
-export type TopicDetail = {
+type TopicDetail = {
   title: string;
   subtitle: string;
   question: string;
@@ -181,16 +174,8 @@ export type TopicDetail = {
   followUpQuestions: string[];
 };
 
-export type Topic = {
-  idx: 1 | 2 | 3;
-  linkKind: LinkKind;
-  linkageType: LinkageType;
-  fit: Fit;
-  detail: TopicDetail;
-};
-
 /** 설계 리포트 절별 설계(No.60). */
-export type SectionPlan = {
+type SectionPlan = {
   id: SectionId;
   role: string;
   must: string[];
@@ -199,21 +184,21 @@ export type SectionPlan = {
 };
 
 /** 자료 출처표 한 행(No.10). 1차는 source, asOf 가 항상 "확인 필요". */
-export type SourceTableRow = {
+type SourceTableRow = {
   item: string;
   source: string;
   asOf: string;
 };
 
 /** 검색 계획 한 행(No.64). */
-export type SearchPlanRow = {
+type SearchPlanRow = {
   keyword: string;
   institution: string;
   item: string;
 };
 
 /** 설계 리포트 본문(No.57~70). 상수 부분(루브릭, 체크리스트, 금지)은 저장하지 않고 조회 때 붙인다. */
-export type DesignReport = {
+type DesignReport = {
   verifiability: string;
   sections: SectionPlan[];
   sourceTable: SourceTableRow[];
@@ -234,7 +219,7 @@ export type RubricItemResult = {
   capReason: string | null;
 };
 
-export type CoreErrorResult = {
+type CoreErrorResult = {
   id: CoreErrorId;
   location: SectionId;
   detail: string;
@@ -283,7 +268,7 @@ export type ActivityFields = {
 };
 
 /** 성장설계 수신 8종(No.107). */
-export type GrowthHandoff = {
+type GrowthHandoff = {
   reportId: string;
   issuedAt: string;
   theme: string | null;
@@ -305,12 +290,12 @@ export type GrowthHandoff = {
 };
 
 /** 모델 응답 검증 이슈. */
-export type ValidationIssue = { code: string; message: string; path?: string };
+type ValidationIssue = { code: string; message: string; path?: string };
 
 // ── 뷰 타입(서버 views.ts 미러, 부록 A) ─────────────────────────────────────
 
 /** 생성 mode 하나의 진행 상태. 서버 session.ts ModeState 와 같다. */
-export type ModeState = {
+type ModeState = {
   status: "pending" | "running" | "ok" | "failed";
   attempts: number;
   startedAt: string | null;
@@ -319,7 +304,7 @@ export type ModeState = {
 };
 
 /** 세션 생성 상태. 서버 session.ts parseGenerationState 결과와 같다. */
-export type GenerationState = {
+type GenerationState = {
   modes: Record<GenerationMode, ModeState>;
   terminal: { reason: string; at: string; mode: string } | null;
 };

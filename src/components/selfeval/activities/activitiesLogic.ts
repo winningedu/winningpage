@@ -23,7 +23,7 @@ const isSameSubject = (r: CandidateRow): boolean =>
 const scoreOf = (r: CandidateRow): number => r.fit?.score ?? 0;
 
 /** 재료로 쓸 수 있는 행. 계획 상태 등은 fit 이 없고 unavailableReason 이 있다. */
-export const isSelectable = (r: CandidateRow): boolean =>
+const isSelectable = (r: CandidateRow): boolean =>
   r.fit !== null && r.unavailableReason === null;
 
 export type DerivedRoles = {

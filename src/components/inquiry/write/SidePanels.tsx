@@ -5,7 +5,7 @@ import type { DesignView } from "@/lib/inquiry/types";
 // 보고서 작성 화면 오른쪽 패널 3종. 이행 점검은 정적 목록이고 작성 중에는 갱신하지 않는다(No.73).
 const CARD = "rounded-xl border border-line/60 bg-white p-5";
 
-export const CHECKLIST_STATIC_NOTE =
+const CHECKLIST_STATIC_NOTE =
   "작성 중에는 갱신되지 않아요. 평가에서 같은 기준으로 확인해요";
 
 export default function SidePanels({ design }: { design: DesignView }) {

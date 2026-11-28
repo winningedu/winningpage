@@ -2,7 +2,7 @@
 // 새로고침과 뒤로가기에서 그대로 남는다. 입력 중인 검색어(draft)는 화면 state 다.
 import { SELFEVAL_STATUS_OPTIONS } from "./row";
 
-export const SELFEVAL_SESSIONS_PAGE_SIZE = 20;
+const SELFEVAL_SESSIONS_PAGE_SIZE = 20;
 
 export type SelfevalSessionsQuery = {
   status: string;

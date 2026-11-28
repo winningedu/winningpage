@@ -28,7 +28,7 @@ export type EffortBook = {
   totalPages: number | null;
 };
 
-export type ConnectedPlanTask = {
+type ConnectedPlanTask = {
   id: string | number;
   title: string;
   status: "pending" | "done" | "fail";

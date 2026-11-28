@@ -134,7 +134,7 @@ function buildStudyRow(
 // 다시 부등호 방향을 판단할 필요가 없다.
 // ---------------------------------------------------------------------------
 
-export type GapZone = "below-min" | "min-to-ideal" | "above-ideal";
+type GapZone = "below-min" | "min-to-ideal" | "above-ideal";
 
 export type ZoneGapRow = GapRow & { zone: GapZone; advice: string };
 
@@ -176,7 +176,7 @@ function zoneRemainingText(
     : `이상 목표보다 ${Math.abs(gapToIdeal)}${unit} 여유`;
 }
 
-export type GapZoneAxisInput = {
+type GapZoneAxisInput = {
   current: number | null;
   min: number | null;
   ideal: number | null;

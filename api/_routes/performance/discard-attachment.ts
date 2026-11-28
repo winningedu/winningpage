@@ -36,9 +36,16 @@
 //    "객체는 지웠는데 행이 남은" 상태이고, 그 행은 pending이라 24시간 스윕이
 //    정리한다(remove는 이미 없는 객체에 대해 에러가 아니다).
 
-import type { VercelResponse } from "@vercel/node";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import type { Context } from "hono";
+import type { z } from "zod";
+import {
+  discardAttachmentBody,
+  type discardAttachmentResponse,
+} from "../../../shared/performance/discard-attachment.js";
+import { userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   hasPaidServiceAccess,
   SERVICE_CONFIGS,
@@ -48,43 +55,38 @@ import { BUCKET } from "./upload-url.js";
 
 const SERVICE_KEY = "suhaeng";
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 function fail(
-  res: VercelResponse,
+  c: Context,
   status: number,
   code: string,
   message: string,
   extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code, extra);
+  return problemResponse(c, status, message, code, extra);
 }
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+const guard = user({
   unhandledMessage: "사진 취소에 실패했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "performance/discard-attachment",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const userId = requireUserId(ctx);
+});
+
+export const discardAttachment = userFactory
+  .createApp()
+  .post("/", guard, validate("json", discardAttachmentBody), async (c) => {
+    const userId = c.var.user.id;
 
     // 이용권 재판정 — §8.6 공통 규약(다른 performance 라우트와 같은 관례).
     const { allowed: hasAccess, reason: accessReason } =
       await hasPaidServiceAccess(
-        ctx.supabaseAdmin,
+        c.var.supabaseAdmin,
         userId,
         // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
         SERVICE_CONFIGS[SERVICE_KEY]!,
       );
     if (!hasAccess) {
       return fail(
-        res,
+        c,
         403,
         "NO_ENTITLEMENT",
         "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
@@ -92,32 +94,11 @@ export default defineHandler({
       );
     }
 
-    const body = req.body && typeof req.body === "object" ? req.body : {};
-    const sessionId =
-      typeof body.sessionId === "string" ? body.sessionId.trim() : "";
-    const attachmentId =
-      typeof body.attachmentId === "string" ? body.attachmentId.trim() : "";
-
-    if (!sessionId) {
-      return fail(res, 400, "MISSING_FIELD", "sessionId는 필수입니다.", {
-        field: "sessionId",
-      });
-    }
-
-    if (!UUID_RE.test(attachmentId)) {
-      return fail(
-        res,
-        400,
-        "INVALID_ATTACHMENT_ID",
-        "attachmentId 형식이 올바르지 않습니다.",
-        {
-          field: "attachmentId",
-        },
-      );
-    }
+    const body = c.req.valid("json");
+    const { sessionId, attachmentId } = body;
 
     // 세션 소유권 — service_role이라 RLS가 우회되므로 이 조건이 유일한 방어선이다.
-    const { data: sessionRow, error: sessionError } = await ctx.supabaseAdmin
+    const { data: sessionRow, error: sessionError } = await c.var.supabaseAdmin
       .from("performance_sessions")
       .select("id")
       .eq("id", sessionId)
@@ -129,7 +110,7 @@ export default defineHandler({
 
     if (!sessionRow) {
       return fail(
-        res,
+        c,
         403,
         "NOT_SESSION_OWNER",
         "이 수행평가 세션에 접근할 수 없습니다.",
@@ -139,7 +120,7 @@ export default defineHandler({
     // 첨부 조회는 **세션에 묶어서** 한다(analyze-guide.js와 같은 IDOR 차단 방식).
     // 없는 id와 남의 첨부를 같은 403으로 합친다(존재 오라클 방지).
     const { data: attachmentRow, error: attachmentError } =
-      await ctx.supabaseAdmin
+      await c.var.supabaseAdmin
         .from("performance_attachments")
         .select("id,storage_path,ocr_status,deleted_at")
         .eq("id", attachmentId)
@@ -151,7 +132,7 @@ export default defineHandler({
 
     if (!attachmentRow) {
       return fail(
-        res,
+        c,
         403,
         "NOT_ATTACHMENT_OWNER",
         "이 안내문 사진에 접근할 수 없습니다.",
@@ -160,7 +141,7 @@ export default defineHandler({
 
     if (attachmentRow.ocr_status !== "pending") {
       return fail(
-        res,
+        c,
         409,
         "ATTACHMENT_ALREADY_ANALYZED",
         "이미 분석에 사용된 사진은 취소할 수 없어요.",
@@ -169,7 +150,7 @@ export default defineHandler({
 
     // Storage 먼저(파일 상단 주석). 경로는 DB 값이다.
     if (attachmentRow.storage_path && !attachmentRow.deleted_at) {
-      const { error: removeError } = await ctx.supabaseAdmin.storage
+      const { error: removeError } = await c.var.supabaseAdmin.storage
         .from(BUCKET)
         .remove([attachmentRow.storage_path]);
 
@@ -181,7 +162,7 @@ export default defineHandler({
           removeError,
         );
         return fail(
-          res,
+          c,
           500,
           "INTERNAL",
           "사진을 취소하지 못했습니다. 잠시 후 다시 시도해 주세요.",
@@ -189,7 +170,7 @@ export default defineHandler({
       }
     }
 
-    const { error: deleteError } = await ctx.supabaseAdmin
+    const { error: deleteError } = await c.var.supabaseAdmin
       .from("performance_attachments")
       .delete()
       .eq("id", attachmentRow.id)
@@ -198,9 +179,9 @@ export default defineHandler({
     if (deleteError)
       throw new Error(`첨부 행 삭제 실패: ${deleteError.message}`);
 
-    res.status(200).json({ discarded: true, attachmentId: attachmentRow.id });
-  },
-});
-
-// 실행 시간: 모델을 부르지 않으므로 형제 라우트의 `maxDuration: 60`이 필요 없다.
-export const config = { runtime: "nodejs" };
+    return c.json({
+      discarded: true,
+      attachmentId: attachmentRow.id,
+    } satisfies z.input<typeof discardAttachmentResponse>);
+  })
+  .all("/", methodNotAllowed("POST"));

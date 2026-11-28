@@ -72,9 +72,15 @@ describe("Admin 학습진단 초안", () => {
     );
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await requestWinningEmbedding({ id: "row-1" });
+    await requestWinningEmbedding({
+      id: "row-1",
+      knowledge_type: "topic_pattern",
+    });
 
-    expect(embed.requestEmbedding).toHaveBeenCalledWith("row-1");
+    expect(embed.requestEmbedding).toHaveBeenCalledWith(
+      "row-1",
+      "topic_pattern",
+    );
     expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull();
     expect(localStorage.getItem("other-key")).toBe("keep");
     expect(console.error).toHaveBeenCalledWith(

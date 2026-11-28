@@ -7,7 +7,7 @@ import { InquiryApiError } from "@/lib/inquiry/queries";
 import { parseTenantReason, type TenantBlockReason } from "@/lib/tenantBlock";
 import { cn } from "@/lib/utils";
 
-export const INQUIRY_PRICING_PATH = "/pricing?service=inquiry";
+const INQUIRY_PRICING_PATH = "/pricing?service=inquiry";
 
 export function errorCode(error: unknown): string | null {
   return error instanceof InquiryApiError && error.result.kind === "error"
@@ -16,7 +16,7 @@ export function errorCode(error: unknown): string | null {
 }
 
 /** 오류 응답이 실은 스쿨멘토 기관 거부 사유. 위닝 응답에는 없어 null 이다. */
-export function tenantReasonOfError(error: unknown): TenantBlockReason | null {
+function tenantReasonOfError(error: unknown): TenantBlockReason | null {
   return error instanceof InquiryApiError && error.result.kind === "error"
     ? parseTenantReason(error.result.extra?.tenantReason)
     : null;

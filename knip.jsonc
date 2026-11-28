@@ -1,0 +1,28 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["index.html", "scripts/*.mjs", "api/**/*.ts"],
+  "project": [
+    "src/**/*.{js,jsx,ts,tsx,css}",
+    "scripts/**/*.mjs",
+    "api/**/*.ts"
+  ],
+  // src/index.css가 @import "tw-animate-css", "shadcn/tailwind.css"를 쓰므로 CSS import를 읽게 한다.
+  "compilers": { "css": true },
+  "vite": {
+    "config": "vite.config.js"
+  },
+  // vercel: 전역 CLI(devDependency 아님). diff: POSIX 시스템 바이너리로 check-database-types-drift.mjs가 호출한다.
+  "ignoreBinaries": ["vercel", "diff"],
+  "ignoreIssues": {
+    // shadcn 생성 컴포넌트는 직접 수정하지 않는다(admin shadcn 이관 결정). 안 쓰는 하위 파트 export도 그대로 둔다.
+    "src/components/ui/**": ["exports", "types"],
+    "src/lib/goal/calc/index.ts": ["exports"],
+    "src/lib/admissionDoc.ts": ["exports"],
+    "src/pages/admissionResults/constants.ts": ["exports"],
+    "src/data/navigation.ts": ["duplicates"],
+    "src/components/mentorApply/FormSectionApplicant.tsx": ["duplicates"],
+    "src/components/mentorApply/FormSectionUniversity.tsx": ["duplicates"],
+    "src/context/GoalOnboardingContext.tsx": ["exports"],
+    "src/lib/goalOnboarding.ts": ["exports"]
+  }
+}

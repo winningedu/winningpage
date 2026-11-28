@@ -163,7 +163,12 @@
 //   그리고 **텍스트 파서 폴백을 만들지 않는다**(§8.4). 이 파일의 유일한 파싱은
 //   `JSON.parse` 한 줄이고, 형식 강제는 `responseSchema`가 한다.
 
-import type { VercelResponse } from "@vercel/node";
+import type { Context } from "hono";
+import type { z } from "zod";
+import {
+  designReportBody,
+  type designReportResponse,
+} from "../../../shared/performance/design-report.js";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { generateWithRetry, PERFORMANCE_MODEL } from "../../_lib/ai/gemini.js";
 import {
@@ -172,8 +177,10 @@ import {
   validationOf,
 } from "../../_lib/ai/telemetry/performanceContext.js";
 import { createAiTrace } from "../../_lib/ai/telemetry/trace.js";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   guideTextFromSession,
   inferGuideStructure,
@@ -253,9 +260,6 @@ const STRUCTURE_RETRY = 1;
  * `writing_structure.steps[].title`만 본다.
  */
 const CONCLUSION_STEP_RE = /결론|마무리|후속\s*탐구/;
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * `출처 링크`를 클릭 가능한 `<a href>`로 승격해도 되는가(§8.5 「출처 링크 → `{label, href}`」).
@@ -357,13 +361,13 @@ type ResourceCard = {
 };
 
 function fail(
-  res: VercelResponse,
+  c: Context,
   status: number,
   code: string,
   message: string,
   extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code, extra);
+  return problemResponse(c, status, message, code, extra);
 }
 
 const trimmed = (value: unknown): string => String(value ?? "").trim();
@@ -901,23 +905,21 @@ function toClientReport(reportRow: ReportRow | null | undefined) {
   };
 }
 
-export default defineHandler({
-  methods: ["POST"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "POST만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+const guard = user({
   unhandledMessage: "설계 리포트 생성에 실패했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "performance/design-report",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const userId = requireUserId(ctx);
+});
+
+export const designReport = userFactory
+  .createApp()
+  .post("/", guard, validate("json", designReportBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
 
     // 아래 본문 처리 중 던져지는 예외는 원래(마이그레이션 전)와 동일하게
     // `{charged:false}` extra를 실은 채 500으로 응답해야 한다 — 공통
-    // defineHandler 최상위 catch는 그 extra를 모른다. 그래서 이 지점부터는
+    // 루트 앱 onError(api/_lib/hono/error.ts)는 그 extra를 모른다. 그래서 이 지점부터는
     // 로컬 try/catch로 감싸 기존 catch 블록의 동작을 그대로 재현한다
     // (배치-2 이슈로 별도 기록).
     try {
@@ -934,7 +936,7 @@ export default defineHandler({
         );
       if (!hasAccess) {
         return fail(
-          res,
+          c,
           403,
           "NO_ENTITLEMENT",
           "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
@@ -942,31 +944,7 @@ export default defineHandler({
         );
       }
 
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const sessionId =
-        typeof body.sessionId === "string" ? body.sessionId.trim() : "";
-      const topicId =
-        typeof body.topicId === "string" ? body.topicId.trim() : "";
-      const regenerate = body.regenerate === true;
-
-      if (!UUID_RE.test(sessionId)) {
-        return fail(
-          res,
-          400,
-          "INVALID_SESSION_ID",
-          "sessionId가 올바르지 않습니다.",
-          { charged: false },
-        );
-      }
-      if (!UUID_RE.test(topicId)) {
-        return fail(
-          res,
-          400,
-          "INVALID_TOPIC_ID",
-          "topicId가 올바르지 않습니다.",
-          { charged: false },
-        );
-      }
+      const { sessionId, topicId, regenerate = false } = c.req.valid("json");
 
       // ── 세션 소유권. 없는 세션과 남의 세션을 같은 응답으로 묶어 id 존재 여부가 새지
       //    않게 한다(P8·RPC 단계 1과 같은 취지).
@@ -980,7 +958,7 @@ export default defineHandler({
       if (sessionError)
         throw new Error(`세션 조회 실패: ${sessionError.message}`);
       if (!sessionRowRaw) {
-        return fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
+        return fail(c, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
           charged: false,
         });
       }
@@ -1001,7 +979,7 @@ export default defineHandler({
       if (topicError) throw new Error(`주제 조회 실패: ${topicError.message}`);
       if (!topicRow) {
         return fail(
-          res,
+          c,
           404,
           "TOPIC_NOT_IN_SESSION",
           "이 수행평가의 주제가 아니에요.",
@@ -1028,7 +1006,7 @@ export default defineHandler({
           existingReport.topic_id !== topicRow.id
         ) {
           return fail(
-            res,
+            c,
             409,
             "TOPIC_ALREADY_CONFIRMED",
             "이미 다른 주제로 확정한 수행평가예요.",
@@ -1044,15 +1022,14 @@ export default defineHandler({
         if (!regenerate) {
           const quota = await readQuota(supabaseAdmin, userId);
 
-          res.status(200).json({
+          return c.json({
             ...toClientReport(existingReport),
             quotaRemaining: quota.quotaRemaining,
             charged: false,
             reused: true,
             generationCount: Number(sessionRow.design_generation_count) || 0,
             maxGenerations: MAX_DESIGN_GENERATIONS,
-          });
-          return;
+          } satisfies z.input<typeof designReportResponse>);
         }
       }
 
@@ -1068,7 +1045,7 @@ export default defineHandler({
 
       if (missingBasic) {
         return fail(
-          res,
+          c,
           400,
           "SESSION_INCOMPLETE",
           "기본 정보를 먼저 입력해 주세요.",
@@ -1086,7 +1063,7 @@ export default defineHandler({
       );
       if (!assessmentText) {
         return fail(
-          res,
+          c,
           400,
           "GUIDE_REQUIRED",
           "수행평가 안내문을 먼저 입력해 주세요.",
@@ -1114,7 +1091,7 @@ export default defineHandler({
 
       if (!charged.has(sessionRow.id)) {
         return fail(
-          res,
+          c,
           409,
           "SESSION_NOT_CHARGED",
           "주제 추천을 먼저 받아 주세요.",
@@ -1139,7 +1116,7 @@ export default defineHandler({
       const generationCount = Number(sessionRow.design_generation_count) || 0;
       if (generationCount >= MAX_DESIGN_GENERATIONS) {
         return fail(
-          res,
+          c,
           429,
           "RATE_LIMITED",
           `설계 리포트는 최대 ${MAX_DESIGN_REGENERATIONS}번까지 다시 만들 수 있어요.`,
@@ -1159,7 +1136,7 @@ export default defineHandler({
       const attemptCount = Number(sessionRow.design_attempt_count) || 0;
       if (attemptCount >= MAX_MODEL_ATTEMPTS_PER_SESSION) {
         return fail(
-          res,
+          c,
           429,
           "DESIGN_ATTEMPT_LIMIT",
           "이 수행평가에서 설계 리포트를 너무 여러 번 요청했어요. 잠시 후 새 수행평가로 다시 시작해 주세요.",
@@ -1351,7 +1328,7 @@ export default defineHandler({
                 modelError,
               );
               return fail(
-                res,
+                c,
                 503,
                 "MODEL_UNAVAILABLE",
                 "설계 리포트를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
@@ -1434,7 +1411,7 @@ export default defineHandler({
             `performance/design-report 계약 위반 확정: ${lastFailure}`,
           );
           return fail(
-            res,
+            c,
             422,
             "MODEL_CONTRACT_VIOLATION",
             "설계 리포트를 정리하지 못했어요. 다시 시도해 주세요.",
@@ -1496,15 +1473,9 @@ export default defineHandler({
             "performance/design-report 커밋 RPC 실패:",
             commitError,
           );
-          return fail(
-            res,
-            500,
-            "INTERNAL",
-            "설계 리포트 저장에 실패했습니다.",
-            {
-              charged: false,
-            },
-          );
+          return fail(c, 500, "INTERNAL", "설계 리포트 저장에 실패했습니다.", {
+            charged: false,
+          });
         }
 
         const commit =
@@ -1514,19 +1485,13 @@ export default defineHandler({
         // 소유권은 위에서 이미 확인했으므로 아래 두 상태는 경합(세션·주제가 그 사이에
         // 지워짐)에서만 나온다. RPC가 판정 권위를 갖는 지점이라 그대로 전달한다.
         if (commitStatus === "session_not_found") {
-          return fail(
-            res,
-            403,
-            "NOT_SESSION_OWNER",
-            "세션을 찾을 수 없습니다.",
-            {
-              charged: false,
-            },
-          );
+          return fail(c, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
+            charged: false,
+          });
         }
         if (commitStatus === "topic_not_in_session") {
           return fail(
-            res,
+            c,
             404,
             "TOPIC_NOT_IN_SESSION",
             "이 수행평가의 주제가 아니에요.",
@@ -1538,20 +1503,14 @@ export default defineHandler({
             "performance/design-report 알 수 없는 커밋 상태:",
             commitStatus,
           );
-          return fail(
-            res,
-            500,
-            "INTERNAL",
-            "설계 리포트 저장에 실패했습니다.",
-            {
-              charged: false,
-            },
-          );
+          return fail(c, 500, "INTERNAL", "설계 리포트 저장에 실패했습니다.", {
+            charged: false,
+          });
         }
 
         const quota = await readQuota(supabaseAdmin, userId);
 
-        res.status(200).json({
+        return c.json({
           reportId: commit.report_id,
           topicId: topicRow.id,
           structure: structureForClient,
@@ -1577,31 +1536,16 @@ export default defineHandler({
               STUDENT_HISTORY_PROMPT_LIMIT,
             ),
           },
-        });
+        } satisfies z.input<typeof designReportResponse>);
       } finally {
         scheduleAfterResponse(() => trace.flush(supabaseAdmin));
       }
     } catch (error) {
       // 원 예외 메시지를 응답에 싣지 않는다(§8.6 공통 규약 「실패 응답」).
       console.error("performance/design-report error:", error);
-      return fail(res, 500, "INTERNAL", "설계 리포트 생성에 실패했습니다.", {
+      return fail(c, 500, "INTERNAL", "설계 리포트 생성에 실패했습니다.", {
         charged: false,
       });
     }
-  },
-});
-
-// ── 실행 시간 (형제 라우트와 동일)
-//    `MODEL_TIMEOUT_MS`(50초)는 **`maxDuration: 60`을 전제로 잡은 총 예산**이다. 이 선언이
-//    없으면 Fluid compute가 꺼진 프로젝트의 기본 실행시간(Hobby 10초 / Pro 15초)이 적용돼
-//    50초 AbortController는 발화조차 못 하고 플랫폼이 먼저 함수를 죽인다. 그러면
-//      ① 설계 리포트는 주제 추천보다 출력이 커서(아래 산정 근거) **통상 경로가** 본문 없는
-//         504로 끊기고, 클라이언트의 `response.json().catch(()=>null)`이 null이 되어 원인이
-//         사용자에게도 로그에도 남지 않는다.
-//      ② 더 나쁜 경우: 커밋 RPC는 자체 트랜잭션으로 이미 성립했는데 응답 직렬화 중 함수가
-//         죽으면 사용자는 "리포트는 저장됐는데 화면엔 실패"를 본다. 재요청하면 멱등 재생이
-//         복구하지만, 상단 주석이 계약으로 선언한 "플랫폼이 죽이기 전에 우리가 응답을 만들어
-//         돌려준다"가 성립하지 않는다.
-//    `analyze-guide.js` / `recommend-topics.js` / `admin-embed.js` / `cleanup-attachments.js`와
-//    같은 60초를 쓴다(P8에서 이 선언 누락이 BLOCK으로 지적된 항목이다).
-export const config = { runtime: "nodejs", maxDuration: 60 };
+  })
+  .all("/", methodNotAllowed("POST"));

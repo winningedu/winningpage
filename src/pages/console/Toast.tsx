@@ -11,7 +11,7 @@ import {
 } from "react";
 import { cn } from "@/lib/utils";
 
-export const TOAST_MS = 3000;
+const TOAST_MS = 3000;
 
 interface ToastMessage {
   tone: "Success" | "Error";

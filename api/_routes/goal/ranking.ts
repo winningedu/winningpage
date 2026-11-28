@@ -25,8 +25,10 @@
 // 항상 maskName()을 거친 문자열만 담는다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { z } from "zod";
+import type { rankingPayload } from "../../../shared/goal/ranking.js";
 import { ymdIn } from "../../../src/lib/time/day.js";
+import { goalFail } from "../../_lib/goal/problem.js";
 import { isRankingVisible } from "../../_lib/goal/rankingVisibility.js";
 import {
   getStudentTimeZone,
@@ -34,10 +36,10 @@ import {
   num,
   openGoalSession,
 } from "../../_lib/goal/repo.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import { userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
-
-export const config = { runtime: "nodejs" };
 
 const TABLE_RANKING_STUDENTS = "goal_students";
 const TABLE_RANKING_RECORDS = "goal_daily_records";
@@ -79,122 +81,126 @@ export function assignRanks(sortedRows: RankedRow[]): RankedRowWithRank[] {
   });
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "GET") {
-    return sendError(res, "detail", 405, "Method not allowed");
-  }
+const guard = user({
+  unhandledMessage: "처리 중 오류가 발생했습니다.",
+  logLabel: "goal/ranking",
+});
 
-  try {
-    const session = await openGoalSession(req);
-    if (session.error) {
-      return sendError(
-        res,
-        "detail",
-        session.error.status,
-        session.error.body.detail as string,
+export const ranking = userFactory
+  .createApp()
+  .get("/", guard, async (c) => {
+    try {
+      const session = await openGoalSession(c);
+
+      const { allowed } = session;
+      const { profileId } = narrowGoalSession(session);
+      // openGoalSession(api/_lib/goal/repo.ts, Stage3 대상)의 JSDoc은 supabaseAdmin을 약한
+      // `object`로만 선언한다, 이 파일은 api/_lib/goal/repo.ts 헬퍼를 거치지 않고 supabase
+      // 클라이언트를 직접 호출하는 유일한 goal/* 라우트라 실제 클라이언트 타입으로
+      // 되돌린다(createSupabaseAdmin()의 실제 반환 타입, api/_lib/goal/repo.ts는 수정하지 않는다).
+      const supabaseAdmin = session.supabaseAdmin as SupabaseClient;
+
+      // 조회형 규약, 미결제는 에러가 아니다(api/_lib/goal/repo.ts openGoalSession 주석과 동일).
+      if (!allowed) {
+        return c.json({
+          allowed: false,
+          ...tenantReasonExtra(session.tenantReason),
+        });
+      }
+
+      // 랭킹은 요청한 학생의 현지 하루로 묶는다(같은 시각에 시간대가 다른 학생은 다른 날을 본다).
+      const today = ymdIn(
+        new Date(),
+        await getStudentTimeZone(supabaseAdmin, profileId),
       );
-    }
 
-    const { allowed } = session;
-    const { profileId } = narrowGoalSession(session);
-    // openGoalSession(api/_lib/goal/repo.ts, Stage3 대상)의 JSDoc은 supabaseAdmin을 약한
-    // `object`로만 선언한다, 이 파일은 api/_lib/goal/repo.ts 헬퍼를 거치지 않고 supabase
-    // 클라이언트를 직접 호출하는 유일한 goal/* 라우트라 실제 클라이언트 타입으로
-    // 되돌린다(createSupabaseAdmin()의 실제 반환 타입, api/_lib/goal/repo.ts는 수정하지 않는다).
-    const supabaseAdmin = session.supabaseAdmin as SupabaseClient;
+      const [
+        { data: activeRows, error: activeError },
+        { data: recordRows, error: recordError },
+      ] = await Promise.all([
+        supabaseAdmin
+          .from(TABLE_RANKING_STUDENTS)
+          .select("profile_id")
+          .eq("status", "active"),
+        supabaseAdmin
+          .from(TABLE_RANKING_RECORDS)
+          .select("profile_id, study_hours")
+          .eq("submitted_on", today),
+      ]);
 
-    // 조회형 규약, 미결제는 에러가 아니다(api/_lib/goal/repo.ts openGoalSession 주석과 동일).
-    if (!allowed) {
-      return res.status(200).json({
-        allowed: false,
-        ...tenantReasonExtra(session.tenantReason),
-      });
-    }
+      if (activeError) throw activeError;
+      if (recordError) throw recordError;
 
-    // 랭킹은 요청한 학생의 현지 하루로 묶는다(같은 시각에 시간대가 다른 학생은 다른 날을 본다).
-    const today = ymdIn(
-      new Date(),
-      await getStudentTimeZone(supabaseAdmin, profileId),
-    );
+      // QA 행71, 활성 학생이 기준 미만이면 순위 목록 없이 visible:false만 돌려준다.
+      if (!isRankingVisible((activeRows || []).length)) {
+        return c.json({
+          date: today,
+          visible: false,
+          top: [],
+          me: null,
+        } satisfies z.input<typeof rankingPayload>);
+      }
 
-    const [
-      { data: activeRows, error: activeError },
-      { data: recordRows, error: recordError },
-    ] = await Promise.all([
-      supabaseAdmin
-        .from(TABLE_RANKING_STUDENTS)
-        .select("profile_id")
-        .eq("status", "active"),
-      supabaseAdmin
-        .from(TABLE_RANKING_RECORDS)
-        .select("profile_id, study_hours")
-        .eq("submitted_on", today),
-    ]);
-
-    if (activeError) throw activeError;
-    if (recordError) throw recordError;
-
-    // QA 행71, 활성 학생이 기준 미만이면 순위 목록 없이 visible:false만 돌려준다.
-    if (!isRankingVisible((activeRows || []).length)) {
-      return res
-        .status(200)
-        .json({ ok: true, date: today, visible: false, top: [], me: null });
-    }
-
-    const activeIds = new Set((activeRows || []).map((row) => row.profile_id));
-
-    // profile_id → 오늘 제출된 모든 기록의 study_hours 합.
-    const hoursByProfile = new Map();
-    for (const row of recordRows || []) {
-      if (!activeIds.has(row.profile_id)) continue;
-      const hours = num(row.study_hours) ?? 0;
-      hoursByProfile.set(
-        row.profile_id,
-        (hoursByProfile.get(row.profile_id) || 0) + hours,
+      const activeIds = new Set(
+        (activeRows || []).map((row) => row.profile_id),
       );
+
+      // profile_id → 오늘 제출된 모든 기록의 study_hours 합.
+      const hoursByProfile = new Map();
+      for (const row of recordRows || []) {
+        if (!activeIds.has(row.profile_id)) continue;
+        const hours = num(row.study_hours) ?? 0;
+        hoursByProfile.set(
+          row.profile_id,
+          (hoursByProfile.get(row.profile_id) || 0) + hours,
+        );
+      }
+
+      const profileIds = [...hoursByProfile.keys()];
+
+      let nameById = new Map();
+      if (profileIds.length > 0) {
+        const { data: profileRows, error: profileError } = await supabaseAdmin
+          .from(TABLE_PROFILES)
+          .select("id, name")
+          .in("id", profileIds);
+
+        if (profileError) throw profileError;
+        nameById = new Map(
+          (profileRows || []).map((row) => [row.id, row.name || ""]),
+        );
+      }
+
+      const sorted = profileIds
+        .map((id) => ({
+          profileId: id,
+          name: nameById.get(id) || "",
+          hours: hoursByProfile.get(id),
+        }))
+        .sort((a, b) => b.hours - a.hours);
+
+      const ranked = assignRanks(sorted);
+
+      const top = ranked.slice(0, 5).map((row) => ({
+        rank: row.rank,
+        name: maskName(row.name),
+        hours: row.hours,
+      }));
+
+      const meRow = ranked.find((row) => row.profileId === profileId) || null;
+      const me = meRow
+        ? { rank: meRow.rank, name: meRow.name, hours: meRow.hours }
+        : null;
+
+      return c.json({
+        date: today,
+        visible: true,
+        top,
+        me,
+      } satisfies z.input<typeof rankingPayload>);
+    } catch (error) {
+      console.error("goal/ranking error:", error);
+      return goalFail(c, 500, { detail: "처리 중 오류가 발생했습니다." });
     }
-
-    const profileIds = [...hoursByProfile.keys()];
-
-    let nameById = new Map();
-    if (profileIds.length > 0) {
-      const { data: profileRows, error: profileError } = await supabaseAdmin
-        .from(TABLE_PROFILES)
-        .select("id, name")
-        .in("id", profileIds);
-
-      if (profileError) throw profileError;
-      nameById = new Map(
-        (profileRows || []).map((row) => [row.id, row.name || ""]),
-      );
-    }
-
-    const sorted = profileIds
-      .map((id) => ({
-        profileId: id,
-        name: nameById.get(id) || "",
-        hours: hoursByProfile.get(id),
-      }))
-      .sort((a, b) => b.hours - a.hours);
-
-    const ranked = assignRanks(sorted);
-
-    const top = ranked.slice(0, 5).map((row) => ({
-      rank: row.rank,
-      name: maskName(row.name),
-      hours: row.hours,
-    }));
-
-    const meRow = ranked.find((row) => row.profileId === profileId) || null;
-    const me = meRow
-      ? { rank: meRow.rank, name: meRow.name, hours: meRow.hours }
-      : null;
-
-    return res
-      .status(200)
-      .json({ ok: true, date: today, visible: true, top, me });
-  } catch (error) {
-    console.error("goal/ranking error:", error);
-    return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");
-  }
-}
+  })
+  .all("/", methodNotAllowed("GET"));

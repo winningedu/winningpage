@@ -27,7 +27,7 @@ import {
   validateUploadFile,
 } from "./uploadFlow";
 
-export const realUploadDeps: UploadDeps = {
+const realUploadDeps: UploadDeps = {
   requestUploadUrl: collectUploadUrl,
   // contentType 을 안 주면 Storage 가 text/plain 을 붙여 버킷 MIME 제한에 걸린다(guideUpload.ts 선례).
   uploadToStorage: (bucket, path, token, file) =>

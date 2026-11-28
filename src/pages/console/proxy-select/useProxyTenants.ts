@@ -10,7 +10,7 @@ export interface ProxyTenant {
   name: string;
 }
 
-export const PROXY_TENANTS_KEY = ["console", "proxy-tenants"] as const;
+const PROXY_TENANTS_KEY = ["console", "proxy-tenants"] as const;
 
 export function useProxyTenants(options: { enabled?: boolean } = {}) {
   return useQuery({

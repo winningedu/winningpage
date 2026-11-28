@@ -55,7 +55,7 @@ export function makeActivity(
   };
 }
 
-export const SESSION_BASE = {
+const SESSION_BASE = {
   id: "s1",
   status: "in_progress",
   currentStep: 3,

@@ -65,9 +65,19 @@
 //    평가 프롬프트에 그대로 실린다(토큰 비용). §9.2 「과금과 남용 방지를 분리한다」에
 //    따라 회차가 아니라 상한으로 막는다.
 
-import type { VercelResponse } from "@vercel/node";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
-import { sendError } from "../../_lib/httpResponse.js";
+import type { Context } from "hono";
+import type { z } from "zod";
+import {
+  type clientSubmissionSchema,
+  submissionBody,
+  type submissionFormResponse,
+  submissionQuery,
+  type submissionSaveResponse,
+} from "../../../shared/performance/submission.js";
+import { userFactory } from "../../_lib/hono/factory.js";
+import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
+import { user } from "../../_lib/hono/user.js";
+import { validate } from "../../_lib/hono/validate.js";
 import {
   EMPTY_SUBMISSION_MESSAGE,
   SUBMISSION_TOO_SHORT_MESSAGE,
@@ -85,6 +95,8 @@ import {
 import type { createSupabaseAdmin } from "../../_lib/supabaseAdmin.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
+type ClientSubmission = z.input<typeof clientSubmissionSchema>;
+
 const SERVICE_KEY = "suhaeng";
 
 /** 세션당 제출본 최대 revision 수 = 최초 1 + 재평가 2(§9.2 상한 표). */
@@ -100,9 +112,6 @@ const MAX_REEVALUATIONS = MAX_REVISIONS - 1;
  */
 const MAX_FIELD_CHARS = 20000;
 const MAX_TOTAL_CHARS = 120000;
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const SESSION_COLUMNS = [
   "id",
@@ -155,34 +164,35 @@ type Schema = ReturnType<typeof resolveSessionSubmissionSchema>["schema"];
 
 type NormalizeFieldsResult =
   | { ok: true; fields: Record<string, string> }
-  | { ok: false; code: "INVALID_FIELDS" }
   | { ok: false; code: "UNKNOWN_FIELD"; field: string }
-  | { ok: false; code: "INVALID_FIELD_VALUE"; field: string }
   | { ok: false; code: "FIELD_TOO_LARGE"; field: string; label: string }
   | { ok: false; code: "SUBMISSION_TOO_LARGE" };
 
 function fail(
-  res: VercelResponse,
+  c: Context,
   status: number,
   code: string,
   message: string,
   extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code, extra);
+  return problemResponse(c, status, message, code, extra);
 }
 
-const trimmed = (value: unknown) => String(value ?? "").trim();
-
-function toClientSubmission(row: SubmissionRow | null) {
+function toClientSubmission(row: SubmissionRow): ClientSubmission;
+function toClientSubmission(row: SubmissionRow | null): ClientSubmission | null;
+function toClientSubmission(
+  row: SubmissionRow | null,
+): ClientSubmission | null {
   if (!row) return null;
   return {
     submissionId: row.id,
     revision: row.revision,
-    fields: row.fields && typeof row.fields === "object" ? row.fields : {},
-    charCounts:
-      row.char_counts && typeof row.char_counts === "object"
-        ? row.char_counts
-        : {},
+    fields: (row.fields && typeof row.fields === "object"
+      ? row.fields
+      : {}) as Record<string, string>,
+    charCounts: (row.char_counts && typeof row.char_counts === "object"
+      ? row.char_counts
+      : {}) as Record<string, unknown>,
     isDraft: row.is_draft === true,
     isFinal: row.is_final === true,
     finalizedAt: row.finalized_at ?? null,
@@ -244,29 +254,23 @@ async function loadLatestSubmission(
 }
 
 /**
- * 요청 `fields` 검증 + 스키마 키만 남긴 정규화.
+ * 요청 `fields`를 제출 스키마에 맞춰 검증하고 정규화한다. 문자열 맵인지는 스키마가 이미 봤다.
  *
  * **스키마에 없는 키는 조용히 버리지 않고 거부한다**(§8.6 `400 UNKNOWN_FIELD`).
  * 버리면 학생이 쓴 내용이 소리 없이 사라지고, 클라이언트 폼이 서버 스키마와
  * 어긋났다는 사실도 드러나지 않는다.
  */
-function normalizeFields(schema: Schema, raw: unknown): NormalizeFieldsResult {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return { ok: false, code: "INVALID_FIELDS" };
-  }
-
+function normalizeFields(
+  schema: Schema,
+  fields: Record<string, string>,
+): NormalizeFieldsResult {
   const allowed = new Map(schema.fields.map((field) => [field.key, field]));
   const clean: Record<string, string> = {};
 
-  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(fields)) {
     const field = allowed.get(key);
     if (!field) return { ok: false, code: "UNKNOWN_FIELD", field: key };
 
-    // 문자열만 받는다. 숫자·객체를 String()으로 흡수하면 `[object Object]`가 학생
-    // 원고로 저장되고 그대로 프롬프트에 실린다.
-    if (typeof value !== "string") {
-      return { ok: false, code: "INVALID_FIELD_VALUE", field: key };
-    }
     if (value.length > MAX_FIELD_CHARS) {
       return {
         ok: false,
@@ -290,13 +294,13 @@ function normalizeFields(schema: Schema, raw: unknown): NormalizeFieldsResult {
   return { ok: true, fields: clean };
 }
 
-/** 세션 + 이용권 공통부(인증은 defineHandler auth:"user"가 이미 처리했다). 성공하면 `sessionRow`. */
+/** 세션 + 이용권 공통부(인증은 user() 미들웨어가 이미 처리했다). 성공하면 `sessionRow`. */
 async function authorize(
-  res: VercelResponse,
+  c: Context,
   supabaseAdmin: ReturnType<typeof createSupabaseAdmin>,
   userId: string,
   sessionId: string,
-): Promise<SessionRow | null> {
+): Promise<SessionRow | Response> {
   // 이용권 재판정(§8.6 공통 규약). 잔여 회차는 보지 않는다 — 이미 차감된 세션은
   // 소진·만료 뒤에도 계속 진행하는 것이 규정이다(§9.3 정정 「막는 것은 새 세션뿐」).
   const { allowed: hasAccess, reason: accessReason } =
@@ -307,19 +311,13 @@ async function authorize(
       SERVICE_CONFIGS[SERVICE_KEY]!,
     );
   if (!hasAccess) {
-    fail(
-      res,
+    return fail(
+      c,
       403,
       "NO_ENTITLEMENT",
       "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
       tenantReasonExtra(accessReason),
     );
-    return null;
-  }
-
-  if (!UUID_RE.test(sessionId)) {
-    fail(res, 400, "INVALID_SESSION_ID", "sessionId가 올바르지 않습니다.");
-    return null;
   }
 
   // 없는 세션과 남의 세션을 같은 응답으로 묶어 id 존재 여부가 새지 않게 한다
@@ -333,36 +331,27 @@ async function authorize(
 
   if (sessionError) throw new Error(`세션 조회 실패: ${sessionError.message}`);
   if (!sessionRow) {
-    fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.");
-    return null;
+    return fail(c, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.");
   }
 
   return sessionRow as unknown as SessionRow;
 }
 
-export default defineHandler({
-  methods: ["GET", "PUT"],
-  auth: "user",
-  errorShape: "coded",
-  methodNotAllowedMessage: "GET 또는 PUT만 허용됩니다.",
-  methodNotAllowedCode: "METHOD_NOT_ALLOWED",
+const guard = user({
   unhandledMessage: "제출물 저장에 실패했습니다.",
-  unhandledCode: "INTERNAL",
   logLabel: "performance/submission",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
-    const supabaseAdmin = ctx.supabaseAdmin;
-    const userId = requireUserId(ctx);
-    const body = req.body && typeof req.body === "object" ? req.body : {};
-    const sessionId =
-      req.method === "GET"
-        ? trimmed(req.query?.sessionId)
-        : typeof body.sessionId === "string"
-          ? body.sessionId.trim()
-          : "";
+});
 
-    const authorized = await authorize(res, supabaseAdmin, userId, sessionId);
-    if (!authorized) return;
+export const submission = userFactory
+  .createApp()
+  .get("/", guard, validate("query", submissionQuery), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
+    const { sessionId } = c.req.valid("query");
+
+    const authorized = await authorize(c, supabaseAdmin, userId, sessionId);
+    if (authorized instanceof Response) return authorized;
     const sessionRow: SessionRow = authorized;
 
     const schema = await resolveAndPersistSchema(supabaseAdmin, sessionRow);
@@ -376,41 +365,34 @@ export default defineHandler({
     //   컬럼이 비어 있을 때 **서버가 판정해 채워 넣어야** 하므로 read-only 경로로는
     //   성립하지 않는다. PUT과 같은 파일에 둔 이유는 판정·정규화 코드를 공유하기 위함이다.
     // ─────────────────────────────────────────────────────────────────
-    if (req.method === "GET") {
-      const latest = await loadLatestSubmission(supabaseAdmin, sessionRow.id);
+    const latest = await loadLatestSubmission(supabaseAdmin, sessionRow.id);
 
-      res.status(200).json({
-        schema,
-        submission: toClientSubmission(latest),
-        minChars: SUBMISSION_MIN_CHARS,
-        maxRevisions: MAX_REVISIONS,
-      });
-      return;
-    }
+    return c.json({
+      schema,
+      submission: toClientSubmission(latest),
+      minChars: SUBMISSION_MIN_CHARS,
+      maxRevisions: MAX_REVISIONS,
+    } satisfies z.input<typeof submissionFormResponse>);
+  })
+  .put("/", guard, validate("json", submissionBody), async (c) => {
+    const supabaseAdmin = c.var.supabaseAdmin;
+    const userId = c.var.user.id;
+    const { sessionId, fields: rawFields, mode } = c.req.valid("json");
+
+    const authorized = await authorize(c, supabaseAdmin, userId, sessionId);
+    if (authorized instanceof Response) return authorized;
+    const sessionRow: SessionRow = authorized;
+
+    const schema = await resolveAndPersistSchema(supabaseAdmin, sessionRow);
 
     // ─────────────────────────────────────────────────────────────────
     // PUT
     // ─────────────────────────────────────────────────────────────────
-    const mode =
-      body.mode === "submit"
-        ? "submit"
-        : body.mode === "draft"
-          ? "draft"
-          : null;
-    if (!mode) {
-      return fail(
-        res,
-        400,
-        "INVALID_MODE",
-        "mode는 'draft' 또는 'submit'이어야 합니다.",
-      );
-    }
-
-    const normalized = normalizeFields(schema, body.fields);
+    const normalized = normalizeFields(schema, rawFields);
     if (normalized.ok === false) {
       if (normalized.code === "UNKNOWN_FIELD") {
         return fail(
-          res,
+          c,
           400,
           "UNKNOWN_FIELD",
           "제출폼에 없는 항목이 포함돼 있어요.",
@@ -419,20 +401,9 @@ export default defineHandler({
           },
         );
       }
-      if (normalized.code === "INVALID_FIELD_VALUE") {
-        return fail(
-          res,
-          400,
-          "INVALID_FIELD_VALUE",
-          "제출 항목 값은 문자열이어야 합니다.",
-          {
-            field: normalized.field,
-          },
-        );
-      }
       if (normalized.code === "FIELD_TOO_LARGE") {
         return fail(
-          res,
+          c,
           413,
           "SUBMISSION_TOO_LARGE",
           "작성 내용이 너무 깁니다.",
@@ -442,23 +413,9 @@ export default defineHandler({
           },
         );
       }
-      if (normalized.code === "SUBMISSION_TOO_LARGE") {
-        return fail(
-          res,
-          413,
-          "SUBMISSION_TOO_LARGE",
-          "작성 내용이 너무 깁니다.",
-          {
-            maxChars: MAX_TOTAL_CHARS,
-          },
-        );
-      }
-      return fail(
-        res,
-        400,
-        "INVALID_FIELDS",
-        "fields 형식이 올바르지 않습니다.",
-      );
+      return fail(c, 413, "SUBMISSION_TOO_LARGE", "작성 내용이 너무 깁니다.", {
+        maxChars: MAX_TOTAL_CHARS,
+      });
     }
 
     const fields = normalized.fields;
@@ -467,7 +424,7 @@ export default defineHandler({
     // 빈 저장을 만들지 않는다(§8.6 `400 EMPTY_SUBMISSION`). 외부도 같은 자리에서
     // `저장할 작성 내용이 없습니다.`로 막았다(`index.html:2450`).
     if (total === 0) {
-      return fail(res, 400, "EMPTY_SUBMISSION", EMPTY_SUBMISSION_MESSAGE);
+      return fail(c, 400, "EMPTY_SUBMISSION", EMPTY_SUBMISSION_MESSAGE);
     }
 
     const latest = await loadLatestSubmission(supabaseAdmin, sessionRow.id);
@@ -482,7 +439,7 @@ export default defineHandler({
 
     if (targetRevision > MAX_REVISIONS) {
       return fail(
-        res,
+        c,
         409,
         "REEVALUATION_LIMIT",
         `제출물은 최대 ${MAX_REEVALUATIONS}번까지 다시 낼 수 있어요.`,
@@ -573,7 +530,7 @@ export default defineHandler({
       // 코드는 §8.6 계약에 있는 `SESSION_FINALIZED` 하나로 유지하고 문구만 두 경우를
       // 함께 말한다 — 코드를 새로 파면 클라이언트 분기(§5.20 code 기준)가 갈린다.
       return fail(
-        res,
+        c,
         409,
         "SESSION_FINALIZED",
         "이미 제출했거나 확정한 제출본은 수정할 수 없어요. 다시 저장하면 새 제출본으로 저장됩니다.",
@@ -592,7 +549,7 @@ export default defineHandler({
 
       if (gate.missingRequired.length) {
         return fail(
-          res,
+          c,
           400,
           "REQUIRED_FIELD_EMPTY",
           "필수 항목을 모두 작성해 주세요.",
@@ -607,7 +564,7 @@ export default defineHandler({
       if (gate.total < gate.threshold) {
         // 문구는 원문 그대로다(`evaluate-text.js:39`). 원 예외 메시지는 싣지 않는다(§8.6).
         return fail(
-          res,
+          c,
           400,
           "SUBMISSION_TOO_SHORT",
           SUBMISSION_TOO_SHORT_MESSAGE,
@@ -636,30 +593,13 @@ export default defineHandler({
       if (submitted) row = submitted as SubmissionRow;
     }
 
-    res.status(200).json({
+    return c.json({
       ...toClientSubmission(row),
       mode,
       schema,
       charTotal: total,
       minChars: SUBMISSION_MIN_CHARS,
       maxRevisions: MAX_REVISIONS,
-    });
-  },
-});
-
-// ─────────────────────────────────────────────────────────────────────
-// 실패 경로별 잔여 상태 (전부 무차감 — 이 파일에는 차감 코드가 없다)
-// ─────────────────────────────────────────────────────────────────────
-//   인증/이용권/소유권/형식 오류/크기 초과/REEVALUATION_LIMIT → 아무것도 안 남음
-//   SESSION_FINALIZED                                        → 아무것도 안 남음
-//                                                              (update가 0행이었다)
-//   mode:'submit'의 SUBMISSION_TOO_SHORT / REQUIRED_FIELD_EMPTY
-//        → **초안은 저장된 상태로 남는다**(의도). 응답에 submissionId·savedAt·
-//          charCounts가 함께 실려 화면 카운터를 그대로 갱신할 수 있다.
-//   제출 표시 update 실패(500)                                → 필드는 저장됨, is_draft=true
-//        → 재요청하면 같은 revision에 덮어쓰고 다시 제출 표시한다(멱등).
-//
-// 실행 시간: 모델을 부르지 않으므로 형제 라우트의 `maxDuration: 60`이 필요 없다.
-// 기본값(Hobby 10초 / Pro 15초)으로 충분하고, 선언을 두면 "여기도 모델을 부르나"라는
-// 오해를 만든다. `runtime`만 형제와 맞춘다.
-export const config = { runtime: "nodejs" };
+    } satisfies z.input<typeof submissionSaveResponse>);
+  })
+  .all("/", methodNotAllowed("GET", "PUT"));

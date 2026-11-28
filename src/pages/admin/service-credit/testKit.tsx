@@ -8,7 +8,7 @@ import ServiceCreditAdjustAdmin from "./ServiceCreditAdjustAdmin";
 
 export const STUDENT_ID = "123e4567-e89b-42d3-a456-426614174000";
 
-export function creditRow(
+function creditRow(
   programKey: string,
   label: string,
   over: Record<string, unknown> = {},

@@ -33,7 +33,7 @@ export type SurveyV3Question = {
   readonly maxPicks: number | undefined;
 };
 
-export type SurveyV3Kind =
+type SurveyV3Kind =
   | "single"
   | "multi"
   | "likert"

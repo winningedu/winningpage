@@ -38,7 +38,7 @@ import { RoleEditorRoute } from "./RoleEditor";
 // (새로고침과 뒤로가기가 그대로 동작). 편집 화면은 RoleEditor.tsx 에 있다.
 // ---------------------------------------------------------------------------
 
-export const ROLES_PATH = "/admin/adminRoles";
+const ROLES_PATH = "/admin/adminRoles";
 
 interface AdminRolesAdminProps {
   config: { title: string; searchPlaceholder: string; [key: string]: unknown };

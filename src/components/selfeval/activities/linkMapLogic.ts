@@ -57,7 +57,7 @@ export function orderPair(
   return at(b) < at(a) ? { fromId: b, toId: a } : { fromId: a, toId: b };
 }
 
-export type MapEdge = {
+type MapEdge = {
   fromId: string;
   toId: string;
   type: LinkType;
@@ -67,7 +67,7 @@ export type MapEdge = {
   note: string | null;
 };
 
-export type MapNode = {
+type MapNode = {
   id: string;
   /** 주제, 없으면 과목. 둘 다 없으면 제목을 그리지 않는다. */
   title: string | null;

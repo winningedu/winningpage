@@ -56,8 +56,6 @@ import {
   USAGE_GUIDE_PATH,
 } from "@/components/premium/premiumRoutesPaths";
 
-export const NAV_GUARD = "max(0px, calc(18.382rem - (100vw - 72.75rem) / 2))";
-export const MEGA_GUARD = NAV_GUARD;
 export const NAV_CELL_W = "6.25rem";
 export const NAV_CELL_GAP = "3rem";
 export const MEGA_COL_W = "8.75rem";

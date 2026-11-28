@@ -12,7 +12,6 @@ import {
 export * from "./types.js";
 export {
   type ValidationError,
-  type ValidationResult,
   validateAnswers,
 } from "./validate.js";
 

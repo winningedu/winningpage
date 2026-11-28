@@ -112,6 +112,10 @@ jobs:
       - name: http legacy
         run: npm run check:http-legacy
 
+      # 안 쓰는 파일, 의존성, export가 다시 쌓이지 않게 막는다. 예외는 knip.jsonc에 이유와 함께 둔다.
+      - name: knip
+        run: npm run check:knip
+
   # type-coverage 는 타입 검사를 처음부터 다시 해서 38초에서 70초가 걸린다.
   # static 잡에 두면 그 잡이 가장 늦게 끝나므로 따로 떼어 동시에 돌린다.
   type-coverage:

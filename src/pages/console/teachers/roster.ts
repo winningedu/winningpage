@@ -2,7 +2,7 @@
 
 import type { GradeLabeler } from "../classLabel";
 
-export type AccountStatus = "active" | "inactive" | "unissued";
+type AccountStatus = "active" | "inactive" | "unissued";
 
 export interface RosterRow {
   classId: string | null;

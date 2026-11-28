@@ -7,9 +7,9 @@
 
 import type { Axis, HighGrade } from "@/lib/growth/types";
 
-export type { Axis, HighGrade };
+export type { HighGrade };
 
-export type SessionStatus = "draft" | "in_progress" | "completed" | "archived";
+type SessionStatus = "draft" | "in_progress" | "completed" | "archived";
 
 export type SessionStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -25,51 +25,23 @@ export const AREA_LABELS: Record<Area, string> = {
 
 export type TargetCharsMode = "with_space" | "without_space";
 
-export type ModelStepKey = "link" | "analyze" | "write" | "verify";
+type ModelStepKey = "link" | "analyze" | "write" | "verify";
 
-export const MODEL_STEP_KEYS: readonly ModelStepKey[] = [
-  "link",
-  "analyze",
-  "write",
-  "verify",
-];
-
-export type StepStatus = "pending" | "running" | "ok" | "failed";
-
-export type StepIssue = {
-  code: string;
-  message: string;
-  path?: string;
-};
-
-export type StepRecord = {
-  status: StepStatus;
-  attempts: number;
-  startedAt: string | null;
-  finishedAt: string | null;
-  issues: StepIssue[];
-};
-
-export type StepTerminal = {
+type StepTerminal = {
   reason: string;
   at: string;
   step: ModelStepKey | null;
 };
 
-export type StepState = {
-  steps: Partial<Record<ModelStepKey, StepRecord>>;
-  terminal?: StepTerminal;
-};
-
 /** 진로 정보(명세 No.25). student_profiles 의 career, department, universities 와 같은 뜻. */
-export type CareerInfo = {
+type CareerInfo = {
   career: string | null;
   department: string | null;
   universities: string[];
 };
 
 /** 성장설계 회신 실패 기록(명세 No.75). 다음 진입 때 서버가 다시 보낸다. */
-export type ReplyPending = {
+type ReplyPending = {
   itemId: string;
   refId: string;
   failedAt: string;
@@ -88,7 +60,7 @@ export const GROWTH_STAGE_LABELS: Record<GrowthStage, string> = {
   bloom: "만개",
 };
 
-export type GrowthWeakAxis = {
+type GrowthWeakAxis = {
   axis: Axis;
   name: string;
   count: number;
@@ -96,7 +68,7 @@ export type GrowthWeakAxis = {
   guideline: string;
 };
 
-export type GrowthPlanItemRef = {
+type GrowthPlanItemRef = {
   id: string;
   title: string;
   description: string | null;
@@ -149,9 +121,9 @@ export type ActivityRecordLike = {
   entryKind?: "performance" | "deep" | "activity" | null | undefined;
 };
 
-export type RecordStatus = "completed" | "in_progress" | "plan";
+type RecordStatus = "completed" | "in_progress" | "plan";
 
-export type FitSignalKey =
+type FitSignalKey =
   | "same_subject"
   | "has_judgment"
   | "has_limitation"
@@ -164,13 +136,13 @@ export type FitSignalKey =
   | "conflicting_signal"
   | "fills_weak_axis";
 
-export type FitSignal = {
+type FitSignal = {
   key: FitSignalKey;
   hit: boolean;
   delta: number;
 };
 
-export type FitResult = {
+type FitResult = {
   activityId: string;
   /** 0~100. 연동 신호가 있으면 정규화하지 않고 클램프만 한다. */
   score: number;
@@ -224,7 +196,7 @@ export const LINK_TYPE_LABELS: Record<LinkType, string> = {
 };
 
 export type LinkStrength = "explicit" | "implicit";
-export type LinkSource = "model" | "student";
+type LinkSource = "model" | "student";
 
 export type RecordLink = {
   fromId: string;
@@ -305,7 +277,7 @@ export type Analysis = {
   conflicts: ConflictRow[];
 };
 
-export type AnalysisSource = "model" | "student";
+type AnalysisSource = "model" | "student";
 
 // ---------------------------------------------------------------------------
 // 생성 본문(명세 No.44~52, No.85)
@@ -314,9 +286,9 @@ export type AnalysisSource = "model" | "student";
 /** 근거 출처 유형(명세 No.145): P 수행평가, D 심화탐구, A 창체 활동, H 수기 메모, S 학생 입력. */
 export type EvidenceSourceType = "P" | "D" | "A" | "H" | "S";
 
-export type EvidenceItem = AnalysisField | "student_input";
+type EvidenceItem = AnalysisField | "student_input";
 
-export type EvidenceWeight = "main" | "sub";
+type EvidenceWeight = "main" | "sub";
 
 /** 문장 하나가 기댄 근거 하나. api/_lib/selfeval/types.ts 와 같은 모양이다. */
 export type SentenceEvidence = {
@@ -337,9 +309,9 @@ export type Sentence = {
   confirmed: boolean;
 };
 
-export type ParagraphRole = "link" | "process" | "judgment" | "wrap";
+type ParagraphRole = "link" | "process" | "judgment" | "wrap";
 
-export type Paragraph = {
+type Paragraph = {
   /** 문단 수를 고정하지 않으므로 새 본문에는 없다. 옛 리포트를 읽을 때만 있다. */
   role?: ParagraphRole;
   sentences: Sentence[];
@@ -354,13 +326,11 @@ export type CharCount = {
   withoutSpace: number;
 };
 
-export type ReportType = "generation" | "edited" | "verification" | "final";
-
 // ---------------------------------------------------------------------------
 // 검증(명세 No.53~62, No.76)
 // ---------------------------------------------------------------------------
 
-export type ScoreItemKey =
+type ScoreItemKey =
   | "judgment"
   | "limitation"
   | "link"
@@ -370,12 +340,12 @@ export type ScoreItemKey =
   | "next"
   | "prompt";
 
-export type ScoreCheck = {
+type ScoreCheck = {
   text: string;
   pass: boolean;
 };
 
-export type ScoreItem = {
+type ScoreItem = {
   key: ScoreItemKey;
   label: string;
   max: number;
@@ -387,7 +357,7 @@ export type ScoreItem = {
   applied?: boolean;
 };
 
-export type FormatCheckKey =
+type FormatCheckKey =
   | "target_range"
   | "cliche_density"
   | "min_length"
@@ -396,7 +366,7 @@ export type FormatCheckKey =
   | "no_pending_feelings"
   | "no_plan_expression";
 
-export type FormatCheck = {
+type FormatCheck = {
   key: FormatCheckKey;
   label: string;
   pass: boolean;
@@ -405,7 +375,7 @@ export type FormatCheck = {
   skipped: boolean;
 };
 
-export type MandatoryFixKey =
+type MandatoryFixKey =
   | "pending_feelings"
   | "cliche"
   | "judgment_low"
@@ -417,14 +387,14 @@ export type MandatoryFix = {
   detail: string | null;
 };
 
-export type Improvement = {
+type Improvement = {
   key: ScoreItemKey;
   label: string;
   message: string;
   failedChecks: string[];
 };
 
-export type GrowthFit = {
+type GrowthFit = {
   stageChecks: ScoreCheck[];
   axisChecks: {
     axis: Axis;
@@ -437,7 +407,7 @@ export type GrowthFit = {
 };
 
 /** 연계 경고 한 건(명세 No.182, 190). 점수와 제출 가능 판정에는 들어가지 않는다. */
-export type LinkCheck = {
+type LinkCheck = {
   recordId: string;
   label: string;
   /** unused 는 선택했지만 본문이 인용하지 않은 기록이다. */
@@ -480,35 +450,21 @@ export type PromotedRecord = {
   numbers: string[];
   sources: string[];
 };
-
 // ---------------------------------------------------------------------------
 // 상수
 // ---------------------------------------------------------------------------
 
-// 세션 만료 일수, 단계 선점 만료, 단계 시간 예산은 서버와 함께 쓰는 계약 값이다.
-export {
-  CLAIM_STALE_SECONDS,
-  SESSION_EXPIRY_DAYS,
-  STEP_BUDGET_MS,
-} from "../../../shared/selfeval/contract.js";
-export const GROWTH_STALE_DAYS = 180;
-export const FIT_AUTO_SELECT_THRESHOLD = 40;
-export const CANDIDATE_LIMIT = 20;
 export const MAX_SUPPORT_ACTIVITIES = 2;
 export const MAX_REGENERATIONS = 3;
 export const MAX_MODEL_ATTEMPTS_PER_STEP = 10;
 export const DEFAULT_TARGET_CHARS = 500;
 export const TARGET_TOLERANCE = 0.05;
-export const MIN_LENGTH_CHARS = 400;
-export const MIN_SENTENCES = 4;
-export const CLICHE_DENSITY_MAX = 2.0;
-export const SHORT_TARGET_MAX = 300;
 
 // ---------------------------------------------------------------------------
 // API 계약(api/_lib/selfeval/view.ts, sessionBody.ts, pickBody.ts, manual.ts)
 // ---------------------------------------------------------------------------
 
-export type QuotaSnapshot = {
+type QuotaSnapshot = {
   quotaTotal: number | null;
   quotaUsed: number | null;
   quotaRemaining: number | null;
@@ -516,7 +472,7 @@ export type QuotaSnapshot = {
   planLabel: string | null;
 };
 
-export type SessionRoute =
+type SessionRoute =
   | "new"
   | "activities"
   | "analysis"
@@ -524,7 +480,7 @@ export type SessionRoute =
   | "verify"
   | "done";
 
-export type OpenSessionSummary = {
+type OpenSessionSummary = {
   id: string;
   status: SessionStatus;
   currentStep: SessionStep;
@@ -543,7 +499,7 @@ export type GrowthBanner = {
   issuedAt: string;
 };
 
-export type EntryGrowth = {
+type EntryGrowth = {
   reportId: string;
   issuedAt: string;
   stale: boolean;
@@ -630,7 +586,7 @@ export type SessionActivityView = {
   record: ActivityRecordLike;
 };
 
-export type ReportView = {
+type ReportView = {
   id: string;
   revision: number;
   sections: unknown;
@@ -695,9 +651,9 @@ export type ManualInput = {
   next: string;
 };
 
-export type PickSelection = { coreId: string; supportIds: string[] };
+type PickSelection = { coreId: string; supportIds: string[] };
 
-export type PickAuto = {
+type PickAuto = {
   coreId: string | null;
   supportIds: string[];
   coreMismatch: boolean;
@@ -760,14 +716,14 @@ export type PickManualResponse = {
 // 분석, 생성, 검증, 최종 저장 API 계약(api/selfeval/analyze, write, verify, finalize)
 // ---------------------------------------------------------------------------
 
-export type StepIssueView = {
+type StepIssueView = {
   code?: string;
   message: string;
   path?: string | undefined;
 };
 
 /** 모델 단계 성공 응답이 공통으로 싣는 값. */
-export type StepMeta = {
+type StepMeta = {
   attempts: number;
   softIssues: StepIssueView[];
 };
@@ -783,7 +739,7 @@ export type AnalyzeEditResponse = { analysis: Analysis };
 
 export type ConflictChoice = "a" | "b";
 
-export type WrittenReport = {
+type WrittenReport = {
   id: string;
   revision: number;
   sections: GenerationSections;

@@ -22,7 +22,7 @@ export interface MenuGroup {
 
 export const CONSOLE_BASE = "/teacher";
 
-export const menuGroups: MenuGroup[] = [
+const menuGroups: MenuGroup[] = [
   {
     label: "개요",
     items: [{ label: "대시보드", to: CONSOLE_BASE }],
@@ -97,7 +97,7 @@ export function menuFor(kind: string): MenuGroup[] {
 }
 
 /** 관리자 메뉴가 필요한 역할이면 true(school_admin, hq_proxy). */
-export function usesAdminMenu(kind: string): boolean {
+function usesAdminMenu(kind: string): boolean {
   return kind !== "homeroom";
 }
 

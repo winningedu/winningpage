@@ -3,7 +3,6 @@ export {
   CARD,
   CARD_HINT,
   CARD_TITLE,
-  SUB_TILE,
 } from "@/components/growth/start/cardStyles";
 
 const PILL_BASE =

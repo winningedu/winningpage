@@ -28,8 +28,18 @@
 //   아니면 새로 만든다"가 자동으로 성립한다. `regenerate:true`는 재생성 예산(2회)을 태우는
 //   별개 행동이라 그 UI(§5.13에 없음)가 생길 때 함께 배선한다.
 
+import type { z } from "zod";
+import {
+  type DesignReportBodyInput,
+  designReportResponse,
+} from "../../../shared/performance/design-report.js";
+import { api } from "../http/client";
 import { entitlementDeniedMessage } from "../tenantBlock";
-import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "./apiClient";
+import {
+  AI_CALL_TIMEOUT_MS,
+  type PerformanceResult,
+  performanceRequest,
+} from "./apiClient";
 
 const NETWORK_ERROR =
   "네트워크 오류가 발생했어요. 연결을 확인하고 다시 시도해 주세요.";
@@ -92,7 +102,6 @@ class DesignReportError extends Error {
  * 외부 앱의 2회 왕복 결함 회피). 그래서 클라이언트에 "확정만 하는" 호출은 없다.
  *
  * @param {{accessToken: string, sessionId: string, topicId: string, regenerate?: boolean}} params
- * @returns {Promise<object>} §8.6 성공 응답 전체.
  * @throws {DesignReportError}
  */
 export async function requestDesignReport({
@@ -106,24 +115,19 @@ export async function requestDesignReport({
   topicId: string;
   regenerate?: boolean;
 }) {
-  let response: Response;
+  let result: PerformanceResult<z.output<typeof designReportResponse>>;
 
   try {
-    response = await fetchWithTimeout(
-      "/api/performance/design-report",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(
-          regenerate
+    result = await performanceRequest(
+      api
+        .post("performance/design-report", {
+          json: (regenerate
             ? { sessionId, topicId, regenerate: true }
-            : { sessionId, topicId },
-        ),
-      },
-      AI_CALL_TIMEOUT_MS,
+            : { sessionId, topicId }) satisfies DesignReportBodyInput,
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: AI_CALL_TIMEOUT_MS,
+        })
+        .json(designReportResponse),
     );
   } catch (error) {
     const wrapped = new DesignReportError("NETWORK", NETWORK_ERROR, {});
@@ -131,17 +135,15 @@ export async function requestDesignReport({
     throw wrapped;
   }
 
-  // 플랫폼이 함수를 죽이면(504 등) 본문이 비어 파싱이 실패한다 — 그때도 화면에는 무언가
-  // 말해야 하므로 null로 받고 폴백으로 간다.
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const code = data?.error?.code || "UNKNOWN";
+  // 플랫폼이 함수를 죽이면(504 등) 본문이 비어 서버 문구가 없다. 그때도 화면에는 무언가
+  // 말해야 하므로 message 가 null 이면 폴백으로 간다.
+  if (!result.ok) {
+    const { code, extra: data } = result;
     throw new DesignReportError(
       code,
       entitlementDeniedMessage(
         code,
-        data?.error?.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
+        result.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
         data?.tenantReason,
       ),
       {
@@ -152,5 +154,5 @@ export async function requestDesignReport({
     );
   }
 
-  return data;
+  return result.data;
 }

@@ -107,6 +107,7 @@ describe("BulkPanel 서버 호출", () => {
       await screen.findByText("반영 완료: 신규 1건, 수정 0건, 임베딩 1건."),
     ).toBeTruthy();
     expect(onReload).toHaveBeenCalledTimes(1);
+    expect(api.postEmbedBackfill).toHaveBeenCalledWith("topic_pattern");
   });
 
   test("반영이 실패하면 서버 detail 을 반영 건수 안내와 함께 알린다", async () => {

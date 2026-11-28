@@ -12,222 +12,195 @@
 // row.status: 'active' | 'awaiting_cuts') 이름이 겹치면 혼동되므로, 이 래퍼의 판별자는
 // 의도적으로 `status`가 아니라 `kind`로 둔다.
 
-import { apiFetch, getAuthHeader } from "./apiFetch";
+import type { Options } from "ky";
+
+import type { z } from "zod";
+import {
+  type AdviceBodyInput,
+  adviceGetResponse,
+  advicePostResponse,
+  type GoalAdvicePayload,
+} from "../../shared/goal/advice.js";
+import {
+  type DailyRecordInput,
+  dailyRecordGetResponse,
+  dailyRecordPostResponse,
+  type GoalDailyRecord,
+  type GoalProbsBlock,
+  type GoalRecordCooldown,
+  type GoalRecordSummary,
+  type GoalTomorrowTargets,
+} from "../../shared/goal/daily-record.js";
+import {
+  type GoalGradeEntryInput,
+  type GoalGradeRecord,
+  type GoalGradeType,
+  type gradeCreateBody,
+  type gradeDeleteBody,
+  gradeDeleteResponse,
+  gradesListResponse,
+  type gradeUpdateBody,
+  gradeWriteResponse,
+} from "../../shared/goal/grades.js";
+import {
+  type GoalIntakeStudent,
+  intakeResponse,
+} from "../../shared/goal/intake.js";
+import {
+  type IntakeUpdateInput,
+  intakeUpdateResponse,
+} from "../../shared/goal/intake-update.js";
+import {
+  type PlanTaskCreateInput,
+  type PlanTasksQueryInput,
+  type PlanTaskUpdateInput,
+  planTaskDeleteResponse,
+  planTaskResponse,
+  planTasksListResponse,
+} from "../../shared/goal/plan-tasks.js";
+import {
+  type GoalRankingEntry,
+  rankingResponse,
+} from "../../shared/goal/ranking.js";
+import { reportResponse } from "../../shared/goal/report.js";
+import {
+  type GoalSchedule,
+  type ScheduleCreateInput,
+  type ScheduleDeleteInput,
+  type ScheduleUpdateInput,
+  scheduleDeleteResponse,
+  scheduleResponse,
+  schedulesListResponse,
+} from "../../shared/goal/schedules.js";
+import {
+  type GoalStudentPayload,
+  type GoalTargets,
+  studentResponse,
+} from "../../shared/goal/student.js";
+import {
+  type TimerBodyInput,
+  type TimerSubject,
+  type TimerSummary,
+  timerGetResponse,
+  timerRunningResponse,
+  timerSubjectsResponse,
+  timerTargetResponse,
+} from "../../shared/goal/timer.js";
+import {
+  type GoalWorkbook,
+  type WorkbookCreateInput,
+  type WorkbookPutInput,
+  workbookDeleteResponse,
+  workbookResponse,
+  workbooksListResponse,
+} from "../../shared/goal/workbooks.js";
+import { getAuthHeader } from "./apiFetch";
+import { ApiError, api } from "./http/client";
 import { parseTenantReason, type TenantBlockReason } from "./tenantBlock";
+
+export type {
+  GoalRecordCooldown,
+  GoalRecordSummary,
+  GoalStudentPayload,
+  GoalTomorrowTargets,
+};
+
+/** 화면은 컨디션, 항목, 방해 요인을 string 으로 들고 있다. 서버가 목록 밖의 값을 400 으로 막는다. */
+type SubmitDailyRecordBody = Omit<
+  DailyRecordInput,
+  "bodyCondition" | "reasons" | "tasks"
+> & { bodyCondition?: string; reasons?: string[]; tasks?: string[] };
+
+export type SubmitGoalIntakeResult =
+  | { kind: "no-session" }
+  | { kind: "not-allowed"; tenantReason: TenantBlockReason | null }
+  | { kind: "success"; student: GoalIntakeStudent }
+  | { kind: "already-onboarded" }
+  | { kind: "cuts-missing"; missing: string[] }
+  | { kind: "validation-error"; detail: string }
+  | { kind: "error" };
+
+export type SubmitGoalIntakeUpdateResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "success"; student: GoalIntakeStudent }
+  | { kind: "not-onboarded" }
+  | { kind: "cuts-missing"; missing: string[] }
+  | { kind: "validation-error"; detail: string }
+  | { kind: "error" };
+
+export type FetchTodayGoalRecordResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "not-active" }
+  | {
+      kind: "success";
+      record: GoalDailyRecord | null;
+      probs: GoalProbsBlock;
+      cooldown: GoalRecordCooldown | null;
+      summary: GoalRecordSummary | null;
+      tomorrowTargets: GoalTomorrowTargets;
+    }
+  | { kind: "error" };
+
+export type SubmitDailyRecordResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "not-active" }
+  | { kind: "no-study-time" }
+  | { kind: "before-start-date" }
+  // QA3 행305 — 12시간 쿨다운 중 재제출. api/_routes/goal/daily-record.ts 409 {reason:'cooldown'}.
+  | { kind: "cooldown"; submittedAt: string | null; unlocksAt: string | null }
+  | { kind: "validation-error"; detail: string }
+  | {
+      kind: "success";
+      record: GoalDailyRecord;
+      delta: GoalProbsBlock;
+      probs: GoalProbsBlock;
+      recordCount: number;
+    }
+  | { kind: "error" };
+
+export type FetchGoalGradesResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "not-onboarded" }
+  | { kind: "error" }
+  | {
+      kind: "ok";
+      naesinRecords: GoalGradeRecord[];
+      mockRecords: GoalGradeRecord[];
+    };
+
+export type AddGoalGradeResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "not-onboarded" }
+  | { kind: "validation-error"; detail: string }
+  | { kind: "success"; record?: GoalGradeRecord; records: GoalGradeRecord[] }
+  | { kind: "error" };
+
+export type UpdateGoalGradeResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "not-onboarded" }
+  | { kind: "not-found" }
+  | { kind: "validation-error"; detail: string }
+  | { kind: "success"; record?: GoalGradeRecord; records: GoalGradeRecord[] }
+  | { kind: "error" };
+
+export type DeleteGoalGradeResult =
+  | { kind: "no-session" }
+  | NotAllowed
+  | { kind: "not-onboarded" }
+  | { kind: "not-found" }
+  | { kind: "success"; records: GoalGradeRecord[] }
+  | { kind: "error" };
 
 // ---------------------------------------------------------------------------
 // 응답 payload 타입, api/_lib/goal/repo.ts buildXxxPayload()/api/goal/*.ts 응답 조립과
 // 실제 select 컬럼(카멜 변환 후)에 맞춰 정의한다.
 // ---------------------------------------------------------------------------
-
-interface GoalTargetBlock {
-  university: string;
-  department: string;
-  naesinCut: number | null;
-  jungsiCut: number | null;
-}
-
-interface GoalTargets {
-  ideal: GoalTargetBlock;
-  min: GoalTargetBlock;
-}
-
-interface GoalProbabilityHistoryEntry {
-  recordedAt: string;
-  idealSusi: number | null;
-  idealJungsi: number | null;
-  minSusi: number | null;
-  minJungsi: number | null;
-}
-
-/** GET /api/goal/student 200 본문(온보딩 완료 학생), api/_lib/goal/repo.ts buildStudentPayload(). */
-export interface GoalStudentPayload {
-  onboarded: true;
-  /** 학생 시간대(IANA). 학생 화면의 "오늘"은 이 시간대의 달력 날짜다. */
-  timeZone: string;
-  status: string;
-  profile: {
-    name: string | null;
-    schoolType: string;
-    grade: string;
-    schoolCutType: string;
-  };
-  targets: GoalTargets;
-  scores: {
-    currentScore: number | null;
-    convertedGrade: number | null;
-    currentMogo: number | null;
-    remainNaesin: number | null;
-    remainMogo: number | null;
-    lastNaesinExam: string;
-    lastMogoExam: string;
-  };
-  baseProbs: {
-    idealSusi: number | null;
-    idealJungsi: number | null;
-    minSusi: number | null;
-    minJungsi: number | null;
-  };
-  rates: {
-    idealSusiBonus: number | null;
-    idealJungsiBonus: number | null;
-    minSusiBonus: number | null;
-    minJungsiBonus: number | null;
-  };
-  cumulativeBonus: {
-    idealSusi: number;
-    idealJungsi: number;
-    minSusi: number;
-    minJungsi: number;
-  };
-  probs: {
-    idealSusi: number | null;
-    idealJungsi: number | null;
-    minSusi: number | null;
-    minJungsi: number | null;
-  };
-  weeklySchedule: Record<string, unknown>;
-  weekIdeal: number;
-  weekMin: number;
-  actualStartDate: string | null;
-  recordCount: number;
-  lastRecordDate: string | null;
-  jungsiAvailable: boolean;
-  probabilityHistory: GoalProbabilityHistoryEntry[];
-  /** 최근 7일 goal_daily_records 순공시간 평균. 기록 0건이면 null(억지 산출 금지). */
-  recentAvgStudyHours: number | null;
-  /** 내 정보 수정(내 목표 대학·내 정보 수정 화면) 폼 hydration 전용 — 원본 입력값. */
-  targetInput: {
-    ideal: { university: string; department: string };
-    min: { university: string; department: string };
-  };
-  /** naesin_scores 원본(intake.ts 저장 모양) — 없으면 아직 저장된 적 없음. */
-  naesinInput: Record<string, unknown> | null;
-  /** mock_exam_scores 원본(intake.ts 저장 모양) — 없으면 아직 저장된 적 없음. */
-  mockInput: Record<string, unknown> | null;
-}
-
-/** 오늘 확률 스냅샷 — api/_routes/goal/daily-record.ts buildProbsPayload(). */
-interface GoalProbsBlock {
-  idealSusi: number | null;
-  idealJungsi: number | null;
-  minSusi: number | null;
-  minJungsi: number | null;
-}
-
-/** api/_routes/goal/daily-record.ts buildRecordPayload(). */
-interface GoalDailyRecord {
-  recordIndex: number | null;
-  recordDate: string;
-  studyHours: number;
-  bodyCondition: string;
-  tasks: string[];
-  reasons: string[];
-  memo: string;
-}
-
-/**
- * QA3 행305 — api/_routes/goal/daily-record.ts computeCooldownState(). 한 번도 제출한
- * 적 없는 학생은 null(잠금 개념 자체가 없다).
- */
-export interface GoalRecordCooldown {
-  active: boolean;
-  submittedAt: string | null;
-  unlocksAt: string | null;
-}
-
-/**
- * QA3 행305 — api/_routes/goal/daily-record.ts buildSummaryPayload(). 잠금 중 요약
- * 패널 전용, 오늘/가장 최근 제출 행이 하나도 없으면 null.
- */
-export interface GoalRecordSummary {
-  studyHours: number;
-  targetIdealHours: number;
-  targetMinHours: number;
-  idealRate: number;
-  minRate: number;
-  deltaIdealSusi: number | null;
-  deltaMinSusi: number | null;
-  deltaIdealJungsi: number | null;
-  deltaMinJungsi: number | null;
-}
-
-/** QA3 행305 — api/_routes/goal/daily-record.ts buildTomorrowTargets(). */
-export interface GoalTomorrowTargets {
-  idealHours: number;
-  minHours: number;
-}
-
-/** api/_lib/goal/repo.ts buildSchedulePayload(). */
-interface GoalSchedule {
-  id: number;
-  title: string;
-  category: string;
-  dueDate: string;
-  memo: string;
-}
-
-/**
- * api/_lib/goal/repo.ts buildPlanTaskPayload(). status가 단일 원본(QA 행305,
- * pending/done/fail) — done은 status에서 파생한 하위 호환 값이다.
- */
-export interface GoalPlanTask {
-  id: number;
-  planDate: string;
-  title: string;
-  subject: string;
-  durationMinutes: number;
-  status: "pending" | "done" | "fail";
-  done: boolean;
-  sortOrder: number;
-  // 문제집 연결(QA 행286-B), 셋 다 선택 — 연결이 없으면 전부 null.
-  workbookId: number | null;
-  pageFrom: number | null;
-  pageTo: number | null;
-  workbookTitle: string | null;
-}
-
-/** api/_lib/goal/repo.ts buildWorkbookPayload(). */
-interface GoalWorkbook {
-  id: number;
-  subject: string;
-  title: string;
-  totalPages: number | null;
-  currentPage: number | null;
-  status: string;
-  // "책장에 꽂기" 수동 전이(Figma 4026:6046) — null이면 status='done'이어도 아직
-  // BookStack에 안 옮겨진 상태.
-  shelvedAt: string | null;
-}
-
-/** GET /api/goal/timer 응답의 summary 블록(camelCase). api/_routes/goal/timer.ts 참고. */
-interface GoalTimerSummary {
-  date: string;
-  serverNow: string;
-  running: { subject: string; startedAt: string } | null;
-  subjects: { subject: string; seconds: number }[];
-  totalSeconds: number;
-  targets: { subject: string; targetHours: number }[];
-  // 학생이 타이머 화면에 노출 중인 과목 목록(정렬 순, QA B9 "+ 과목 추가"). 행이 없으면
-  // 서버가 기본 4과목을 돌려준다(api/_lib/goal/repo.ts DEFAULT_TIMER_SUBJECTS).
-  visibleSubjects: string[];
-}
-
-/** fetchGoalGrades()/addGoalGrade() 회차 레코드 — api/_routes/goal/grades.ts validateEntry 참고. */
-interface GoalGradeRecord {
-  term: string;
-  enteredAt?: string;
-  examDate?: string;
-  subjects: {
-    korean: number | string;
-    math: number | string;
-    english: number | string;
-    science: number | string;
-  };
-  value: number;
-  none: boolean;
-  recordedAt: string;
-}
 
 // 응답 본문 shape은 엔드포인트별로 다르고 파싱 실패 시 {}로 접히므로 any로 둔다 —
 // 각 호출부가 옵셔널 체이닝으로 안전하게 좁혀 쓴다(아래 discriminated union 반환
@@ -239,6 +212,41 @@ async function parseJsonSafe(response: Response): Promise<any> {
     return await response.json();
   } catch {
     return {};
+  }
+}
+
+/** /api/goal/* 응답. 실패도 던지지 않고 상태와 본문으로 돌려준다. */
+type GoalResponse = {
+  ok: boolean;
+  status: number;
+  // biome-ignore lint/suspicious/noExplicitAny: 엔드포인트마다 응답 모양이 다른 원시 JSON.
+  body: any;
+};
+
+/**
+ * /api/goal/* 호출 하나. ky 클라이언트(src/lib/http/client.ts)가 인증, X-Time-Zone 헤더를 단다.
+ * 실패 본문은 problem(RFC 9457)이고 예전 본문의 detail, reason, tenantReason 은 같은 이름으로 실려 있어 호출부가 그대로 읽는다.
+ * 서버에 닿지 못한 실패(네트워크, 타임아웃)는 던진다. 호출부의 catch 가 { kind: "error" } 로 접는다.
+ */
+async function goalRequest(
+  path: string,
+  options: Options,
+  schema?: z.ZodType,
+): Promise<GoalResponse> {
+  try {
+    const call = api(path, options);
+    const response = await call;
+    return {
+      ok: true,
+      status: response.status,
+      // 계약 스키마가 있으면 성공 본문을 검증한다. 어긋나면 SchemaValidationError 를 던져 호출부 catch 가 error 로 접는다.
+      body: schema ? await call.json(schema) : await parseJsonSafe(response),
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status !== null) {
+      return { ok: false, status: error.status, body: error.problem ?? {} };
+    }
+    throw error;
   }
 }
 
@@ -309,12 +317,13 @@ export async function fetchGoalStudent(): Promise<FetchGoalStudentResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/student", {
-      method: "GET",
-      headers: authHeader,
-    });
+    response = await goalRequest(
+      "goal/student",
+      { method: "GET" },
+      studentResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/student 호출 오류:", error);
     return { kind: "error" };
@@ -327,7 +336,7 @@ export async function fetchGoalStudent(): Promise<FetchGoalStudentResult> {
     return { kind: "error" };
   }
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
 
   if (body?.allowed === false) return notAllowed(body);
 
@@ -369,39 +378,27 @@ export async function fetchGoalStudent(): Promise<FetchGoalStudentResult> {
 //   { kind: 'validation-error', detail } — 400. 정상 경로에선 나오지 않아야 하는 방어적 분기.
 //   { kind: 'error' }                  — 500 / 네트워크 오류 / 예상 밖 상태코드. 재시도 가능,
 //                                         입력을 지우지 않는다.
-export type SubmitGoalIntakeResult =
-  | { kind: "no-session" }
-  | { kind: "not-allowed"; tenantReason: TenantBlockReason | null }
-  | { kind: "success"; student: GoalStudentPayload }
-  | { kind: "already-onboarded" }
-  | { kind: "cuts-missing"; missing: string[] }
-  | { kind: "validation-error"; detail: string }
-  | { kind: "error" };
-
-// intake 설문 본문(7단계 폼) — 서버가 zod로 검증하는 실제 계약(api/_routes/goal/intake.ts)이라
-// 클라이언트 쪽에서 이중으로 좁게 규정하지 않는다(과잉 제약 방지, 판단 지점).
+// intake 설문 본문(7단계 폼) — 서버가 zod 계약(shared/goal/intake.ts intakeBody)으로 검증한다.
+// 화면의 작성 중 상태가 null 이나 느슨한 Record 를 들고 있어 여기서는 object 로 받는다(과잉 제약 방지, 판단 지점).
 export async function submitGoalIntake(
   body: object,
 ): Promise<SubmitGoalIntakeResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/intake", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader,
-      },
-      body: JSON.stringify(body),
-    });
+    response = await goalRequest(
+      "goal/intake",
+      { method: "POST", json: body },
+      intakeResponse,
+    );
   } catch (error) {
     console.error("[goalApi] POST /api/goal/intake 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return { kind: "success", student: result?.student };
@@ -439,37 +436,25 @@ export async function submitGoalIntake(
 //
 // 내 정보 수정(QA 2차 시트 행25・31・32) — 목표대학/내신/모의고사 중 한 section만
 // 부분 수정한다. 반환 계약은 submitGoalIntake와 같은 관례를 따른다.
-export type SubmitGoalIntakeUpdateResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "success"; student: GoalStudentPayload }
-  | { kind: "not-onboarded" }
-  | { kind: "cuts-missing"; missing: string[] }
-  | { kind: "validation-error"; detail: string }
-  | { kind: "error" };
-
 export async function submitGoalIntakeUpdate(
-  body: object,
+  body: IntakeUpdateInput,
 ): Promise<SubmitGoalIntakeUpdateResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/intake-update", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader,
-      },
-      body: JSON.stringify(body),
-    });
+    response = await goalRequest(
+      "goal/intake-update",
+      { method: "POST", json: body },
+      intakeUpdateResponse,
+    );
   } catch (error) {
     console.error("[goalApi] POST /api/goal/intake-update 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return { kind: "success", student: result?.student };
@@ -516,30 +501,17 @@ export async function submitGoalIntakeUpdate(
 //                                          쿨다운·잠금 패널 전용(둘 다 한 번도
 //                                          제출한 적 없으면 cooldown/summary는 null).
 //   { kind: 'error' }                   — 네트워크 오류·JSON 파싱 실패·5xx·예상 밖 상태코드.
-export type FetchTodayGoalRecordResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "not-active" }
-  | {
-      kind: "success";
-      record: GoalDailyRecord | null;
-      probs: GoalProbsBlock;
-      cooldown: GoalRecordCooldown | null;
-      summary: GoalRecordSummary | null;
-      tomorrowTargets: GoalTomorrowTargets;
-    }
-  | { kind: "error" };
-
 export async function fetchTodayGoalRecord(): Promise<FetchTodayGoalRecordResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/daily-record", {
-      method: "GET",
-      headers: authHeader,
-    });
+    response = await goalRequest(
+      "goal/daily-record",
+      { method: "GET" },
+      dailyRecordGetResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/daily-record 호출 오류:", error);
     return { kind: "error" };
@@ -556,11 +528,11 @@ export async function fetchTodayGoalRecord(): Promise<FetchTodayGoalRecordResult
     return { kind: "error" };
   }
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
 
   if (body?.allowed === false) return notAllowed(body);
 
-  if (body?.ok === true) {
+  if (response.ok) {
     return {
       kind: "success",
       record: body.record ?? null,
@@ -600,54 +572,25 @@ export async function fetchTodayGoalRecord(): Promise<FetchTodayGoalRecordResult
 //   { kind: 'validation-error', detail }    — 그 외 400(잘못된 컨디션·태그 코드 등).
 //   { kind: 'success', record, delta, probs, recordCount } — 200 {ok:true, ...}.
 //   { kind: 'error' }                       — 네트워크 오류·5xx·예상 밖 상태코드.
-interface SubmitDailyRecordBody {
-  studyHours?: number;
-  bodyCondition?: string;
-  reasons?: string[];
-  tasks?: string[];
-  memo?: string;
-}
-
-export type SubmitDailyRecordResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "not-active" }
-  | { kind: "no-study-time" }
-  | { kind: "before-start-date" }
-  // QA3 행305 — 12시간 쿨다운 중 재제출. api/_routes/goal/daily-record.ts 409 {reason:'cooldown'}.
-  | { kind: "cooldown"; submittedAt: string | null; unlocksAt: string | null }
-  | { kind: "validation-error"; detail: string }
-  | {
-      kind: "success";
-      record: GoalDailyRecord;
-      delta: GoalProbsBlock;
-      probs: GoalProbsBlock;
-      recordCount: number;
-    }
-  | { kind: "error" };
-
 export async function submitDailyRecord(
   body: SubmitDailyRecordBody,
 ): Promise<SubmitDailyRecordResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/daily-record", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader,
-      },
-      body: JSON.stringify(body),
-    });
+    response = await goalRequest(
+      "goal/daily-record",
+      { method: "POST", json: body },
+      dailyRecordPostResponse,
+    );
   } catch (error) {
     console.error("[goalApi] POST /api/goal/daily-record 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return {
@@ -714,31 +657,29 @@ type GoalWorkbooksRequestResult =
 
 async function goalWorkbooksRequest(
   method: string,
-  body?: object,
+  schema: z.ZodType,
+  body?: WorkbookCreateInput | WorkbookPutInput | { id: number },
 ): Promise<GoalWorkbooksRequestResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/workbooks", {
-      method,
-      headers: {
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-        ...authHeader,
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
+    response = await goalRequest(
+      "goal/workbooks",
+      { method, ...(body !== undefined ? { json: body } : {}) },
+      schema,
+    );
   } catch (error) {
     console.error(`[goalApi] ${method} /api/goal/workbooks 호출 오류:`, error);
     return { kind: "error" };
   }
 
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return notAllowed(await parseJsonSafe(response));
+  if (response.status === 403) return notAllowed(response.body);
   if (response.status === 404) return { kind: "not-found" };
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 400)
     return { kind: "validation-error", detail: result?.detail };
@@ -762,17 +703,15 @@ export async function fetchGoalWorkbooks(): Promise<
   | Exclude<GoalWorkbooksRequestResult, { kind: "success" }>
   | { kind: "success"; workbooks: GoalWorkbook[] }
 > {
-  const outcome = await goalWorkbooksRequest("GET");
+  const outcome = await goalWorkbooksRequest("GET", workbooksListResponse);
   if (outcome.kind !== "success") return outcome;
   return { kind: "success", workbooks: outcome.result?.workbooks ?? [] };
 }
 
-interface GoalWorkbookInput {
+// 화면은 과목을 string 으로 들고 있다. 서버가 목록 밖의 값을 400 으로 막는다.
+type GoalWorkbookInput = Omit<WorkbookCreateInput, "subject"> & {
   subject: string;
-  title: string;
-  totalPages: number;
-  currentPage?: number;
-}
+};
 
 /** POST — 문제집 1건 등록. payload: {subject, title, totalPages, currentPage?}. */
 export async function createGoalWorkbook(
@@ -781,7 +720,11 @@ export async function createGoalWorkbook(
   | Exclude<GoalWorkbooksRequestResult, { kind: "success" }>
   | { kind: "success"; workbook: GoalWorkbook }
 > {
-  const outcome = await goalWorkbooksRequest("POST", payload);
+  const outcome = await goalWorkbooksRequest(
+    "POST",
+    workbookResponse,
+    payload as WorkbookCreateInput,
+  );
   if (outcome.kind !== "success") return outcome;
   return { kind: "success", workbook: outcome.result?.workbook };
 }
@@ -795,7 +738,7 @@ export async function updateGoalWorkbook(
   | Exclude<GoalWorkbooksRequestResult, { kind: "success" }>
   | { kind: "success"; workbook: GoalWorkbook }
 > {
-  const outcome = await goalWorkbooksRequest("PUT", payload);
+  const outcome = await goalWorkbooksRequest("PUT", workbookResponse, payload);
   if (outcome.kind !== "success") return outcome;
   return { kind: "success", workbook: outcome.result?.workbook };
 }
@@ -811,7 +754,10 @@ export async function shelveGoalWorkbook(
   | Exclude<GoalWorkbooksRequestResult, { kind: "success" }>
   | { kind: "success"; workbook: GoalWorkbook }
 > {
-  const outcome = await goalWorkbooksRequest("PUT", { id, shelve: true });
+  const outcome = await goalWorkbooksRequest("PUT", workbookResponse, {
+    id,
+    shelve: true,
+  });
   if (outcome.kind !== "success") return outcome;
   return { kind: "success", workbook: outcome.result?.workbook };
 }
@@ -822,7 +768,9 @@ export async function deleteGoalWorkbook(
 ): Promise<
   Exclude<GoalWorkbooksRequestResult, { kind: "success" }> | { kind: "success" }
 > {
-  const outcome = await goalWorkbooksRequest("DELETE", { id });
+  const outcome = await goalWorkbooksRequest("DELETE", workbookDeleteResponse, {
+    id,
+  });
   if (outcome.kind !== "success") return outcome;
   return { kind: "success" };
 }
@@ -852,12 +800,13 @@ export async function fetchGoalSchedules(): Promise<FetchGoalSchedulesResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/schedules", {
-      method: "GET",
-      headers: authHeader,
-    });
+    response = await goalRequest(
+      "goal/schedules",
+      { method: "GET" },
+      schedulesListResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/schedules 호출 오류:", error);
     return { kind: "error" };
@@ -869,10 +818,9 @@ export async function fetchGoalSchedules(): Promise<FetchGoalSchedulesResult> {
     return { kind: "error" };
   }
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
   if (body?.allowed === false) return notAllowed(body);
-  if (body?.ok === true)
-    return { kind: "success", schedules: body.schedules || [] };
+  if (response.ok) return { kind: "success", schedules: body.schedules || [] };
 
   console.error("[goalApi] GET /api/goal/schedules 예상 밖 응답 모양:", body);
   return { kind: "error" };
@@ -895,27 +843,25 @@ type SubmitGoalScheduleResult =
 
 async function submitGoalSchedule(
   method: string,
-  body: object,
+  body: ScheduleCreateInput | ScheduleUpdateInput | ScheduleDeleteInput,
+  schema: z.ZodType,
 ): Promise<SubmitGoalScheduleResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/schedules", {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader,
-      },
-      body: JSON.stringify(body),
-    });
+    response = await goalRequest(
+      "goal/schedules",
+      { method, json: body },
+      schema,
+    );
   } catch (error) {
     console.error(`[goalApi] ${method} /api/goal/schedules 호출 오류:`, error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return { kind: "success", schedule: result?.schedule };
@@ -934,34 +880,29 @@ async function submitGoalSchedule(
   return { kind: "error" };
 }
 
-interface GoalScheduleInput {
-  title: string;
-  category: string;
-  dueDate: string;
-  memo?: string;
+// 화면은 종류를 string 으로 들고 있다. 서버가 목록 밖의 값을 400 으로 막는다.
+export async function createGoalSchedule(
+  input: Omit<ScheduleCreateInput, "category"> & { category: string },
+) {
+  return submitGoalSchedule(
+    "POST",
+    input as ScheduleCreateInput,
+    scheduleResponse,
+  );
 }
 
-export async function createGoalSchedule({
-  title,
-  category,
-  dueDate,
-  memo,
-}: GoalScheduleInput) {
-  return submitGoalSchedule("POST", { title, category, dueDate, memo });
+export async function updateGoalSchedule(
+  input: Omit<ScheduleUpdateInput, "category"> & { category: string },
+) {
+  return submitGoalSchedule(
+    "PUT",
+    input as ScheduleUpdateInput,
+    scheduleResponse,
+  );
 }
 
-export async function updateGoalSchedule({
-  id,
-  title,
-  category,
-  dueDate,
-  memo,
-}: GoalScheduleInput & { id: number }) {
-  return submitGoalSchedule("PUT", { id, title, category, dueDate, memo });
-}
-
-export async function deleteGoalSchedule({ id }: { id: number }) {
-  return submitGoalSchedule("DELETE", { id });
+export async function deleteGoalSchedule({ id }: ScheduleDeleteInput) {
+  return submitGoalSchedule("DELETE", { id }, scheduleDeleteResponse);
 }
 
 // GET /api/goal/student · POST /api/goal/intake · /api/goal/plan-tasks(CRUD) 공용 클라이언트.
@@ -977,41 +918,44 @@ export async function deleteGoalSchedule({ id }: { id: number }) {
 //   subject는 한글 라벨('국어'/'수학'/'영어'/'탐구'/'기타') — 서버가 DB 코드와
 //   왕복 변환하므로 클라이언트는 항상 이 라벨만 다룬다(AddTaskModal 과목 칩과 동일).
 
-type RequestPlanTasksResult =
+type RequestPlanTasksResult<Body> =
   | { kind: "no-session" }
   | NotAllowed
   | { kind: "not-found" }
   | { kind: "validation-error"; detail: string }
   | { kind: "error" }
-  // biome-ignore lint/suspicious/noExplicitAny: 안전 파싱된 원시 JSON 그대로 넘긴다 — 각 wrapper가 필요한 필드만 좁혀 쓴다.
-  | { kind: "success"; body: any };
+  | { kind: "success"; body: Body };
 
-/** 공용 요청 실행기 — 인증 헤더 부착 + JSON 직렬화 + 안전 파싱까지 4개 함수가 공유. */
-async function requestPlanTasks(
+/** 공용 요청 실행기: 인증 헤더 부착 + JSON 직렬화 + 계약 스키마로 성공 본문 검증까지 4개 함수가 공유. */
+async function requestPlanTasks<S extends z.ZodType>(
   method: string,
-  { query, body }: { query?: Record<string, string>; body?: object } = {},
-): Promise<RequestPlanTasksResult> {
+  schema: S,
+  {
+    query,
+    body,
+  }: {
+    query?: PlanTasksQueryInput;
+    body?: PlanTaskCreateInput | PlanTaskUpdateInput | { id: number };
+  } = {},
+): Promise<RequestPlanTasksResult<z.output<S>>> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
   const qs = query ? `?${new URLSearchParams(query).toString()}` : "";
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch(`/api/goal/plan-tasks${qs}`, {
-      method,
-      headers: {
-        ...(body ? { "Content-Type": "application/json" } : {}),
-        ...authHeader,
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-    });
+    response = await goalRequest(
+      `goal/plan-tasks${qs}`,
+      { method, ...(body ? { json: body } : {}) },
+      schema,
+    );
   } catch (error) {
     console.error(`[goalApi] ${method} /api/goal/plan-tasks 호출 오류:`, error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 401) return { kind: "no-session" };
   if (response.status === 403) return notAllowed(result);
@@ -1033,44 +977,23 @@ async function requestPlanTasks(
 
 /**
  * 기간(from~to, YYYY-MM-DD, 양끝 포함) 과제 목록.
- *   { kind: 'success', tasks }  — 200 {ok:true, tasks:[...]}.
+ *   { kind: 'success', tasks }  — 200 {tasks:[...]}.
  *   { kind: 'not-allowed' }     — 200 {allowed:false}. 이용권 없음(조회형 규약).
  *   그 외 kind는 requestPlanTasks 공통 계약(no-session/validation-error/error).
  */
-export async function fetchGoalPlanTasks({
-  from,
-  to,
-}: {
-  from: string;
-  to: string;
-}) {
-  const result = await requestPlanTasks("GET", { query: { from, to } });
+export async function fetchGoalPlanTasks({ from, to }: PlanTasksQueryInput) {
+  const result = await requestPlanTasks("GET", planTasksListResponse, {
+    query: { from, to },
+  });
   if (result.kind !== "success") return result;
-  if (result.body?.allowed === false) return notAllowed(result.body);
-  return {
-    kind: "success" as const,
-    tasks: (result.body?.tasks || []) as GoalPlanTask[],
-  };
+  if ("allowed" in result.body) return notAllowed(result.body);
+  return { kind: "success" as const, tasks: result.body.tasks };
 }
 
-interface GoalPlanTaskInput {
-  planDate: string;
-  title: string;
+// 화면은 과목을 string 으로 들고 있다. 서버가 라벨 밖의 값을 400 으로 막는다.
+type GoalPlanTaskInput = Omit<PlanTaskCreateInput, "subject"> & {
   subject: string;
-  durationMinutes: number;
-  // 문제집 연결(QA 행286-B) — 셋 다 선택. workbookId만 보내면 페이지 없이 연결,
-  // 셋 다 보내면 페이지 범위까지 연결(api/_routes/goal/plan-tasks.ts validateWorkbookLinkFields
-  // 검증 규약과 동일). null은 연결 해제(updateGoalPlanTask 전용, 생성 시엔 안 씀).
-  workbookId?: number | null;
-  pageFrom?: number | null;
-  pageTo?: number | null;
-  // 여러 plan_date로 펼쳐지는 호출(schedule !== "오늘만")임을 서버에 알린다
-  // (QA 행286-B 정정, 2026-09-02) — 문제집이 연결된 과제는 완전히 단일 날짜
-  // 1건만 허용한다("이번 주만"의 7일 복제도 포함해서 막는다). 모달이 이미 이
-  // 조합을 못 고르게(일정 select 자체를 비활성) 막지만, 서버도 같은 규칙을 한
-  // 번 더 확인한다. true일 때만 보낸다 — 그 외 호출부는 이 필드를 몰라도 된다.
-  repeatSchedule?: boolean;
-}
+};
 
 /** 과제 1건 생성. 성공 시 { kind:'success', task }. */
 export async function createGoalPlanTask({
@@ -1083,11 +1006,11 @@ export async function createGoalPlanTask({
   pageTo,
   repeatSchedule,
 }: GoalPlanTaskInput) {
-  const result = await requestPlanTasks("POST", {
+  const result = await requestPlanTasks("POST", planTaskResponse, {
     body: {
       planDate,
       title,
-      subject,
+      subject: subject as PlanTaskCreateInput["subject"],
       durationMinutes,
       ...(workbookId !== undefined ? { workbookId } : {}),
       ...(pageFrom !== undefined ? { pageFrom } : {}),
@@ -1096,10 +1019,7 @@ export async function createGoalPlanTask({
     },
   });
   if (result.kind !== "success") return result;
-  return {
-    kind: "success" as const,
-    task: result.body?.task as GoalPlanTask,
-  };
+  return { kind: "success" as const, task: result.body.task };
 }
 
 /**
@@ -1108,22 +1028,20 @@ export async function createGoalPlanTask({
  */
 export async function updateGoalPlanTask(
   id: number,
-  patch: Partial<GoalPlanTaskInput> & {
-    status?: "pending" | "done" | "fail";
-    sortOrder?: number;
-  },
+  patch: Partial<GoalPlanTaskInput> & Pick<PlanTaskUpdateInput, "status">,
 ) {
-  const result = await requestPlanTasks("PUT", { body: { id, ...patch } });
+  const result = await requestPlanTasks("PUT", planTaskResponse, {
+    body: { id, ...patch } as PlanTaskUpdateInput,
+  });
   if (result.kind !== "success") return result;
-  return {
-    kind: "success" as const,
-    task: result.body?.task as GoalPlanTask,
-  };
+  return { kind: "success" as const, task: result.body.task };
 }
 
 /** 과제 1건 삭제. */
 export async function deleteGoalPlanTask(id: number) {
-  const result = await requestPlanTasks("DELETE", { body: { id } });
+  const result = await requestPlanTasks("DELETE", planTaskDeleteResponse, {
+    body: { id },
+  });
   if (result.kind !== "success") return result;
   return { kind: "success" as const };
 }
@@ -1142,12 +1060,6 @@ export async function deleteGoalPlanTask(id: number) {
 //                                          본인이 오늘 기록을 제출했을 때만
 //                                          {rank,name,hours}이고 그 외엔 null
 //                                          (api/_routes/goal/ranking.js 참고).
-interface GoalRankingEntry {
-  rank: number;
-  name: string;
-  hours: number;
-}
-
 export type FetchGoalRankingResult =
   | { kind: "no-session" }
   | { kind: "error" }
@@ -1165,12 +1077,13 @@ export async function fetchGoalRanking(): Promise<FetchGoalRankingResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/ranking", {
-      method: "GET",
-      headers: authHeader,
-    });
+    response = await goalRequest(
+      "goal/ranking",
+      { method: "GET" },
+      rankingResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/ranking 호출 오류:", error);
     return { kind: "error" };
@@ -1183,11 +1096,11 @@ export async function fetchGoalRanking(): Promise<FetchGoalRankingResult> {
     return { kind: "error" };
   }
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
 
   if (body?.allowed === false) return notAllowed(body);
 
-  if (body?.ok === true) {
+  if (response.ok) {
     return {
       kind: "ok",
       date: body.date,
@@ -1214,27 +1127,17 @@ export async function fetchGoalRanking(): Promise<FetchGoalRankingResult> {
 //   { kind: 'ok', naesinRecords: [...], mockRecords: [...] }
 //     — 각 레코드 shape: { term, enteredAt|examDate, subjects:{korean,math,english,science},
 //       value, none:false, recordedAt } (api/_routes/goal/grades.js validateEntry 참고).
-export type FetchGoalGradesResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "not-onboarded" }
-  | { kind: "error" }
-  | {
-      kind: "ok";
-      naesinRecords: GoalGradeRecord[];
-      mockRecords: GoalGradeRecord[];
-    };
-
 export async function fetchGoalGrades(): Promise<FetchGoalGradesResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/grades", {
-      method: "GET",
-      headers: authHeader,
-    });
+    response = await goalRequest(
+      "goal/grades",
+      { method: "GET" },
+      gradesListResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/grades 호출 오류:", error);
     return { kind: "error" };
@@ -1246,7 +1149,7 @@ export async function fetchGoalGrades(): Promise<FetchGoalGradesResult> {
     return { kind: "error" };
   }
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
 
   if (body?.allowed === false) return notAllowed(body);
   if (body?.onboarded === false) return { kind: "not-onboarded" };
@@ -1262,26 +1165,6 @@ export async function fetchGoalGrades(): Promise<FetchGoalGradesResult> {
   return { kind: "error" };
 }
 
-interface GoalGradeEntryInput {
-  term: string;
-  enteredAt?: string;
-  examDate?: string;
-  subjects: {
-    korean: number | string;
-    math: number | string;
-    english: number | string;
-    science: number | string;
-  };
-}
-
-export type AddGoalGradeResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "not-onboarded" }
-  | { kind: "validation-error"; detail: string }
-  | { kind: "success"; record?: GoalGradeRecord; records: GoalGradeRecord[] }
-  | { kind: "error" };
-
 /**
  * 반환 계약:
  *   { kind: 'no-session' | 'not-allowed' | 'not-onboarded' | 'error' }
@@ -1290,25 +1173,28 @@ export type AddGoalGradeResult =
  *     (해당 type 전체를 그대로 교체해 쓸 수 있게, 서버가 upsertRecord 이후 값을 돌려준다).
  */
 export async function addGoalGrade(
-  type: "naesin" | "mock",
+  type: GoalGradeType,
   entry: GoalGradeEntryInput,
 ): Promise<AddGoalGradeResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/grades", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeader },
-      body: JSON.stringify({ type, entry }),
-    });
+    response = await goalRequest(
+      "goal/grades",
+      {
+        method: "POST",
+        json: { type, entry } satisfies z.input<typeof gradeCreateBody>,
+      },
+      gradeWriteResponse,
+    );
   } catch (error) {
     console.error("[goalApi] POST /api/goal/grades 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return {
@@ -1331,15 +1217,6 @@ export async function addGoalGrade(
   return { kind: "error" };
 }
 
-export type UpdateGoalGradeResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "not-onboarded" }
-  | { kind: "not-found" }
-  | { kind: "validation-error"; detail: string }
-  | { kind: "success"; record?: GoalGradeRecord; records: GoalGradeRecord[] }
-  | { kind: "error" };
-
 /**
  * PUT /api/goal/grades — 회차 id(term) 기준 전체 갱신(api/_routes/goal/grades.ts handlePut 참고).
  *
@@ -1355,26 +1232,31 @@ export type UpdateGoalGradeResult =
  *   { kind: 'success', record, records }                — 200. records = 갱신된 전체 배열.
  */
 export async function updateGoalGrade(
-  type: "naesin" | "mock",
+  type: GoalGradeType,
   originalTerm: string,
   entry: GoalGradeEntryInput,
 ): Promise<UpdateGoalGradeResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/grades", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", ...authHeader },
-      body: JSON.stringify({ type, term: originalTerm, entry }),
-    });
+    response = await goalRequest(
+      "goal/grades",
+      {
+        method: "PUT",
+        json: { type, term: originalTerm, entry } satisfies z.input<
+          typeof gradeUpdateBody
+        >,
+      },
+      gradeWriteResponse,
+    );
   } catch (error) {
     console.error("[goalApi] PUT /api/goal/grades 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return {
@@ -1401,39 +1283,34 @@ export async function updateGoalGrade(
   return { kind: "error" };
 }
 
-export type DeleteGoalGradeResult =
-  | { kind: "no-session" }
-  | NotAllowed
-  | { kind: "not-onboarded" }
-  | { kind: "not-found" }
-  | { kind: "success"; records: GoalGradeRecord[] }
-  | { kind: "error" };
-
 /**
  * DELETE /api/goal/grades — 회차 id(term) 기준 삭제(api/_routes/goal/grades.ts handleDelete 참고).
  * kind 분기는 updateGoalGrade와 동일 관례(validation-error만 없음 — 삭제는 term 누락 외
  * 별도 바디 검증이 없다).
  */
 export async function deleteGoalGrade(
-  type: "naesin" | "mock",
+  type: GoalGradeType,
   term: string,
 ): Promise<DeleteGoalGradeResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/grades", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json", ...authHeader },
-      body: JSON.stringify({ type, term }),
-    });
+    response = await goalRequest(
+      "goal/grades",
+      {
+        method: "DELETE",
+        json: { type, term } satisfies z.input<typeof gradeDeleteBody>,
+      },
+      gradeDeleteResponse,
+    );
   } catch (error) {
     console.error("[goalApi] DELETE /api/goal/grades 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 200) {
     return { kind: "success", records: result?.records || [] };
@@ -1480,40 +1357,40 @@ export async function deleteGoalGrade(
 // keepalive:true는 sendBeacon과 동일하게 페이지 언로드 이후에도 요청이 살아남는
 // 것을 브라우저가 보장하는 표준 대안이다.
 
-type RequestGoalTimerResult =
+type RequestGoalTimerResult<Body> =
   | { kind: "no-session" }
   | NotAllowed
   | { kind: "validation-error"; detail: string }
   | { kind: "error" }
-  // biome-ignore lint/suspicious/noExplicitAny: 안전 파싱된 원시 JSON 그대로 넘긴다 — 각 wrapper가 필요한 필드만 좁혀 쓴다.
-  | { kind: "success"; body: any };
+  | { kind: "success"; body: Body };
 
-/** 공용 요청 실행기 — 인증 헤더 부착 + JSON 직렬화 + 안전 파싱까지 공유. */
-async function requestGoalTimer(
+/** 공용 요청 실행기: 인증 헤더 부착 + JSON 직렬화 + 계약 스키마로 성공 본문 검증까지 공유. */
+async function requestGoalTimer<S extends z.ZodType>(
   method: string,
-  body?: object,
+  schema: S,
+  body?: TimerBodyInput,
   { keepalive = false }: { keepalive?: boolean } = {},
-): Promise<RequestGoalTimerResult> {
+): Promise<RequestGoalTimerResult<z.output<S>>> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/timer", {
-      method,
-      headers: {
-        ...(body ? { "Content-Type": "application/json" } : {}),
-        ...authHeader,
+    response = await goalRequest(
+      "goal/timer",
+      {
+        method,
+        ...(body ? { json: body } : {}),
+        ...(keepalive ? { keepalive: true } : {}),
       },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-      ...(keepalive ? { keepalive: true } : {}),
-    });
+      schema,
+    );
   } catch (error) {
     console.error(`[goalApi] ${method} /api/goal/timer 호출 오류:`, error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
   if (response.status === 401) return { kind: "no-session" };
   if (response.status === 403) return notAllowed(result);
@@ -1533,29 +1410,26 @@ async function requestGoalTimer(
 }
 
 /**
- * 오늘(KST) 타이머 요약 조회.
+ * 오늘(학생 현지) 타이머 요약 조회.
  *   { kind: 'success', summary }  — 200. summary는 위 shape 그대로.
  *   { kind: 'not-allowed' }       — 200 {allowed:false}. 이용권 없음(조회형 규약).
  *   그 외 kind는 requestGoalTimer 공통 계약(no-session/error).
  */
 export async function fetchGoalTimer() {
-  const result = await requestGoalTimer("GET");
+  const result = await requestGoalTimer("GET", timerGetResponse);
   if (result.kind !== "success") return result;
-  if (result.body?.allowed === false) return notAllowed(result.body);
-  return {
-    kind: "success" as const,
-    summary: result.body as GoalTimerSummary,
-  };
+  if ("allowed" in result.body) return notAllowed(result.body);
+  return { kind: "success" as const, summary: result.body as TimerSummary };
 }
 
 /** 과목 측정 시작 — 진행 중이던 다른 과목이 있으면 서버가 자동으로 전환 마감한다. */
 export async function startGoalTimer(subject: string) {
-  const result = await requestGoalTimer("POST", { action: "start", subject });
+  const result = await requestGoalTimer("POST", timerRunningResponse, {
+    action: "start",
+    subject: subject as TimerSubject,
+  });
   if (result.kind !== "success") return result;
-  return {
-    kind: "success" as const,
-    running: result.body?.running as GoalTimerSummary["running"],
-  };
+  return { kind: "success" as const, running: result.body.running };
 }
 
 /** 진행 중인 세션 종료. 진행 중이 없어도 200(멱등) — 항상 success로 접는다. */
@@ -1566,6 +1440,7 @@ export async function stopGoalTimer({
 } = {}) {
   const result = await requestGoalTimer(
     "POST",
+    timerRunningResponse,
     { action: "stop" },
     { keepalive },
   );
@@ -1581,41 +1456,35 @@ export async function heartbeatGoalTimer({
 } = {}) {
   const result = await requestGoalTimer(
     "POST",
+    timerRunningResponse,
     { action: "heartbeat" },
     { keepalive },
   );
   if (result.kind !== "success") return result;
-  return {
-    kind: "success" as const,
-    running: result.body?.running as GoalTimerSummary["running"],
-  };
+  return { kind: "success" as const, running: result.body.running };
 }
 
 /** 과목별 목표 시간 저장(학생 자율 설정). */
 export async function setGoalTimerTarget(subject: string, targetHours: number) {
-  const result = await requestGoalTimer("POST", {
+  const result = await requestGoalTimer("POST", timerTargetResponse, {
     action: "setTarget",
-    subject,
+    subject: subject as TimerSubject,
     targetHours,
   });
   if (result.kind !== "success") return result;
-  return {
-    kind: "success" as const,
-    target: result.body?.target as GoalTimerSummary["targets"][number],
-  };
+  return { kind: "success" as const, target: result.body.target };
 }
 
 /** 타이머 화면에 과목 카드 추가("+ 과목 추가", QA B9). 이미 노출 중이면 멱등. */
 export async function addGoalTimerSubject(subject: string) {
-  const result = await requestGoalTimer("POST", {
+  const result = await requestGoalTimer("POST", timerSubjectsResponse, {
     action: "addSubject",
-    subject,
+    subject: subject as TimerSubject,
   });
   if (result.kind !== "success") return result;
   return {
     kind: "success" as const,
-    visibleSubjects: result.body
-      ?.visibleSubjects as GoalTimerSummary["visibleSubjects"],
+    visibleSubjects: result.body.visibleSubjects,
   };
 }
 
@@ -1631,7 +1500,7 @@ export async function addGoalTimerSubject(subject: string) {
 //   { kind: 'not-allowed' }       — 200 {allowed:false}. 이용권 없음.
 //   { kind: 'not-onboarded' }     — 409 reason:'not_onboarded'. 온보딩 자체를 시작 안 함.
 //   { kind: 'awaiting-cuts' }     — 409 reason:'awaiting_cuts'. 컷 대기 중이라 rate/target 미확정.
-//   { kind: 'not-linked' }        — 403 {error:{code:'NOT_LINKED'}}. studentId로 학부모가
+//   { kind: 'not-linked' }        — 403 problem code NOT_LINKED. studentId로 학부모가
 //     조회할 때만 나온다 — 서버가 fn_is_linked_pair로 재확인한 결과 승인된 쌍이 아니다
 //     (api/_routes/goal/report.ts checkLinkedPair, QA 시트 행210).
 //   { kind: 'success', report }   — 200 {ok:true, report}. report는 type별로 모양이 다르다
@@ -1674,12 +1543,13 @@ export async function fetchGoalReport(
   if (type === "direction" && track) params.set("track", track);
   if (studentId) params.set("studentId", studentId);
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch(`/api/goal/report?${params.toString()}`, {
-      method: "GET",
-      headers: authHeader,
-    });
+    response = await goalRequest(
+      `goal/report?${params.toString()}`,
+      { method: "GET" },
+      reportResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/report 호출 오류:", error);
     return { kind: "error" };
@@ -1687,11 +1557,11 @@ export async function fetchGoalReport(
 
   if (response.status === 401) return { kind: "no-session" };
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
 
   if (response.status === 200) {
     if (body?.allowed === false) return notAllowed(body);
-    if (body?.ok === true) return { kind: "success", report: body.report };
+    if (response.ok) return { kind: "success", report: body.report };
     console.error(
       "[goalApi] GET /api/goal/report 예상 밖 200 응답 모양:",
       body,
@@ -1708,7 +1578,7 @@ export async function fetchGoalReport(
 
   // coded shape(api/_lib/httpResponse.ts) — studentId로 조회했는데 서버 재확인 결과
   // 승인된 학부모-학생 쌍이 아닌 경우만 이 코드가 온다(api/_routes/goal/report.ts checkLinkedPair).
-  if (response.status === 403 && body?.error?.code === "NOT_LINKED") {
+  if (response.status === 403 && body?.code === "NOT_LINKED") {
     return { kind: "not-linked" };
   }
 
@@ -1724,24 +1594,6 @@ export async function fetchGoalReport(
 // GET/POST /api/goal/advice — QA 행295·306 AI 입시조언(intake) / 오늘의 조언·
 // 내일 계획(daily). 응답 shape은 api/_lib/goal/advice.ts AdvicePayload와 같다.
 // ---------------------------------------------------------------------------
-
-export interface GoalAdviceSection {
-  label: string;
-  body: string;
-}
-
-export interface GoalMajorTip {
-  department: string;
-  text: string;
-}
-
-export interface GoalAdvicePayload {
-  source: "intake" | "daily";
-  origin: "ai" | "rule";
-  probabilitySummary: string;
-  sections: GoalAdviceSection[];
-  majorTips: GoalMajorTip[];
-}
 
 export type FetchGoalAdviceResult =
   | { kind: "no-session" }
@@ -1762,12 +1614,13 @@ export async function fetchGoalAdvice(): Promise<FetchGoalAdviceResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/advice", {
-      method: "GET",
-      headers: authHeader,
-    });
+    response = await goalRequest(
+      "goal/advice",
+      { method: "GET" },
+      adviceGetResponse,
+    );
   } catch (error) {
     console.error("[goalApi] GET /api/goal/advice 호출 오류:", error);
     return { kind: "error" };
@@ -1781,11 +1634,11 @@ export async function fetchGoalAdvice(): Promise<FetchGoalAdviceResult> {
     return { kind: "error" };
   }
 
-  const body = await parseJsonSafe(response);
+  const body = response.body;
 
   if (body?.allowed === false) return notAllowed(body);
 
-  if (body?.ok === true) {
+  if (response.ok) {
     return {
       kind: "success",
       intake: body.intake ?? null,
@@ -1818,23 +1671,23 @@ export async function generateGoalAdvice(
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
 
-  let response: Response;
+  let response: GoalResponse;
   try {
-    response = await apiFetch("/api/goal/advice", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeader },
-      body: JSON.stringify({ source }),
-    });
+    const json: AdviceBodyInput = { source };
+    response = await goalRequest(
+      "goal/advice",
+      { method: "POST", json },
+      advicePostResponse,
+    );
   } catch (error) {
     console.error("[goalApi] POST /api/goal/advice 호출 오류:", error);
     return { kind: "error" };
   }
 
-  const result = await parseJsonSafe(response);
+  const result = response.body;
 
-  if (response.status === 200 && result?.ok === true) {
-    const { ok, ...advice } = result;
-    return { kind: "success", advice: advice as GoalAdvicePayload };
+  if (response.status === 200) {
+    return { kind: "success", advice: result };
   }
 
   if (response.status === 401) return { kind: "no-session" };

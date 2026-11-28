@@ -4,7 +4,7 @@ import type { InquirySession } from "../../../../shared/inquiry-session/contract
 export type InquirySessionItem = InquirySession;
 export type InquiryTerminal = NonNullable<InquirySession["terminal"]>;
 
-export const INQUIRY_STEP_COUNT = 6;
+const INQUIRY_STEP_COUNT = 6;
 
 export const INQUIRY_STATUS_OPTIONS = [
   "draft",

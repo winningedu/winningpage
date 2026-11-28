@@ -196,7 +196,10 @@ describe("임베딩 요청", () => {
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
 
     await waitFor(() =>
-      expect(engine.requestEmbedding).toHaveBeenCalledWith("k1"),
+      expect(engine.requestEmbedding).toHaveBeenCalledWith(
+        "k1",
+        "topic_pattern",
+      ),
     );
     await waitFor(() =>
       expect(
