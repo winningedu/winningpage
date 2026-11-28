@@ -51,7 +51,6 @@ import {
   type MonthlyWeekBar,
   resolveMonthlyPeriod,
   resolveWeeklyPeriod,
-  round1,
   sumHoursByProfile,
   summarizePlanTaskCompletion,
   toNum,
@@ -88,7 +87,7 @@ import {
   openGoalSession,
   saveGoalDirectionReport,
 } from "../../_lib/goal/repo.js";
-import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
 import { validate } from "../../_lib/hono/validate.js";

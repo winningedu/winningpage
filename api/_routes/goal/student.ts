@@ -23,7 +23,6 @@
 // 카멜 케이스로 옮기기만 한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Context } from "hono";
 import { startEarly } from "../../../src/lib/concurrency/startEarly.js";
 import { getSchoolCutType } from "../../../src/lib/goal/calc/index.js";
 import { addDaysYMD } from "../../../src/lib/goal/calc/virtualDate.js";
@@ -50,7 +49,7 @@ import {
   openGoalSession,
   updateStudentJungsiProb,
 } from "../../_lib/goal/repo.js";
-import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
+import { userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
