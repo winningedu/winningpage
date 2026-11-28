@@ -51,6 +51,7 @@ import {
   sessionQuery,
   type sessionWriteResponse,
 } from "../../../shared/performance/session.js";
+import { allInOrder } from "../../../src/lib/concurrency/allInOrder.js";
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { user } from "../../_lib/hono/user.js";
@@ -408,18 +409,27 @@ export const session = userFactory
     }
 
     // ── 회차 스냅샷. 세션 생성/재개는 차감하지 않으므로(§9.3) 안내용으로만 싣는다.
-    let quota = await readQuotaSnapshot(supabaseAdmin, userId, null);
-    try {
-      quota = await readQuotaSnapshot(
-        supabaseAdmin,
-        userId,
-        await findProgramAccessRow(supabaseAdmin, userId, serviceConfig),
-      );
-    } catch (quotaError) {
-      console.error("performance/session quota lookup 실패(무시):", quotaError);
-    }
-
-    const unchargedSession = await findUnchargedSession(supabaseAdmin, userId);
+    //    미차감 세션 읽기와 서로 기다릴 필요가 없어 함께 시작한다.
+    const quotaRead = (async () => {
+      let snapshot = await readQuotaSnapshot(supabaseAdmin, userId, null);
+      try {
+        snapshot = await readQuotaSnapshot(
+          supabaseAdmin,
+          userId,
+          await findProgramAccessRow(supabaseAdmin, userId, serviceConfig),
+        );
+      } catch (quotaError) {
+        console.error(
+          "performance/session quota lookup 실패(무시):",
+          quotaError,
+        );
+      }
+      return snapshot;
+    })();
+    const [quota, unchargedSession] = await allInOrder(
+      quotaRead,
+      findUnchargedSession(supabaseAdmin, userId),
+    );
 
     if (action === "create") {
       // §9.3 「미차감 세션 동시 1개 제한」 — §8.6이 이 엔드포인트 자신의 실패 코드로

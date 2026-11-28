@@ -219,3 +219,27 @@ describe("performance bootstrap", () => {
     expect(started).toEqual(["from:performance_sessions", "from:profiles"]);
   });
 });
+
+describe("performance session 생성", () => {
+  test("회차 스냅샷 읽기와 미차감 세션 읽기를 함께 시작한다", async () => {
+    const started = await run(
+      {
+        performance_sessions: [],
+        program_access: [],
+        performance_credit_ledger: [],
+      },
+      ["performance_sessions", "program_access"],
+      () =>
+        callRoute(
+          { app, path: "/api/performance/session" },
+          { method: "POST", body: { action: "create" } },
+        ),
+      false,
+    );
+
+    expect(started).toEqual([
+      "from:performance_sessions",
+      "from:program_access",
+    ]);
+  });
+});
