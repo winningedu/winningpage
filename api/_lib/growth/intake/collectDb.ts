@@ -35,6 +35,14 @@ export function must<T>(
   return result.data;
 }
 
+/** must 와 같지만 쿼리를 받아 Promise 를 돌려준다. Promise.all 배열 안에서 읽기를 함께 시작할 때 쓴다. */
+export async function mustRead<T>(
+  query: PromiseLike<{ data: unknown; error: { message: string } | null }>,
+  what: string,
+): Promise<T> {
+  return must(await query, what) as T;
+}
+
 /** 쓰기 직후 반환 행이 반드시 있어야 하는 호출용. 없으면 던진다. */
 export function mustHave<T>(value: T, what: string): NonNullable<T> {
   if (value === null || value === undefined)
