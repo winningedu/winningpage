@@ -149,16 +149,21 @@ async function markEmbeddingError(
 /**
  * 지식 항목 1건 임베딩.
  *
- * @returns status: 'embedded' | 'skipped' | 'not_found'
+ * @returns status: 'embedded' | 'skipped' | 'not_found' | 'type_mismatch'
  * @throws 조회·임베딩·저장 실패 (호출부가 500으로 변환)
  */
 async function embedOne(
   supabaseAdmin: ReturnType<typeof createSupabaseAdmin>,
   id: string,
   {
+    knowledgeType,
     force = false,
     telemetry,
-  }: { force?: boolean; telemetry?: AiTrace | undefined } = {},
+  }: {
+    knowledgeType: string;
+    force?: boolean;
+    telemetry?: AiTrace | undefined;
+  },
 ) {
   const { data: itemData, error: fetchError } = await supabaseAdmin
     .from(KNOWLEDGE_TABLE)
@@ -177,6 +182,11 @@ async function embedOne(
 
   if (!item) {
     return { id, status: "not_found", reason: "지식 항목을 찾을 수 없습니다." };
+  }
+
+  // 요청한 메뉴(knowledgeType)의 권한으로 다른 타입의 행을 임베딩하지 못하게 한다.
+  if (item.knowledge_type !== knowledgeType) {
+    return { id, status: "type_mismatch" as const };
   }
 
   if (!RAG_KNOWLEDGE_TYPES.has(String(item.knowledge_type || ""))) {
@@ -283,10 +293,16 @@ async function embedOne(
 async function backfill(
   supabaseAdmin: ReturnType<typeof createSupabaseAdmin>,
   {
+    knowledgeType,
     limit,
     force,
     telemetry,
-  }: { limit: number; force: boolean; telemetry?: AiTrace | undefined },
+  }: {
+    knowledgeType: string;
+    limit: number;
+    force: boolean;
+    telemetry?: AiTrace | undefined;
+  },
 ) {
   let query = supabaseAdmin
     .from(KNOWLEDGE_TABLE)
@@ -315,6 +331,7 @@ async function backfill(
   for (const row of rows || []) {
     try {
       const result = await embedOne(supabaseAdmin, row.id, {
+        knowledgeType,
         force,
         telemetry,
       });
@@ -355,7 +372,13 @@ const guard = admin({
 export const adminEmbed = createAdminApp()
   .post("/", guard, validate("json", adminEmbedBody), async (c) => {
     const supabaseAdmin = c.var.supabaseAdmin;
-    const { action, id, limit, force = false } = c.req.valid("json");
+    const {
+      action,
+      id,
+      limit,
+      force = false,
+      knowledgeType,
+    } = c.req.valid("json");
     const forceFlag = force === true || force === "true";
 
     // 계기판 기록. 요청 하나에 trace 하나이고, 응답 뒤 finally 에서 한 번 내보낸다.
@@ -378,14 +401,24 @@ export const adminEmbed = createAdminApp()
         }
 
         const result = await embedOne(supabaseAdmin, id, {
+          knowledgeType,
           force: forceFlag,
           telemetry: trace,
         });
+        if (result.status === "type_mismatch") {
+          return problemResponse(
+            c,
+            400,
+            "지식 항목의 knowledge_type 이 요청의 knowledgeType 과 다릅니다.",
+            "VALIDATION_FAILED",
+          );
+        }
         return c.json({ action, ...result });
       }
 
       if (action === "backfill") {
         const result = await backfill(supabaseAdmin, {
+          knowledgeType,
           limit: clampLimit(limit ?? DEFAULT_BACKFILL_LIMIT),
           force: forceFlag,
           telemetry: trace,

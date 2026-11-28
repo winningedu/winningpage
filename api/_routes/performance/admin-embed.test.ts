@@ -167,4 +167,23 @@ describe("admin-embed 메뉴 권한", () => {
       requestedKey: "winningSuhaengTopicDb",
     });
   });
+
+  test("embed-one 은 행의 knowledge_type 이 요청과 다르면 400 VALIDATION_FAILED 이고 임베딩하지 않는다", async () => {
+    kit.state.rows.winning_assessment_knowledge_items = () => ({
+      id: "k1",
+      knowledge_type: "verified_resource",
+      title: "자료",
+      content: "내용",
+    });
+
+    const r = await call({
+      action: "embed-one",
+      id: "k1",
+      knowledgeType: TOPIC,
+    });
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(kit.state.updates).toEqual([]);
+  });
 });
