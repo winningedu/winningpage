@@ -15,15 +15,19 @@
 //   근거: docs/수행평가-상세-명세.md §8.7 「제안(임베딩 경로 정리)」, §12.3 / §12.4
 //
 // 요청 규격
-//   { action: 'embed-one', id, force? }        1건 임베딩
-//   { action: 'backfill', limit?, force? }      배치 임베딩 (limit 기본 30, 상한 50)
+//   { action: 'embed-one', knowledgeType, id, force? }     1건 임베딩
+//   { action: 'backfill', knowledgeType, limit?, force? }  배치 임베딩 (limit 기본 30, 상한 50)
+//   knowledgeType 은 필수다. 그 값이 가리키는 메뉴(winningSuhaengTopicDb, winningSuhaengResourceDb)의 edit 권한이
+//   필요하고, 감사 행(쓰기)이 남는다. backfill 은 그 knowledgeType 의 행만 대상으로 한다.
 //
 // 응답 규격
 //   200 { action, ... }   정상. 대상 아님/캐시 적중은 에러가 아니라 status:'skipped'다.
 //   오류는 problem 형식(RFC 9457, 항상 code)이다.
 //   400 ID_REQUIRED                    embed-one 에 id 가 없다.
-//   400 VALIDATION_FAILED              action, id, limit, force 의 형식 오류(알 수 없는 action 포함).
-//   401, 403, 405                      토큰 없음/무효, 관리자 아님, POST 아님.
+//   400 VALIDATION_FAILED              action, knowledgeType, id, limit, force 의 형식 오류(알 수 없는 action,
+//                                      알 수 없는 knowledgeType 포함, 권한 판정보다 먼저). embed-one 은 행의
+//                                      knowledge_type 이 요청의 knowledgeType 과 다를 때도 이 코드다.
+//   401, 403, 405                      토큰 없음/무효, 관리자 아님 또는 그 메뉴의 edit 권한 없음, POST 아님.
 //   500 EMBED_FAILED                   임베딩 실패(detail 은 원인 문구).
 
 import { adminEmbedBody } from "../../../shared/performance/admin-embed.js";
@@ -34,6 +38,7 @@ import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, problemResponse } from "../../_lib/hono/problem.js";
 import { validate } from "../../_lib/hono/validate.js";
+import { knowledgePermissionKey } from "../../_lib/knowledge/permission.js";
 import {
   buildKnowledgeSearchText,
   embedText,
@@ -340,9 +345,9 @@ async function backfill(
   };
 }
 
-// 관리자 판정만 보고 메뉴 권한은 보지 않는다(예전 라우트도 메뉴 권한 없이 관리자 인증만 했다). 그래서 감사 행도 남지 않는다.
+// 요청의 knowledgeType 이 가리키는 지식 메뉴의 edit 권한을 요구하고, 기본 감사(쓰기)로 감사 행을 남긴다.
 const guard = admin({
-  permission: "none",
+  permission: { key: knowledgePermissionKey, level: "edit" },
   unhandledMessage: "임베딩 처리 중 오류가 발생했습니다.",
   logLabel: "admin-embed",
 });

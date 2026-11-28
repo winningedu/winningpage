@@ -1,4 +1,4 @@
-// POST /api/performance/admin-embed 오류 계약. problem 형식이고 메뉴 권한은 요구하지 않는다
+// POST /api/performance/admin-embed 계약. problem 형식이고 knowledgeType 이 가리키는 메뉴의 edit 권한을 요구한다
 // (지식 DB 일괄 반영 화면의 backfill 도 같은 경로를 쓴다).
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
@@ -24,15 +24,24 @@ import { app } from "../app.js";
 const call = (body: unknown) =>
   callHandler({ app, path: "/api/performance/admin-embed" }, body);
 
+const TOPIC = "topic_pattern";
+const grant = (resourceKey: string, level = "edit") => {
+  kit.state.rpc.fn_admin_effective_permissions = () => ({
+    data: [{ resource_key: resourceKey, level }],
+    error: null,
+  });
+};
+
 beforeEach(() => {
   kit.state = createKitState();
   kit.state.rows.profiles = () => ({ role: "admin" });
+  grant("winningSuhaengTopicDb");
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 describe("admin-embed 오류", () => {
   test("embed-one 에 id 가 없으면 400 ID_REQUIRED", async () => {
-    const r = await call({ action: "embed-one" });
+    const r = await call({ action: "embed-one", knowledgeType: TOPIC });
 
     expect(r.status).toBe(400);
     expect(r.body).toMatchObject({
@@ -53,7 +62,7 @@ describe("admin-embed 오류", () => {
   ])(
     "%s 이면 400 VALIDATION_FAILED 와 errors 를 낸다",
     async (_name, body, field) => {
-      const r = await call(body);
+      const r = await call({ ...body, knowledgeType: TOPIC });
 
       expect(r.status).toBe(400);
       expect(r.body).toMatchObject({ code: "VALIDATION_FAILED" });
@@ -68,19 +77,34 @@ describe("admin-embed 오류", () => {
       throw new Error("db down");
     };
 
-    const r = await call({ action: "embed-one", id: "k1" });
+    const r = await call({
+      action: "embed-one",
+      id: "k1",
+      knowledgeType: TOPIC,
+    });
 
     expect(r.status).toBe(500);
     expect(r.body).toMatchObject({ code: "EMBED_FAILED" });
     expect(r.body).toMatchObject({ detail: "db down" });
   });
+});
 
-  test("메뉴 권한이 하나도 없는 관리자도 막지 않는다(권한 조회를 하지 않는다)", async () => {
-    const r = await call({ action: "embed-one" });
+describe("admin-embed 메뉴 권한", () => {
+  test("knowledgeType 메뉴의 edit 권한이 없으면 403 이고 지식 항목을 읽지 않는다", async () => {
+    grant("winningSuhaengResourceDb");
 
-    expect(kit.state.events).not.toContain(
-      "rpc:fn_admin_effective_permissions",
-    );
-    expect(r.status).toBe(400);
+    const r = await call({
+      action: "embed-one",
+      id: "k1",
+      knowledgeType: TOPIC,
+    });
+
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ code: "FORBIDDEN" });
+    expect(
+      kit.state.reads.filter(
+        (read) => read.table === "winning_assessment_knowledge_items",
+      ),
+    ).toEqual([]);
   });
 });

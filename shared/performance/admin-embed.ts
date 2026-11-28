@@ -5,6 +5,8 @@
 import { z } from "zod";
 
 export const adminEmbedBody = z.object({
+  /** 대상 지식 메뉴의 knowledge_type. 메뉴 권한 판정과 대상 행 범위를 정한다(값 검사는 라우트의 권한 키 판정이 한다). */
+  knowledgeType: z.string(),
   /** 생략하면 embed-one 이다. */
   action: z.enum(["embed-one", "backfill"]).default("embed-one"),
   /** embed-one 의 대상 지식 항목 id. */
