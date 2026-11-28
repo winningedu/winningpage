@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   IMAGE_ACCEPT_ATTR,
   isAllowedImageFile,
@@ -28,5 +28,33 @@ describe("안내문 PDF 허용", () => {
   test("prepareGuideImage는 PDF를 리사이즈 없이 원본 그대로 돌려준다", async () => {
     const file = pdf();
     await expect(prepareGuideImage(file)).resolves.toBe(file);
+  });
+});
+
+describe("prepareGuideImage 읽기", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test("JPEG 방향 읽기가 끝나지 않아도 디코딩을 함께 시작한다", async () => {
+    const file = new File(["jpeg"], "a.jpg", { type: "image/jpeg" });
+    let release: (value: ArrayBuffer) => void = () => {};
+    const head = new Promise<ArrayBuffer>((resolve) => {
+      release = resolve;
+    });
+    Object.defineProperty(file, "slice", {
+      value: () => ({ arrayBuffer: () => head }),
+    });
+    const bitmap = { width: 100, height: 50, close: vi.fn() };
+    const createImageBitmapMock = vi.fn(async () => bitmap);
+    vi.stubGlobal("createImageBitmap", createImageBitmapMock);
+
+    const run = prepareGuideImage(file);
+    await Promise.resolve();
+    expect(createImageBitmapMock).toHaveBeenCalledTimes(1);
+    release(new ArrayBuffer(0));
+
+    await expect(run).resolves.toBe(file);
+    expect(bitmap.close).toHaveBeenCalledTimes(1);
   });
 });
