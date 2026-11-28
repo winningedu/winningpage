@@ -476,20 +476,3 @@ export async function scoreCombos({
 
 /** 이력 조회 한 번에 돌려주는 실행 수. */
 export const EVAL_RUNS_LIMIT = 50;
-
-/** GET ?view=runs&knowledgeType= 검증. 지식 유형이 없으면 두 유형을 모두 돌려준다. */
-export function parseRunsQuery(
-  query: Record<string, unknown>,
-):
-  | { ok: true; knowledgeType: BulkKnowledgeType | null }
-  | { ok: false; reason: string } {
-  if (query.view !== "runs") {
-    return { ok: false, reason: "view 는 runs 입니다." };
-  }
-  const raw = query.knowledgeType;
-  if (raw === undefined || raw === "") return { ok: true, knowledgeType: null };
-  if (!isBulkKnowledgeType(raw)) {
-    return { ok: false, reason: "knowledgeType 이 올바르지 않습니다." };
-  }
-  return { ok: true, knowledgeType: raw };
-}

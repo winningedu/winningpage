@@ -109,7 +109,7 @@ export const sections = adminFactory
       .select("*")
       .single();
     if (error) throw writeFailure(error, "section insert");
-    return c.json(data, 201);
+    return c.json(data satisfies SectionRow, 201);
   })
   .all("/:key", methodNotAllowed("GET", "POST"))
   // GET /:key/export?from=&q=: CSV 내보내기용 한 덩어리. 목록과 같은 조건, 검색, 정렬로 from 부터 SECTION_EXPORT_CHUNK 행만
@@ -149,7 +149,7 @@ export const sections = adminFactory
     ).maybeSingle();
     if (error) throw new Error("section read failed");
     if (!data) throw notFound(ROW_NOT_FOUND);
-    return c.json(data);
+    return c.json(data satisfies SectionRow);
   })
   .patch(
     "/:key/:id",
@@ -177,7 +177,7 @@ export const sections = adminFactory
         .maybeSingle();
       if (error) throw writeFailure(error, "section update");
       if (!data) throw notFound(ROW_NOT_FOUND);
-      return c.json(data);
+      return c.json(data satisfies SectionRow);
     },
   )
   .delete("/:key/:id", rowGuard, async (c) => {
@@ -221,7 +221,7 @@ export const sections = adminFactory
         .maybeSingle();
       if (error) throw writeFailure(error, "section meta update");
       if (!data) throw notFound(ROW_NOT_FOUND);
-      return c.json(data);
+      return c.json(data satisfies SectionRow);
     },
   )
   .all("/:key/:id/meta", methodNotAllowed("PATCH"))
@@ -243,6 +243,6 @@ export const sections = adminFactory
       .maybeSingle();
     if (error) throw writeFailure(error, "section reviewed update");
     if (!data) throw notFound(ROW_NOT_FOUND);
-    return c.json(data);
+    return c.json(data satisfies SectionRow);
   })
   .all("/:key/:id/reviewed", methodNotAllowed("POST"));

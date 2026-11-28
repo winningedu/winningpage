@@ -2,11 +2,12 @@
 // 상태와 호출 순서만 들고, 무엇을 반영할지는 여기서 정한다.
 
 import {
+  type BulkKnowledgeType,
   type DedupeItem,
   type DedupeResult,
   KNOWLEDGE_TEXT_FIELDS,
 } from "../../../../../api/_lib/knowledge/dedupe.js";
-import type { KnowledgeBulkInput } from "../../../../../shared/knowledge/contract.js";
+import type { KnowledgeBulkInput } from "../../../../../shared/knowledge/request.js";
 import type { KnowledgeParseResult } from "./xlsx";
 
 /**
@@ -42,7 +43,7 @@ export type BulkRequest = KnowledgeBulkInput;
  * maxRows 씩 끊는다(서버 상한 MAX_BULK_ROWS 와 맞춘다).
  */
 export function buildBulkRequests(
-  knowledgeType: string,
+  knowledgeType: BulkKnowledgeType,
   parse: KnowledgeParseResult,
   selected: Set<number>,
   maxRows: number,

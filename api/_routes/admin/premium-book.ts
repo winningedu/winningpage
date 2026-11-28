@@ -105,7 +105,7 @@ export const premiumBook = adminFactory
       .select("*")
       .single();
     if (error) throw new Error("premium book page insert failed");
-    return c.json(data as PremiumBookPage, 201);
+    return c.json(data satisfies PremiumBookPage, 201);
   })
   .all("/pages", methodNotAllowed("GET", "POST"))
   // GET /pages/:id: 한 장. PATCH: 같은 본문으로 수정(임시 업로드는 저장 전에 banners 로 옮긴다, 만료면 409).
@@ -122,7 +122,7 @@ export const premiumBook = adminFactory
         .maybeSingle();
       if (error) throw new Error("premium book page read failed");
       if (!data) throw notFound(PAGE);
-      return c.json(data as PremiumBookPage);
+      return c.json(data satisfies PremiumBookPage);
     },
   )
   .patch(
@@ -141,7 +141,7 @@ export const premiumBook = adminFactory
         .maybeSingle();
       if (error) throw new Error("premium book page update failed");
       if (!data) throw notFound(PAGE);
-      return c.json(data as PremiumBookPage);
+      return c.json(data satisfies PremiumBookPage);
     },
   )
   .delete(

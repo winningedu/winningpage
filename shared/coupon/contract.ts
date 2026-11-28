@@ -164,6 +164,7 @@ export type RedemptionRow = z.infer<typeof redemptionSchema>;
 export const redemptionListSchema = z.object({
   items: z.array(redemptionSchema),
 });
+export type RedemptionList = z.infer<typeof redemptionListSchema>;
 
 export const grantSchema = z.looseObject({
   id: z.number(),
@@ -180,6 +181,7 @@ export const grantSchema = z.looseObject({
 export type GrantRow = z.infer<typeof grantSchema>;
 
 export const grantListSchema = z.object({ items: z.array(grantSchema) });
+export type GrantList = z.infer<typeof grantListSchema>;
 
 export const userSearchSchema = z.object({
   items: z.array(
@@ -190,7 +192,9 @@ export const userSearchSchema = z.object({
     }),
   ),
 });
-export type FoundUser = z.infer<typeof userSearchSchema>["items"][number];
+export type UserSearch = z.infer<typeof userSearchSchema>;
+export type FoundUser = UserSearch["items"][number];
 
 /** 발급, 회수, 무효화 rpc 결과. 화면은 성공 여부만 쓰므로 모양을 묶지 않는다. */
 export const couponMutationResultSchema = z.looseObject({});
+export type CouponMutationResult = z.infer<typeof couponMutationResultSchema>;

@@ -24,6 +24,7 @@
 
 import {
   type CallsPage,
+  type Citations,
   type PricingResponse,
   type SummaryResponse,
   telemetryQuery,
@@ -134,7 +135,7 @@ export const aiTelemetry = adminFactory
       if (error) throw new Error(`citations 조회 실패: ${error.message}`);
       return c.json({
         items: sortCitations((data ?? []).map(toCitationItem), "least_cited"),
-      });
+      } satisfies Citations);
     }
 
     const service = parseServiceFilter(query.service);

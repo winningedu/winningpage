@@ -7,7 +7,6 @@ import {
   MAX_DEDUPE_ITEMS,
   matchExactDuplicates,
   normalizeForHash,
-  validateDedupeBody,
 } from "./dedupe.js";
 
 describe("normalizeForHash", () => {
@@ -62,71 +61,6 @@ describe("matchExactDuplicates", () => {
       },
       { rowNo: 3, exact: [] },
     ]);
-  });
-});
-
-describe("validateDedupeBody", () => {
-  const item = { rowNo: 2, title: "제목", content: "내용", grade: "고1" };
-
-  it("허용된 knowledgeType 과 항목 목록을 통과시킨다", () => {
-    const parsed = validateDedupeBody({
-      knowledgeType: "verified_resource",
-      items: [item],
-    });
-    expect(parsed.ok).toBe(true);
-    if (parsed.ok) {
-      expect(parsed.body.knowledgeType).toBe("verified_resource");
-      expect(parsed.body.items[0]).toMatchObject({
-        rowNo: 2,
-        title: "제목",
-        content: "내용",
-        grade: "고1",
-        subject: "",
-      });
-    }
-  });
-
-  it("수정 행의 id 는 자기 자신 제외용으로 남긴다", () => {
-    const parsed = validateDedupeBody({
-      knowledgeType: "topic_pattern",
-      items: [{ ...item, id: "k1" }, item],
-    });
-    expect(parsed.ok && parsed.body.items.map((i) => i.id)).toEqual([
-      "k1",
-      undefined,
-    ]);
-  });
-
-  it("RAG 대상이 아닌 knowledgeType 은 거부한다", () => {
-    expect(
-      validateDedupeBody({
-        knowledgeType: "student_record_pattern",
-        items: [item],
-      }).ok,
-    ).toBe(false);
-  });
-
-  it("항목이 비었거나 상한을 넘으면 거부한다", () => {
-    expect(
-      validateDedupeBody({ knowledgeType: "topic_pattern", items: [] }).ok,
-    ).toBe(false);
-    const many = Array.from({ length: MAX_DEDUPE_ITEMS + 1 }, (_, i) => ({
-      ...item,
-      rowNo: i + 2,
-    }));
-    expect(
-      validateDedupeBody({ knowledgeType: "topic_pattern", items: many }).ok,
-    ).toBe(false);
-    expect(MAX_DEDUPE_ITEMS).toBe(200);
-  });
-
-  it("rowNo 가 정수가 아니면 거부한다", () => {
-    expect(
-      validateDedupeBody({
-        knowledgeType: "topic_pattern",
-        items: [{ ...item, rowNo: "2" }],
-      }).ok,
-    ).toBe(false);
   });
 });
 

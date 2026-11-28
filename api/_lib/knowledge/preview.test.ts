@@ -5,11 +5,7 @@ import {
   TOPIC_MATCH_THRESHOLD,
   TOPIC_MAX_CHARS,
 } from "../performance/knowledge.js";
-import {
-  buildSearchPreviewItems,
-  buildSearchPreviewRpc,
-  validateSearchPreviewBody,
-} from "./preview.js";
+import { buildSearchPreviewItems, buildSearchPreviewRpc } from "./preview.js";
 
 function row(id: string, similarity: number, content = "내용") {
   return {
@@ -22,87 +18,6 @@ function row(id: string, similarity: number, content = "내용") {
     similarity,
   };
 }
-
-describe("validateSearchPreviewBody", () => {
-  it("주제 DB 는 다른 과목을 포함하고 상한 기본값은 20이다", () => {
-    const parsed = validateSearchPreviewBody({
-      knowledgeType: "topic_pattern",
-      grade: "고2",
-      subject: "물리학",
-      career: "기계공학",
-    });
-    expect(parsed).toEqual({
-      ok: true,
-      body: {
-        knowledgeType: "topic_pattern",
-        grade: "고2",
-        subject: "물리학",
-        career: "기계공학",
-        selectedTopic: "",
-        assessmentInfo: "",
-        includeOtherSubjects: true,
-        limit: 20,
-        mode: "hybrid",
-      },
-    });
-  });
-
-  it("검색 방식은 기본 hybrid 이고 vector 를 고를 수 있으며 다른 값은 거절한다", () => {
-    const vector = validateSearchPreviewBody({
-      knowledgeType: "topic_pattern",
-      mode: "vector",
-    });
-    expect(vector.ok && vector.body.mode).toBe("vector");
-    expect(
-      validateSearchPreviewBody({
-        knowledgeType: "topic_pattern",
-        mode: "bm25",
-      }).ok,
-    ).toBe(false);
-  });
-
-  it("자료 DB 는 기본으로 다른 과목을 빼고 지정값은 그대로 쓴다", () => {
-    const parsed = validateSearchPreviewBody({
-      knowledgeType: "verified_resource",
-      grade: "",
-      subject: "국어",
-      career: "",
-      limit: 5,
-    });
-    expect(parsed.ok && parsed.body.includeOtherSubjects).toBe(false);
-    expect(parsed.ok && parsed.body.limit).toBe(5);
-
-    const forced = validateSearchPreviewBody({
-      knowledgeType: "verified_resource",
-      subject: "국어",
-      includeOtherSubjects: true,
-    });
-    expect(forced.ok && forced.body.includeOtherSubjects).toBe(true);
-  });
-
-  it("허용하지 않는 유형, 범위 밖 상한, 잘못된 바디를 거절한다", () => {
-    expect(validateSearchPreviewBody(null).ok).toBe(false);
-    expect(
-      validateSearchPreviewBody({ knowledgeType: "student_record_pattern" }).ok,
-    ).toBe(false);
-    expect(
-      validateSearchPreviewBody({ knowledgeType: "topic_pattern", limit: 0 })
-        .ok,
-    ).toBe(false);
-    expect(
-      validateSearchPreviewBody({ knowledgeType: "topic_pattern", limit: 51 })
-        .ok,
-    ).toBe(false);
-    expect(
-      validateSearchPreviewBody({ knowledgeType: "topic_pattern", limit: 2.5 })
-        .ok,
-    ).toBe(false);
-    expect(
-      validateSearchPreviewBody({ knowledgeType: "topic_pattern", grade: 3 })
-        .ok,
-    ).toBe(false);
-  });
-});
 
 describe("buildSearchPreviewItems", () => {
   it("순위를 매기고 threshold 통과와 실제 주입 여부를 판정한다", () => {

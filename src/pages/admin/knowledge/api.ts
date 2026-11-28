@@ -6,15 +6,17 @@ import { z } from "zod";
 import { api } from "@/lib/http/client";
 import {
   type DedupeResult,
-  type KnowledgeBulkInput,
   type KnowledgeBulkResult,
-  type KnowledgeDedupeInput,
-  type KnowledgeSearchInput,
   knowledgeBulkResultSchema,
   knowledgeDedupeResultSchema,
   type SearchPreviewResult,
   searchPreviewResultSchema,
 } from "../../../../shared/knowledge/contract.js";
+import type {
+  KnowledgeBulkInput,
+  KnowledgeDedupeInput,
+  KnowledgeSearchInput,
+} from "../../../../shared/knowledge/request.js";
 import type { BackfillRound } from "./bulk/backfillLoop";
 
 // 서버 maxDuration(dedupe, admin-embed 60초, search 30초)보다 조금 길게 잡아 서버 응답을 기다린다.

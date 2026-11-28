@@ -1,6 +1,6 @@
 // 수행평가 지식 DB 관리 API 계약(엑셀 일괄 반영 knowledge-bulk, 중복 검사 knowledge-dedupe, 검색 테스트 knowledge-search).
 // 서버(api/_routes/admin/knowledge-*.ts)가 응답을 이 스키마의 타입에 맞추고, 브라우저(지식 DB 화면)가 응답 스키마로 검증한다.
-// 요청 본문의 값 규칙과 한국어 사유는 서버의 api/_lib/knowledge/{bulk,dedupe,preview}.ts 검증 함수가 맡는다(오류 바디의 errors 문구가 그 사유다).
+// 요청 본문의 값 규칙과 한국어 사유는 request.ts 의 요청 스키마가 맡는다(오류 바디의 errors 문구가 그 사유다).
 
 import { z } from "zod";
 
@@ -73,40 +73,13 @@ export const SEARCH_PREVIEW_MODES = ["vector", "hybrid"] as const;
 export type SearchPreviewMode = (typeof SEARCH_PREVIEW_MODES)[number];
 
 // ---------------------------------------------------------------------------
-// 요청(브라우저가 보내는 모양)
-// knowledgeType 은 화면 설정에서 문자열로 오므로 string 이다. BULK_KNOWLEDGE_TYPES 밖의 값은 서버가 400 으로 막는다.
+// 요청 행(요청 스키마와 브라우저 입력 타입은 request.ts)
 // ---------------------------------------------------------------------------
 
 export type DedupeItem = { rowNo: number; id?: string } & Record<
   KnowledgeTextField,
   string
 >;
-
-/** POST knowledge-dedupe 본문. 최대 MAX_DEDUPE_ITEMS 건이다. id 는 수정 행일 때만 보낸다. */
-export type KnowledgeDedupeInput = {
-  knowledgeType: string;
-  items: DedupeItem[];
-};
-
-/** POST knowledge-bulk 본문. 신규와 수정 합계 최대 MAX_BULK_ROWS 건이다. */
-export type KnowledgeBulkInput = {
-  knowledgeType: string;
-  inserts: Record<string, unknown>[];
-  updates: Array<Record<string, unknown> & { id: string }>;
-};
-
-/** POST knowledge-search 본문. includeOtherSubjects, limit, mode 를 비우면 서버가 실제 경로와 같은 기본값을 쓴다. */
-export type KnowledgeSearchInput = {
-  knowledgeType: string;
-  grade: string;
-  subject: string;
-  career: string;
-  selectedTopic?: string;
-  assessmentInfo?: string;
-  includeOtherSubjects?: boolean;
-  limit?: number;
-  mode?: SearchPreviewMode;
-};
 
 // ---------------------------------------------------------------------------
 // 응답

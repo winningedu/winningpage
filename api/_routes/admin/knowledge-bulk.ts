@@ -23,12 +23,11 @@
 
 import { PROBLEM_CODE } from "../../../shared/http/codes.js";
 import type { KnowledgeBulkResult } from "../../../shared/knowledge/contract.js";
+import { knowledgeBulkBody } from "../../../shared/knowledge/request.js";
 import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
 import { validate } from "../../_lib/hono/validate.js";
-import { knowledgeBodySchema } from "../../_lib/knowledge/bodySchema.js";
-import { validateBulkBody } from "../../_lib/knowledge/bulk.js";
 import { knowledgePermissionKey } from "../../_lib/knowledge/permission.js";
 
 const KNOWLEDGE_TABLE = "winning_assessment_knowledge_items";
@@ -49,70 +48,65 @@ const guard = admin({
 
 export const knowledgeBulk = adminFactory
   .createApp()
-  .post(
-    "/",
-    guard,
-    validate("json", knowledgeBodySchema(validateBulkBody)),
-    async (c) => {
-      const { knowledgeType, inserts, updates } = c.req.valid("json");
-      const db = c.var.supabaseAdmin;
+  .post("/", guard, validate("json", knowledgeBulkBody), async (c) => {
+    const { knowledgeType, inserts, updates } = c.req.valid("json");
+    const db = c.var.supabaseAdmin;
 
-      // 수정 대상이 전부 이 메뉴(knowledge_type) 행인지 먼저 본다. 다른 메뉴 행을
-      // 덮어 메뉴를 옮겨 버리는 일을 막는다.
-      if (updates.length > 0) {
-        const ids = updates.map((u) => u.id);
-        const { data, error } = await db
-          .from(KNOWLEDGE_TABLE)
-          .select("id")
-          .eq("knowledge_type", knowledgeType)
-          .in("id", ids);
-        if (error) throw new Error(`수정 대상 조회 실패: ${error.message}`);
-        const found = new Set((data ?? []).map((row) => row.id));
-        const missing = ids.filter((id) => !found.has(id));
-        if (missing.length > 0) {
-          throw notInMenu(missing);
-        }
+    // 수정 대상이 전부 이 메뉴(knowledge_type) 행인지 먼저 본다. 다른 메뉴 행을
+    // 덮어 메뉴를 옮겨 버리는 일을 막는다.
+    if (updates.length > 0) {
+      const ids = updates.map((u) => u.id);
+      const { data, error } = await db
+        .from(KNOWLEDGE_TABLE)
+        .select("id")
+        .eq("knowledge_type", knowledgeType)
+        .in("id", ids);
+      if (error) throw new Error(`수정 대상 조회 실패: ${error.message}`);
+      const found = new Set((data ?? []).map((row) => row.id));
+      const missing = ids.filter((id) => !found.has(id));
+      if (missing.length > 0) {
+        throw notInMenu(missing);
       }
+    }
 
-      const insertedIds: string[] = [];
-      if (inserts.length > 0) {
-        const { data, error } = await db
-          .from(KNOWLEDGE_TABLE)
-          .insert(
-            inserts.map((row) => ({
-              ...row,
-              grade: String(row.grade),
-              subject: String(row.subject),
-              title: String(row.title),
-              content: String(row.content),
-            })),
-          )
-          .select("id");
-        if (error) throw new Error(`신규 등록 실패: ${error.message}`);
-        insertedIds.push(...(data ?? []).map((row) => row.id));
+    const insertedIds: string[] = [];
+    if (inserts.length > 0) {
+      const { data, error } = await db
+        .from(KNOWLEDGE_TABLE)
+        .insert(
+          inserts.map((row) => ({
+            ...row,
+            grade: String(row.grade),
+            subject: String(row.subject),
+            title: String(row.title),
+            content: String(row.content),
+          })),
+        )
+        .select("id");
+      if (error) throw new Error(`신규 등록 실패: ${error.message}`);
+      insertedIds.push(...(data ?? []).map((row) => row.id));
+    }
+
+    const updatedIds: string[] = [];
+    for (const { id, patch } of updates) {
+      const { data, error } = await db
+        .from(KNOWLEDGE_TABLE)
+        .update(patch as Record<string, unknown>)
+        .eq("id", id)
+        .eq("knowledge_type", knowledgeType)
+        .select("id");
+      if (error) throw new Error(`수정 실패(${id}): ${error.message}`);
+      // 확인 뒤 다른 요청이 행을 지웠거나 메뉴를 옮긴 경우. 앞 행은 이미 반영됐다(트랜잭션 없음).
+      if (!data || data.length === 0) {
+        throw notInMenu([id]);
       }
+      updatedIds.push(id);
+    }
 
-      const updatedIds: string[] = [];
-      for (const { id, patch } of updates) {
-        const { data, error } = await db
-          .from(KNOWLEDGE_TABLE)
-          .update(patch as Record<string, unknown>)
-          .eq("id", id)
-          .eq("knowledge_type", knowledgeType)
-          .select("id");
-        if (error) throw new Error(`수정 실패(${id}): ${error.message}`);
-        // 확인 뒤 다른 요청이 행을 지웠거나 메뉴를 옮긴 경우. 앞 행은 이미 반영됐다(트랜잭션 없음).
-        if (!data || data.length === 0) {
-          throw notInMenu([id]);
-        }
-        updatedIds.push(id);
-      }
-
-      return c.json({
-        inserted: insertedIds.length,
-        updated: updatedIds.length,
-        ids: [...insertedIds, ...updatedIds],
-      } satisfies KnowledgeBulkResult);
-    },
-  )
+    return c.json({
+      inserted: insertedIds.length,
+      updated: updatedIds.length,
+      ids: [...insertedIds, ...updatedIds],
+    } satisfies KnowledgeBulkResult);
+  })
   .all("/", methodNotAllowed("POST"));

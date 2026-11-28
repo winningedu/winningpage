@@ -79,6 +79,6 @@ export const tenants = adminFactory
       );
     }
     if (error) throw new Error("fn_create_tenant failed");
-    return c.json(data as TenantRow, 201);
+    return c.json(data satisfies TenantRow, 201);
   })
   .all("/", methodNotAllowed("GET", "POST"));

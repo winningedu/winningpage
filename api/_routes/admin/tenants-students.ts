@@ -19,6 +19,7 @@ import {
   putStudentUsageBody,
   STUDENT_MOVE_ERROR,
   type StudentUsage,
+  type StudentUsageSaved,
   studentUsageQuery,
 } from "../../../shared/tenants/students.js";
 import { assertSectionPermission } from "../../_lib/adminPermission.js";
@@ -370,7 +371,7 @@ export const tenantsStudents = adminFactory
         if (error?.code === "23503") throw notFound("학생");
         if (error) throw new Error("student usage override upsert failed");
       }
-      return c.json({ saved: rows.length });
+      return c.json({ saved: rows.length } satisfies StudentUsageSaved);
     },
   )
   .all("/student-usage", methodNotAllowed("GET", "PUT"));

@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { bulkKnowledgeTypeSchema } from "../../../../../shared/knowledge/contract.js";
 import {
   postEmbedBackfill,
   postKnowledgeBulk,
@@ -51,7 +52,9 @@ export default function BulkPanel({
   rows: Record<string, unknown>[];
   onReload: () => void;
 }) {
-  const knowledgeType = String(config.fixedValues.knowledge_type);
+  const knowledgeType = bulkKnowledgeTypeSchema.parse(
+    config.fixedValues.knowledge_type,
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [state, dispatch] = useReducer(bulkReducer, INITIAL_BULK_STATE);
   // 서버 호출은 useMutation 으로 돌리고, 호출 중이면 단계 전이와 별개로 버튼을 막는다.

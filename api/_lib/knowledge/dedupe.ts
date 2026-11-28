@@ -13,6 +13,7 @@ import {
   MAX_DEDUPE_ITEMS,
   type NearMatch,
 } from "../../../shared/knowledge/contract.js";
+import type { DedupeBody } from "../../../shared/knowledge/request.js";
 
 export {
   BULK_KNOWLEDGE_TYPES,
@@ -91,48 +92,6 @@ export function isBulkKnowledgeType(
   value: unknown,
 ): value is BulkKnowledgeType {
   return (BULK_KNOWLEDGE_TYPES as readonly unknown[]).includes(value);
-}
-
-export type DedupeBody = {
-  knowledgeType: BulkKnowledgeType;
-  items: DedupeItem[];
-};
-
-function textOf(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-export function validateDedupeBody(
-  raw: unknown,
-): { ok: true; body: DedupeBody } | { ok: false; reason: string } {
-  const body = (raw ?? {}) as { knowledgeType?: unknown; items?: unknown };
-  if (!isBulkKnowledgeType(body.knowledgeType)) {
-    return { ok: false, reason: "knowledgeType 이 올바르지 않습니다." };
-  }
-  if (!Array.isArray(body.items) || body.items.length === 0) {
-    return { ok: false, reason: "items 가 비어 있습니다." };
-  }
-  if (body.items.length > MAX_DEDUPE_ITEMS) {
-    return {
-      ok: false,
-      reason: `items 는 한 번에 ${MAX_DEDUPE_ITEMS}건까지 보낼 수 있습니다.`,
-    };
-  }
-
-  const items: DedupeItem[] = [];
-  for (const entry of body.items) {
-    const source = (entry ?? {}) as Record<string, unknown>;
-    if (!Number.isInteger(source.rowNo)) {
-      return { ok: false, reason: "items[].rowNo 는 정수여야 합니다." };
-    }
-    const item = { rowNo: source.rowNo as number } as DedupeItem;
-    for (const field of KNOWLEDGE_TEXT_FIELDS) {
-      item[field] = textOf(source[field]);
-    }
-    if (typeof source.id === "string" && source.id) item.id = source.id;
-    items.push(item);
-  }
-  return { ok: true, body: { knowledgeType: body.knowledgeType, items } };
 }
 
 /**

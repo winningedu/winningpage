@@ -8,6 +8,7 @@ import {
   type SearchPreviewItem,
   type SearchPreviewMode,
 } from "../../../shared/knowledge/contract.js";
+import type { SearchPreviewBody } from "../../../shared/knowledge/request.js";
 import {
   buildKnowledgeKeywordQueryFor,
   getBaseGradeForRpc,
@@ -21,7 +22,7 @@ import {
   TOPIC_MAX_CHARS,
   TOPIC_MAX_ITEMS,
 } from "../performance/knowledge.js";
-import { type BulkKnowledgeType, isBulkKnowledgeType } from "./dedupe.js";
+import type { BulkKnowledgeType } from "./dedupe.js";
 
 // 행 수 한도, 검색 방식, 응답 행의 모양은 shared/knowledge/contract.ts 가 정하고 여기서 다시 내보낸다.
 export {
@@ -30,86 +31,6 @@ export {
   type SearchPreviewItem,
   type SearchPreviewMode,
 };
-
-export type SearchPreviewBody = {
-  knowledgeType: BulkKnowledgeType;
-  grade: string;
-  subject: string;
-  career: string;
-  selectedTopic: string;
-  assessmentInfo: string;
-  includeOtherSubjects: boolean;
-  limit: number;
-  mode: SearchPreviewMode;
-};
-
-const TEXT_KEYS = [
-  "grade",
-  "subject",
-  "career",
-  "selectedTopic",
-  "assessmentInfo",
-] as const;
-
-export function validateSearchPreviewBody(
-  raw: unknown,
-): { ok: true; body: SearchPreviewBody } | { ok: false; reason: string } {
-  if (!raw || typeof raw !== "object") {
-    return { ok: false, reason: "요청 바디가 올바르지 않습니다." };
-  }
-  const source = raw as Record<string, unknown>;
-  if (!isBulkKnowledgeType(source.knowledgeType)) {
-    return { ok: false, reason: "knowledgeType 이 올바르지 않습니다." };
-  }
-  const knowledgeType = source.knowledgeType;
-
-  const texts = {} as Record<(typeof TEXT_KEYS)[number], string>;
-  for (const key of TEXT_KEYS) {
-    const value = source[key];
-    if (value !== undefined && value !== null && typeof value !== "string") {
-      return { ok: false, reason: `${key} 는 문자열이어야 합니다.` };
-    }
-    texts[key] = typeof value === "string" ? value : "";
-  }
-
-  const rawLimit = source.limit ?? SEARCH_PREVIEW_DEFAULT_LIMIT;
-  if (
-    !Number.isInteger(rawLimit) ||
-    (rawLimit as number) < 1 ||
-    (rawLimit as number) > SEARCH_PREVIEW_MAX_LIMIT
-  ) {
-    return {
-      ok: false,
-      reason: `limit 는 1부터 ${SEARCH_PREVIEW_MAX_LIMIT} 사이 정수여야 합니다.`,
-    };
-  }
-
-  if (
-    source.includeOtherSubjects !== undefined &&
-    typeof source.includeOtherSubjects !== "boolean"
-  ) {
-    return { ok: false, reason: "includeOtherSubjects 는 참 거짓 값입니다." };
-  }
-  // 기본값은 학생 요청 경로와 같다. 주제 추천은 다른 과목을 포함하고 자료 검색은 뺀다.
-  const includeOtherSubjects =
-    source.includeOtherSubjects ?? knowledgeType === "topic_pattern";
-
-  const mode = source.mode ?? "hybrid";
-  if (mode !== "vector" && mode !== "hybrid") {
-    return { ok: false, reason: "mode 는 vector 또는 hybrid 입니다." };
-  }
-
-  return {
-    ok: true,
-    body: {
-      knowledgeType,
-      ...texts,
-      includeOtherSubjects,
-      limit: rawLimit as number,
-      mode,
-    },
-  };
-}
 
 /** 하이브리드 RPC 행. 벡터 RPC 행에는 세 순위 컬럼이 없다. */
 export type SearchPreviewRow = KnowledgeRow & {

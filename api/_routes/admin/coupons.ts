@@ -10,11 +10,16 @@ import {
   COUPON_SCAN_LIMIT,
   COUPON_USER_SEARCH_LIMIT,
   type CouponList,
+  type CouponMutationResult,
+  type CouponRow,
   couponIdParams,
   couponSaveBody,
+  type GrantList,
   grantBody,
+  type RedemptionList,
   reasonBody,
   rowIdParams,
+  type UserSearch,
   userSearchQuery,
 } from "../../../shared/coupon/contract.js";
 import {
@@ -151,7 +156,7 @@ export const coupons = adminFactory
       .select("*")
       .single();
     if (error) throwCouponSaveError(error);
-    return c.json(data, 201);
+    return c.json(data satisfies CouponRow, 201);
   })
   .all("/", methodNotAllowed("GET", "POST"))
   // GET /user-search?q=<1..100자>: 쿠폰 발급 대상 검색. 학생만이 아니라 전체 프로필에서 이메일이나 이름으로 20건까지 찾는다.
@@ -165,7 +170,7 @@ export const coupons = adminFactory
         .valid("query")
         .q.replace(/[,()*"\\]/g, "")
         .trim();
-      if (!q) return c.json({ items: [] });
+      if (!q) return c.json({ items: [] } satisfies UserSearch);
 
       // ilike 의 기본 이스케이프 문자는 백슬래시다. 위에서 백슬래시를 걷었으므로 %, _ 만 이스케이프하면 된다.
       const pattern = q.replace(/[%_]/g, "\\$&");
@@ -177,7 +182,7 @@ export const coupons = adminFactory
         .limit(COUPON_USER_SEARCH_LIMIT);
       if (error) throw new Error("profiles search failed");
 
-      return c.json({ items: data ?? [] });
+      return c.json({ items: data ?? [] } satisfies UserSearch);
     },
   )
   .all("/user-search", methodNotAllowed("GET"))
@@ -194,7 +199,7 @@ export const coupons = adminFactory
         .maybeSingle();
       if (error) throw new Error("coupon read failed");
       if (!data) throw notFound("쿠폰");
-      return c.json(data);
+      return c.json(data satisfies CouponRow);
     },
   )
   .patch(
@@ -211,7 +216,7 @@ export const coupons = adminFactory
         .maybeSingle();
       if (error) throwCouponSaveError(error);
       if (!data) throw notFound("쿠폰");
-      return c.json(data);
+      return c.json(data satisfies CouponRow);
     },
   )
   .all("/:id", methodNotAllowed("GET", "PATCH"))
@@ -235,7 +240,9 @@ export const coupons = adminFactory
         .limit(COUPON_HISTORY_LIMIT);
       if (error) throw new Error("coupon grants read failed");
 
-      return c.json({ items: await attachUsers(db, data ?? []) });
+      return c.json({
+        items: await attachUsers(db, data ?? []),
+      } satisfies GrantList);
     },
   )
   .post(
@@ -252,7 +259,7 @@ export const coupons = adminFactory
         p_user_id: c.req.valid("json").userId,
       });
       if (error) throwRpcError(error, GRANT_ERRORS);
-      return c.json(data);
+      return c.json(data satisfies CouponMutationResult);
     },
   )
   .all("/:id/grants", methodNotAllowed("GET", "POST"))
@@ -274,7 +281,9 @@ export const coupons = adminFactory
         .limit(COUPON_HISTORY_LIMIT);
       if (error) throw new Error("coupon redemptions read failed");
 
-      return c.json({ items: await attachUsers(db, data ?? []) });
+      return c.json({
+        items: await attachUsers(db, data ?? []),
+      } satisfies RedemptionList);
     },
   )
   .all("/:id/redemptions", methodNotAllowed("GET"))
@@ -304,7 +313,7 @@ export const coupons = adminFactory
         { p_grant_id: grantId, ...(trimmed ? { p_reason: trimmed } : {}) },
       );
       if (error) throwRpcError(error, REVOKE_ERRORS);
-      return c.json(data);
+      return c.json(data satisfies CouponMutationResult);
     },
   )
   .all("/grants/:id/revoke", methodNotAllowed("POST"))
@@ -335,7 +344,7 @@ export const coupons = adminFactory
         },
       );
       if (error) throwRpcError(error, VOID_ERRORS);
-      return c.json(data);
+      return c.json(data satisfies CouponMutationResult);
     },
   )
   .all("/redemptions/:id/void", methodNotAllowed("POST"));
