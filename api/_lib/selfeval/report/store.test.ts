@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { buildReport } from "./build.js";
 import type { StoredReport } from "./run.js";
-import { createReportStore } from "./store.js";
+import { sampleInput } from "./sample.testkit.js";
+import { createReportStore, toStored } from "./store.js";
 
 type Call = { op: string; args: unknown[] };
 
@@ -262,5 +264,37 @@ describe("createReportStore", () => {
         stored,
       ),
     ).toBe(false);
+  });
+});
+
+describe("toStored payload 읽기", () => {
+  const row = (payload: unknown) => ({
+    session_id: "s1",
+    final_revision: 2,
+    payload,
+    tag_map: {},
+    status: "ready" as const,
+    attempts: 1,
+    built_at: "2026-11-23T00:00:00.000Z",
+    claimed_at: null,
+  });
+
+  it("조립한 payload 는 계약 스키마로 읽는다", () => {
+    const { payload } = buildReport(sampleInput(), null);
+    expect(toStored(row(payload)).payload).toEqual(payload);
+  });
+
+  it("version 1 이지만 계약 모양이 아닌 payload 는 없는 것으로 읽어 다시 만들 수 있게 한다", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(toStored(row({ version: 1, cover: {} })).payload).toBeNull();
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("자리표시 행의 빈 객체는 로그 없이 payload 없음이다", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(toStored(row({})).payload).toBeNull();
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
   });
 });
