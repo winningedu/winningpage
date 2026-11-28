@@ -2,7 +2,8 @@
 // DB 에 묶인 얇은 계층이라 단위 테스트는 두지 않고, 변환 규칙은 rows.ts 와 stages.ts 에서 검증한다.
 
 import type { ReportStepKey } from "../../../../src/lib/selfeval/reportTypes.js";
-import { type Db, must, mustRead } from "../../growth/intake/collectDb.js";
+import { must, mustRead } from "../../db/must.js";
+import type { Db } from "../../growth/intake/collectDb.js";
 import type { SessionRow } from "../rows.js";
 import type { Improvement } from "../types.js";
 import type {

@@ -28,7 +28,6 @@ import { useReportPdfSave } from "@/lib/report/useReportPdfSave";
 import { buildSelfevalPdfFileName } from "@/lib/selfeval/pdfFileName";
 import type {
   FinalizeReply,
-  GenerationSections,
   SessionDetailResponse,
   VerificationSections,
 } from "@/lib/selfeval/types";
@@ -181,7 +180,7 @@ function DoneBody({
     );
   }
 
-  const sections = final.sections as GenerationSections;
+  const sections = final.sections;
   const texts = paragraphTexts(sections);
   const planTitle =
     session.planItemId && session.growthSnapshot

@@ -3,8 +3,9 @@
 // 선점하면 claimed_at 에 시각을 넣고, 신선한 선점이 있으면 다른 요청은 잡지 못한다.
 // 단계 예산보다 오래된 선점은 중단된 요청으로 보고 다시 잡을 수 있다. 끝내면 claimed_at 을 비운다.
 
-import type { ReportPayload } from "../../../../src/lib/selfeval/reportTypes.js";
-import { type Db, must } from "../../growth/intake/collectDb.js";
+import { reportPayloadSchema } from "../../../../shared/selfeval/report.js";
+import { must } from "../../db/must.js";
+import type { Db } from "../../growth/intake/collectDb.js";
 import { STEP_BUDGET_MS } from "../types.js";
 import type { ReportStore, StoredReport } from "./run.js";
 
@@ -30,15 +31,28 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 const isBuilding = (claimedAt: string | null, nowMs: number) =>
   claimedAt !== null && Date.parse(claimedAt) > nowMs - STEP_BUDGET_MS;
 
+/**
+ * 저장된 payload 를 계약 스키마로 읽는다. 자리표시 행의 빈 객체는 payload 없음이다.
+ * 계약 모양이 아닌 payload 는 화면에 보내지 않고 없는 것으로 읽어, 같은 리비전이어도 다시 만들 수 있게 한다.
+ */
+function readPayload(raw: unknown) {
+  if (!isRecord(raw) || raw.version !== 1) return null;
+  const parsed = reportPayloadSchema.safeParse(raw);
+  if (!parsed.success) {
+    console.error(
+      "selfeval 리포트 payload 가 계약 모양이 아니다:",
+      parsed.error.issues.map((i) => i.path.join(".")),
+    );
+    return null;
+  }
+  return parsed.data;
+}
+
 export function toStored(row: ViewRow, nowMs = Date.now()): StoredReport {
   return {
     sessionId: row.session_id,
     finalRevision: row.final_revision,
-    // 자리표시 행의 빈 객체는 payload 없음으로 읽는다.
-    payload:
-      isRecord(row.payload) && row.payload.version === 1
-        ? (row.payload as unknown as ReportPayload)
-        : null,
+    payload: readPayload(row.payload),
     tagMap: isRecord(row.tag_map)
       ? (row.tag_map as Record<string, string>)
       : {},

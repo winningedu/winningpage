@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ZodError } from "zod";
 import type { SessionRow } from "../rows.js";
 import type { SessionActivityWithRecord } from "../view.js";
 import {
@@ -109,7 +110,7 @@ describe("reportOut", () => {
       reportOut({
         id: "r1",
         revision: 2,
-        sections: { a: 1 },
+        sections: { paragraphs: [] },
         charCount: { withSpace: 3, withoutSpace: 2 },
         score: 5,
         mandatoryFixes: null,
@@ -118,31 +119,38 @@ describe("reportOut", () => {
     ).toEqual({
       id: "r1",
       revision: 2,
-      sections: { a: 1 },
+      sections: { paragraphs: [] },
       charCount: { withSpace: 3, withoutSpace: 2 },
     });
   });
 });
 
 describe("reportRowOut", () => {
+  const row = {
+    id: "r1",
+    session_id: "s",
+    report_type: "edited" as const,
+    revision: 3,
+    sections: { paragraphs: [] },
+    char_count: { withSpace: 3, withoutSpace: 2 },
+    score: null,
+    mandatory_fixes: null,
+    created_at: "x",
+  };
+
   it("DB 행을 응답 모양으로 바꾼다", () => {
-    expect(
-      reportRowOut({
-        id: "r1",
-        session_id: "s",
-        report_type: "edited",
-        revision: 3,
-        sections: { a: 1 },
-        char_count: { withSpace: 3, withoutSpace: 2 },
-        score: null,
-        mandatory_fixes: null,
-        created_at: "x",
-      }),
-    ).toEqual({
+    expect(reportRowOut(row)).toEqual({
       id: "r1",
       revision: 3,
-      sections: { a: 1 },
+      sections: { paragraphs: [] },
       charCount: { withSpace: 3, withoutSpace: 2 },
     });
+  });
+
+  it("본문이나 글자 수 jsonb 가 계약 모양이 아니면 던진다", () => {
+    expect(() => reportRowOut({ ...row, sections: { a: 1 } })).toThrow(
+      ZodError,
+    );
+    expect(() => reportRowOut({ ...row, char_count: null })).toThrow(ZodError);
   });
 });

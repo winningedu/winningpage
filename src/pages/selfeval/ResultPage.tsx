@@ -137,7 +137,7 @@ function ResultBody({
     if (phase === "terminal") void refetchEntry();
   }, [phase, refetchEntry]);
 
-  const stored = detail.current?.sections as GenerationSections | undefined;
+  const stored = detail.current?.sections;
   const shown: Shown | null =
     override ??
     (stored

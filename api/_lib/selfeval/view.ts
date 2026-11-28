@@ -1,6 +1,12 @@
 // selfeval 조회 API 응답 조립(명세 No.15~18, 65, 75, 계획서 §2 10~13).
 // 순수 모듈이다. 핸들러는 db.ts 로 읽은 행을 여기에 넘기고 결과를 그대로 응답한다.
 
+import type { z } from "zod";
+import {
+  analysisSchema,
+  generationReportViewSchema,
+  verificationReportViewSchema,
+} from "../../../shared/selfeval/session.js";
 import type { QuotaSnapshot } from "../serviceAccess.js";
 import { tenantReasonExtra } from "../tenantUsage.js";
 import { normalizeSections, type SourceTypeOf } from "./evidence.js";
@@ -23,7 +29,6 @@ import {
 import { careerOf } from "./steps/shared.js";
 import {
   type ActivityRecordLike,
-  type CharCount,
   type GrowthSnapshot,
   type HighGrade,
   MAX_REGENERATIONS,
@@ -160,27 +165,33 @@ export type SessionActivityWithRecord = SessionActivityRow & {
   record: ActivityRecordLike;
 };
 
-export type ReportView = {
-  id: string;
-  revision: number;
-  sections: unknown;
-  charCount: CharCount | null;
-  score: number | null;
-  mandatoryFixes: unknown;
-  createdAt: string;
-};
+export type ReportView = z.output<typeof generationReportViewSchema>;
+export type VerificationView = z.output<typeof verificationReportViewSchema>;
 
+/** 저장된 행의 jsonb 를 계약 스키마로 읽는다. 모양이 맞지 않으면 ZodError 를 던져 응답으로 내보내지 않는다. */
 function reportView(row: ReportRow, typeOf?: SourceTypeOf): ReportView {
-  return {
+  return generationReportViewSchema.parse({
     id: row.id,
     revision: row.revision,
     // 옛 단일 근거 모양으로 저장된 본문도 배열 근거로 읽는다(명세 No.145).
     sections: normalizeSections(row.sections, typeOf),
-    charCount: (row.char_count as CharCount | null) ?? null,
+    charCount: row.char_count ?? null,
     score: row.score,
     mandatoryFixes: row.mandatory_fixes,
     createdAt: row.created_at,
-  };
+  });
+}
+
+function verificationView(row: ReportRow): VerificationView {
+  return verificationReportViewSchema.parse({
+    id: row.id,
+    revision: row.revision,
+    sections: row.sections,
+    charCount: row.char_count ?? null,
+    score: row.score,
+    mandatoryFixes: row.mandatory_fixes,
+    createdAt: row.created_at,
+  });
 }
 
 function latestOf(rows: ReportRow[], type: ReportType): ReportRow | null {
@@ -265,14 +276,15 @@ export function detailBody(
       role: a.role,
       fitScore: a.fit_score,
       fitReasons: a.fit_reasons,
-      analysis: a.analysis,
+      analysis: analysisSchema.nullable().parse(a.analysis),
       analysisSource: a.analysis_source,
       record: a.record,
     })),
     reports: {
       generation: view(generation),
       edited: view(edited),
-      verification: view(verification),
+      verification:
+        verification === null ? null : verificationView(verification),
       final: view(final),
     },
     memos,

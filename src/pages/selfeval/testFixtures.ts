@@ -111,9 +111,11 @@ export function makeDetail(
   };
 }
 
-export function makeReport(
-  sections: unknown,
-  over: Partial<SessionDetailResponse["reports"]["generation"] & object> = {},
+export function makeReport<S extends GenerationSections | VerificationSections>(
+  sections: S,
+  over: Partial<
+    Omit<NonNullable<SessionDetailResponse["current"]>, "sections">
+  > = {},
 ) {
   return {
     id: "r1",

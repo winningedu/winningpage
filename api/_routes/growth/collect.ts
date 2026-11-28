@@ -24,6 +24,7 @@
 import type { VercelResponse } from "@vercel/node";
 import { scheduleAfterResponse } from "../../_lib/afterResponse.js";
 import { createAiTrace } from "../../_lib/ai/telemetry/trace.js";
+import { must, mustHave } from "../../_lib/db/must.js";
 import { GrowthSettingError } from "../../_lib/growth/intake/appSettings.js";
 import {
   type AggregateInput,
@@ -38,8 +39,6 @@ import {
   type Db,
   findOpenReportId,
   loadUploads,
-  must,
-  mustHave,
   updateProcessing,
 } from "../../_lib/growth/intake/collectDb.js";
 import { uploadQuotaLeft } from "../../_lib/growth/intake/collectSummary.js";

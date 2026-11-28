@@ -1,7 +1,8 @@
 // api/growth/plan 계열이 쓰는 얇은 DB 계층. 판단 로직은 mutations, view, metrics 에 있다.
 // service_role 로 읽고 쓰므로 모든 쿼리에 profile_id 조건을 건다.
 
-import { type Db, must } from "../intake/collectDb.js";
+import { must } from "../../db/must.js";
+import type { Db } from "../intake/collectDb.js";
 import type { PlanItemRow, PlanReportRow } from "./types.js";
 
 const REPORT_COLUMNS =

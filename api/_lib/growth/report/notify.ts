@@ -5,9 +5,10 @@
 // 버튼 주소는 템플릿이 사이트 www 와 경로 변수(학생ID, 리포트ID)로 만든다(승인본 UO_3143).
 
 import { ymdIn } from "../../../../src/lib/time/day.js";
+import { must } from "../../db/must.js";
 import { resolveParentRecipients } from "../../goal/reportNotify.js";
 import { sendAndLog } from "../../messaging/alimtalkSend.js";
-import { type Db, must } from "../intake/collectDb.js";
+import type { Db } from "../intake/collectDb.js";
 
 export type GrowthNotifyOutcome =
   | { sent: true; count: number }

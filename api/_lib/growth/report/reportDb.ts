@@ -1,11 +1,12 @@
 // api/growth/report 가 쓰는 얇은 DB 계층. 판단 로직은 reportBody, stepState, context 에 있다.
 
+import { must, mustHave } from "../../db/must.js";
 import { isSchoolmentorSite } from "../../site.js";
 import {
   consumeTenantUsage,
   type TenantDenyReason,
 } from "../../tenantUsage.js";
-import { type Db, must, mustHave } from "../intake/collectDb.js";
+import type { Db } from "../intake/collectDb.js";
 import type { ValidationIssue } from "../validation.js";
 import {
   CUT_SCREENING_CATEGORIES,

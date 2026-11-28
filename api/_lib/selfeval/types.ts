@@ -6,6 +6,16 @@
 // 단계(명세 No.83 current_step): 0 생성됨 / 1 기본 입력 저장 / 2 활동 선택 확정 / 3 분석 완료 /
 // 4 생성 성공 / 5 검증 완료 / 6 최종 저장. 모델 호출 단계는 analyze, write, verify 셋이다.
 
+import type { z } from "zod";
+import type {
+  charCountSchema,
+  evidenceSchema,
+  generationSectionsSchema,
+  mandatoryFixSchema,
+  paragraphSchema,
+  sentenceSchema,
+  verificationSectionsSchema,
+} from "../../../shared/selfeval/sections.js";
 import type { Axis, HighGrade } from "../growth/types.js";
 
 export type { Axis, HighGrade };
@@ -329,32 +339,18 @@ export type AnalysisSource = "model" | "student";
 // ---------------------------------------------------------------------------
 
 /** 근거 출처 유형(명세 No.145): P 수행평가, D 심화탐구, A 창체 활동, H 수기 메모, S 학생 입력. */
-export type EvidenceSourceType = "P" | "D" | "A" | "H" | "S";
+export type EvidenceSourceType = SentenceEvidence["sourceType"];
 
-export type EvidenceItem = AnalysisField | "student_input";
+export type EvidenceItem = SentenceEvidence["item"];
 
-export type EvidenceWeight = "main" | "sub";
+export type EvidenceWeight = SentenceEvidence["weight"];
 
-/** 문장 하나가 기댄 근거 하나. 한 문장에 여러 개를 붙일 수 있다(명세 No.145, No.85). */
-export type SentenceEvidence = {
-  sourceType: EvidenceSourceType;
-  /** P, D, A 는 activity_records.id, H 는 selfeval_manual_logs.id, S 는 null. */
-  refId: string | null;
-  item: EvidenceItem;
-  weight: EvidenceWeight;
-};
+/** 문장 하나가 기댄 근거 하나. 한 문장에 여러 개를 붙일 수 있다(명세 No.145, No.85). 모양의 정본은 shared/selfeval/sections.ts 다. */
+export type SentenceEvidence = z.output<typeof evidenceSchema>;
 
-export type Sentence = {
-  id: string;
-  text: string;
-  evidence: SentenceEvidence[];
-  /** 확인이 필요한 문장(노란 표시). 근거가 없거나 근거로 설명되지 않는 수치가 있으면 서버가 올린다. */
-  feeling: boolean;
-  /** 학생이 느낌 문장을 확인했는지(명세 No.49, No.57). */
-  confirmed: boolean;
-};
+export type Sentence = z.output<typeof sentenceSchema>;
 
-export type ParagraphRole = "link" | "process" | "judgment" | "wrap";
+export type ParagraphRole = NonNullable<Paragraph["role"]>;
 
 export const PARAGRAPH_ROLE_LABELS: Record<ParagraphRole, string> = {
   link: "연계 발전 지점",
@@ -363,139 +359,45 @@ export const PARAGRAPH_ROLE_LABELS: Record<ParagraphRole, string> = {
   wrap: "정리",
 };
 
-export type Paragraph = {
-  /** 문단 수를 고정하지 않으므로 새 본문에는 없다. 옛 리포트를 읽을 때만 있다. */
-  role?: ParagraphRole;
-  sentences: Sentence[];
-};
+export type Paragraph = z.output<typeof paragraphSchema>;
 
-export type GenerationSections = {
-  paragraphs: Paragraph[];
-};
+export type GenerationSections = z.output<typeof generationSectionsSchema>;
 
-export type CharCount = {
-  withSpace: number;
-  withoutSpace: number;
-};
-
-export type ReportType = "generation" | "edited" | "verification" | "final";
+export type CharCount = z.output<typeof charCountSchema>;
 
 // ---------------------------------------------------------------------------
 // 검증(명세 No.53~62, No.76)
 // ---------------------------------------------------------------------------
 
-export type ScoreItemKey =
-  | "judgment"
-  | "limitation"
-  | "link"
-  | "source"
-  | "numbers"
-  | "start"
-  | "next"
-  | "prompt";
+// 검증 sections 의 모양 정본은 shared/selfeval/sections.ts 다.
+export type VerificationSections = z.output<typeof verificationSectionsSchema>;
 
-export type ScoreCheck = {
-  text: string;
-  pass: boolean;
-};
+export type ScoreItem = VerificationSections["items"][number];
 
-export type ScoreItem = {
-  key: ScoreItemKey;
-  label: string;
-  max: number;
-  /** 판별력(상위 25% 와 하위 25% 보유율 차이, p). 문항 대응은 null. */
-  discrimination: number | null;
-  checks: ScoreCheck[];
-  score: number;
-  /** false 면 채점에서 뺀 항목이다(학교 문항이 없는 문항 대응). 없으면 적용으로 본다. */
-  applied?: boolean;
-};
+export type ScoreItemKey = ScoreItem["key"];
 
-export type FormatCheckKey =
-  | "target_range"
-  | "cliche_density"
-  | "min_length"
-  | "min_sentences"
-  | "no_university"
-  | "no_pending_feelings"
-  | "no_plan_expression";
+export type ScoreCheck = ScoreItem["checks"][number];
 
-export type FormatCheck = {
-  key: FormatCheckKey;
-  label: string;
-  pass: boolean;
-  detail: string;
-  /** 목표 글자 수가 비어 target_range 를 끈 경우 true. */
-  skipped: boolean;
-};
+export type FormatCheck = VerificationSections["format"][number];
 
-export type MandatoryFixKey =
-  | "pending_feelings"
-  | "cliche"
-  | "judgment_low"
-  | "plan_expression";
+export type FormatCheckKey = FormatCheck["key"];
 
-export type MandatoryFix = {
-  key: MandatoryFixKey;
-  message: string;
-  detail: string | null;
-};
+export type MandatoryFix = z.output<typeof mandatoryFixSchema>;
 
-export type Improvement = {
-  key: ScoreItemKey;
-  label: string;
-  message: string;
-  failedChecks: string[];
-};
+export type MandatoryFixKey = MandatoryFix["key"];
 
-export type GrowthFit = {
-  stageChecks: ScoreCheck[];
-  axisChecks: {
-    axis: Axis;
-    name: string;
-    satisfied: boolean;
-    current: number;
-    required: number;
-    guideline: string;
-  }[];
-};
+export type ReportType = "generation" | "edited" | "verification" | "final";
+
+export type Improvement = VerificationSections["improvements"][number];
+
+export type GrowthFit = NonNullable<VerificationSections["growthFit"]>;
 
 /**
  * 연계 점검 한 건(명세 No.182, 190). 점수, 필수 수정, 제출 가능 판정에는 넣지 않는 경고다.
  * unused 는 선택했지만 본문이 인용하지 않은 기록이고, 나머지 칸은 비어 있다.
  * 판정을 못 낸 칸(구체물 낱말이 없음, 모델 판정 없음)은 null 이다.
  */
-export type LinkCheck = {
-  recordId: string;
-  label: string;
-  status: "checked" | "unused";
-  /** 연계가 드러난 문장이 있는가(모델). */
-  linkShown: boolean | null;
-  /** 넘어온 구체물 낱말이 연계 문장에 있는가(코드). */
-  concreteWordPresent: boolean | null;
-  /** 그 기록 문장을 빼도 글이 성립하는가(모델). true 면 나열 의심. */
-  listingSuspect: boolean | null;
-};
-
-export type VerificationSections = {
-  items: ScoreItem[];
-  total: number;
-  /** 학교 문항이 없어 문항 대응을 뺀 채점이면 true. 이전 리포트에는 없다. */
-  promptMissing?: boolean;
-  format: FormatCheck[];
-  mandatoryFixes: MandatoryFix[];
-  submittable: boolean;
-  improvements: Improvement[];
-  excluded: { label: string; note: string }[];
-  growthFit: GrowthFit | null;
-  charCount: CharCount;
-  sentenceCount: number;
-  clicheDensity: number;
-  clicheHits: string[];
-  numberCount: number;
-  /** 연계 경고. 이전 리포트에는 없다. */
-  linkChecks?: LinkCheck[];
-};
+export type LinkCheck = NonNullable<VerificationSections["linkChecks"]>[number];
 
 // ---------------------------------------------------------------------------
 // 7항목 승격(명세 No.43, No.63)

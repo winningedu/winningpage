@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ZodError } from "zod";
 import type { ReportRow, SessionListRow, SessionRow } from "./rows.js";
 import type { ActivityRecordLike, GrowthSnapshot } from "./types.js";
 import { detailBody, entryBody, latestScores, listItem } from "./view.js";
@@ -79,6 +80,22 @@ function report(over: Partial<ReportRow> = {}): ReportRow {
     ...over,
   };
 }
+
+const VERIFICATION_SECTIONS = {
+  items: [],
+  total: 77,
+  format: [],
+  mandatoryFixes: [],
+  submittable: true,
+  improvements: [],
+  excluded: [],
+  growthFit: null,
+  charCount: { withSpace: 10, withoutSpace: 8 },
+  sentenceCount: 1,
+  clicheDensity: 0,
+  clicheHits: [],
+  numberCount: 0,
+};
 
 describe("listItem", () => {
   it("완료 세션은 점수와 완료 시각을 싣고 만료와 파기가 아니다", () => {
@@ -300,6 +317,84 @@ describe("detailBody career", () => {
   });
 });
 
+describe("detailBody 저장된 리포트 읽기", () => {
+  it("본문 jsonb 가 계약 모양이 아니면 보내지 않고 던진다", () => {
+    const broken = report({
+      sections: { paragraphs: [{ sentences: [{ id: "s1" }] }] },
+    });
+    expect(() => detailBody(session(), [], [broken])).toThrow(ZodError);
+  });
+
+  it("글자 수 jsonb 가 계약 모양이 아니면 던진다", () => {
+    const broken = report({ char_count: { withSpace: "많음" } });
+    expect(() => detailBody(session(), [], [broken])).toThrow(ZodError);
+  });
+
+  it("검증 리포트의 sections 와 필수 수정을 계약 모양으로 읽는다", () => {
+    const fix = { key: "cliche", message: "상투어", detail: null };
+    const row = report({
+      report_type: "verification",
+      sections: { ...VERIFICATION_SECTIONS, mandatoryFixes: [fix] },
+      score: 77,
+      mandatory_fixes: [fix],
+    });
+    const body = detailBody(session(), [], [row]);
+    expect(body.reports.verification?.sections.total).toBe(77);
+    expect(body.reports.verification?.mandatoryFixes).toEqual([fix]);
+  });
+
+  it("활동의 분석 jsonb 가 계약 모양이 아니면 던진다", () => {
+    const act = {
+      activity_record_id: "a1",
+      role: "core" as const,
+      fit_score: 70,
+      fit_reasons: null,
+      analysis: { values: "깨짐" },
+      analysis_source: "model" as const,
+      record: { id: "a1" } as ActivityRecordLike,
+    };
+    expect(() => detailBody(session(), [act], [])).toThrow(ZodError);
+  });
+
+  it("활동의 분석 jsonb 를 계약 모양으로 읽는다", () => {
+    const fields = [
+      "motive",
+      "concept",
+      "action",
+      "method",
+      "result",
+      "role",
+      "collaboration",
+      "learning",
+      "career",
+      "limitation",
+      "next",
+    ] as const;
+    const analysis = {
+      values: Object.fromEntries(fields.map((f) => [f, "값"])),
+      sources: Object.fromEntries(fields.map((f) => [f, "record"])),
+      conflicts: [],
+    };
+    const act = {
+      activity_record_id: "a1",
+      role: "core" as const,
+      fit_score: 70,
+      fit_reasons: null,
+      analysis,
+      analysis_source: "model" as const,
+      record: { id: "a1" } as ActivityRecordLike,
+    };
+    expect(detailBody(session(), [act], []).activities[0]?.analysis).toEqual(
+      analysis,
+    );
+  });
+
+  it("검증 리포트의 sections 가 본문 모양이면 던진다", () => {
+    const row = report({ report_type: "verification", score: 70 });
+    expect(() => detailBody(session(), [], [row])).toThrow(ZodError);
+  });
+});
+
 describe("detailBody", () => {
   const record = { id: "a1" } as ActivityRecordLike;
   const act = {
@@ -426,6 +521,7 @@ describe("detailBody", () => {
           id: "v1",
           report_type: "verification",
           revision: 1,
+          sections: VERIFICATION_SECTIONS,
           score: 77,
           mandatory_fixes: [],
         }),

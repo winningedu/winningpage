@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   canChangeSelection,
   manualSelectionRow,
-  nextStepAfterManualPick,
-  nextStepAfterPick,
   pickContextFrom,
+  STEP_AFTER_MANUAL_PICK,
+  STEP_AFTER_PICK,
   selectionRows,
 } from "./pickBody.js";
 import type { SessionRow } from "./rows.js";
@@ -121,20 +121,21 @@ describe("selectionRows", () => {
   });
 });
 
-describe("canChangeSelection / nextStepAfterPick", () => {
+describe("canChangeSelection / STEP_AFTER_PICK", () => {
   it("분석 전(단계 2 이하)까지만 바꿀 수 있다", () => {
     expect(canChangeSelection(session({ current_step: 2 }))).toBe(true);
     expect(canChangeSelection(session({ current_step: 3 }))).toBe(false);
     expect(canChangeSelection(session({ status: "completed" }))).toBe(false);
   });
-  it("단계는 줄어들지 않는다", () => {
-    expect(nextStepAfterPick(1)).toBe(2);
-    expect(nextStepAfterPick(2)).toBe(2);
+  it("선택은 단계 2 이하에서만 바뀌므로 활동 선택 확정은 늘 단계 2다", () => {
+    expect(STEP_AFTER_PICK).toBe(2);
+    for (const step of [0, 1, 2] as const) {
+      expect(canChangeSelection(session({ current_step: step }))).toBe(true);
+      expect(step).toBeLessThanOrEqual(STEP_AFTER_PICK);
+    }
   });
-  it("직접 입력 선택은 분석 산출물이 이미 있어 단계 3으로 올린다", () => {
-    expect(nextStepAfterManualPick(1)).toBe(3);
-    expect(nextStepAfterManualPick(2)).toBe(3);
-    expect(nextStepAfterManualPick(3)).toBe(3);
+  it("직접 입력 선택은 분석 산출물이 이미 있어 늘 단계 3으로 올린다", () => {
+    expect(STEP_AFTER_MANUAL_PICK).toBe(3);
   });
 });
 

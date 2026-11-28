@@ -169,6 +169,69 @@ describe("GET /api/selfeval/reports?sessionId 상세", () => {
     expect(parsed.regenerationsLeft).toBe(2);
   });
 
+  test("저장된 본문 jsonb 는 계약 스키마로 읽어 내보낸다", async () => {
+    const sections = {
+      paragraphs: [
+        {
+          sentences: [
+            {
+              id: "p1-s1",
+              text: "측정했다.",
+              evidence: { activityId: "a1", field: "method" },
+              feeling: false,
+              confirmed: false,
+            },
+          ],
+        },
+      ],
+    };
+    kit.db.loadReports = vi.fn(async () => [
+      {
+        id: "g1",
+        session_id: ID,
+        report_type: "generation",
+        revision: 1,
+        sections,
+        char_count: { withSpace: 5, withoutSpace: 4 },
+        score: null,
+        mandatory_fixes: null,
+        created_at: "2026-10-05T01:00:00Z",
+      },
+    ]);
+    const r = await callRoute(route, { query: { sessionId: ID } });
+    expect(r.status).toBe(200);
+    const parsed = sessionDetailResponseSchema.parse(r.body);
+    expect(
+      parsed.current?.sections.paragraphs[0]?.sentences[0]?.evidence,
+    ).toEqual([
+      { sourceType: "P", refId: "a1", item: "method", weight: "main" },
+    ]);
+  });
+
+  test("본문 jsonb 가 계약 모양이 아닌 행이 있으면 500 INTERNAL_ERROR 이고 그 값은 내보내지 않는다", async () => {
+    kit.db.loadReports = vi.fn(async () => [
+      {
+        id: "g1",
+        session_id: ID,
+        report_type: "generation",
+        revision: 1,
+        sections: { paragraphs: "깨진 값" },
+        char_count: { withSpace: 5, withoutSpace: 4 },
+        score: null,
+        mandatory_fixes: null,
+        created_at: "2026-10-05T01:00:00Z",
+      },
+    ]);
+    const r = await callRoute(route, { query: { sessionId: ID } });
+    expect(r.status).toBe(500);
+    expect(r.body).toMatchObject({
+      status: 500,
+      code: "INTERNAL_ERROR",
+      detail: "자기평가서를 불러오지 못했습니다.",
+    });
+    expect(JSON.stringify(r.body)).not.toContain("깨진 값");
+  });
+
   test("없는 세션과 남의 세션은 같은 404 SESSION_NOT_FOUND problem 이다", async () => {
     kit.db.loadSession = vi.fn(async () => null);
     const r = await callRoute(route, { query: { sessionId: ID } });

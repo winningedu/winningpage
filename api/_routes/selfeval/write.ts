@@ -29,7 +29,10 @@
 
 import type { z } from "zod";
 import { SELFEVAL_ERROR } from "../../../shared/selfeval/contract.js";
-import type { writeGenerateResponse } from "../../../shared/selfeval/write.js";
+import type {
+  writeEditResponse,
+  writeGenerateResponse,
+} from "../../../shared/selfeval/write.js";
 import { writeBody } from "../../../shared/selfeval/write.js";
 import { callStructured } from "../../_lib/ai/gemini.js";
 import { userFactory } from "../../_lib/hono/factory.js";
@@ -48,7 +51,6 @@ import {
   runWrite,
   saveEdit,
 } from "../../_lib/selfeval/steps/write.js";
-import type { GenerationSections } from "../../_lib/selfeval/types.js";
 import { detailBody } from "../../_lib/selfeval/view.js";
 
 const guard = user({
@@ -104,7 +106,7 @@ export const write = userFactory
         currentStep: session.current_step,
       });
     }
-    const base = current.sections as GenerationSections;
+    const base = current.sections;
     const out =
       body.action === "edit"
         ? await saveEdit(db, me.id, session, base, body.paragraphs)
@@ -124,6 +126,12 @@ export const write = userFactory
               base,
               body.sentenceId,
             );
-    return c.json(outcomeBody(out, (r) => ({ report: r.report })));
+    return c.json(
+      outcomeBody(
+        out,
+        (r) =>
+          ({ report: r.report }) satisfies z.output<typeof writeEditResponse>,
+      ),
+    );
   })
   .all("/", methodNotAllowed("POST"));

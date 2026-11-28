@@ -3,7 +3,7 @@
 
 import type { PickContext } from "./pick.js";
 import type { SessionRow } from "./rows.js";
-import type { Analysis, CandidateRow, SessionStep } from "./types.js";
+import type { Analysis, CandidateRow } from "./types.js";
 
 /** 후보 계산에 쓰는 컨텍스트. 연동은 스냅샷이 있고 학생이 켠 때만 적용한다. */
 export function pickContextFrom(
@@ -79,11 +79,8 @@ export function canChangeSelection(
   );
 }
 
-export function nextStepAfterPick(current: SessionStep): SessionStep {
-  return current < 2 ? 2 : current;
-}
+/** 활동 선택 확정 뒤 단계. canChangeSelection 이 단계 2 이하만 통과시키므로 늘 2 다. */
+export const STEP_AFTER_PICK = 2;
 
-/** 직접 입력 활동은 분석 산출물이 이미 있어 STEP4 분석 확인으로 바로 간다(명세 No.26). */
-export function nextStepAfterManualPick(current: SessionStep): SessionStep {
-  return current < 3 ? 3 : current;
-}
+/** 직접 입력 활동은 분석 산출물이 이미 있어 STEP4 분석 확인으로 바로 간다(명세 No.26). 단계 2 이하에서만 오므로 늘 3 이다. */
+export const STEP_AFTER_MANUAL_PICK = 3;

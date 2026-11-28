@@ -1,7 +1,8 @@
 // api/selfeval 이 쓰는 얇은 DB 계층. 판단 로직은 sessionBody, pickBody, view, reply 에 있다.
 // service_role 로 읽고 쓰므로 모든 쿼리에 profile_id 조건을 건다. 단위 테스트는 두지 않는다.
 
-import { type Db, must, mustHave } from "../growth/intake/collectDb.js";
+import { must, mustHave } from "../db/must.js";
+import type { Db } from "../growth/intake/collectDb.js";
 import { isSchoolmentorSite } from "../site.js";
 import { consumeTenantUsage } from "../tenantUsage.js";
 import {

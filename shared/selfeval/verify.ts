@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import { sessionStepSchema } from "./contract.js";
+import { mandatoryFixSchema, verificationSectionsSchema } from "./sections.js";
 import { stepIssueSchema } from "./session.js";
 
 // DB uuid 컬럼에 가므로 형식만 본다(버전 숫자는 보지 않는다).
@@ -11,13 +12,13 @@ export const verifyBody = z.object({ sessionId: z.guid() });
 /** 브라우저가 보내는 모양. */
 export type VerifyBodyInput = z.input<typeof verifyBody>;
 
-/** 검증 리포트. sections 의 점수 항목, 형식 검사 같은 세부 모양은 화면의 타입이 맡는다. */
+/** 검증 리포트. */
 const verificationSchema = z.looseObject({
   id: z.string(),
   revision: z.number(),
-  sections: z.looseObject({ total: z.number() }),
+  sections: verificationSectionsSchema,
   score: z.number(),
-  mandatoryFixes: z.array(z.unknown()),
+  mandatoryFixes: z.array(mandatoryFixSchema),
 });
 
 export const verifyResponse = z.looseObject({

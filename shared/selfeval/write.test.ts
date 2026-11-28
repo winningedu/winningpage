@@ -85,6 +85,17 @@ describe("writeGenerateResponse, writeEditResponse", () => {
     expect(writeGenerateResponse.safeParse({ report }).success).toBe(false);
   });
 
+  test("본문의 문장이 계약 모양이 아니면 거절한다", () => {
+    const bad = {
+      ...report,
+      sections: { paragraphs: [{ sentences: [{ id: "s1", text: "x" }] }] },
+    };
+    expect(writeGenerateResponse.safeParse({ report: bad }).success).toBe(
+      false,
+    );
+    expect(writeEditResponse.safeParse({ report: bad }).success).toBe(false);
+  });
+
   test("edit, confirm, repick 응답은 리포트만 준다", () => {
     expect(writeEditResponse.parse({ report }).report.id).toBe("r1");
     expect(writeEditResponse.safeParse({}).success).toBe(false);

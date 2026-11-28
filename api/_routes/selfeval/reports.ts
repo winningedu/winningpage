@@ -27,6 +27,7 @@ import type { z } from "zod";
 import { SELFEVAL_ERROR } from "../../../shared/selfeval/contract.js";
 import type { entryResponseSchema } from "../../../shared/selfeval/reports.js";
 import { reportsQuery } from "../../../shared/selfeval/reports.js";
+import type { sessionDetailResponseSchema } from "../../../shared/selfeval/session.js";
 import { completePlanItemFromProgram } from "../../_lib/growth/plan/complete.js";
 import { type UserEnv, userFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed } from "../../_lib/hono/problem.js";
@@ -144,7 +145,11 @@ async function detail(
     loadReports(db, userId, sessionId),
     loadIncludedMemos(db, sessionId),
   ]);
-  return c.json(detailBody(session, activities, reports, memos));
+  return c.json(
+    detailBody(session, activities, reports, memos) satisfies z.output<
+      typeof sessionDetailResponseSchema
+    >,
+  );
 }
 
 export const reports = userFactory

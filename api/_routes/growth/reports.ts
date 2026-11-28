@@ -42,7 +42,8 @@
 // api/_lib/growth/report/view.ts 의 순수 함수로 검증한다.
 
 import type { VercelResponse } from "@vercel/node";
-import { type Db, must } from "../../_lib/growth/intake/collectDb.js";
+import { must } from "../../_lib/db/must.js";
+import type { Db } from "../../_lib/growth/intake/collectDb.js";
 import { loadMemberTimeZone } from "../../_lib/growth/memberZone.js";
 import {
   assertParentOfChild,

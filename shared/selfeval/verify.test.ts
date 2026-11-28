@@ -19,7 +19,21 @@ describe("verifyResponse", () => {
   const verification = {
     id: "r1",
     revision: 2,
-    sections: { total: 80, submittable: true, items: [] },
+    sections: {
+      items: [],
+      total: 80,
+      format: [],
+      mandatoryFixes: [],
+      submittable: true,
+      improvements: [],
+      excluded: [],
+      growthFit: null,
+      charCount: { withSpace: 10, withoutSpace: 8 },
+      sentenceCount: 1,
+      clicheDensity: 0,
+      clicheHits: [],
+      numberCount: 0,
+    },
     score: 80,
     mandatoryFixes: [],
   };
@@ -34,6 +48,22 @@ describe("verifyResponse", () => {
     });
     expect(parsed.verification.score).toBe(80);
     expect(parsed.charged).toBe(true);
+  });
+
+  test("sections 나 필수 수정이 계약 모양이 아니면 거절한다", () => {
+    const body = { charged: true, currentStep: 5, attempts: 1, softIssues: [] };
+    expect(
+      verifyResponse.safeParse({
+        ...body,
+        verification: { ...verification, sections: { total: 80 } },
+      }).success,
+    ).toBe(false);
+    expect(
+      verifyResponse.safeParse({
+        ...body,
+        verification: { ...verification, mandatoryFixes: [{ key: "x" }] },
+      }).success,
+    ).toBe(false);
   });
 
   test("점수가 없으면 거절한다", () => {
