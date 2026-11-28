@@ -125,6 +125,40 @@ describe("admin_auth_timing 로그", () => {
     expect(timingLines()[0]).toHaveProperty("qaMs");
   });
 
+  test("역할 조회와 메뉴 권한 조회가 겹쳐 totalMs 가 두 단계 합보다 작다", async () => {
+    const fake = createAdminFake({
+      permissions: [{ resource_key: "coupons", level: "edit" }],
+    });
+    const later = <T>(value: T) =>
+      new Promise<T>((resolve) => setTimeout(() => resolve(value), 40));
+    const from = fake.from;
+    kit.admin = {
+      ...fake,
+      from: (table: string) =>
+        table === "profiles"
+          ? {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: () =>
+                    later({ data: { role: "admin" }, error: null }),
+                }),
+              }),
+            }
+          : from(table),
+      rpc: () =>
+        later({
+          data: [{ resource_key: "coupons", level: "edit" }],
+          error: null,
+        }),
+    };
+    const response = await app.request("/api/admin/demo/1", { headers: AUTH });
+    expect(response.status).toBe(200);
+    const line = timingLines()[0] as Record<string, number>;
+    expect(line.totalMs).toBeLessThan(
+      (line.roleMs ?? 0) + (line.permissionMs ?? 0),
+    );
+  });
+
   test("권한 판정을 건너뛰는 라우트는 permissionMs 가 없다", async () => {
     const response = await app.request("/api/admin/own", { headers: AUTH });
     expect(response.status).toBe(200);
