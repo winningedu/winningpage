@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { evidenceSchema, sentenceSchema } from "./sections.js";
+import {
+  evidenceSchema,
+  generationSectionsSchema,
+  sentenceSchema,
+} from "./sections.js";
 
 const evidence = {
   sourceType: "P",
@@ -72,5 +76,45 @@ describe("sentenceSchema", () => {
     const { confirmed: _c, ...noConfirmed } = sentence;
     expect(sentenceSchema.safeParse(noFeeling).success).toBe(false);
     expect(sentenceSchema.safeParse(noConfirmed).success).toBe(false);
+  });
+});
+
+describe("generationSectionsSchema", () => {
+  const sentence = {
+    id: "s1",
+    text: "문장이다.",
+    evidence: [evidence],
+    feeling: false,
+    confirmed: false,
+  };
+
+  it("문단마다 문장을 담은 본문을 읽는다", () => {
+    const sections = { paragraphs: [{ sentences: [sentence] }] };
+    expect(generationSectionsSchema.parse(sections)).toEqual(sections);
+  });
+
+  it("옛 본문의 문단 역할(role)을 읽는다", () => {
+    const sections = { paragraphs: [{ role: "judgment", sentences: [] }] };
+    expect(generationSectionsSchema.parse(sections)).toEqual(sections);
+  });
+
+  it("모르는 문단 역할은 거절한다", () => {
+    expect(
+      generationSectionsSchema.safeParse({
+        paragraphs: [{ role: "intro", sentences: [] }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("문장이 모양에 맞지 않으면 거절한다", () => {
+    expect(
+      generationSectionsSchema.safeParse({
+        paragraphs: [{ sentences: [{ id: "s1", text: "x" }] }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("문단 목록이 없으면 거절한다", () => {
+    expect(generationSectionsSchema.safeParse({}).success).toBe(false);
   });
 });

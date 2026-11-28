@@ -26,3 +26,16 @@ export const sentenceSchema = z.object({
   /** 학생이 느낌 문장을 확인했는지(명세 No.49, No.57). */
   confirmed: z.boolean(),
 });
+
+export const PARAGRAPH_ROLES = ["link", "process", "judgment", "wrap"] as const;
+
+export const paragraphSchema = z.object({
+  /** 문단 수를 고정하지 않으므로 새 본문에는 없다. 옛 리포트를 읽을 때만 있다. */
+  role: z.enum(PARAGRAPH_ROLES).optional(),
+  sentences: z.array(sentenceSchema),
+});
+
+/** 생성본, 편집본, 최종본의 sections. */
+export const generationSectionsSchema = z.object({
+  paragraphs: z.array(paragraphSchema),
+});
