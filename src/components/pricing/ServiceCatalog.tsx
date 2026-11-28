@@ -31,7 +31,7 @@ const SERVICE_DETAIL_ROUTES: Record<string, string> = {
 };
 
 /** 서비스별 단일 선택: { [serviceKey]: productId } */
-export type ServiceCatalogSelection = Record<string, string>;
+type ServiceCatalogSelection = Record<string, string>;
 
 type ServiceCatalogProps = {
   services: ServiceGroup[];

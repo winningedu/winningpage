@@ -11,7 +11,7 @@ const CARD = "rounded-xl border border-line/60 bg-white px-6 py-6";
 const TITLE = "text-app-card-title font-bold text-ink-strong";
 const LINK = "mt-4 h-10 px-5 text-app-label";
 
-export const PRICING_PATH = "/pricing?service=inquiry";
+const PRICING_PATH = "/pricing?service=inquiry";
 
 type Props =
   | { variant: "failed"; attempts: number | null; onRetry: () => void }

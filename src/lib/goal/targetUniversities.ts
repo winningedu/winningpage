@@ -18,7 +18,7 @@ export type TargetUniversitiesInput = {
 };
 
 /** null-safe 반올림, 확률 필드는 num()이 null을 낼 수 있어(§api/_lib/goal/repo.ts num()) 0으로 접는다. */
-export function pctRound(value?: number | null) {
+function pctRound(value?: number | null) {
   return Math.round(value ?? 0);
 }
 

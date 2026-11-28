@@ -16,7 +16,7 @@ export const SERVICES = [
   { key: "inquiry", label: "심화탐구", bar: "bg-service-research-fg" },
 ] as const;
 
-export type ServiceKey = (typeof SERVICES)[number]["key"];
+type ServiceKey = (typeof SERVICES)[number]["key"];
 
 export interface ClassRow {
   classId: string;

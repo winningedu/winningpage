@@ -4,13 +4,13 @@ import type { ReactNode } from "react";
 // 버튼, px-6 py-5, 구분선 없음)을 부품화한다. RefundApprovalModal 등 6개 모달이
 // 각자 그리던 버튼 그리드를 여기로 모았다(그 파일들 참고, 마크업 1:1).
 
-export type ModalFooterButtonVariant =
+type ModalFooterButtonVariant =
   | "neutral"
   | "primary"
   | "destructive"
   | "destructive-outline";
 
-export type ModalFooterButton = {
+type ModalFooterButton = {
   key?: string;
   label: ReactNode;
   onClick?: (() => void) | undefined;

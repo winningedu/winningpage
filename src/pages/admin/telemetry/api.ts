@@ -18,7 +18,6 @@ export type {
   PricingResponse,
   SummaryItem,
   SummaryResponse,
-  SummaryTotals,
 } from "../../../../shared/ai-telemetry/contract.js";
 
 export const telemetryKeys = {

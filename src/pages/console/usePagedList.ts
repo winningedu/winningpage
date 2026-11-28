@@ -19,7 +19,7 @@ export interface Paged<T> {
   items: T[];
 }
 
-export function listUrl(
+function listUrl(
   path: string,
   params: Record<string, string | undefined>,
   page: number,

@@ -116,7 +116,7 @@ export const MIN_CHARS_SECTION_IDS: readonly SectionId[] = [
 ];
 
 /** 대괄호 사이 1~40자, 줄바꿈 없음. 서버 PLACEHOLDER_RE 와 같다. */
-export const PLACEHOLDER_RE = /\[[^[\]\r\n]{1,40}\]/g;
+const PLACEHOLDER_RE = /\[[^[\]\r\n]{1,40}\]/g;
 
 function recordOfSections<T>(pick: (id: SectionId) => T): Record<SectionId, T> {
   const out = {} as Record<SectionId, T>;

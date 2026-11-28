@@ -21,9 +21,9 @@ import { REPORT_COVER_PRESETS, type ReportCoverKind } from "./coverPresets";
 import { coverTitleFontSize } from "./coverTitleSize";
 
 // "screen" - 자기평가서 v4.2 리포트 전용. 화면에도 보이고 인쇄에서 flow 와 같이 A4 한 장으로 나온다.
-export type ReportCoverPageVariant = "a4" | "flow" | "screen";
+type ReportCoverPageVariant = "a4" | "flow" | "screen";
 
-export type ReportCoverInfoItem = {
+type ReportCoverInfoItem = {
   label: string;
   value: string | null | undefined;
   /** 값이 길어 한 칸(약 25cqw)에 기본 글자 크기로 안 들어갈 때 줄이고 줄바꿈을 막는다. */

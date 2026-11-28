@@ -16,7 +16,7 @@
 
 import { SELFEVAL_PATHS, type SelfevalStep } from "./selfevalPaths";
 
-export type SelfevalStepKey =
+type SelfevalStepKey =
   | "start"
   | "basics"
   | "activities"

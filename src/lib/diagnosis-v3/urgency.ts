@@ -61,7 +61,7 @@ const utcDay = (date: IsoDate): number => {
 };
 
 /** Day number of a date, the diagnosis date is Day 1. */
-export const dayNumber = (date: IsoDate, diagnosedAt: IsoDate): number =>
+const dayNumber = (date: IsoDate, diagnosedAt: IsoDate): number =>
   utcDay(date) - utcDay(diagnosedAt) + 1;
 
 export type UrgencyInput = {

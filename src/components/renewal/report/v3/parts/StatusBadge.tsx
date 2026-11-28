@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { AreaState } from "@/lib/diagnosis-v3/types";
 
 // 15 r17: WEAK red, LOW orange, MID grey, TOP blue.
-export const STATE_BADGE_CLASS: Record<AreaState, string> = {
+const STATE_BADGE_CLASS: Record<AreaState, string> = {
   WEAK: "bg-error/10 text-error",
   LOW: "bg-amber-100 text-amber-700",
   MID: "bg-surface-muted text-ink-sub",

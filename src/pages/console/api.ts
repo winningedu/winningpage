@@ -3,7 +3,7 @@
 
 import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
 
-export type ConsoleKind = "homeroom" | "school_admin" | "hq_proxy";
+type ConsoleKind = "homeroom" | "school_admin" | "hq_proxy";
 
 export interface ConsoleClass {
   id: string;

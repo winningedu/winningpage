@@ -688,9 +688,6 @@
   "src/lib/diagnosisSubmitApi.ts": {
     "legacyFetch": 1
   },
-  "src/lib/diagnosisSurveyCopyOverrides.ts": {
-    "browserDb": 1
-  },
   "src/lib/entitlement.ts": {
     "legacyFetch": 1
   },
@@ -823,9 +820,6 @@
     "browserDb": 1
   },
   "src/pages/renewal/FreeDiagnosisReport.tsx": {
-    "browserDb": 1
-  },
-  "src/pages/renewal/diagnosisStudentName.ts": {
     "browserDb": 1
   },
   "src/pages/services/Callmentor.tsx": {

@@ -9,7 +9,7 @@ import { Fragment, type ReactNode } from "react";
 // OrderAmountBreakdown을 같은 <dl> 안에 함께 넣어야 해서, 래퍼는 호출부가
 // 소유하고 여기서는 행(dt/dd 쌍)만 내려준다.
 
-export type InfoRow = {
+type InfoRow = {
   key?: string;
   label: string;
   value: ReactNode;

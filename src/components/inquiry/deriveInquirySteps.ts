@@ -12,7 +12,7 @@ import { INQUIRY_PATHS } from "./inquiryPaths";
 
 export type InquiryScreenStep = ScreenStep;
 
-export type InquiryStepKey =
+type InquiryStepKey =
   | "info"
   | "topics"
   | "design"

@@ -6,13 +6,11 @@
 // — goal_daily_records의 "가상 날짜"(actual_start_date + record_index)와 무관한
 // 별개 개념이라 그 모듈은 쓰지 않는다.
 
-import { addDaysYMD, getMondayYMD, kstYMD } from "./goal/calc/index.js";
+import { addDaysYMD, getMondayYMD } from "./goal/calc/index.js";
 import { ymdIn } from "./time/day.js";
 import { browserTimeZone } from "./time/zone.js";
-
 // 호출부(StudyPlanRail.jsx 등)가 "오늘" YMD가 필요할 때 calc 배럴을 따로 또 import하지
 // 않도록 그대로 재노출한다 — 이 파일이 이미 같은 심볼을 쓰고 있어 재노출 비용이 없다.
-export { kstYMD };
 
 // WeekdayPlanBoard.jsx DAY_KEY와 같은 순서(월~일). WeekdayPlanBoard가 그대로
 // 소비할 수 있도록 그 컴포넌트의 day 라벨과 글자 단위로 같아야 한다.

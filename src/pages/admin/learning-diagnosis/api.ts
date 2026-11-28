@@ -8,17 +8,12 @@ import { toastError } from "@/pages/admin/shared/adminToast";
 import {
   type OptionCreateInput,
   type OptionPatchInput,
-  type OptionRow,
   optionSchema,
   type ProgramInput,
-  type ProgramRow,
   programSchema,
   type QuestionInput,
-  type QuestionRow,
   questionSchema,
 } from "../../../../shared/learning-diagnosis/contract.js";
-
-export type { OptionRow, ProgramRow, QuestionRow };
 
 const BASE = "admin/learning-diagnosis";
 

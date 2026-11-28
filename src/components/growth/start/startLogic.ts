@@ -46,7 +46,7 @@ export function deriveStartMode({
 export const SCHOOL_TYPES = ["일반고", "특목고", "특목,자사,영재고"] as const;
 export const GRADES = ["고1", "고2", "고3", "졸업", "N수"] as const;
 export const SEMESTERS = [1, 2] as const;
-export const MIN_ADMISSION_YEAR = 2015;
+const MIN_ADMISSION_YEAR = 2015;
 export const MAX_UNIVERSITIES = 2;
 
 type SchoolType = (typeof SCHOOL_TYPES)[number];

@@ -13,7 +13,7 @@ import type { ReportPayload, ReportView } from "@/lib/selfeval/reportTypes";
 
 const REFETCH_WHILE_BUILDING_MS = 3000;
 
-export type ReportPhase = "loading" | "building" | "ready" | "failed";
+type ReportPhase = "loading" | "building" | "ready" | "failed";
 
 export function useSelfevalReport(sessionId: string) {
   const { userId } = useSession();

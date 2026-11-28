@@ -17,9 +17,6 @@ import {
   type MauMode,
 } from "../../../../shared/hq-dashboard/contract.js";
 
-export type { Grain, MauMode };
-export { GRAINS, MAU_MODES };
-
 export interface LoginFilters {
   from: string;
   to: string;

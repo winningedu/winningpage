@@ -54,7 +54,7 @@ type GradeField = {
   required?: boolean;
 };
 
-export type GradeGroup = {
+type GradeGroup = {
   key: string;
   label?: string;
   // QA 행348(2026-09-02) — q4 카드가 사라진 대신 등급 체계를 그룹 라벨에 괄호로 표기한다.

@@ -10,7 +10,7 @@ import LearningDiagnosisAdmin from "./LearningDiagnosisAdmin";
 
 export const BASE = "admin/learning-diagnosis";
 
-export const question = {
+const question = {
   id: "q1",
   title: "가장 큰 고민",
   description: "",
@@ -20,7 +20,7 @@ export const question = {
   sort_order: 1,
 };
 
-export const option = {
+const option = {
   id: "o1",
   question_id: "q1",
   label: "수행평가",

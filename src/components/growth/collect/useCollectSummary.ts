@@ -10,7 +10,7 @@ import {
   type Track,
 } from "@/lib/growth/api";
 
-export const SUMMARY_DEBOUNCE_MS = 500;
+const SUMMARY_DEBOUNCE_MS = 500;
 
 export type CollectSummaryStatus =
   | "idle"

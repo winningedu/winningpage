@@ -28,7 +28,7 @@ const tempRow = (r: number) => {
   return row;
 };
 
-export type TempLevel = "H" | "M" | "L";
+type TempLevel = "H" | "M" | "L";
 
 // 18 r14-r16: 높음 70, 중간 40, 낮음 0 ("이 점수 이상").
 const LEVEL_ROWS: readonly {
@@ -68,7 +68,7 @@ const DIM_LABELS = Object.fromEntries(
   }),
 ) as Record<TempDim, string>;
 
-export const tempLevelOf = (score: number): TempLevel => {
+const tempLevelOf = (score: number): TempLevel => {
   const found = LEVEL_ROWS.find((row) => score >= row.min);
   if (!found) throw new Error(`no temperament level for ${score}`);
   return found.level;
@@ -195,7 +195,7 @@ const labelOf = (factor: TempFactor, score: number): string => {
   return band.label;
 };
 
-export type SwayCause = "NS" | "SD" | "RD";
+type SwayCause = "NS" | "SD" | "RD";
 
 export type TemperamentFactors = {
   readonly scores: Readonly<Record<TempFactor, number>>;

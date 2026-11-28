@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react";
 // 제거, 자동 저장만 남긴다.
 
 /** 입력이 멈춘 뒤 이 시간(ms)이 지나면 자동 저장한다. */
-export const AUTOSAVE_DEBOUNCE_MS = 1500;
+const AUTOSAVE_DEBOUNCE_MS = 1500;
 
 type UseDebouncedAutosaveOptions<T> = {
   /** 지금 화면이 들고 있는 값. 참조가 바뀔 때마다 디바운스 타이머를 다시 건다. */

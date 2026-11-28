@@ -10,7 +10,7 @@ import { ClickScrollPlugin, OverlayScrollbars } from "overlayscrollbars";
 // 부작용(side effect)으로 등록이 끝나므로 호출부는 별도 조치가 필요 없다.
 OverlayScrollbars.plugin(ClickScrollPlugin);
 
-export const SCROLLBAR_THEME = "os-theme-winning" as const;
+const SCROLLBAR_THEME = "os-theme-winning" as const;
 
 // 사용자 확정: "스크롤할 때만 보이게". autoHide: "scroll"은 스크롤이 멈추면
 // autoHideDelay(ms) 뒤에 숨긴다. autoHideSuspend: true는 처음 스크롤하기

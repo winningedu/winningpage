@@ -39,7 +39,6 @@ import type {
 } from "./types";
 
 export type { ApiResult } from "./apiResult";
-export { normalizeApiResult } from "./apiResult";
 export type * from "./types";
 
 const BASE = "/api/growth";

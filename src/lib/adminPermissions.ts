@@ -7,7 +7,6 @@ import {
   permissionKeyFor,
 } from "../../shared/admin-permission/sections.js";
 import { api } from "./http/client";
-
 // ---------------------------------------------------------------------------
 // 어드민 메뉴별 권한 판정 — 20260822000010_admin_permissions 의 화면 쪽 소비자.
 // 권한 조회는 브라우저가 rpc 를 부르지 않고 GET /api/admin/me/permissions 를 쓴다.
@@ -25,8 +24,6 @@ import { api } from "./http/client";
 //   20260822000010 상단 주석의 "다리"가 그 이야기다.
 //   그 전까지 이 파일은 "실수로 들어가는 것"만 막는다고 이해할 것.
 // ---------------------------------------------------------------------------
-
-export type { AdminLevel };
 
 /** 메뉴 키 → 최종 권한. 여기 **없는 키는 접근 불가**다(규칙 3, default deny). */
 export type AdminPermissionMap = Map<string, AdminLevel>;

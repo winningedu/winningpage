@@ -2,7 +2,7 @@
 import { addDaysYmd, ymdIn } from "@/lib/time/day";
 import { browserTimeZone } from "@/lib/time/zone";
 
-export const AI_TELEMETRY_PAGE_SIZE = 20;
+const AI_TELEMETRY_PAGE_SIZE = 20;
 const DEFAULT_SPAN_DAYS = 29;
 
 // 브라우저 시간대의 오늘과 29일 전을 YYYY-MM-DD 로 돌려준다. 서버는 to 날짜를 포함해 조회한다.

@@ -18,8 +18,8 @@ type Entry = EntryResponse["entry"];
 export const GRADE_OPTIONS: readonly HighGrade[] = ["고1", "고2", "고3"];
 export const SEMESTER_OPTIONS = [1, 2] as const;
 export const MAX_UNIVERSITIES = 2;
-export const TARGET_CHARS_MIN = 100;
-export const TARGET_CHARS_MAX = 3000;
+const TARGET_CHARS_MIN = 100;
+const TARGET_CHARS_MAX = 3000;
 
 export type BasicsForm = {
   academicYear: string;

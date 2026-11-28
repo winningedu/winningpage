@@ -11,7 +11,7 @@ export const TOO_MANY_TEACHER_MESSAGE =
   "한 번에 200줄까지 올릴 수 있어요. 나눠서 올려 주세요";
 
 // 서버 미리보기가 한 번에 판정하는 행 수와 같다(MAX_PREVIEW_ROWS).
-export const MAX_TEACHER_ROWS = 200;
+const MAX_TEACHER_ROWS = 200;
 const WIDTH = 5;
 // 양식 머리글 첫 칸. 옛 양식(교사명)으로 만든 파일도 읽는다.
 const HEADER_FIRST_CELLS = ["선생님 이름", "교사명"];

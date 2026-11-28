@@ -1,5 +1,5 @@
 // 학교 학생 가입이 서버와 주고받는 호출 모음. 응답 계약은 api/signup/*.
-export interface TenantSummary {
+interface TenantSummary {
   id: string;
   name: string;
   orgType: string;

@@ -58,7 +58,7 @@ export const proxyMe: ConsoleMe = {
   },
 };
 
-export type ApiStub = {
+type ApiStub = {
   status?: number;
   body?: unknown;
   headers?: Record<string, string>;

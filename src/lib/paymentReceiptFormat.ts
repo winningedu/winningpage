@@ -15,7 +15,7 @@ import type {
 // 카드사명까지 붙여 적는데, 토스 승인 응답에는 card.issuerCode(2자리 코드)만 오고
 // 한글 카드사명이 없어서 매핑 표가 필요하다. 미등록 코드는 카드사명을 생략하고
 // '신용카드' 로만 표기한다(잘못된 카드사명을 영수증에 찍는 것보다 안전).
-export const CARD_ISSUERS: Record<string, string> = {
+const CARD_ISSUERS: Record<string, string> = {
   "3K": "기업BC",
   46: "광주",
   71: "롯데",
@@ -44,7 +44,7 @@ export const CARD_ISSUERS: Record<string, string> = {
 
 // 토스 은행 코드 → 표시명. 가상계좌 응답이 bank(한글명)를 주는 경우도 있어
 // 그쪽을 먼저 쓰고, 없을 때만 이 표로 코드를 푼다.
-export const BANKS: Record<string, string> = {
+const BANKS: Record<string, string> = {
   "02": "KDB산업은행",
   "03": "IBK기업은행",
   "04": "KB국민은행",

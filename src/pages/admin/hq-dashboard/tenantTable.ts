@@ -16,7 +16,7 @@ export const CONTRACT_LABELS: Record<ContractStatus, string> = {
   expired: "계약 종료",
 };
 
-export const SORT_KEYS = [
+const SORT_KEYS = [
   "name",
   "contractEndDate",
   "studentCount",

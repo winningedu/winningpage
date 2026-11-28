@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 export type SectionKey = "acceptance" | "services" | "mentor";
 
 // 섹션 컴포넌트 props 형태 그대로다. 값이 없는 필드는 키 자체를 뺀다.
-export type SectionCopy = {
+type SectionCopy = {
   eyebrow?: string;
   titleMain: string;
   titleSub?: string;

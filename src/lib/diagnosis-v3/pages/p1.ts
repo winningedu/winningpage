@@ -101,7 +101,7 @@ const RELIABILITY_IDS = {
 } as const;
 
 /** 22 r18 text of the reliability verdict. */
-export const reliabilityText = (engine: Engine) =>
+const reliabilityText = (engine: Engine) =>
   copy(RELIABILITY_IDS[engine.scores.reliability.diagnosis]);
 
 const trait = (

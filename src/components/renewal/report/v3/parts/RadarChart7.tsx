@@ -11,7 +11,7 @@ const R_LABEL = R_MAX + 30;
 const SCORE_MAX = 100;
 const RINGS = [0.25, 0.5, 0.75, 1];
 
-export type RadarAxis = {
+type RadarAxis = {
   readonly label: string;
   readonly score: number;
   /** 22 r50: under-45 break mark, set by the payload (Page4 stages) */

@@ -10,7 +10,7 @@ import {
   STAGE_LABELS,
 } from "./reportLogic";
 
-export type TableBody = {
+type TableBody = {
   kind: "table";
   /** null 이면 label/value 2열 표(헤더 없음). */
   columns: string[] | null;
@@ -20,7 +20,7 @@ export type TableBody = {
   unreachable: boolean;
 };
 
-export type CurvePoint = { key: string; average: number };
+type CurvePoint = { key: string; average: number };
 
 export type BodyView =
   | { kind: "empty"; reason: string | null }

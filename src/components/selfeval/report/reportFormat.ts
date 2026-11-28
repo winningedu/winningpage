@@ -23,7 +23,7 @@ export function tagKind(tag: ReportTag): string {
 }
 
 /** 표지 계단 6단 순서. 표지 컴포넌트의 STEPS 와 같다. */
-export const STEP_ORDER: readonly ReportStepKey[] = [
+const STEP_ORDER: readonly ReportStepKey[] = [
   "diagnosis",
   "goal",
   "growth",

@@ -10,7 +10,6 @@ import {
   selfevalRecoverResultSchema,
 } from "../../../../shared/selfeval-ops/contract.js";
 import {
-  type SelfevalSessionsPage,
   selfevalSessionDetail,
   selfevalSessionsPage,
 } from "../../../../shared/selfeval-session/contract.js";
@@ -18,8 +17,6 @@ import {
   type SelfevalSessionsQuery,
   selfevalSessionsRequestParams,
 } from "./query";
-
-export type { SelfevalSessionsPage };
 
 export const selfevalKeys = {
   all: ["admin", "selfeval-sessions"] as const,

@@ -4,7 +4,6 @@
 import { z } from "zod";
 import { api } from "@/lib/http/client";
 import {
-  type SectionRow,
   type SectionValuesBody,
   sectionExportSchema,
   sectionListSchema,
@@ -18,8 +17,6 @@ import {
   type UploadPreviewBody,
   uploadPreviewSchema,
 } from "../../../../shared/uploads/preview.js";
-
-export type { SectionRow };
 export type SectionPageParams = { page: number; q: string };
 
 export const sectionKeys = {

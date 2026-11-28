@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 
 // 약관·동의서 전문 — public.terms(code당 활성 1건) 단일 원본. 하드코딩 사본 없음:
 // 조회 실패·행 누락이면 error를 돌려주고 호출부는 안내 문구만 보여준다.
-export interface TermsDoc {
+interface TermsDoc {
   code: string;
   title: string;
   content: string;
@@ -17,7 +17,7 @@ interface UseTermsDocsResult<C extends string> {
   error: string | null;
 }
 
-export const TERMS_LOAD_ERROR =
+const TERMS_LOAD_ERROR =
   "문서를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
 
 // 여러 code를 한 번에 조회한다. 요청한 code가 하나라도 없으면(비활성·미시드) 전체를

@@ -162,7 +162,7 @@ export function recentHistory(
 
 // 설문(온보딩)에서 입력한 점수를 성적 관리 표에 읽기 전용 첫 행으로 보여 주는 행. 회차 기록이
 // 아니므로 toTableRows 와 섞지 않고, 평균, 증감, 차트 계산에는 넣지 않는다. 값이 없거나 0(미입력)이면 null.
-export const SURVEY_BASELINE_TERM = "설문 입력";
+const SURVEY_BASELINE_TERM = "설문 입력";
 
 export function naesinBaselineRow(convertedGrade: number | null | undefined) {
   if (convertedGrade == null || !(convertedGrade > 0)) return null;

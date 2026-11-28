@@ -7,9 +7,7 @@ import {
   inviteResultSchema,
 } from "../../../../shared/invite-member/contract.js";
 import {
-  type Role,
   type RoleBodyInput,
-  type RolesList,
   type RoleWithPermissions,
   roleSchema,
   rolesListSchema,
@@ -18,33 +16,20 @@ import {
 import {
   type DirectoryRow,
   directoryRowSchema,
-  levelSchema,
   type PermissionItem,
   type RoleOption,
-  resourceSchema,
-  type StaffList,
-  type StaffStatus,
   staffListSchema,
   staffStatusSchema,
 } from "../../../../shared/staff/contract.js";
 import {
-  type StaffDetail,
   type StaffPatchInput,
   savedItemsSchema,
   staffDetailSchema,
 } from "../../../../shared/staff/detail.js";
 
 export type { Level, Resource } from "../../../../shared/staff/contract.js";
-export type {
-  DirectoryRow,
-  InviteResult,
-  PermissionItem,
-  RoleOption,
-  StaffDetail,
-  StaffList,
-  StaffStatus,
-};
-export { levelSchema, resourceSchema, staffStatusSchema };
+export type { DirectoryRow, InviteResult, PermissionItem, RoleOption };
+export { staffStatusSchema };
 
 export const staffKeys = {
   all: ["admin", "staff"] as const,
@@ -84,7 +69,7 @@ export const postInvite = (body: InviteInput) =>
 // 권한 묶음(adminRoles)
 // ---------------------------------------------------------------------------
 
-export type { Role, RolesList, RoleWithPermissions };
+export type { RoleWithPermissions };
 export const roleKeys = {
   all: ["admin", "roles"] as const,
   list: ["admin", "roles", "list"] as const,
