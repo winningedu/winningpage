@@ -16,3 +16,13 @@ export const evidenceSchema = z.object({
   item: z.enum([...ANALYSIS_FIELDS, "student_input"]),
   weight: z.enum(EVIDENCE_WEIGHTS),
 });
+
+export const sentenceSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  evidence: z.array(evidenceSchema),
+  /** 확인이 필요한 문장(노란 표시). 근거가 없거나 근거로 설명되지 않는 수치가 있으면 서버가 올린다. */
+  feeling: z.boolean(),
+  /** 학생이 느낌 문장을 확인했는지(명세 No.49, No.57). */
+  confirmed: z.boolean(),
+});
