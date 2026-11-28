@@ -1,7 +1,7 @@
 // /api/admin/admission 아래 입시 관리 라우트. 관리자 앱(api/_routes/admin/app.ts)이 .route("/admission", admission) 으로 붙인다.
-// 요청 검증과 응답 모양은 shared/admission/contract.ts 를 따르고, 일괄 반영의 행 규칙은 api/_lib/admission/resultRows.ts, guidelineRows.ts 가 맡는다.
+// 요청 검증과 응답 모양은 shared/admission/contract.ts 를 따르고, 일괄 반영의 행 규칙은 shared/admission/resultRow.ts, guidelineRow.ts 가 맡는다.
 // 권한: 공개 연도와 대입모집요강은 메뉴 admissionGuidelines, 입결정보는 admissionResults(GET view, 쓰기 edit).
-// 일괄 반영과 공개 연도의 본문 오류는 예전처럼 errors 없이 한 줄 사유를 담은 400 VALIDATION_FAILED 다.
+// 일괄 반영의 본문 오류는 400 VALIDATION_FAILED 이고 errors[0].message 가 "n번째 행: 사유" 다. 공개 연도의 본문 오류는 errors 없이 한 줄 사유를 담은 400 이다.
 
 import type { Context } from "hono";
 import {
@@ -9,7 +9,6 @@ import {
   activeYearBody,
   type GuidelinesBulk,
   guidelinesBulkBody,
-  RESULTS_BULK_MAX_ITEMS,
   RESULTS_PAGE_SIZE,
   type ResultsBulk,
   type ResultsCount,
@@ -18,9 +17,7 @@ import {
   resultsRowsQuery,
 } from "../../../shared/admission/contract.js";
 import { PROBLEM_CODE } from "../../../shared/http/codes.js";
-import { guidelineRowProblem } from "../../_lib/admission/guidelineRows.js";
 import { ADMISSION_RESULT_COLUMNS } from "../../_lib/admission/resultColumns.js";
-import { resultRowProblem } from "../../_lib/admission/resultRows.js";
 import { admin } from "../../_lib/hono/admin.js";
 import { adminFactory } from "../../_lib/hono/factory.js";
 import { methodNotAllowed, ProblemError } from "../../_lib/hono/problem.js";
@@ -35,18 +32,6 @@ const invalid = (message: string) =>
 /** JSON 이 아니거나 비어 있는 본문은 undefined 로 읽어 본문 스키마가 거르게 한다. */
 const bodyOf = (c: Context): Promise<unknown> =>
   c.req.json().catch(() => undefined);
-
-/** 행마다 규칙을 보고 첫 위반을 "n번째 행: 사유" 400 으로 던진다. */
-function checkRows(
-  items: unknown[],
-  problemOf: (row: unknown) => string | null,
-): Record<string, unknown>[] {
-  for (const [index, item] of items.entries()) {
-    const problem = problemOf(item);
-    if (problem) throw invalid(`${index + 1}번째 행: ${problem}`);
-  }
-  return items as Record<string, unknown>[];
-}
 
 const activeYearGuard = admin({
   permission: { key: "admissionGuidelines" },
@@ -142,66 +127,68 @@ export const admission = adminFactory
   )
   .all("/results/rows", methodNotAllowed("GET"))
   // POST /results/bulk: 입결정보 엑셀 업로드 한 청크(최대 RESULTS_BULK_MAX_ITEMS 행). id 없는 행은 insert, id 있는 행은 upsert.
-  .post("/results/bulk", resultsBulkGuard, async (c) => {
-    const parsed = resultsBulkBody.safeParse(await bodyOf(c));
-    if (!parsed.success) {
-      throw invalid(
-        `items 는 ${RESULTS_BULK_MAX_ITEMS}행 이하 배열이어야 합니다.`,
-      );
-    }
-    const items = checkRows(parsed.data.items, resultRowProblem);
-    const db = c.var.supabaseAdmin;
-    const inserts = items.filter((item) => item.id === undefined);
-    const updates = items.filter((item) => item.id !== undefined);
+  .post(
+    "/results/bulk",
+    resultsBulkGuard,
+    validate("json", resultsBulkBody),
+    async (c) => {
+      const { items } = c.req.valid("json");
+      const db = c.var.supabaseAdmin;
+      const inserts = items.filter((item) => item.id === undefined);
+      const updates = items.filter((item) => item.id !== undefined);
 
-    // 아무것도 쓰기 전에 id 존재를 확인해, 없는 id 때문에 insert 만 반영되는 일을 막는다.
-    if (updates.length > 0) {
-      const ids = [...new Set(updates.map((item) => Number(item.id)))];
-      const { data, error } = await db
-        .from("admission_results")
-        .select("id")
-        .in("id", ids);
-      if (error) throw new Error("admission_results id read failed");
-      const found = new Set((data ?? []).map((r) => r.id));
-      const missing = ids.filter((id) => !found.has(id));
-      if (missing.length > 0) {
-        throw new ProblemError(
-          404,
-          `없는 id 가 있습니다: ${missing.join(", ")}`,
-          PROBLEM_CODE.NOT_FOUND,
-        );
+      // 아무것도 쓰기 전에 id 존재를 확인해, 없는 id 때문에 insert 만 반영되는 일을 막는다.
+      if (updates.length > 0) {
+        const ids = [...new Set(updates.map((item) => Number(item.id)))];
+        const { data, error } = await db
+          .from("admission_results")
+          .select("id")
+          .in("id", ids);
+        if (error) throw new Error("admission_results id read failed");
+        const found = new Set((data ?? []).map((r) => r.id));
+        const missing = ids.filter((id) => !found.has(id));
+        if (missing.length > 0) {
+          throw new ProblemError(
+            404,
+            `없는 id 가 있습니다: ${missing.join(", ")}`,
+            PROBLEM_CODE.NOT_FOUND,
+          );
+        }
       }
-    }
 
-    if (inserts.length > 0) {
-      const { error } = await db.from("admission_results").insert(inserts);
-      if (error) throw new Error("admission_results insert failed");
-    }
-    if (updates.length > 0) {
-      const { error } = await db
-        .from("admission_results")
-        .upsert(updates, { onConflict: "id" });
-      if (error) throw new Error("admission_results upsert failed");
-    }
-    return c.json({
-      inserted: inserts.length,
-      updated: updates.length,
-    } satisfies ResultsBulk);
-  })
+      if (inserts.length > 0) {
+        const { error } = await db.from("admission_results").insert(inserts);
+        if (error) throw new Error("admission_results insert failed");
+      }
+      if (updates.length > 0) {
+        const { error } = await db
+          .from("admission_results")
+          .upsert(updates, { onConflict: "id" });
+        if (error) throw new Error("admission_results upsert failed");
+      }
+      return c.json({
+        inserted: inserts.length,
+        updated: updates.length,
+      } satisfies ResultsBulk);
+    },
+  )
   .all("/results/bulk", methodNotAllowed("POST"))
   // PUT /guidelines/bulk: 대입모집요강 엑셀 업로드 결과를 (admission_year, university_key) 키로 한 번에 upsert 한다.
-  .put("/guidelines/bulk", guidelinesBulkGuard, async (c) => {
-    const parsed = guidelinesBulkBody.safeParse(await bodyOf(c));
-    if (!parsed.success) throw invalid("items 는 행 배열이어야 합니다.");
-    const items = checkRows(parsed.data.items, guidelineRowProblem);
-    if (items.length > 0) {
-      const { error } = await c.var.supabaseAdmin
-        .from("admission_university_resources")
-        .upsert(items, { onConflict: "admission_year,university_key" });
-      if (error) {
-        throw new Error("admission_university_resources upsert failed");
+  .put(
+    "/guidelines/bulk",
+    guidelinesBulkGuard,
+    validate("json", guidelinesBulkBody),
+    async (c) => {
+      const { items } = c.req.valid("json");
+      if (items.length > 0) {
+        const { error } = await c.var.supabaseAdmin
+          .from("admission_university_resources")
+          .upsert(items, { onConflict: "admission_year,university_key" });
+        if (error) {
+          throw new Error("admission_university_resources upsert failed");
+        }
       }
-    }
-    return c.json({ upserted: items.length } satisfies GuidelinesBulk);
-  })
+      return c.json({ upserted: items.length } satisfies GuidelinesBulk);
+    },
+  )
   .all("/guidelines/bulk", methodNotAllowed("PUT"));

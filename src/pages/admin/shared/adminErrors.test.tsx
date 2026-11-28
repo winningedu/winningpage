@@ -11,7 +11,11 @@ import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { Toaster, toast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/http/client";
-import { buildFieldLabels, reportAdminError } from "./adminErrors";
+import {
+  AdminChunkError,
+  buildFieldLabels,
+  reportAdminError,
+} from "./adminErrors";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -306,4 +310,29 @@ test("그 밖의 ApiError 는 서버가 쓴 detail 을 그대로 보인다", () 
   expect(
     captureAlert(apiError(403, "FORBIDDEN", "이 메뉴를 쓸 권한이 없습니다.")),
   ).toBe("등록 실패: 이 메뉴를 쓸 권한이 없습니다.");
+});
+
+// 엑셀 일괄 반영은 청크 실패를 AdminChunkError 로 감싼다. 서버가 행 사유를 errors 에 담아도 화면에는 코드만 보이는 지금 문구가 그대로다.
+test("청크로 감싼 검증 실패는 코드만 병기한 일반 안내를 보인다", () => {
+  const cause = new ApiError({
+    status: 400,
+    code: "VALIDATION_FAILED",
+    detail: "요청 값이 올바르지 않아요.",
+    problem: {
+      type: "about:blank",
+      title: "Bad Request",
+      status: 400,
+      detail: "요청 값이 올바르지 않아요.",
+      code: "VALIDATION_FAILED",
+      errors: [
+        { path: "items.1", message: "2번째 행: 행 형식이 올바르지 않습니다." },
+      ],
+    },
+  });
+
+  expect(
+    captureAlert(new AdminChunkError("엑셀 적용 실패", "1~2", cause)),
+  ).toBe(
+    "등록 실패: 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요. (코드: VALIDATION_FAILED)",
+  );
 });

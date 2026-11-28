@@ -3,6 +3,8 @@
 // 일괄 반영의 행 규칙(컬럼, 허용 값, 한국어 사유)은 서버 api/_lib/admission/ 가 맡는다.
 
 import { z } from "zod";
+import { guidelineRowSchema } from "./guidelineRow.js";
+import { resultRowSchema } from "./resultRow.js";
 
 /** 공개 연도 범위. */
 export const ADMISSION_YEAR_MIN = 2000;
@@ -27,13 +29,54 @@ export const resultsRowsQuery = z.object({
   fields: z.enum(["all", "id"]),
 });
 
-/** POST /results/bulk. 행 하나하나는 서버가 행 규칙으로 검증한다. */
-export const resultsBulkBody = z.object({
-  items: z.array(z.unknown()).max(RESULTS_BULK_MAX_ITEMS),
-});
+/**
+ * 행마다 규칙을 보고 첫 위반만 "n번째 행: 사유" 로 낸다(errors[0].message). 모든 행의 이슈를 싣지 않는다.
+ * 행 값은 규칙을 통과한 입력 그대로다.
+ */
+function firstBadRow(rowSchema: z.ZodType) {
+  return (items: unknown[], ctx: z.RefinementCtx) => {
+    for (const [index, item] of items.entries()) {
+      const parsed = rowSchema.safeParse(item);
+      if (parsed.success) continue;
+      ctx.addIssue({
+        code: "custom",
+        path: [index],
+        message: `${index + 1}번째 행: ${parsed.error.issues[0]?.message}`,
+      });
+      return;
+    }
+  };
+}
+
+/** 일괄 반영 한 행. 칸 규칙은 서버 응답과 같은 shared/admission/*Row.ts 가 보고 통과한 입력이 그대로 온다. */
+type BulkRow = Record<string, unknown>;
+
+const resultsItemsMessage = {
+  error: `items 는 ${RESULTS_BULK_MAX_ITEMS}행 이하 배열이어야 합니다.`,
+};
+
+/** POST /results/bulk. 행 하나하나는 resultRowSchema 로 본다. */
+export const resultsBulkBody = z.object(
+  {
+    items: z
+      .array(z.custom<BulkRow>(), resultsItemsMessage)
+      .max(RESULTS_BULK_MAX_ITEMS, { ...resultsItemsMessage, abort: true })
+      .superRefine(firstBadRow(resultRowSchema)),
+  },
+  resultsItemsMessage,
+);
+
+const guidelinesItemsMessage = { error: "items 는 행 배열이어야 합니다." };
 
 /** PUT /guidelines/bulk. 브라우저가 3 MB 단위로 나눠 보낸다(Vercel 본문 4.5 MB 한도). */
-export const guidelinesBulkBody = z.object({ items: z.array(z.unknown()) });
+export const guidelinesBulkBody = z.object(
+  {
+    items: z
+      .array(z.custom<BulkRow>(), guidelinesItemsMessage)
+      .superRefine(firstBadRow(guidelineRowSchema)),
+  },
+  guidelinesItemsMessage,
+);
 
 export type ActiveYearInput = z.input<typeof activeYearBody>;
 export type ResultsRowsQueryInput = z.input<typeof resultsRowsQuery>;
