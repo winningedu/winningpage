@@ -81,6 +81,9 @@ async function rejectQaWrite(
 /**
  * Authorization: Bearer <supabase access token> → 관리자 판정.
  *
+ * 토큰 확인 뒤 역할 조회와 QA 쓰기 확인을 함께 시작하고, 결과는 역할, QA 순으로 본다(역할 실패가 늘 먼저다).
+ * alongside 는 그 순간 함께 시작할 일(메뉴 권한 조회)을 받는다. 그 결과와 오류는 호출부가 판정 통과 뒤에만 본다.
+ *
  * @param supabaseAdmin service_role 클라이언트
  * @returns 호출부는 실패 시 `status`/`detail`을 그대로 응답에 실으면 된다.
  */
@@ -88,6 +91,7 @@ export async function resolveAdmin(
   supabaseAdmin: SupabaseClient,
   req: { headers: Record<string, string>; method?: string | undefined },
   timings?: AdminAuthTimings,
+  alongside?: (userId: string) => void,
 ): Promise<AdminResolution> {
   const token = getBearerToken(req);
 
@@ -107,13 +111,21 @@ export async function resolveAdmin(
   const userId = userData.user.id;
   const email = userData.user.email ?? null;
 
+  alongside?.(userId);
   const roleStart = performance.now();
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .select("role")
-    .eq("id", userId)
-    .maybeSingle();
-  if (timings) timings.role = performance.now() - roleStart;
+  const rolePromise = Promise.resolve(
+    supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .maybeSingle(),
+  ).finally(() => {
+    if (timings) timings.role = performance.now() - roleStart;
+  });
+  // 역할 판정이 실패하면 QA 결과는 버린다. 그동안 난 오류가 처리되지 않은 거부로 남지 않게 붙여 둔다.
+  const qaPromise = rejectQaWrite(supabaseAdmin, userId, req.method, timings);
+  qaPromise.catch(() => {});
+  const { data: profile, error: profileError } = await rolePromise;
 
   // 조회 자체가 실패한 것을 "권한 없음"으로 뭉개면 원인이 안 보인다.
   // 권한 거부(403)와 서버 오류(500)를 구분해서 돌려준다.
@@ -129,13 +141,7 @@ export async function resolveAdmin(
     return { ok: false, status: 403, detail: "관리자 권한이 필요합니다." };
   }
 
-  return (
-    (await rejectQaWrite(supabaseAdmin, userId, req.method, timings)) ?? {
-      ok: true,
-      userId,
-      email,
-    }
-  );
+  return (await qaPromise) ?? { ok: true, userId, email };
 }
 
 // 목표관리(goal) 도메인 어드민 판정. SQL `public.is_winning_admin()`의 JS 미러.

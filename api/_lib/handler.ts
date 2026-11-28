@@ -29,7 +29,9 @@ import {
 import {
   type AdminLevel,
   assertSectionPermission,
+  type MenuCheck,
   SectionPermissionDeniedError,
+  startMenuCheck,
 } from "./adminPermission.js";
 import { type ConsoleActor, resolveConsoleActor } from "./console/actor.js";
 import { isAuthorizedCron } from "./cronAuth.js";
@@ -414,9 +416,29 @@ export function defineHandler<
         // adminAuth.ts는 req.headers를 Record<string, string>으로 선언한다 —
         // VercelRequest.headers(IncomingHttpHeaders)와는 형태만 다를 뿐 실사용
         // (단일 문자열 헤더 읽기)은 호환된다(기존 admin-embed.ts 등과 동일 캐스트).
+        // 메뉴 권한 판정은 관리자 판정과 함께 시작하고, 결과는 관리자 판정을 통과한 뒤에만 본다.
+        let menu: MenuCheck | undefined;
+        const permission = opts.permission;
         const admin = await resolveAdmin(
           ctx.supabaseAdmin,
           req as unknown as { headers: Record<string, string> },
+          undefined,
+          permission
+            ? (userId) => {
+                const { key, level } = permission;
+                menu = startMenuCheck(
+                  () => (typeof key === "function" ? key(req) : key),
+                  (requestedKey) =>
+                    assertSectionPermission(
+                      ctx.supabaseAdmin,
+                      userId,
+                      requestedKey,
+                      level ?? (isReadMethod(req.method) ? "view" : "edit"),
+                    ),
+                  {},
+                );
+              }
+            : undefined,
         );
         if (!admin.ok) {
           if (admin.code) {
@@ -436,18 +458,11 @@ export function defineHandler<
         ctx.admin = { userId: admin.userId };
         auditActor = { userId: admin.userId, email: admin.email };
 
-        if (opts.permission) {
-          const { key, level } = opts.permission;
+        if (menu) {
           // 키 함수가 던지면(400) 대상 메뉴가 없으니 auditKey 는 비워 둔다.
-          const requestedKey = typeof key === "function" ? key(req) : key;
-          auditKey = requestedKey;
+          auditKey = await menu.key;
           // 거부는 SectionPermissionDeniedError(403), 조회 오류는 일반 예외(500)로 아래 catch 가 응답한다.
-          await assertSectionPermission(
-            ctx.supabaseAdmin,
-            admin.userId,
-            requestedKey,
-            level ?? (isReadMethod(req.method) ? "view" : "edit"),
-          );
+          await menu.check;
         }
       } else if (opts.auth === "winningAdmin") {
         const admin = await resolveWinningAdmin(
