@@ -296,15 +296,26 @@ export const finalize = userFactory
       const session = sessionRow as unknown as SessionRow;
 
       // ── 제출본 소유권. **세션 id로 묶어서** 조회하므로 남의 제출본 id는 행이 나오지 않는다.
-      const { data: submissionRow, error: submissionError } =
-        await supabaseAdmin
-          .from("performance_submissions")
-          .select(
-            "id,revision,fields,is_draft,is_final,finalized_at,finalize_reason,submitted_at",
-          )
-          .eq("id", submissionId)
-          .eq("session_id", session.id)
-          .maybeSingle();
+      // 확정 주제 제목 읽기는 세션으로 정해져 제출본 확인과 함께 시작한다. 404 가 먼저 응답이 된다.
+      const [{ data: submissionRow, error: submissionError }, topicRead] =
+        await Promise.all([
+          supabaseAdmin
+            .from("performance_submissions")
+            .select(
+              "id,revision,fields,is_draft,is_final,finalized_at,finalize_reason,submitted_at",
+            )
+            .eq("id", submissionId)
+            .eq("session_id", session.id)
+            .maybeSingle(),
+          session.selected_topic_id
+            ? supabaseAdmin
+                .from("performance_topics")
+                .select("title")
+                .eq("id", session.selected_topic_id)
+                .eq("session_id", session.id)
+                .maybeSingle()
+            : null,
+        ]);
 
       if (submissionError)
         throw new Error(`제출본 조회 실패: ${submissionError.message}`);
@@ -322,17 +333,10 @@ export const finalize = userFactory
 
       // ── 확정 주제(최종 리포트 첫 섹션). 없으면 그 섹션만 빠진다.
       let topicTitle = "";
-      if (session.selected_topic_id) {
-        const { data: topicRow, error: topicError } = await supabaseAdmin
-          .from("performance_topics")
-          .select("title")
-          .eq("id", session.selected_topic_id)
-          .eq("session_id", session.id)
-          .maybeSingle();
-
-        if (topicError)
-          throw new Error(`주제 조회 실패: ${topicError.message}`);
-        topicTitle = trimmed(topicRow?.title);
+      if (topicRead) {
+        if (topicRead.error)
+          throw new Error(`주제 조회 실패: ${topicRead.error.message}`);
+        topicTitle = trimmed(topicRead.data?.title);
       }
 
       // session은 SubmissionSession이 실제로 읽는 필드를 전부 포함하는 DB 행이다.

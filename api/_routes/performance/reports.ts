@@ -353,23 +353,37 @@ async function handleDetail(
   // 필드는 위 상수와 정확히 대응하므로 안전한 캐스트다.
   const session = sessionRow as unknown as SessionRow;
 
-  let topicTitle: string | null = null;
-  if (session.selected_topic_id) {
-    const { data: topicRow, error: topicError } = await supabaseAdmin
-      .from("performance_topics")
-      .select("title")
-      .eq("id", session.selected_topic_id)
+  // 주제 제목, 리포트, 제출본은 모두 세션으로 정해져 서로 기다릴 필요가 없다. 오류는 원래 순서로 본다.
+  const [
+    topicRead,
+    { data: reportRows, error: reportsError },
+    submissionsRead,
+  ] = await Promise.all([
+    session.selected_topic_id
+      ? supabaseAdmin
+          .from("performance_topics")
+          .select("title")
+          .eq("id", session.selected_topic_id)
+          .eq("session_id", session.id)
+          .maybeSingle()
+      : null,
+    supabaseAdmin
+      .from("performance_reports")
+      .select(REPORT_COLUMNS)
+      .eq("session_id", session.id),
+    supabaseAdmin
+      .from("performance_submissions")
+      .select(SUBMISSION_COLUMNS)
       .eq("session_id", session.id)
-      .maybeSingle();
+      .order("revision", { ascending: true }),
+  ]);
 
-    if (topicError) throw new Error(`주제 조회 실패: ${topicError.message}`);
-    topicTitle = topicRow?.title ?? null;
+  let topicTitle: string | null = null;
+  if (topicRead) {
+    if (topicRead.error)
+      throw new Error(`주제 조회 실패: ${topicRead.error.message}`);
+    topicTitle = topicRead.data?.title ?? null;
   }
-
-  const { data: reportRows, error: reportsError } = await supabaseAdmin
-    .from("performance_reports")
-    .select(REPORT_COLUMNS)
-    .eq("session_id", session.id);
 
   if (reportsError)
     throw new Error(`리포트 조회 실패: ${reportsError.message}`);
@@ -381,11 +395,7 @@ async function handleDetail(
   const finalRow =
     rows.find((row) => row.report_type === "final_submission") || null;
 
-  const { data: submissionRows, error: submissionsError } = await supabaseAdmin
-    .from("performance_submissions")
-    .select(SUBMISSION_COLUMNS)
-    .eq("session_id", session.id)
-    .order("revision", { ascending: true });
+  const { data: submissionRows, error: submissionsError } = submissionsRead;
 
   if (submissionsError)
     throw new Error(`제출본 조회 실패: ${submissionsError.message}`);
