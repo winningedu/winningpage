@@ -127,6 +127,11 @@ describe("reportPayloadSchema", () => {
     expect(reportPayloadSchema.parse(payload)).toEqual(payload);
   });
 
+  test("composePartial 이 없는 옛 v1 payload 는 false 로 읽는다", () => {
+    const { composePartial: _p, ...old } = payload;
+    expect(reportPayloadSchema.parse(old).composePartial).toBe(false);
+  });
+
   test("수기 메모가 있으면 04장을 읽는다", () => {
     const ch04 = {
       rows: [

@@ -215,7 +215,7 @@ export const reportPayloadSchema = z.object({
   /** true 면 모델 문장이 비었다. 화면이 다시 만들기를 제안한다(No.138, 201). */
   composeMissing: z.boolean(),
   /** true 면 일부 항목의 모델 문장만 비었다. 화면이 다시 만들기를 제안한다(No.138). */
-  composePartial: z.boolean(),
+  composePartial: z.boolean().default(false),
 });
 
 /** 세션 하나의 리포트를 부른다. 값은 DB uuid 컬럼에 가므로 형식만 본다. */
