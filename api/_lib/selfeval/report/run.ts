@@ -3,6 +3,7 @@
 // 다시 만들기는 같은 리비전 안에서 고정된 꼬리표를 그대로 쓴다.
 // 동시 요청은 claimed_at 을 조건으로 한 선점(claim)으로 막고, 선점하지 못하면 모델을 부르지 않는다.
 
+import { startEarly } from "../../../../src/lib/concurrency/startEarly.js";
 import type {
   ReportPayload,
   ReportTagMap,
@@ -70,6 +71,8 @@ const isComplete = (r: StoredReport) =>
 
 export async function runReport(deps: RunDeps): Promise<RunOutcome> {
   const { sessionId } = deps;
+  // 저장된 리포트 읽기는 입력 읽기와 서로 기다릴 필요가 없다. 입력 읽기가 먼저 응답을 정하면 이 결과는 쓰지 않는다.
+  const existingRead = startEarly(deps.store.read());
   let loaded: LoadedInput | null;
   try {
     loaded = await deps.load();
@@ -79,7 +82,7 @@ export async function runReport(deps: RunDeps): Promise<RunOutcome> {
   }
   if (loaded === null) return { kind: "no_final" };
   const { finalRevision } = loaded;
-  const existing = await deps.store.read();
+  const existing = await existingRead;
   const same = existing !== null && existing.finalRevision === finalRevision;
   if (same && isComplete(existing)) {
     return { kind: "ok", report: existing, reused: true };

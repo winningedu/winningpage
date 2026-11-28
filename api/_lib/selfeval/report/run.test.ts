@@ -224,6 +224,39 @@ describe("runReport", () => {
     expect(state.row).toBeNull();
   });
 
+  it("입력을 읽는 동안에도 저장된 리포트 읽기를 함께 시작한다", async () => {
+    const { store } = memoryStore();
+    const read = vi.spyOn(store, "read");
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    const run = runReport(
+      deps(store, okModel(), async () => {
+        await gate;
+        return loaded();
+      }),
+    );
+    await Promise.resolve();
+    expect(read).toHaveBeenCalledTimes(1);
+    release();
+
+    expect((await run).kind).toBe("ok");
+  });
+
+  it("입력을 읽지 못하면 저장된 리포트 읽기가 실패해도 failed 다", async () => {
+    const { store } = memoryStore();
+    store.read = async () => {
+      throw new Error("읽지 않아야 하는 결과");
+    };
+    const boom = async () => {
+      throw new Error("db down");
+    };
+
+    expect((await runReport(deps(store, okModel(), boom))).kind).toBe("failed");
+  });
+
   it("stops asking the model once the report used 10 attempts", async () => {
     const { state, store } = memoryStore();
     await runReport(deps(store, badModel() as never));
