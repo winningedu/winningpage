@@ -1,4 +1,5 @@
 import { type BeforeSendEvent, track } from "@vercel/analytics";
+import { WEB_ANALYTICS_EVENTS } from "../../shared/web-analytics/events.js";
 
 export type AnalyticsService =
   | "diagnosis"
@@ -49,18 +50,9 @@ export type AnalyticsEventMap = {
 
 export type AnalyticsEventName = keyof AnalyticsEventMap;
 
-const ALLOWED_EVENTS: ReadonlySet<string> = new Set<AnalyticsEventName>([
-  "signup_complete",
-  "service_start",
-  "diagnosis_complete",
-  "checkout_start",
-  "payment_complete",
-  "consult_apply",
-  "kakao_inquiry_click",
-  "report_export",
-  "paywall_cta_click",
-  "ai_regenerate",
-]);
+const ALLOWED_EVENTS: ReadonlySet<string> = new Set(
+  WEB_ANALYTICS_EVENTS.map((event) => event.name),
+);
 
 type TrackArgs<N extends AnalyticsEventName> =
   AnalyticsEventMap[N] extends undefined ? [] : [props: AnalyticsEventMap[N]];

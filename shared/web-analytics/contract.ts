@@ -1,7 +1,8 @@
 // 방문 분석 API 계약. 서버(api/_routes/admin/web-analytics.ts)가 요청 스키마로 검증하고, 브라우저(src/pages/admin/web-analytics/api.ts)가 응답 스키마로 검증한다.
-// 이벤트 이름과 속성의 정본은 수집 쪽 src/lib/analytics.ts 다(서버 report.test.ts 가 서버 목록과 맞춰 잠근다). 그래서 응답에서는 문자열로만 받는다.
+// 이벤트 이름과 속성 키는 events.ts 의 목록이 정본이고, 응답은 그 목록에 있는 이름만 받는다.
 
 import { z } from "zod";
+import { WEB_ANALYTICS_EVENTS } from "./events.js";
 
 /** 방문 분석 라우트의 도메인 problem code. 공통 코드는 shared/http/codes.ts 다. */
 export const WEB_ANALYTICS_ERROR = {
@@ -16,6 +17,15 @@ export type WebAnalyticsErrorCode =
 export const webAnalyticsQuery = z.object({ from: z.string(), to: z.string() });
 
 export type WebAnalyticsQuery = z.input<typeof webAnalyticsQuery>;
+
+const eventNameSchema = z.union(
+  WEB_ANALYTICS_EVENTS.map((event) => z.literal(event.name)),
+);
+const eventPropertySchema = z.union(
+  [
+    ...new Set(WEB_ANALYTICS_EVENTS.flatMap((event) => [...event.properties])),
+  ].map((property) => z.literal(property)),
+);
 
 const rangeSchema = z.object({ from: z.string(), to: z.string() });
 
@@ -32,12 +42,12 @@ export const webAnalyticsReportSchema = z.object({
   ),
   events: z.array(
     z.object({
-      name: z.string(),
+      name: eventNameSchema,
       count: z.number(),
       visitors: z.number(),
       breakdowns: z.array(
         z.object({
-          property: z.string(),
+          property: eventPropertySchema,
           values: z.array(z.object({ value: z.string(), count: z.number() })),
         }),
       ),

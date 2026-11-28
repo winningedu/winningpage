@@ -4,12 +4,11 @@ import { queryOptions } from "@tanstack/react-query";
 import type { AnalyticsEventMap, AnalyticsEventName } from "@/lib/analytics";
 import { api } from "@/lib/http/client";
 import {
-  type WebAnalyticsReport as ContractReport,
   type WebAnalyticsRange,
   webAnalyticsReportSchema,
 } from "../../../../shared/web-analytics/contract.js";
 
-// 이벤트 이름과 속성은 수집 쪽 src/lib/analytics.ts 가 정본이다(서버 report.test.ts 가 서버 목록과 맞춰 잠근다).
+// 이벤트 이름과 속성 키는 shared/web-analytics/events.ts 의 목록이 정본이고, 속성 값 타입은 수집 쪽 src/lib/analytics.ts 가 정한다(서버 report.test.ts 가 맞춰 잠근다).
 export type WebAnalyticsEventName = AnalyticsEventName;
 
 type EventProperties = {
@@ -30,20 +29,10 @@ export type WebAnalyticsPropertyValue<P extends WebAnalyticsProperty> = {
     : never;
 }[AnalyticsEventName];
 
-export type { WebAnalyticsRange } from "../../../../shared/web-analytics/contract.js";
-
-// 계약(shared/web-analytics/contract.ts)은 이벤트 이름과 속성을 문자열로 받는다. 정본은 위 타입(src/lib/analytics.ts)이라 화면에는 좁힌 타입으로 넘긴다.
-export interface WebAnalyticsReport extends Omit<ContractReport, "events"> {
-  events: {
-    name: WebAnalyticsEventName;
-    count: number;
-    visitors: number;
-    breakdowns: {
-      property: WebAnalyticsProperty;
-      values: { value: string; count: number }[];
-    }[];
-  }[];
-}
+export type {
+  WebAnalyticsRange,
+  WebAnalyticsReport,
+} from "../../../../shared/web-analytics/contract.js";
 
 export function webAnalyticsQueryOptions(range: WebAnalyticsRange) {
   return queryOptions({
@@ -54,7 +43,6 @@ export function webAnalyticsQueryOptions(range: WebAnalyticsRange) {
           searchParams: { from: range.from, to: range.to },
           signal,
         })
-        .json(webAnalyticsReportSchema)
-        .then((report) => report as WebAnalyticsReport),
+        .json(webAnalyticsReportSchema),
   });
 }

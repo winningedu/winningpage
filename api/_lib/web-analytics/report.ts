@@ -3,6 +3,11 @@
 // https://vercel.com/docs/rest-api/web-analytics/aggregates-custom-events (2026-11-23 확인).
 // 사이트마다 Vercel 프로젝트가 달라 env 도 프로젝트별로 등록한다. 토큰은 응답과 로그에 싣지 않는다.
 
+import type {
+  WebAnalyticsRange,
+  WebAnalyticsReport,
+} from "../../../shared/web-analytics/contract.js";
+import { WEB_ANALYTICS_EVENTS } from "../../../shared/web-analytics/events.js";
 import { dayRangeUtc } from "../../../src/lib/time/day.js";
 import { getEnv } from "../supabaseAdmin.js";
 
@@ -12,45 +17,10 @@ const CACHE_MAX_ENTRIES = 50;
 const TOP_PAGES_LIMIT = 10;
 const GROUP_LIMIT = 100;
 
-// 서버가 Vercel 에서 읽는 이벤트와 속성(분석 grill Q12, 속성 최대 2개). 화면 표 순서이기도 하다.
-// 수집 쪽 src/lib/analytics.ts 의 AnalyticsEventMap 과 같아야 한다(report.test.ts 가 잠금).
-export const WEB_ANALYTICS_EVENTS = [
-  { name: "signup_complete", properties: ["member_type"] },
-  { name: "service_start", properties: ["service"] },
-  { name: "diagnosis_complete", properties: [] },
-  { name: "checkout_start", properties: ["method"] },
-  { name: "payment_complete", properties: ["method"] },
-  { name: "consult_apply", properties: [] },
-  { name: "kakao_inquiry_click", properties: ["location"] },
-  { name: "report_export", properties: ["service", "method"] },
-  { name: "paywall_cta_click", properties: ["service", "location"] },
-  { name: "ai_regenerate", properties: ["service", "step"] },
-] as const;
-
 export interface WebAnalyticsConfig {
   token: string;
   projectId: string;
   teamId: string;
-}
-
-export interface WebAnalyticsRange {
-  from: string;
-  to: string;
-}
-
-export interface WebAnalyticsReport {
-  range: WebAnalyticsRange;
-  totals: { pageviews: number; visitors: number };
-  topPages: { path: string; pageviews: number; visitors: number }[];
-  events: {
-    name: string;
-    count: number;
-    visitors: number;
-    breakdowns: {
-      property: string;
-      values: { value: string; count: number }[];
-    }[];
-  }[];
 }
 
 export class WebAnalyticsUpstreamError extends Error {
